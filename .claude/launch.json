@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vue-tsx-pro-docs",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "../vue-tsx-pro", "--filter", "@vue-tsx-pro/docs", "dev"],
+      "port": 5174
+    }
+  ]
+}
