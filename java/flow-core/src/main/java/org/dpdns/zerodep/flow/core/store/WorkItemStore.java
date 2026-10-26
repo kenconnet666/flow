@@ -51,6 +51,9 @@ public interface WorkItemStore {
     /** 记一次催办：次数加一、记下时间；上一次催办在 notBefore 之后时不记（频率限制）；返回记了没有 */
     boolean remind(Long workItemId, Instant at, Instant notBefore);
 
+    /** 撤回刚处理的一步：已处理的待办改回打开着，清掉处理结果、意见、处理人与处理时间；返回是否改到 */
+    boolean reopen(Long workItemId);
+
     /** 无人认领超时，标成等收件箱的负责人指定（0007 的 needs_designation、designator_id）；不知道负责人时 designatorId 为 null；返回是否改到 */
     boolean needDesignation(Long workItemId, Long designatorId);
 

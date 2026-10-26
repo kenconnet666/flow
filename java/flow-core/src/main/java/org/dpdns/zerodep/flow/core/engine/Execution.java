@@ -590,6 +590,11 @@ final class Execution {
             List.of(ErrorDetail.node(task.id(), "assignee-empty")));
     }
 
+    /** 撤回刚处理的一步：运行状态、流程变量换回处理之前的 */
+    void restore(RunState state, Variables variables) {
+        instance = instance.withState(state).withVariables(variables);
+    }
+
     /** 换实例的状态（暂停、恢复），记一条流转记录 */
     void changeStatus(String status, String eventType, String comment) {
         instance = instance.withStatus(status);
@@ -623,6 +628,7 @@ final class Execution {
         instance = instance.withEnd(status, result, now);
         context.stores().jobs().cancelForInstance(instance.id());
         context.stores().waits().removeForInstance(instance.id());
+        context.stores().steps().remove(instance.id());
         addEvent(eventType, null, null, result, null, comment);
         // 调用流程：终止、撤回时子实例一起终止；子实例结束了回到父实例（0005 的 4.2）
         if (ProcessInstance.TERMINATED.equals(status) || ProcessInstance.WITHDRAWN.equals(status)) CallActivities.terminateChildren(this, comment);

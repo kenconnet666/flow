@@ -197,10 +197,11 @@ public final class Queries {
         List<OutcomeView> outcomes = task.outcomes().stream()
             .map(o -> outcomeView(o, completable ? preview.after(task.id(), o.key(), read) : List.of())).toList();
         boolean assign = open && context.stores().workItems().awaitsDesignation(item.id(), actor.id());
+        boolean withdrawStep = new StepWithdrawal(context).allowed(actor, item, definition.graph(), instance);
         WorkItemView.Actions actions = completable
             ? new WorkItemView.Actions(task.allow().transfer(), task.allow().delegate(), task.allow().addSign(),
-                mine && WorkItem.CLAIMED.equals(item.assignment()), assign)
-            : new WorkItemView.Actions(false, false, false, false, assign);
+                mine && WorkItem.CLAIMED.equals(item.assignment()), assign, withdrawStep)
+            : new WorkItemView.Actions(false, false, false, false, assign, withdrawStep);
         return new WorkItemView(item, instance.view(), form, outcomes, open && candidate, completable, actions);
     }
 

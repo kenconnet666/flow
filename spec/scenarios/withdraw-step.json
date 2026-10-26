@@ -1,0 +1,37 @@
+{
+  "name": "处理人撤回刚处理的一步：下一步还没人动时撤回，下一步的待办取消、表单的值恢复、待办回到手里；别人不能撤，下一步处理了就不能撤",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "carol": { "id": 1003, "name": "沈若水", "roles": [1] },
+    "boss": { "id": 1004, "name": "总经理", "roles": [2] }
+  },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00" } } },
+    { "id": "review", "as": "bob", "command": "complete",
+      "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "预算内" } },
+      "expect": { "workItems": [{ "node": "approve", "assigneeId": "1004" }] } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "workItem": { "state": "done" }, "actions": { "withdrawStep": true } } },
+    { "as": "carol", "command": "withdrawStep", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "error": { "code": "flow.forbidden" } } },
+    { "as": "bob", "command": "withdrawStep", "args": { "workItem": "$start.workItems[0]", "reason": "金额看错了" },
+      "expect": {
+        "instance": { "status": "active", "current": [{ "node": "review" }] },
+        "closed": [{ "node": "approve" }],
+        "events": [{ "type": "workItem.canceled", "node": "approve" }, { "type": "workItem.withdrawn", "node": "review", "outcome": "pass", "comment": "金额看错了" }]
+      } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "workItem": { "state": "open", "assigneeId": "1002", "outcome": null, "completedBy": null },
+        "form": { "values": { "note": null } }, "completable": true, "actions": { "withdrawStep": false } } },
+    { "id": "again", "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "核对过了" } },
+      "expect": { "workItems": [{ "node": "approve" }] } },
+    { "as": "boss", "command": "complete", "args": { "workItem": "$again.workItems[0]", "outcome": "pass" },
+      "expect": { "instance": { "status": "completed" } } },
+    { "as": "bob", "command": "withdrawStep", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "error": { "code": "flow.forbidden" } } }
+  ]
+}

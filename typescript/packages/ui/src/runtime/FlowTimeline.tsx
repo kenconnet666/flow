@@ -57,6 +57,7 @@ const LOOKS: Readonly<Record<string, { icon: TimelineItem['icon']; tone?: Status
   'workItem.released': { icon: Undo2 },
   'workItem.reassigned': { icon: UserRoundCog, tone: 'warning' },
   'workItem.assigned': { icon: UserRoundCog },
+  'workItem.withdrawn': { icon: Undo2, tone: 'warning' },
   'workItem.reminded': { icon: Bell },
   'workItem.overdue': { icon: AlarmClock, tone: 'danger' },
   'workItem.unclaimed': { icon: Inbox, tone: 'warning' },

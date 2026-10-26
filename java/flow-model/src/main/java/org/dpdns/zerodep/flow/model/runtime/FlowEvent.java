@@ -75,6 +75,8 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String SIGNAL_IGNORED = "signal.ignored";
     /** 等待节点等超时了：data 里是 dueAt；超时按结果往下走的随后另有记录 */
     public static final String NODE_OVERDUE = "node.overdue";
+    /** 处理人撤回刚处理的一步：待办回到他手里，下一步生成的待办取消 */
+    public static final String WORK_ITEM_WITHDRAWN = "workItem.withdrawn";
     /** 留言 */
     public static final String INSTANCE_COMMENTED = "instance.commented";
     /** 暂停 */

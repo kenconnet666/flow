@@ -97,6 +97,8 @@ export interface FlowClient {
   complete(command: CompleteCommand): Promise<CommandResult>;
   /** 撤回 */
   withdraw(command: WithdrawCommand): Promise<CommandResult>;
+  /** 撤回刚处理的一步：下一步还没人动时，待办回到自己手里 */
+  withdrawStep(workItemId: Id, reason?: string): Promise<CommandResult>;
   /** 转办：交给别人，自己不再参与 */
   transfer(command: HandOverCommand): Promise<CommandResult>;
   /** 委派：请别人先办，办完回到自己手里 */
@@ -173,6 +175,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     claim: (workItemId) => post('/commands/claim', { workItemId }),
     complete: (command) => post('/commands/complete', command),
     withdraw: (command) => post('/commands/withdraw', command),
+    withdrawStep: (workItemId, reason) => post('/commands/withdraw-step', { workItemId, ...(reason ? { reason } : {}) }),
     transfer: (command) => post('/commands/transfer', command),
     delegate: (command) => post('/commands/delegate', command),
     addSigners: (command) => post('/commands/add-signers', command),

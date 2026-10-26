@@ -26,11 +26,9 @@ public record WorkItemView(WorkItem workItem, ProcessInstance instance, FormView
      * @param addSigners 加签
      * @param release    退回收件箱（我从收件箱里认领的）
      * @param assign     指定承办人（没人认领、在等我这个收件箱负责人指定）
+     * @param withdrawStep 撤回刚处理的一步（我处理的、下一步还没人动）
      */
-    public record Actions(boolean transfer, boolean delegate, boolean addSigners, boolean release, boolean assign) {
-        /** 什么都不能做 */
-        public static final Actions NONE = new Actions(false, false, false, false, false);
-    }
+    public record Actions(boolean transfer, boolean delegate, boolean addSigners, boolean release, boolean assign, boolean withdrawStep) { }
 
     /**
      * 一个处理结果（0005 的人工节点 {@code outcomes}）：审批面板上的一个按钮。

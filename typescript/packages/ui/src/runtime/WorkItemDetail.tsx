@@ -17,6 +17,7 @@ import {
   Descriptions,
   Flex,
   HttpError,
+  Popconfirm,
   Skeleton,
   useErrorMessage,
   useFormat,
@@ -186,6 +187,22 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
           />
         )}
         <CollaborationActions actions={data.actions} {...(people ? { people } : {})} busy={busy} onRun={collaborate} />
+        {data.actions.withdrawStep && (
+          <Flex>
+            <Popconfirm
+              title={messages.withdrawStepConfirm}
+              tone="warning"
+              confirmText={messages.confirm}
+              cancelText={messages.cancel}
+              onConfirm={() => run('withdrawStep', () => flow.withdrawStep(id))}
+              trigger={(props) => (
+                <Button {...props} variant="outline" loading={busy === 'withdrawStep'} disabled={busy != null && busy !== 'withdrawStep'}>
+                  {messages.withdrawStep}
+                </Button>
+              )}
+            />
+          </Flex>
+        )}
         {detail.data && (
           <Card header={messages.diagram}>
             <FlowDiagram diagram={detail.data.diagram} height="16rem" />

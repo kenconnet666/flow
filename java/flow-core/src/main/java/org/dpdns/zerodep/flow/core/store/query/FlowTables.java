@@ -245,6 +245,18 @@ final class FlowTables {
         @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
     }
 
+    /** 最近一次处理之前的快照：读出来就是 StepStore.StepSnapshot */
+    @Table("flow_step")
+    interface Step extends Tenanted {
+        @Id @Generated @Column("id") ColBigint<Long> id();
+        @Column("instance_id") ColBigint<Long> instanceId();
+        @Column("work_item_id") ColBigint<Long> workItemId();
+        @Column("rev") ColInteger<Integer> rev();
+        @Column(value = "state", converter = Columns.RunStateJson.class) ColClob<RunState> state();
+        @Column(value = "variables", converter = Columns.VariablesJson.class) ColClob<Variables> variables();
+        @Column(value = "form", converter = Columns.FormValuesJson.class) ColClob<FormValues> form();
+    }
+
     /** 流转记录，只追加：读出来就是模型包的 FlowEvent */
     @Table("flow_event")
     interface Event extends Tenanted {

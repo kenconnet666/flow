@@ -19,6 +19,10 @@ export const WorkItemPage = _component(() => {
         onDone={(result) => {
           // 认领、委派、加签之后还在这一页；这个待办结束了（处理完、转办走了）才回收件箱
           if (result.closed.length === 0) return;
+          if (result.events.some((e) => e.type === 'workItem.withdrawn')) {
+            toaster.success('已撤回，可以重新处理');
+            return;
+          }
           toaster.success(result.events.some((e) => e.type === 'workItem.transferred') ? '已转办' : '已处理');
           void router.push('/inbox');
         }}

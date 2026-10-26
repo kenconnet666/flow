@@ -7,6 +7,7 @@ import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.FormDataStore.StoredFormData;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.store.StepStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Completion;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
@@ -86,6 +87,13 @@ public final class CompleteHandler {
 
             // 5、6. 待办改成已处理，往下走
             finishItem(run, task, item, outcome == null ? command.outcome() : outcome.key(), outcome, command.comment());
+
+            // 记下处理之前的样子：下一步还没人动时处理人能撤回（StepWithdrawal）；结束了就不再能撤回
+            if (run.instance().endedAt() == null) {
+                context.stores().steps().save(new StepStore.StepSnapshot(instance.id(), item.id(), rev, instance.state(), instance.variables(), stored));
+            } else {
+                context.stores().steps().remove(instance.id());
+            }
 
             // 7. 写回
             run.flush(null);

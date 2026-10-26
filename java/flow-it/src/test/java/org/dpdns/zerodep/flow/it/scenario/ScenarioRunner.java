@@ -24,6 +24,7 @@ import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
+import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
@@ -141,6 +142,7 @@ final class ScenarioRunner {
                 case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"))));
                 case "signal" -> Map.of("results", engine.signal(actor, new SignalCommand(args.id("instance"), args.text("businessKey"),
                     args.text("event"), args.text("outcome"), args.map("data"))).stream().map(ScenarioRunner::commandResult).toList());
+                case "withdrawStep" -> commandResult(engine.withdrawStep(actor, new WithdrawStepCommand(args.id("workItem"), args.text("reason"))));
                 case "assign" -> commandResult(engine.assign(actor, new AssignCommand(args.id("workItem"), args.id("user"))));
                 case "designations" -> page(engine.designations(actor, args.number("page", 1), args.number("size", 20)));
                 case "retryJob" -> Map.of("revived", engine.retryJob(actor, new RetryJobCommand(args.id("job"))));

@@ -141,6 +141,9 @@ export interface FlowMessages {
   readonly release: string;
   /** 收件箱负责人指定承办人 */
   readonly assign: string;
+  /** 撤回刚处理的一步 */
+  readonly withdrawStep: string;
+  readonly withdrawStepConfirm: string;
   /** 等我指定承办人的列表 */
   readonly designationList: string;
   /** 待办详情：这一条没人认领，等我指定承办人 */
@@ -229,6 +232,7 @@ const zhEvents: Record<string, string> = {
   'workItem.released': '退回收件箱',
   'workItem.reassigned': '改派',
   'workItem.assigned': '指定承办人',
+  'workItem.withdrawn': '撤回处理',
   'workItem.reminded': '催办',
   'workItem.overdue': '超时',
   'workItem.unclaimed': '无人认领',
@@ -260,6 +264,7 @@ const enEvents: Record<string, string> = {
   'workItem.released': 'Released',
   'workItem.reassigned': 'Reassigned',
   'workItem.assigned': 'Assigned',
+  'workItem.withdrawn': 'Took back',
   'workItem.reminded': 'Reminded',
   'workItem.overdue': 'Overdue at',
   'workItem.unclaimed': 'Unclaimed at',
@@ -433,6 +438,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
     addSigners: '加签',
     release: '退回收件箱',
     assign: '指定承办人',
+    withdrawStep: '撤回这一步',
+    withdrawStepConfirm: '撤回刚才的处理？下一步的待办会取消，这个待办回到你手里',
     designationList: '待我指定',
     awaitingDesignation: '这个待办很久没人认领，请你指定承办人',
     pickUser: '交给谁',
@@ -563,6 +570,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
     addSigners: 'Add signers',
     release: 'Release',
     assign: 'Assign',
+    withdrawStep: 'Take back',
+    withdrawStepConfirm: 'Take back what you just did? The next step is canceled and this task comes back to you',
     designationList: 'Awaiting my assignment',
     awaitingDesignation: 'Nobody has claimed this task; please assign someone',
     pickUser: 'Hand to',

@@ -10,10 +10,11 @@ import org.dpdns.zerodep.query.exec.Database;
 public final class QueryStores {
     private QueryStores() { }
 
-    /** 十个默认存储，共用一个数据库实例 */
+    /** 十一个默认存储，共用一个数据库实例 */
     public static Stores create(Database db) {
         return new Stores(new QueryDefinitionStore(db), new QueryFormStore(db), new QueryFormDataStore(db),
             new QueryInstanceStore(db), new QueryWorkItemStore(db), new QueryEventStore(db), new QueryJobStore(db),
-            new QueryCcStore(db), new QueryWaitStore(db), new QueryRequestStore(db));
+            new QueryCcStore(db), new QueryWaitStore(db), new QueryRequestStore(db),
+            new QueryStepStore(db));
     }
 }

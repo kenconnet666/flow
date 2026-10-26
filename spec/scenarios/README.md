@@ -31,6 +31,7 @@
 | `claim` | `workItem` | 同上 |
 | `complete` | `workItem`、`outcome`、`comment`、`form`、`picks` | 同上 |
 | `withdraw` | `instance`、`reason` | 同上 |
+| `withdrawStep` | `workItem`、`reason` | 同上（处理人撤回刚处理的一步） |
 | `startable` | — | `processes`（每项 `{ key, name, category, version }`） |
 | `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null）、`picks` |
 | `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary, status, outcomeLabel }`） |

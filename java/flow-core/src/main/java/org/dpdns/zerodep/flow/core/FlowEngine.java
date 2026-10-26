@@ -24,6 +24,7 @@ import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
+import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
 import org.dpdns.zerodep.flow.core.engine.AdminHandler;
 import org.dpdns.zerodep.flow.core.engine.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.engine.ClaimHandler;
@@ -38,6 +39,7 @@ import org.dpdns.zerodep.flow.core.engine.Publishing;
 import org.dpdns.zerodep.flow.core.engine.Queries;
 import org.dpdns.zerodep.flow.core.engine.SignalHandler;
 import org.dpdns.zerodep.flow.core.engine.StartHandler;
+import org.dpdns.zerodep.flow.core.engine.StepWithdrawal;
 import org.dpdns.zerodep.flow.core.engine.TenantScope;
 import org.dpdns.zerodep.flow.core.engine.WithdrawHandler;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
@@ -63,6 +65,7 @@ import org.dpdns.zerodep.flow.core.store.InstanceStore;
 import org.dpdns.zerodep.flow.core.store.JobStore.Job;
 import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.RequestStore;
+import org.dpdns.zerodep.flow.core.store.StepStore;
 import org.dpdns.zerodep.flow.core.store.Stores;
 import org.dpdns.zerodep.flow.core.store.WaitStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
@@ -120,6 +123,7 @@ public final class FlowEngine<U extends Actor> {
     private final CollaborationHandler collaboration;
     private final AdminHandler admin;
     private final SignalHandler signals;
+    private final StepWithdrawal stepWithdrawals;
     private final Publishing publishing;
     private final Queries queries;
     private final JobRunner jobs;
@@ -136,6 +140,7 @@ public final class FlowEngine<U extends Actor> {
         this.collaboration = new CollaborationHandler(context, claims);
         this.admin = new AdminHandler(context);
         this.signals = new SignalHandler(context);
+        this.stepWithdrawals = new StepWithdrawal(context);
         this.publishing = new Publishing(context);
         this.queries = new Queries(context);
         // 内置的作业在前，接入方注册的在后：同一种时接入方的换掉内置的
@@ -307,6 +312,15 @@ public final class FlowEngine<U extends Actor> {
     public CommandResult comment(U actor, CommentCommand command) {
         allow(actor, "comment", String.valueOf(command.instanceId()));
         return collaboration.comment(actor, command);
+    }
+
+    /** 撤回刚处理的一步（当前操作人） */
+    public CommandResult withdrawStep(WithdrawStepCommand command) { return withdrawStep(actors.current(), command); }
+
+    /** 处理人撤回刚处理的一步：下一步还没人动时，待办回到自己手里（条件见 {@link StepWithdrawal}） */
+    public CommandResult withdrawStep(U actor, WithdrawStepCommand command) {
+        allow(actor, "withdrawStep", String.valueOf(command.workItemId()));
+        return stepWithdrawals.withdraw(actor, command);
     }
 
     /** 外部事件（当前操作人） */
@@ -578,6 +592,7 @@ public final class FlowEngine<U extends Actor> {
         private CcStore ccStore;
         private WaitStore waitStore;
         private RequestStore requestStore;
+        private StepStore stepStore;
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
         private final List<FlowListener> listeners = new ArrayList<>();
@@ -620,6 +635,9 @@ public final class FlowEngine<U extends Actor> {
 
         /** 换掉流转记录的存储 */
         public Builder<U> eventStore(EventStore store) { this.eventStore = store; return this; }
+
+        /** 换掉处理之前的快照的存储 */
+        public Builder<U> stepStore(StepStore store) { this.stepStore = store; return this; }
 
         /** 换掉幂等记录的存储 */
         public Builder<U> requestStore(RequestStore store) { this.requestStore = store; return this; }
@@ -670,7 +688,8 @@ public final class FlowEngine<U extends Actor> {
                 jobStore != null ? jobStore : defaults.jobs(),
                 ccStore != null ? ccStore : defaults.ccs(),
                 waitStore != null ? waitStore : defaults.waits(),
-                requestStore != null ? requestStore : defaults.requests());
+                requestStore != null ? requestStore : defaults.requests(),
+                stepStore != null ? stepStore : defaults.steps());
             return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
                 new Extensions(resolvers, guards, actions), new DefinitionCache(stores)), actors, permissions, List.copyOf(jobHandlers));
         }

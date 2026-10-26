@@ -22,6 +22,7 @@ import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
+import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
@@ -126,6 +127,9 @@ final class RequestBody {
 
     /** {@code { workItemId, userId }} */
     AssignCommand assign() { return new AssignCommand(id("workItemId"), id("userId")); }
+
+    /** {@code { workItemId, reason }} */
+    WithdrawStepCommand withdrawStep() { return new WithdrawStepCommand(id("workItemId"), text("reason")); }
 
     /** {@code { jobId }} */
     RetryJobCommand retryJob() { return new RetryJobCommand(id("jobId")); }

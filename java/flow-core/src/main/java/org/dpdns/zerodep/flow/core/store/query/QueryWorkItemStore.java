@@ -162,6 +162,19 @@ final class QueryWorkItemStore implements WorkItemStore {
     }
 
     @Override
+    public boolean reopen(Long workItemId) {
+        return db.execute(update(FlowTables.WorkItem.class).set(r -> {
+            r.state().to(WorkItem.OPEN);
+            r.outcome().to((String) null);
+            r.comment().to((String) null);
+            r.completedBy().to((Long) null);
+            r.completedByName().to((String) null);
+            r.completedAt().to((Instant) null);
+            r.rev().to(r.rev().plus(val(1)));
+        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.DONE); })) == 1;
+    }
+
+    @Override
     public boolean needDesignation(Long workItemId, Long designatorId) {
         return db.execute(update(FlowTables.WorkItem.class)
             .set(r -> { r.needsDesignation().to(true); r.designatorId().to(designatorId); r.rev().to(r.rev().plus(val(1))); })

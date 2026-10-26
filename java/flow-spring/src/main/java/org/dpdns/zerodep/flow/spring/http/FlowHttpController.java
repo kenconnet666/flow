@@ -27,7 +27,7 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/claim      { workItemId }
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
- * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal、assign
+ * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal、assign、withdraw-step
  * POST {前缀}/admin/terminate、suspend、resume、jump、reassign、retry-job
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
@@ -229,6 +229,12 @@ public class FlowHttpController {
     public ResponseEntity<String> failedJobs(@RequestParam(name = "page", defaultValue = "1") int page,
                                              @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
         return respond(() -> ResponseBody.page(engine.failedJobs(page, pageSize)));
+    }
+
+    /** 撤回刚处理的一步：{@code { workItemId, reason }} */
+    @PostMapping("/commands/withdraw-step")
+    public ResponseEntity<String> withdrawStep(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/withdraw-step", () -> ResponseBody.of(engine.withdrawStep(RequestBody.parse(body).withdrawStep())));
     }
 
     /** 收件箱负责人指定承办人：{@code { workItemId, userId }} */

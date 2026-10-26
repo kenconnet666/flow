@@ -102,6 +102,8 @@ export interface WorkItemActions {
   readonly release: boolean;
   /** 指定承办人（没人认领、在等我这个收件箱负责人指定） */
   readonly assign: boolean;
+  /** 撤回刚处理的一步（我处理的、下一步还没人动） */
+  readonly withdrawStep: boolean;
 }
 
 /** 实例详情（发起人看进度、历史里打开） */
