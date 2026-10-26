@@ -22,8 +22,7 @@ import static org.dpdns.zerodep.query.Sql.val;
  * 抢占是带条件的更新，改到 0 行就是别的进程先领了。
  */
 final class QueryJobStore implements JobStore {
-    /** 租户过滤器的名字（FlowDatabase 里起的） */
-    private static final String TENANT = "flow-tenant";
+    private static final String TENANT = FlowDatabase.TENANT_FILTER;
 
     private final Database db;
 

@@ -92,6 +92,8 @@ import org.dpdns.zerodep.query.exec.Page;
 
 import javax.sql.DataSource;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -446,6 +448,16 @@ public final class FlowEngine<U extends Actor> {
      * 交给已有的调度平台时关掉默认的、由平台调它。几个进程同时调不会重复做（{@link JobRunner}）。
      */
     public int runDueJobs() { return jobs.runDue(); }
+
+    /**
+     * 删掉过期的幂等记录（{@code flow_request}，全部租户）：早于 olderThan 之前的请求编号不再认，同一个编号再来会当新请求做。
+     * 调用方的重试都在这个窗口里才安全，默认留 24 小时。Spring Boot 里由 {@code FlowJobPoller} 每小时调一次（{@code flow.idempotency.retention}）；
+     * 关掉默认的作业轮询时由调度平台调它。返回删了几条。
+     */
+    public long purgeRequests(Duration olderThan) {
+        Instant cutoff = context.clock().instant().minus(olderThan);
+        return context.transaction(() -> context.stores().requests().deleteBefore(cutoff));
+    }
 
     // ───────── 查询 ─────────
 

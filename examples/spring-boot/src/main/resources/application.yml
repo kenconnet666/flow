@@ -19,3 +19,5 @@ flow:
     interval: 5s         # 定时节点、超时、提醒：每 5 秒看一次到期的作业（默认 10 秒）
   calendar:
     zone: Asia/Shanghai  # "工作日"按北京时间的日期算
+  idempotency:
+    retention: 24h       # 带 Idempotency-Key 的命令记录留多久（默认 24 小时），过期的每小时删一次

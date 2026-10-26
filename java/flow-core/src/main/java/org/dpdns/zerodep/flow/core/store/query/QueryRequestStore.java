@@ -3,13 +3,17 @@ package org.dpdns.zerodep.flow.core.store.query;
 import org.dpdns.zerodep.flow.core.store.RequestStore;
 import org.dpdns.zerodep.query.exec.Database;
 
+import java.time.Instant;
 import java.util.Optional;
 
+import static org.dpdns.zerodep.query.Sql.deleteFrom;
 import static org.dpdns.zerodep.query.Sql.from;
 import static org.dpdns.zerodep.query.Sql.insertInto;
 
 /** 幂等记录的默认存储：{@code flow_request} 表，按（租户, 请求编号）唯一 */
 final class QueryRequestStore implements RequestStore {
+    private static final String TENANT = FlowDatabase.TENANT_FILTER;
+
     private final Database db;
 
     QueryRequestStore(Database db) { this.db = db; }
@@ -22,5 +26,11 @@ final class QueryRequestStore implements RequestStore {
     @Override
     public void save(NewRequest request) {
         db.execute(insertInto(FlowTables.Request.class).values(request));
+    }
+
+    /** 走 created_at 的索引；跨租户（定时清理不在哪个租户里） */
+    @Override
+    public long deleteBefore(Instant cutoff) {
+        return db.execute(deleteFrom(FlowTables.Request.class).unfiltered(TENANT).where(r -> r.createdAt().lt(cutoff)));
     }
 }

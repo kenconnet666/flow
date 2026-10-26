@@ -25,4 +25,7 @@ public interface RequestStore {
 
     /** 记下；同一个编号并发写第二次时违反唯一约束，那个命令整个回滚 */
     void save(NewRequest request);
+
+    /** 删掉这个时刻之前的记录（全部租户），返回删了几条：过了重试窗口的记录没用了 */
+    long deleteBefore(Instant cutoff);
 }

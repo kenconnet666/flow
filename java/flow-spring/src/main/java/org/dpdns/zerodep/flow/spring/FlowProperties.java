@@ -42,6 +42,9 @@ public class FlowProperties {
     /** 工作日历 */
     private final Calendar calendar = new Calendar();
 
+    /** 命令的幂等记录 */
+    private final Idempotency idempotency = new Idempotency();
+
     public String getDatasource() { return datasource; }
 
     public void setDatasource(String datasource) { this.datasource = datasource; }
@@ -57,6 +60,8 @@ public class FlowProperties {
     public Jobs getJobs() { return jobs; }
 
     public Calendar getCalendar() { return calendar; }
+
+    public Idempotency getIdempotency() { return idempotency; }
 
     /**
      * 启动时用 Flyway 执行引擎的建表脚本（docs/decisions/0007 第 9 节）。和应用自己的 Flyway 分开：自己的脚本位置、自己的历史表。
@@ -123,6 +128,19 @@ public class FlowProperties {
         public Duration getInterval() { return interval; }
 
         public void setInterval(Duration interval) { this.interval = interval; }
+    }
+
+    /**
+     * 命令的幂等记录（HTTP 的 {@code Idempotency-Key}，{@code flow_request}）留多久：早于这个时长的由 {@link FlowJobPoller} 每小时删一次。
+     * 调用方的重试都要在这个窗口里；默认 24 小时（同 Stripe 的做法）。
+     */
+    public static class Idempotency {
+        /** 默认 24 小时 */
+        private Duration retention = Duration.ofHours(24);
+
+        public Duration getRetention() { return retention; }
+
+        public void setRetention(Duration retention) { this.retention = retention; }
     }
 
     /** 默认的工作日历（周一到周五）按哪个时区的日期算；有节假日、调休时声明一个 {@code WorkCalendar} Bean 换掉 */

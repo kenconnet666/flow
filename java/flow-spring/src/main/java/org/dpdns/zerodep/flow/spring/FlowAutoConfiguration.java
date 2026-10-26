@@ -126,12 +126,12 @@ public class FlowAutoConfiguration {
         return new FlowSchemaMigration(dataSource, properties.getFlyway());
     }
 
-    /** 定时做到期的作业；{@code flow.jobs.enabled=false} 时不建，由接入方的调度平台调 {@code engine.runDueJobs()} */
+    /** 定时做到期的作业、删过期的幂等记录；{@code flow.jobs.enabled=false} 时不建，由接入方的调度平台调 {@code engine.runDueJobs()}、{@code engine.purgeRequests(...)} */
     @Bean
     @ConditionalOnProperty(prefix = "flow.jobs", name = "enabled", havingValue = "true", matchIfMissing = true)
     @SuppressWarnings("rawtypes")
     public FlowJobPoller flowJobPoller(FlowEngine engine, FlowProperties properties) {
-        return new FlowJobPoller(engine, properties.getJobs().getInterval());
+        return new FlowJobPoller(engine, properties.getJobs().getInterval(), properties.getIdempotency().getRetention());
     }
 
     /** 用了 Spring Security、应用没给 {@link ActorProvider} 时：当前操作人取登录的 principal */

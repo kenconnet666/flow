@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -109,6 +110,12 @@ class SpringHttpTest {
         // 同一个键用在别的命令上
         Map<String, Object> reused = call(post("/flow/commands/claim").header("Idempotency-Key", "k-1"), "1002", body);
         assertEquals("flow.validation-failed", reused.get("code"));
+
+        // 定期清理：还在保留期里的不删；过了保留期的删掉，同一个键再来就当新请求真的去做（实例已结束，报错）
+        assertEquals(0L, engine.purgeRequests(Duration.ofHours(24)));
+        assertEquals(1L, engine.purgeRequests(Duration.ofSeconds(-1)));   // 截止拨到一秒之后：刚记下的也算过期
+        assertEquals("flow.instance-not-active",
+            call(post("/flow/commands/complete").header("Idempotency-Key", "k-1"), "1002", body).get("code"));
     }
 
     /** 发一个请求：断言 HTTP 是 200，返回响应体 */

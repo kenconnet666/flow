@@ -146,6 +146,7 @@
 | ③s（已完成，2026-10-27） | 自动节点失败的异常处理：重试用完的作业成了"异常"（查询 `incidents`，带节点、原因、能选的结果；原替代 `failedJobs`），管理员重试、跳过并按结果往下走（`skipJob`，记 `job.skipped`）或终止；`onFailure: "error"` 时整个实例暂停；失败原因记最里层异常的话。前端 admin 的 `FlowIncidentList`（异常处理）、流程详情（admin）上的异常一块、`IncidentActions`；示例后端加动作 `demo.push`、通知监听 `job.failed` | 场景 incidents；浏览器里走过列表跳过、详情重试、失败即停→恢复→跳过 |
 | ③t（已完成，2026-10-27） | 退回时选节点（处理结果 `{ kind: "return", target: "choose" }`，0005 的 5.4）：待办详情里这个结果带 `targets`（上游走到过的人工节点、上次的处理人），处理命令带 `returnTarget`；同沿退回线走（跳出并行区域取消、落到原处理人、`returnTo: resubmit` 生效）；发布校验 `return-target-invalid`、`outcome-choose-automatic`（Java、TS 同步）；前端审批面板点这个结果弹"退回到哪一步" | 场景 return-choose、定义 return-choose；浏览器里走过退回到起草、改完直接回来 |
 | ③u（已完成，2026-10-27） | 命令拦截器（0006 第 6 节"管道"）：命令记录都实现 `FlowCommand`，`CommandInterceptor` 环绕式（先注册的在外层），和标准处理在同一个事务里；`FlowEngine` 的 23 个命令都走 `execute`（权限 → 拦截器 → 标准处理）；Builder `interceptor(...)`、Spring 的 Bean 按 `@Order` 注册 | 场景 interceptors（拦下、改参数、做完再拦整个回滚） |
+| ③v（已完成，2026-10-27） | 幂等记录的定期清理：`RequestStore.deleteBefore`（跨租户，走 created_at 索引）、`engine.purgeRequests(olderThan)`；Spring 的 `FlowJobPoller` 每小时删一次，留 `flow.idempotency.retention`（默认 24 小时）；租户过滤器的名字收成 `FlowDatabase.TENANT_FILTER` | SpringHttpTest 的幂等用例补了清理 |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 
@@ -171,4 +172,4 @@
 16. **退回时选节点不进别的并行区域**：能选的限于当前节点所在区域之内或之外的上游，旁边的分支、已经汇合过的区域里的节点不给（进去了汇合等不齐）；一个能选的都没有时按钮不给；会签时用让节点结束的那个人选的目标。
 17. **按命令替换处理类用拦截器做**：不另设 `CommandHandler<C>`，拦截器认出命令后不调 proceed 就是换掉标准行为；发布定义、发布表单、停用启用暂不过拦截器（不是命令记录，审计可以先用 PermissionPolicy 记）。
 
-下面是还没做的、按优先级：幂等记录的定期清理 → 表单的管理与编辑页（同流程管理）→ ④ TS 引擎与 Nuxt → ⑤ 可视化设计器 → ⑥ 表单设计器。
+下面是还没做的、按优先级：表单的管理与编辑页（同流程管理）→ ④ TS 引擎与 Nuxt → ⑤ 可视化设计器 → ⑥ 表单设计器。

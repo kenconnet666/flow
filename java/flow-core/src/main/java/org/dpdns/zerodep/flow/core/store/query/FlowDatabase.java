@@ -18,12 +18,15 @@ import java.util.function.Supplier;
  * </ul>
  */
 public final class FlowDatabase {
+    /** 租户过滤器的名字：跨租户的读写（作业的领取、过期记录的清理）用 {@code unfiltered(TENANT_FILTER)} 关掉它 */
+    static final String TENANT_FILTER = "flow-tenant";
+
     private FlowDatabase() { }
 
     /** 在这些连接上建引擎用的数据库实例；tenant 给出当前租户，不用多租户时是 {@code () -> 0L} */
     public static Database create(ConnectionProvider connections, Supplier<Long> tenant, Clock clock) {
         return Sql.database(connections, config -> config
-            .filter("flow-tenant", Tenanted.class, t -> t.tenantId().eq(tenant.get()))
+            .filter(TENANT_FILTER, Tenanted.class, t -> t.tenantId().eq(tenant.get()))
             .onInsert(Tenanted.class, Tenanted::tenantId, tenant)
             .onInsert(Touched.class, Touched::updatedAt, clock::instant)
             .onUpdate(Touched.class, Touched::updatedAt, clock::instant));
