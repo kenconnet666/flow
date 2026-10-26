@@ -143,7 +143,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | 时间 | `Clock` | 系统时钟，UTC | 替换（测试里用固定时钟） |
 | | `WorkCalendar`、`DurationCalculator` | `flow_calendar_day` 表 | 替换 |
 | 编号 | `IdStrategy` | 雪花（BIGINT）；另带大雪花（6.1） | 二选一，或实现接口自定义 |
-| 存储 | `DefinitionStore`、`InstanceStore`、`WorkItemStore`、`EventStore`、`JobStore`、`FormStore`、`FormDataStore` | 用 query 读写 `flow_*` 表；表名前缀可配 | 每个单独替换（例如流转记录存到别处） |
+| 存储 | `DefinitionStore`、`InstanceStore`、`WorkItemStore`、`EventStore`、`JobStore`、`FormStore`、`FormDataStore`、`WorkerStore`、`RequestStore`（后两个随 0007 补） | 用 query 读写 `flow_*` 表；表名前缀可配 | 每个单独替换（例如流转记录存到别处） |
 | 作业 | `JobRunner` | 本进程里定时轮询 `flow_job`，普通读加带条件 UPDATE 抢占（0001 第 4 条） | 替换（例如交给接入方已有的调度平台调 `engine.jobs.runDue()`） |
 | | `JobHandler` | 超时、提醒、无人认领、定时节点、异步动作 | 注册新的作业种类 |
 | 通知 | `NotificationChannel` | 无（接入方注册站内信、邮件……） | 注册 |
