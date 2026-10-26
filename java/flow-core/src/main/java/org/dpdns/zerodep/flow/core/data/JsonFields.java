@@ -3,8 +3,6 @@ package org.dpdns.zerodep.flow.core.data;
 import org.dpdns.zerodep.flow.model.Values;
 
 import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -17,8 +15,12 @@ public abstract class JsonFields {
     private final Map<String, Object> fields;
 
     JsonFields(Map<String, ?> fields) {
-        this.fields = fields == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(fields));
+        // 数字按 JavaScript 的数存（见 JsonNumbers）：存进库、下发前端、再提交回来都是同一个值
+        this.fields = fields == null ? Map.of() : asStringMap(JsonNumbers.normalize(fields));
     }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asStringMap(Object normalized) { return (Map<String, Object>) normalized; }
 
     /** 一个字段的值；没有时为 null。名字带点时按路径取 */
     public Object get(String path) {

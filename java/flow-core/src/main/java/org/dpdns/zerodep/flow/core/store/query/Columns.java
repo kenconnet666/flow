@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.store.query;
 
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.JsonNumbers;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance.CurrentNode;
@@ -89,6 +90,7 @@ public final class Columns {
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> object(String json) {
-        return json == null ? Map.of() : (Map<String, Object>) Json.read(json);
+        // 摘要、事件的附加数据是用户的 JSON：数字按 JavaScript 的数（见 JsonNumbers）
+        return json == null ? Map.of() : (Map<String, Object>) JsonNumbers.normalize(Json.read(json));
     }
 }

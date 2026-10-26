@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.JsonNumbers;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
 import org.dpdns.zerodep.flow.core.store.FormDataStore.StoredFormData;
@@ -142,7 +143,7 @@ public final class Queries {
         });
         FormClient client = context.stores().forms().client(definition.form().id()).orElse(new FormClient(null, null, null));
         @SuppressWarnings("unchecked")
-        Map<String, Object> manifest = (Map<String, Object>) Json.read(definition.form().manifest());
+        Map<String, Object> manifest = (Map<String, Object>) JsonNumbers.normalize(Json.read(definition.form().manifest()));
         return new FormView(definition.form().id(), definition.form().formKey(), definition.form().version(), manifest,
             client.clientSource(), client.clientCompiled(), client.compilerVersion(), FormView.accessJson(access), isStart, visible);
     }

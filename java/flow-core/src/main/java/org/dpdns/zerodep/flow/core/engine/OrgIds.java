@@ -12,7 +12,7 @@ import java.util.Objects;
  * 把定义、表单里写的用户、角色、部门编号换成 {@code Long}（接入方组织表的自增主键）。
  * <pre>
  *   写法                                    换成
- *   1001 / "1001"                           1001
+ *   1001 / 1001.0 / "1001"                  1001
  *   { "id": 1001, "type": "user", ... }     1001（people 类型的值，一个人）
  *   [1001, { "id": 1002, ... }]             [1001, 1002]（people 类型的值是列表）
  *   null / "" / []                          没有
@@ -37,6 +37,7 @@ final class OrgIds {
             if (value instanceof Long l) return l;
             if (value instanceof Integer i) return i.longValue();
             if (value instanceof BigDecimal d) return d.longValueExact();
+            if (value instanceof Double d) return new BigDecimal(d).longValueExact();
             return Long.valueOf(Values.toText(value).trim());
         } catch (ArithmeticException | NumberFormatException e) {
             throw FlowErrors.badOrgId(value);

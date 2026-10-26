@@ -1,5 +1,5 @@
 {
-  "name": "采购：发起列表与发起页、待办详情（节点上的表单权限、处理结果、能不能认领与处理）",
+  "name": "采购：发起列表与发起页、待办详情（节点上的表单权限、处理结果、能不能认领与处理；数字字段来回一趟仍是数）",
   "forms": ["forms/purchase-form.json"],
   "processes": ["processes/purchase.json"],
   "clock": "2026-10-26T08:00:00Z",
@@ -16,17 +16,17 @@
         "process": { "key": "purchase", "name": "采购申请" },
         "form": { "key": "purchase-form", "version": 1, "start": true,
           "access": { "default": "editable", "fields": { "note": "hidden" } },
-          "manifest": { "title": { "label": "标题", "type": "text", "required": true } },
+          "manifest": { "title": { "label": "标题", "type": "text", "required": true }, "quantity": { "type": "number", "min": 1 } },
           "values": {} }
       } },
     { "as": "alice", "command": "startView", "args": { "key": "nowhere" }, "expect": { "error": { "code": "flow.not-found" } } },
-    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00" } } },
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00", "quantity": 3 } } },
     { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
       "expect": {
         "workItem": { "node": "review", "assignment": "pool" },
         "instance": { "title": "采购申请：办公桌" },
         "form": { "start": false, "access": { "default": "readonly", "fields": { "note": "editable" } },
-          "values": { "title": "办公桌", "amount": "12000.00" } },
+          "values": { "title": "办公桌", "amount": "12000.00", "quantity": 3 } },
         "outcomes": [
           { "key": "pass", "label": "通过", "kind": "approve", "comment": "none", "confirm": false },
           { "key": "reject", "label": "否决", "kind": "reject", "comment": "required", "confirm": false }
