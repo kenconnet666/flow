@@ -1,0 +1,31 @@
+{
+  "name": "上一步选下一步的处理人：发起页、待办详情列出要选人的下一步与能选的人；没选、选了不能选的人、选多了都不让提交；选的人就是处理人",
+  "forms": [],
+  "processes": ["processes/pick-demo.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "carol": { "id": 1003, "name": "沈若水", "roles": [1] },
+    "boss": { "id": 1004, "name": "总经理" }
+  },
+  "steps": [
+    { "as": "alice", "command": "startView", "args": { "key": "pick-demo" },
+      "expect": { "picks": [{ "node": "review", "nodeName": "部门审核", "max": 1,
+        "candidates": [{ "id": "1002", "name": "周启航" }, { "id": "1003", "name": "沈若水" }] }] } },
+    { "as": "alice", "command": "start", "args": { "key": "pick-demo" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "code": "required", "field": "picks.review" }] } } },
+    { "as": "alice", "command": "start", "args": { "key": "pick-demo", "picks": { "review": [1004] } },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "code": "not-allowed", "field": "picks.review" }] } } },
+    { "as": "alice", "command": "start", "args": { "key": "pick-demo", "picks": { "review": [1002, 1003] } },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "code": "too-many", "field": "picks.review" }] } } },
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "pick-demo", "picks": { "review": [1003] } },
+      "expect": { "workItems": [{ "node": "review", "assignment": "direct", "assigneeId": "1003" }] } },
+    { "as": "carol", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "outcomes": [{ "key": "ok", "picks": [{ "node": "sign", "nodeName": "盖章", "max": null, "candidates": null }] }] } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "outcomes": [{ "key": "ok", "picks": [] }] } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "ok", "picks": { "sign": [1004] } },
+      "expect": { "workItems": [{ "node": "sign", "assigneeId": "1004", "assigneeName": "总经理" }] } }
+  ]
+}

@@ -48,6 +48,18 @@ export interface StartView {
   readonly process: StartableProcess;
   /** 开始节点上的表单；流程没有表单时为 null */
   readonly form: FormView | null;
+  /** 发起时要选处理人的第一步 */
+  readonly picks: readonly PickView[];
+}
+
+/** 提交时要选处理人的下一步（0005 的 5.6） */
+export interface PickView {
+  readonly node: string;
+  readonly nodeName: string | null;
+  /** 最多选几个；null 时不限 */
+  readonly max: number | null;
+  /** 能选的人；null 时谁都可以选（用接入方给的人员数据来源） */
+  readonly candidates: readonly { readonly id: Id; readonly name: string }[] | null;
 }
 
 /** 一个处理结果：审批面板上的一个按钮 */
@@ -60,6 +72,8 @@ export interface OutcomeView {
   readonly comment: 'required' | 'optional' | 'none';
   /** 点了先确认 */
   readonly confirm: boolean;
+  /** 选了这个结果后要选处理人的下一步 */
+  readonly picks: readonly PickView[];
 }
 
 /** 待办详情 */
@@ -128,6 +142,8 @@ export interface StartCommand {
   readonly businessKey?: string;
   readonly title?: string;
   readonly priority?: number;
+  /** 第一步要选处理人的节点 → 选的人 */
+  readonly picks?: Readonly<Record<string, readonly Id[]>>;
 }
 
 /** 处理 */
@@ -136,6 +152,8 @@ export interface CompleteCommand {
   readonly outcome: string;
   readonly comment?: string;
   readonly form?: Readonly<Record<string, unknown>>;
+  /** 下一步要选处理人的节点 → 选的人 */
+  readonly picks?: Readonly<Record<string, readonly Id[]>>;
 }
 
 /** 撤回 */

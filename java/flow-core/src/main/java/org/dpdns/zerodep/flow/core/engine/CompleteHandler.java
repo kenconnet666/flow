@@ -79,6 +79,8 @@ public final class CompleteHandler {
                 context.stores().formData().update(instance.id(), run.form());
             }
 
+            run.picks(command.picks());
+
             // 守卫：表单合并好之后、改成已处理之前问一遍，任一不通过整个处理不做
             checkGuards(actor, run, item, outcome);
 

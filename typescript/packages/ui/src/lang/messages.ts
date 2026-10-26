@@ -78,6 +78,11 @@ export interface FlowMessages {
   readonly ccMessage: string;
   /** 抄送之后的提示 */
   readonly ccDone: (count: number) => string;
+  /** 选下一步的处理人 */
+  readonly pickTitle: string;
+  readonly pickFor: (node: string) => string;
+  /** 能选任何人、却没给人员数据来源 */
+  readonly noPeopleSource: string;
   /** 列表的列：截止时间、处理结果、处理时间、状态、当前环节 */
   readonly columnDue: string;
   readonly columnOutcome: string;
@@ -280,6 +285,9 @@ export const flowMessages: MessageTable<FlowMessages> = {
     pickCcUsers: '抄送给谁',
     ccMessage: '附言',
     ccDone: (count) => `已抄送给 ${count} 人`,
+    pickTitle: '选择下一步的处理人',
+    pickFor: (node) => `${node} 的处理人`,
+    noPeopleSource: '没有可选的人员数据，请联系管理员',
     columnDue: '截止',
     columnOutcome: '处理结果',
     columnCompletedAt: '处理时间',
@@ -369,6 +377,9 @@ export const flowMessages: MessageTable<FlowMessages> = {
     pickCcUsers: 'People to copy',
     ccMessage: 'Message',
     ccDone: (count) => `Copied to ${count} people`,
+    pickTitle: 'Choose who handles the next step',
+    pickFor: (node) => `Assignee for ${node}`,
+    noPeopleSource: 'No people directory is available; contact your administrator',
     columnDue: 'Due',
     columnOutcome: 'Outcome',
     columnCompletedAt: 'Completed',

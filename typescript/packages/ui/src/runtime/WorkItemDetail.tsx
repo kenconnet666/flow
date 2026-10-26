@@ -110,15 +110,17 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
 
   const claim = () => run('claim', () => flow.claim(id));
 
-  async function complete(outcome: OutcomeView) {
+  /** 处理：先校验表单；返回成功没有（选人框按它决定关不关） */
+  async function complete(outcome: OutcomeView, picks: Record<string, Id[]>): Promise<boolean> {
     commentError = undefined;
-    if (form && !(await form.validate())) return;
-    await run(outcome.key, () =>
+    if (form && !(await form.validate())) return false;
+    return run(outcome.key, () =>
       flow.complete({
         workItemId: id,
         outcome: outcome.key,
         ...(comment.trim() ? { comment: comment.trim() } : {}),
         ...(form ? { form: form.values() } : {}),
+        ...(Object.keys(picks).length ? { picks } : {}),
       }),
     );
   }
@@ -175,6 +177,7 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
             _comment={comment}
             commentError={commentError}
             busy={busy}
+            {...(people ? { people } : {})}
             onChoose={complete}
           />
         )}

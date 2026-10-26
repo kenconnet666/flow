@@ -1,8 +1,10 @@
 /**
  * 发起页：流程开始节点上的表单加"提交"。提交前按模型包的规则校验，引擎退回的按字段的问题标回表单。
+ * 第一步要发起人选处理人（StartView.picks）时，提交先弹 PickDialog 选人。
  *
  *   <StartForm processKey="purchase" people={peopleSource} onStarted={(result) => router.push(…)} />
  */
+import type { Id } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
@@ -21,12 +23,13 @@ import type { CommandResult } from '../client/types';
 import type { FlowFormHandle } from '../form/context';
 import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
+import { PickDialog } from './PickDialog';
 
 /** StartForm 的属性 */
 export interface StartFormProps {
   /** 流程标识 */
   processKey: string;
-  /** 人员字段的数据来源 */
+  /** 人员字段、选第一步处理人的数据来源 */
   people?: PeopleSource;
   /** 表单代码还能导入的模块（见 FlowForm） */
   modules?: Readonly<Record<string, unknown>>;
@@ -45,21 +48,32 @@ export const StartForm = _component(({ processKey, people, modules, businessKey,
   let form: FlowFormHandle | null = null;
   let busy = _state(false);
   let failure = _state<string | null>(null);
+  let pickOpen = _state(false);
 
+  /** 提交：先校验表单；要选第一步的处理人时先弹选人框 */
   async function submit() {
     failure = null;
     if (form && !(await form.validate())) return;
+    if (view.data?.picks.length) pickOpen = true;
+    else await send({});
+  }
+
+  /** 发起；返回成功没有（选人框按它决定关不关） */
+  async function send(picks: Record<string, Id[]>): Promise<boolean> {
     busy = true;
     try {
       const result = await flow.start({
         key: processKey,
         ...(form ? { form: form.values() } : {}),
         ...(businessKey ? { businessKey } : {}),
+        ...(Object.keys(picks).length ? { picks } : {}),
       });
       onStarted?.(result);
+      return true;
     } catch (error) {
       if (error instanceof HttpError && error.code === 'flow.validation-failed' && error.errors?.length) form?.showErrors(error.errors);
       else failure = errorText(error);
+      return false;
     } finally {
       busy = false;
     }
@@ -88,6 +102,7 @@ export const StartForm = _component(({ processKey, people, modules, businessKey,
               {messages.submit}
             </Button>
           </Flex>
+          {data.picks.length > 0 && <PickDialog _open={pickOpen} picks={data.picks} {...(people ? { people } : {})} onConfirm={send} />}
         </Flex>
       </Card>
     );

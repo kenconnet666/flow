@@ -91,6 +91,8 @@ final class Execution {
     Execution caller;
     /** 子实例被父实例连带终止：结束时不再回到父实例 */
     boolean quiet;
+    /** 这一步的处理人选的下一步处理人（0005 的 5.6）：节点 → 人 */
+    private Map<String, List<Long>> picks = Map.of();
 
     /**
      * @param actor    这次的操作人；记进流转记录
@@ -120,6 +122,9 @@ final class Execution {
 
     /** 换上新的表单值（处理类收了表单之后） */
     void form(FormValues next) { this.form = next; }
+
+    /** 这一步的处理人选的下一步处理人：节点 → 人 */
+    void picks(Map<String, List<Long>> next) { this.picks = next; }
 
     /** 引擎内部共用的东西 */
     EngineContext context() { return context; }
@@ -428,7 +433,7 @@ final class Execution {
      * 前一个人同意后轮到下一个（{@link #nextSigner}）。
      */
     private void arriveAtCountersign(ProcessNode.Task task, String arrival) {
-        List<AssigneeResolver.Participant> participants = assignees.participants(task, instance, this::read);
+        List<AssigneeResolver.Participant> participants = assignees.participants(task, instance, this::read, picks);
         if (participants.isEmpty()) {
             handleEmptyAssignee(task);
             return;
@@ -558,7 +563,7 @@ final class Execution {
             Long last = context.stores().workItems().lastCompletedBy(instance.id(), task.id()).orElse(null);
             if (last != null) return Assignees.of(last);
         }
-        Assignees who = assignees.resolve(task, graph, instance, this::read);
+        Assignees who = assignees.resolve(task, graph, instance, this::read, picks);
         return "escalate".equals(arrival) && !who.inboxes().isEmpty() ? who.inboxesOnly() : who;
     }
 

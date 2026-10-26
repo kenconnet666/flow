@@ -11,6 +11,7 @@ import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Member;
 import org.dpdns.zerodep.flow.core.view.FormView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
+import org.dpdns.zerodep.flow.core.view.PickView;
 import org.dpdns.zerodep.flow.core.view.StartView;
 import org.dpdns.zerodep.flow.core.view.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.WorkItemView;
@@ -69,7 +70,9 @@ public final class Queries {
         FormView form = definition.hasForm()
             ? formView(definition, definition.graph().start().form(), true, FormValues.empty(), name -> "sys.initiator".equals(name) ? actor.id() : null)
             : null;
-        return new StartView(new StartableProcess(key, process.name(), process.category(), process.latestVersion()), form);
+        Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.id() : null;
+        List<PickView> picks = new PickPreview(definition.graph(), context).after(definition.graph().start().id(), null, read);
+        return new StartView(new StartableProcess(key, process.name(), process.category(), process.latestVersion()), form, picks);
     }
 
     /**
@@ -148,8 +151,11 @@ public final class Queries {
         FormView form = definition.hasForm()
             ? formView(definition, task.form(), false, stored, name -> References.read(name, instance, stored))
             : null;
-        List<OutcomeView> outcomes = task.outcomes().stream().map(Queries::outcomeView).toList();
         boolean completable = open && (mine || candidate);
+        PickPreview preview = new PickPreview(definition.graph(), context);
+        Function<String, Object> read = name -> References.read(name, instance, stored);
+        List<OutcomeView> outcomes = task.outcomes().stream()
+            .map(o -> outcomeView(o, completable ? preview.after(task.id(), o.key(), read) : List.of())).toList();
         WorkItemView.Actions actions = completable
             ? new WorkItemView.Actions(task.allow().transfer(), task.allow().delegate(), task.allow().addSign(),
                 mine && WorkItem.CLAIMED.equals(item.assignment()))
@@ -202,8 +208,8 @@ public final class Queries {
     }
 
     /** 处理结果给前端的样子：没写意见要求时是 {@code none}（不收意见，0005 的人工节点） */
-    private static OutcomeView outcomeView(Outcome outcome) {
+    private static OutcomeView outcomeView(Outcome outcome, List<PickView> picks) {
         return new OutcomeView(outcome.key(), outcome.label(), outcome.kindOrDefault(), outcome.comment() == null ? "none" : outcome.comment(),
-            outcome.confirm());
+            outcome.confirm(), picks);
     }
 }

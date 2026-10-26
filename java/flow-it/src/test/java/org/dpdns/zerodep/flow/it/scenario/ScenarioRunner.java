@@ -109,10 +109,10 @@ final class ScenarioRunner {
         try {
             return switch (step.command()) {
                 case "start" -> commandResult(engine.start(actor, new StartCommand(args.text("key"), FormValues.of(args.map("form")),
-                    Variables.of(args.map("variables")), args.text("businessKey"), args.text("title"), args.number("priority", 0))));
+                    Variables.of(args.map("variables")), args.text("businessKey"), args.text("title"), args.number("priority", 0), args.picks())));
                 case "claim" -> commandResult(engine.claim(actor, new ClaimCommand(args.id("workItem"))));
                 case "complete" -> commandResult(engine.complete(actor, new CompleteCommand(args.id("workItem"), args.text("outcome"),
-                    args.text("comment"), FormValues.of(args.map("form")))));
+                    args.text("comment"), FormValues.of(args.map("form")), args.picks())));
                 case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.id("instance"), args.text("reason"))));
                 case "startable" -> wire(Map.of("processes", engine.startable(actor)));
                 case "startView" -> view(engine.startView(actor, args.text("key")));
@@ -228,6 +228,13 @@ final class ScenarioRunner {
 
         /** 编号：引用解出来的是线上的文字，直接写的是数字（用户编号） */
         Long id(String name) { return toId(values.get(name)); }
+
+        /** 下一步选的处理人：{ 节点: [用户编号…] } */
+        Map<String, List<Long>> picks() {
+            Map<String, List<Long>> out = new LinkedHashMap<>();
+            map("picks").forEach((node, users) -> out.put(node, ((List<?>) users).stream().map(Arguments::toId).toList()));
+            return out;
+        }
 
         /** 一串编号 */
         List<Long> ids(String name) {

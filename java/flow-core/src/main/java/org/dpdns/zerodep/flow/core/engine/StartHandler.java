@@ -44,7 +44,7 @@ public final class StartHandler {
             LoadedDefinition definition = latestActive(command.key());
             if (!CandidateRules.isStarter(actor, definition.model().starters())) throw FlowErrors.forbidden("process", command.key(), "not-a-starter");
             Execution run = launch(definition, actor, new Launch(actor.id(), actor.name(), command.businessKey(), command.priority(),
-                command.variables(), command.form(), false, null), context.clock().instant());
+                command.variables(), command.form(), false, null, command.picks()), context.clock().instant());
             run.flush(command.title());
             return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
         });
@@ -63,9 +63,10 @@ public final class StartHandler {
      * @param starterId   发起人：发起命令是操作人，子流程是父实例的发起人
      * @param fullForm    表单的值原样存（子流程按 input 给的值），否则只收开始节点上能改的字段
      * @param parent      父实例；不是子流程时为 null
+     * @param picks       第一步要选处理人的节点 → 选的人
      */
     record Launch(Long starterId, String starterName, String businessKey, int priority, Variables variables, FormValues form,
-                  boolean fullForm, ChildOf parent) { }
+                  boolean fullForm, ChildOf parent, Map<String, List<Long>> picks) { }
 
     /**
      * 子实例记下的父实例。
@@ -94,6 +95,7 @@ public final class StartHandler {
         InstanceRecord instance = context.stores().instances().insert(draft);
         Execution run = new Execution(context, actor, now, definition, instance, FormValues.empty(), instance.rev());
         if (parent != null) run.caller = parent.caller();
+        run.picks(launch.picks());
 
         ProcessNode.Start start = definition.graph().start();
         if (definition.hasForm()) {

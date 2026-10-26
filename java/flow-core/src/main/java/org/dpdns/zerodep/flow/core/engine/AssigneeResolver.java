@@ -14,6 +14,9 @@ import org.dpdns.zerodep.flow.model.definition.Ref;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -28,9 +31,10 @@ import java.util.function.Function;
  *   { "sameAs": "check" }         人：那个节点最后的处理人
  *   { "resolver": "deptLeader" }  人：接入方注册的解析器算出来的（PeopleResolver）
  *   { "group": "post", "id": 5 }  收件箱：接入方扩展的种类（岗位、项目组……），候选按 Actor.groups 匹配
+ *   { "pick": { "from": […] } }   人：上一步的处理人提交时选的（命令的 picks），要在 from 解析出的人里、不超过 max
  *   （节点没写来源）              所在泳道的收件箱
  * </pre>
- * 几个来源取并集。上一步选（{@code pick}）随场景补上，遇到时报"还不支持"。
+ * 几个来源取并集。
  */
 final class AssigneeResolver {
     private final WorkItemStore workItems;
@@ -55,13 +59,23 @@ final class AssigneeResolver {
      * 会签的参与人：来源列表里的人、角色与部门下的人（{@link OrgDirectory#members} 展开），或引用的 people 值；
      * 同一个人只算一次（先出现的为准），保持先后。
      */
-    List<Participant> participants(ProcessNode.Task task, InstanceRecord instance, Function<String, Object> read) {
+    List<Participant> participants(ProcessNode.Task task, InstanceRecord instance, Function<String, Object> read,
+                                   Map<String, List<Long>> picks) {
+        Map<Long, Participant> out = new LinkedHashMap<>();
         if (task.multi().participants() instanceof Ref ref) {
-            Map<Long, Participant> out = new LinkedHashMap<>();
             for (Long id : OrgIds.all(read.apply(ref.ref()))) out.putIfAbsent(id, new Participant(id, 1));
             return List.copyOf(out.values());
         }
-        return people(task.multi().participantSources(), instance, read);
+        List<AssigneeSource> others = new ArrayList<>();
+        for (AssigneeSource source : task.multi().participantSources()) {
+            if (source instanceof AssigneeSource.Pick pick) {
+                for (Long id : picked(task, pick, picks, instance, read)) out.putIfAbsent(id, new Participant(id, 1));
+            } else {
+                others.add(source);
+            }
+        }
+        for (Participant p : people(others, instance, read)) out.putIfAbsent(p.user(), p);
+        return List.copyOf(out.values());
     }
 
     /**
@@ -103,10 +117,13 @@ final class AssigneeResolver {
      *
      * @param read 取引用的值（{@code { "ref": "form.buyer" }} 这类来源要用）
      */
-    Assignees resolve(ProcessNode.Task task, ProcessGraph graph, InstanceRecord instance, Function<String, Object> read) {
+    Assignees resolve(ProcessNode.Task task, ProcessGraph graph, InstanceRecord instance, Function<String, Object> read,
+                      Map<String, List<Long>> picks) {
         Assignees out = Assignees.empty();
         for (AssigneeSource source : sourcesOf(task, graph)) {
-            if (source instanceof AssigneeSource.User user) {
+            if (source instanceof AssigneeSource.Pick pick) {
+                out.users().addAll(picked(task, pick, picks, instance, read));
+            } else if (source instanceof AssigneeSource.User user) {
                 out.users().addAll(OrgIds.all(valueOf(user.user(), read)));
             } else if (source instanceof AssigneeSource.Role role) {
                 for (Long id : OrgIds.all(valueOf(role.role(), read))) out.inboxes().add(new Candidate(Candidate.ROLE, id));
@@ -125,6 +142,23 @@ final class AssigneeResolver {
             }
         }
         return out;
+    }
+
+    /**
+     * 上一步选的人：没选报 {@code picks.节点 required}，超过 max 报 {@code too-many}，不在 from 解析出的人里报 {@code not-allowed}
+     * （from 不写时谁都可以）。
+     */
+    private List<Long> picked(ProcessNode.Task task, AssigneeSource.Pick pick, Map<String, List<Long>> picks, InstanceRecord instance,
+                              Function<String, Object> read) {
+        String field = "picks." + task.id();
+        List<Long> chosen = picks.getOrDefault(task.id(), List.of()).stream().distinct().toList();
+        if (chosen.isEmpty()) throw FlowErrors.invalid(field, "required");
+        if (pick.max() != null && chosen.size() > pick.max()) throw FlowErrors.invalid(field, "too-many");
+        if (!pick.from().isEmpty()) {
+            Set<Long> allowed = people(pick.from(), instance, read).stream().map(Participant::user).collect(Collectors.toSet());
+            if (!allowed.containsAll(chosen)) throw FlowErrors.invalid(field, "not-allowed");
+        }
+        return chosen;
     }
 
     /** 接入方注册的解析器算出的人；参数里的引用先换成值 */

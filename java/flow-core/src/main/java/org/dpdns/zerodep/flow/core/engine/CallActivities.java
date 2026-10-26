@@ -54,7 +54,7 @@ final class CallActivities {
                 else variables.put(target, resolved);
             });
             StartHandler.Launch launch = new StartHandler.Launch(parent.startedBy(), parent.startedByName(), parent.businessKey(), parent.priority(),
-                Variables.of(variables), FormValues.of(form), true, new StartHandler.ChildOf(parent.id(), call.id(), round, root, run));
+                Variables.of(variables), FormValues.of(form), true, new StartHandler.ChildOf(parent.id(), call.id(), round, root, run), Map.of());
             Execution childRun = starter.launch(child, run.actor(), launch, run.now());
             childRun.flush(null);
             run.created.addAll(childRun.created);

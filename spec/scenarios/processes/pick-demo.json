@@ -1,0 +1,19 @@
+{
+  "key": "pick-demo",
+  "name": "用印申请",
+  "title": "用印申请",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "review", "type": "task", "name": "部门审核", "assignees": [{ "pick": { "from": [{ "role": 1 }], "max": 1 } }],
+      "outcomes": [{ "key": "ok", "label": "同意" }] },
+    { "id": "route", "type": "exclusive", "name": "转给谁" },
+    { "id": "sign", "type": "task", "name": "盖章", "assignees": [{ "pick": {} }], "outcomes": [{ "key": "done", "label": "已盖章" }] },
+    { "id": "end", "type": "end", "name": "结束", "result": "stamped" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "review" },
+    { "id": "e2", "from": "review", "to": "route", "outcome": "ok" },
+    { "id": "e3", "from": "route", "to": "sign", "default": true },
+    { "id": "e4", "from": "sign", "to": "end", "outcome": "done" }
+  ]
+}

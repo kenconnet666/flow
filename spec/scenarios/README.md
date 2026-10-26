@@ -27,12 +27,12 @@
 
 | command | args | 结果里能比的 |
 | --- | --- | --- |
-| `start` | `key`、`form`、`variables`、`businessKey`、`title`、`priority` | `instance`、`workItems`（新生成的待办）、`closed`（结束的待办）、`events`（这一步的流转记录） |
+| `start` | `key`、`form`、`variables`、`businessKey`、`title`、`priority`、`picks`（`{ 节点: [用户编号] }`） | `instance`、`workItems`（新生成的待办）、`closed`（结束的待办）、`events`（这一步的流转记录） |
 | `claim` | `workItem` | 同上 |
-| `complete` | `workItem`、`outcome`、`comment`、`form` | 同上 |
+| `complete` | `workItem`、`outcome`、`comment`、`form`、`picks` | 同上 |
 | `withdraw` | `instance`、`reason` | 同上 |
 | `startable` | — | `processes`（每项 `{ key, name, category, version }`） |
-| `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null） |
+| `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null）、`picks` |
 | `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary, status, outcomeLabel }`） |
 | `started` | 同上 | `total`、`rows`（每行是实例） |
 | `workItem` | `workItem` | `workItem`、`instance`、`form`、`outcomes`、`claimable`、`completable`、`actions` |

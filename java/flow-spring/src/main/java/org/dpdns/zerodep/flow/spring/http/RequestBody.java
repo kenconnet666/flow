@@ -29,6 +29,7 @@ import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.wire.Json;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -56,18 +57,18 @@ final class RequestBody {
         return new RequestBody((Map<String, Object>) tree);
     }
 
-    /** {@code { key, form, variables, businessKey, title, priority }} */
+    /** {@code { key, form, variables, businessKey, title, priority, picks }} */
     StartCommand start() {
         return new StartCommand(text("key"), FormValues.of(object("form")), Variables.of(object("variables")), text("businessKey"),
-            text("title"), number("priority"));
+            text("title"), number("priority"), picks());
     }
 
     /** {@code { workItemId }} */
     ClaimCommand claim() { return new ClaimCommand(id("workItemId")); }
 
-    /** {@code { workItemId, outcome, comment, form }} */
+    /** {@code { workItemId, outcome, comment, form, picks }} */
     CompleteCommand complete() {
-        return new CompleteCommand(id("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")));
+        return new CompleteCommand(id("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")), picks());
     }
 
     /** {@code { instanceId, reason }} */
@@ -148,6 +149,16 @@ final class RequestBody {
             throw invalid(name, "expected-id");
         }
         throw invalid(name, "expected-id");
+    }
+
+    /** 下一步选的处理人：{@code { 节点: [用户编号…] }} */
+    private Map<String, List<Long>> picks() {
+        Map<String, List<Long>> out = new LinkedHashMap<>();
+        object("picks").forEach((node, users) -> {
+            if (!(users instanceof List<?> list)) throw invalid("picks." + node, "expected-list");
+            out.put(node, list.stream().map(user -> idOf("picks." + node, user)).toList());
+        });
+        return out;
     }
 
     /** 一串编号 */

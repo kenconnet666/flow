@@ -39,6 +39,7 @@ public record WorkItemView(WorkItem workItem, ProcessInstance instance, FormView
      * @param kind    {@code approve}、{@code reject}、{@code return}、{@code escalate}、{@code terminate}
      * @param comment 意见：{@code required} 必填、{@code optional} 可写、{@code none} 不收
      * @param confirm 点了先确认
+     * @param picks   选了这个结果后要选处理人的下一步（0005 的 5.6）；我不能处理时是空的
      */
-    public record OutcomeView(String key, String label, String kind, String comment, boolean confirm) { }
+    public record OutcomeView(String key, String label, String kind, String comment, boolean confirm, List<PickView> picks) { }
 }

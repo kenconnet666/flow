@@ -26,6 +26,7 @@ export { FlowInbox, type FlowInboxProps } from './runtime/FlowInbox';
 export { FlowInstanceDetail, type FlowInstanceDetailProps } from './runtime/FlowInstanceDetail';
 export { FlowCcList, type FlowCcListProps } from './runtime/FlowCcList';
 export { FlowStartedList, type FlowStartedListProps } from './runtime/FlowStartedList';
+export { PickDialog, type PickDialogProps } from './runtime/PickDialog';
 export { FlowTimeline, type FlowTimelineProps } from './runtime/FlowTimeline';
 export { StartForm, type StartFormProps } from './runtime/StartForm';
 export { WorkItemDetail, type WorkItemDetailProps } from './runtime/WorkItemDetail';
