@@ -31,6 +31,7 @@ import { useFlowClient } from '../client/flow-client';
 import type { CommandResult } from '../client/types';
 import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
+import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
 import { InstanceAdminActions } from './InstanceAdminActions';
 import { statusTone } from './status';
@@ -191,6 +192,9 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
             <FlowForm view={data.form} mode="view" {...(people ? { people } : {})} {...(modules ? { modules } : {})} />
           </Card>
         )}
+        <Card header={messages.diagram}>
+          <FlowDiagram diagram={data.diagram} />
+        </Card>
         <Card header={messages.timeline}>
           <Flex direction="column" gap="lg">
             <Flex direction="column" gap="sm">

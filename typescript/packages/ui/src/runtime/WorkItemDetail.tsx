@@ -30,6 +30,7 @@ import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
 import { ApprovalActions } from './ApprovalActions';
 import { CollaborationActions, type Collaboration } from './CollaborationActions';
+import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
 import { statusTone } from './status';
 
@@ -182,6 +183,11 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
           />
         )}
         <CollaborationActions actions={data.actions} {...(people ? { people } : {})} busy={busy} onRun={collaborate} />
+        {detail.data && (
+          <Card header={messages.diagram}>
+            <FlowDiagram diagram={detail.data.diagram} height="16rem" />
+          </Card>
+        )}
         {detail.data && (
           <Card header={messages.timeline}>
             <FlowTimeline events={detail.data.timeline} />

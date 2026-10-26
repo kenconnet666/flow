@@ -78,6 +78,12 @@ export interface FlowMessages {
   readonly ccMessage: string;
   /** 抄送之后的提示 */
   readonly ccDone: (count: number) => string;
+  /** 流程图 */
+  readonly diagram: string;
+  /** 流程图上节点的状态 */
+  readonly nodeState: Readonly<Record<string, string>>;
+  /** 流程图上节点的种类（人工节点、开始、结束不写） */
+  readonly nodeType: Readonly<Record<string, string>>;
   /** 流程监控（管理端） */
   readonly monitor: string;
   readonly columnProcess: string;
@@ -301,6 +307,9 @@ export const flowMessages: MessageTable<FlowMessages> = {
     pickCcUsers: '抄送给谁',
     ccMessage: '附言',
     ccDone: (count) => `已抄送给 ${count} 人`,
+    diagram: '流程图',
+    nodeState: { done: '已走过', current: '进行中', pending: '未到' },
+    nodeType: { exclusive: '条件分支', parallel: '并行', inclusive: '包容分支', service: '自动处理', timer: '定时', receive: '等待事件', cc: '抄送', call: '子流程' },
     monitor: '流程监控',
     columnProcess: '流程',
     keyword: '标题',
@@ -407,6 +416,9 @@ export const flowMessages: MessageTable<FlowMessages> = {
     pickCcUsers: 'People to copy',
     ccMessage: 'Message',
     ccDone: (count) => `Copied to ${count} people`,
+    diagram: 'Process diagram',
+    nodeState: { done: 'done', current: 'in progress', pending: 'not reached' },
+    nodeType: { exclusive: 'Decision', parallel: 'Parallel', inclusive: 'Inclusive', service: 'Automatic', timer: 'Timer', receive: 'Wait for event', cc: 'Copy', call: 'Subprocess' },
     monitor: 'Process monitor',
     columnProcess: 'Process',
     keyword: 'Title',

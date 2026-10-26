@@ -139,6 +139,7 @@
 | ③l（已完成，2026-10-27） | 上一步选下一步的处理人（0005 的 5.6 `pick`）：`start` / `complete` 带 `picks`，核对 from 与 max；发起页、待办详情按结果算出要选人的下一步与能选的人（`PickPreview` 穿过网关与抄送）；前端 `PickDialog` 接进审批面板与发起页 | 场景 pick；浏览器里走过发起选人、审批后选人 |
 | ③m（已完成，2026-10-27） | 命令的幂等：`flow_request`（V6 脚本）、`RequestStore`、`FlowEngine.idempotent`（与命令同一个事务记下响应，同一个编号再来返回第一次的，用在别的命令或换了人报 `requestId: reused`）；HTTP 的命令带 `Idempotency-Key` 头时走它 | `SpringHttpTest`；过期记录的清理还没做 |
 | ③n（已完成，2026-10-27） | 管理端：查询 `instances`（按状态、流程、标题、发起人）、`processes`、`failedJobs`，实例详情带跳转能去的节点；前端 `FlowInstanceMonitor`（流程监控）与流程详情的管理员操作（暂停、恢复、终止、跳转、改派，`InstanceAdminActions`）；示例前端加"流程监控" | 场景 admin-queries；浏览器里走过筛选、暂停恢复、跳转 |
+| ③o（已完成，2026-10-27） | 流程图（只读，⑤ 的第一步）：实例详情带 `diagram`（节点走过、正停着、没到，连线走过没有，位置取定义的 `layout`）；前端 `FlowDiagram`（组件库的 Diagram，没画布局时按步数自动分列），接进流程详情与待办详情 | 场景 purchase-large-amount 的 diagram；diagram-layout 单元测试；浏览器里看过 |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 

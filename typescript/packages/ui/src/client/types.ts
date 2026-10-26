@@ -115,6 +115,31 @@ export interface InstanceDetail {
   readonly actions: InstanceActions;
   /** 流程的节点（开始节点、网关除外）：管理员跳转时选目标 */
   readonly nodes: readonly { readonly node: string; readonly name: string | null; readonly type: string }[];
+  /** 流程图：节点走到哪了、连线走过没有 */
+  readonly diagram: ProcessDiagram;
+}
+
+/** 流程图：实例按的那个版本的节点与连线，加上走到哪了 */
+export interface ProcessDiagram {
+  readonly nodes: readonly {
+    readonly id: string;
+    readonly name: string | null;
+    readonly type: string;
+    /** 布局里的位置；没画过时为 null（前端自动排） */
+    readonly x: number | null;
+    readonly y: number | null;
+    /** done 走过、current 正停着、pending 还没到 */
+    readonly state: string;
+  }[];
+  readonly edges: readonly {
+    readonly id: string;
+    readonly from: string;
+    readonly to: string;
+    readonly label: string | null;
+    /** return、escalate，或 null */
+    readonly kind: string | null;
+    readonly taken: boolean;
+  }[];
 }
 
 /** 管理端的流程列表的一行 */

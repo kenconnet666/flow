@@ -14,6 +14,7 @@ import org.dpdns.zerodep.flow.core.store.WorkItemStore.Member;
 import org.dpdns.zerodep.flow.core.view.FormView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.PickView;
+import org.dpdns.zerodep.flow.core.view.ProcessDiagram;
 import org.dpdns.zerodep.flow.core.view.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.StartView;
 import org.dpdns.zerodep.flow.core.view.StartableProcess;
@@ -27,6 +28,7 @@ import org.dpdns.zerodep.flow.model.form.FormAccess.FieldState;
 import org.dpdns.zerodep.flow.model.form.FormAccess;
 import org.dpdns.zerodep.flow.model.runtime.Cc;
 import org.dpdns.zerodep.flow.model.runtime.CcItem;
+import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.TodoItem;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
@@ -203,7 +205,9 @@ public final class Queries {
         List<InstanceDetail.NodeRef> nodes = definition.model().nodes().stream()
             .filter(n -> !(n instanceof ProcessNode.Start) && !(n instanceof ProcessNode.Gateway))
             .map(n -> new InstanceDetail.NodeRef(n.id(), n.name(), n.type())).toList();
-        return new InstanceDetail(instance.view(), form, items, context.stores().events().timeline(instanceId), actions, nodes);
+        List<FlowEvent> timeline = context.stores().events().timeline(instanceId);
+        ProcessDiagram diagram = DiagramView.of(definition.model(), instance.view(), timeline);
+        return new InstanceDetail(instance.view(), form, items, timeline, actions, nodes, diagram);
     }
 
     /** 流程最新发布的版本（解析好的） */

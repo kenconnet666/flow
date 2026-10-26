@@ -35,6 +35,24 @@
     { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
       "expect": {
         "form": { "values": { "title": "办公桌", "amount": "12000.00", "note": "预算内" } },
+        "diagram": {
+          "nodes": [
+            { "id": "start", "type": "start", "state": "done" },
+            { "id": "review", "name": "财务复核", "type": "task", "x": null, "state": "done" },
+            { "id": "route", "type": "exclusive", "state": "done" },
+            { "id": "approve", "state": "done" },
+            { "id": "done", "type": "end", "state": "done" },
+            { "id": "rejected", "state": "pending" }
+          ],
+          "edges": [
+            { "id": "submit", "taken": true },
+            { "id": "reviewed", "label": "通过", "taken": true },
+            { "id": "refused", "label": "否决", "taken": false },
+            { "id": "large", "label": null, "taken": true },
+            { "id": "small", "taken": false },
+            { "id": "approved", "label": "同意", "taken": true }
+          ]
+        },
         "workItems": [
           { "node": "review", "state": "done", "outcome": "pass", "comment": "同意", "completedBy": "1002", "completedByName": "周启航" },
           { "node": "approve", "state": "done", "outcome": "pass", "completedBy": "1004" }

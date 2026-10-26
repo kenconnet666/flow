@@ -15,9 +15,10 @@ import java.util.List;
  * @param timeline  流转记录，按先后
  * @param actions   我现在能对实例做的事
  * @param nodes     流程的节点（开始节点、网关除外）：管理员跳转时选目标
+ * @param diagram   流程图：节点走到哪了、连线走过没有
  */
 public record InstanceDetail(ProcessInstance instance, FormView form, List<WorkItem> workItems, List<FlowEvent> timeline,
-                             Actions actions, List<NodeRef> nodes) {
+                             Actions actions, List<NodeRef> nodes, ProcessDiagram diagram) {
     /**
      * 一个节点。
      *
