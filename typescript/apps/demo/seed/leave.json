@@ -1,0 +1,73 @@
+{
+  "key": "leave",
+  "name": "请假",
+  "category": "人事",
+  "form": {
+    "key": "leave-form"
+  },
+  "title": "请假：{form.days} 天",
+  "summary": [
+    "form.kind",
+    "form.days"
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "提交"
+    },
+    {
+      "id": "approve",
+      "type": "task",
+      "name": "主管审批",
+      "assignees": [
+        {
+          "user": 1004
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "ok",
+          "label": "批准"
+        },
+        {
+          "key": "no",
+          "label": "驳回",
+          "kind": "reject",
+          "comment": "required"
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "type": "end",
+      "name": "批准",
+      "result": "approved"
+    },
+    {
+      "id": "rejected",
+      "type": "end",
+      "name": "驳回",
+      "result": "rejected"
+    }
+  ],
+  "edges": [
+    {
+      "id": "submit",
+      "from": "start",
+      "to": "approve"
+    },
+    {
+      "id": "approved",
+      "from": "approve",
+      "to": "done",
+      "outcome": "ok"
+    },
+    {
+      "id": "refused",
+      "from": "approve",
+      "to": "rejected",
+      "outcome": "no"
+    }
+  ]
+}

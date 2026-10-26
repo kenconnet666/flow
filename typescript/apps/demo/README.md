@@ -1,0 +1,27 @@
+# 流程引擎的示例前端
+
+用 `@zerodep-dev/flow-ui` 搭的最小审批应用：发起、我的待办、办理（表单、意见与处理结果、流转记录）。
+接 `examples/spring-boot` 的示例后端（Vite 把 `/flow` 转到 `http://localhost:8080`）；顶栏切换当前用户，请求头 `X-User` 带上他的编号（只为演示）。
+
+| 用户 | 编号 | 能做的 |
+| --- | --- | --- |
+| 林小满 | 1001 | 发起采购、请假 |
+| 周启航 | 1002 | 财务（角色 1）：认领并复核采购 |
+| 总经理 | 1004 | 审批大额采购（金额 ≥ 10000）、请假 |
+
+## 跑起来
+
+1. 起示例后端（见 `examples/spring-boot/README.md`；本机用 `.claude/run-example-backend.sh`）。
+2. 组件库 vue-tsx-pro 要在本仓库的旁边（`../vue-tsx-pro`），装好依赖、构建过编译器（`pnpm --filter @zerodep-dev/vue-tsx-pro-tsx build`）。
+3. 在 `typescript/` 下 `pnpm install`，然后：
+
+```bash
+pnpm -C apps/demo seed
+```
+
+```bash
+pnpm -C apps/demo dev
+```
+
+`seed` 发布两个流程：**采购**（表单只有字段清单，按清单自动排版；财务复核后金额大的再给总经理）与**请假**
+（表单是代码 `seed/leave-form.tsx`，清单从源码里取出，页面里在浏览器中编译）。再跑一次就是各自的新版本。

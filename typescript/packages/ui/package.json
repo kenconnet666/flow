@@ -17,6 +17,10 @@
     "./form": {
       "@vue-tsx-pro/source": "./src/form/index.ts",
       "default": "./src/form/index.ts"
+    },
+    "./form-tools": {
+      "@vue-tsx-pro/source": "./src/form-tools/index.ts",
+      "default": "./src/form-tools/index.ts"
     }
   },
   "sideEffects": false,
@@ -30,7 +34,8 @@
     "vue": "^3.5.0"
   },
   "dependencies": {
-    "@zerodep-dev/flow-model": "workspace:*"
+    "@zerodep-dev/flow-model": "workspace:*",
+    "@babel/parser": "catalog:"
   },
   "devDependencies": {
     "@internationalized/date": "catalog:",
@@ -44,6 +49,7 @@
     "vite": "catalog:",
     "vitest": "catalog:",
     "vue": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@babel/types": "catalog:"
   }
 }
