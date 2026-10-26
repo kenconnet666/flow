@@ -1,0 +1,18 @@
+{
+  "name": "采购：发起时按字段清单校验必填；开始节点上隐藏的字段不收；处理时只读的字段改不了，能改的字段写进去",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": { "alice": { "name": "林小满" }, "bob": { "name": "周启航", "roles": ["finance"] } },
+  "steps": [
+    { "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "amount": "100.00" } },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "title", "code": "required" }] } } },
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "100.00", "note": "偷偷写的" } } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": { "form": { "title": "椅子", "amount": "100.00", "note": null } } },
+    { "as": "bob", "command": "complete",
+      "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "title": "改了标题", "note": "预算内" } } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": { "instance": { "title": "采购申请：椅子" }, "form": { "title": "椅子", "amount": "100.00", "note": "预算内" } } }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "发布：定义有错误时不发布，错误明细里是 0005 第 7 节的问题",
+  "forms": [],
+  "processes": [],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": { "admin": { "name": "管理员" } },
+  "steps": [
+    { "as": "admin", "command": "publishDefinition",
+      "args": { "definition": {
+        "key": "broken", "name": "坏的流程",
+        "nodes": [
+          { "id": "start", "type": "start", "name": "提交" },
+          { "id": "done", "type": "end", "name": "结束" }
+        ],
+        "edges": [{ "id": "go", "from": "start", "to": "nowhere" }]
+      } },
+      "expect": { "error": { "code": "flow.definition-invalid", "errors": [
+        { "code": "edge-unknown-node", "edge": "go", "params": { "node": "nowhere", "side": "to" } },
+        { "code": "node-dead-end", "node": "start" }
+      ] } } }
+  ]
+}

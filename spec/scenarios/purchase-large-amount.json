@@ -1,0 +1,44 @@
+{
+  "name": "采购：金额大的经财务复核、总经理审批后结束；收件箱只给候选人看，先认领先得",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "name": "林小满" },
+    "bob": { "name": "周启航", "roles": ["finance"] },
+    "carol": { "name": "沈若水" },
+    "boss": { "name": "总经理" }
+  },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start",
+      "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00" } },
+      "expect": {
+        "instance": { "title": "采购申请：办公桌", "status": "active", "current": [{ "node": "review", "name": "财务复核" }] },
+        "workItems": [{ "node": "review", "state": "open", "assignment": "pool", "inboxKind": "role", "inboxId": "finance", "assigneeId": null }],
+        "events": ["instance.started", "node.left", "node.entered", "workItem.created"]
+      } },
+    { "as": "bob", "command": "todo", "args": { "page": 1, "size": 10 },
+      "expect": { "total": 1, "rows": [{ "node": "review", "title": "采购申请：办公桌", "summary": { "form.title": "办公桌", "form.amount": "12000.00" } }] } },
+    { "as": "carol", "command": "todo", "expect": { "total": 0, "rows": [] } },
+    { "as": "carol", "command": "claim", "args": { "workItem": "$start.workItems[0]" }, "expect": { "error": { "code": "flow.not-candidate" } } },
+    { "as": "bob", "command": "claim", "args": { "workItem": "$start.workItems[0]" }, "expect": { "events": ["workItem.claimed"] } },
+    { "as": "carol", "command": "claim", "args": { "workItem": "$start.workItems[0]" }, "expect": { "error": { "code": "flow.already-claimed" } } },
+    { "id": "review", "as": "bob", "command": "complete",
+      "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "comment": "同意", "form": { "note": "预算内" } },
+      "expect": {
+        "closed": [{ "node": "review" }],
+        "workItems": [{ "node": "approve", "assignment": "direct", "assigneeId": "boss", "assigneeName": "总经理" }],
+        "instance": { "current": [{ "node": "approve", "name": "总经理审批" }] }
+      } },
+    { "as": "boss", "command": "complete", "args": { "workItem": "$review.workItems[0]", "outcome": "pass" },
+      "expect": { "instance": { "status": "completed", "result": "approved", "current": [] }, "workItems": [] } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": {
+        "form": { "title": "办公桌", "amount": "12000.00", "note": "预算内" },
+        "workItems": [
+          { "node": "review", "state": "done", "outcome": "pass", "comment": "同意", "completedBy": "bob", "completedByName": "周启航" },
+          { "node": "approve", "state": "done", "outcome": "pass", "completedBy": "boss" }
+        ]
+      } }
+  ]
+}

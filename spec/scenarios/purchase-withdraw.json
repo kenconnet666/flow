@@ -1,0 +1,23 @@
+{
+  "name": "采购：发起人在有人处理之前能撤回（待办取消）；有人处理之后不能；不是发起人不能",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": { "alice": { "name": "林小满" }, "bob": { "name": "周启航", "roles": ["finance"] } },
+  "steps": [
+    { "id": "first", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "500.00" } } },
+    { "as": "alice", "command": "withdraw", "args": { "instance": "$first.instance", "reason": "写错了" },
+      "expect": {
+        "instance": { "status": "withdrawn", "result": "withdrawn", "current": [] },
+        "closed": [{ "node": "review", "state": "open" }],
+        "events": ["workItem.canceled", "instance.withdrawn"]
+      } },
+    { "as": "bob", "command": "todo", "expect": { "total": 0 } },
+    { "id": "second", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00" } } },
+    { "as": "bob", "command": "withdraw", "args": { "instance": "$second.instance", "reason": "不是我发起的" },
+      "expect": { "error": { "code": "flow.forbidden" } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$second.workItems[0]", "outcome": "pass" } },
+    { "as": "alice", "command": "withdraw", "args": { "instance": "$second.instance", "reason": "晚了" },
+      "expect": { "error": { "code": "flow.forbidden" } } }
+  ]
+}

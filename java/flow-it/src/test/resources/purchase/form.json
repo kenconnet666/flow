@@ -1,5 +1,0 @@
-{
-  "title": { "label": "标题", "type": "text", "required": true },
-  "amount": { "label": "金额", "type": "decimal", "scale": 2, "required": true },
-  "note": { "label": "财务意见", "type": "text" }
-}

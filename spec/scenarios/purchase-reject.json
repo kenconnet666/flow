@@ -1,0 +1,16 @@
+{
+  "name": "采购：否决要写意见、结果要是节点上写的；写对了就按否决的出边走到否决的结束节点",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": { "alice": { "name": "林小满" }, "bob": { "name": "周启航", "roles": ["finance"] } },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "500.00" } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "reject" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "comment", "code": "required" }] } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "maybe" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "outcome", "code": "unknown-outcome" }] } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "reject", "comment": "预算不够" },
+      "expect": { "instance": { "status": "completed", "result": "rejected" } } }
+  ]
+}

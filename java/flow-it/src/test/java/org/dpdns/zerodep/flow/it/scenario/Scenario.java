@@ -1,0 +1,113 @@
+package org.dpdns.zerodep.flow.it.scenario;
+
+import org.dpdns.zerodep.flow.it.support.TestUser;
+import org.dpdns.zerodep.wire.Json;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
+/**
+ * 一个场景用例（spec/scenarios 下的一个文件，格式见那里的 README）：先发布的表单与流程、固定时钟、操作人、一串步骤。
+ *
+ * @param file      文件名（测试名里显示）
+ * @param name      一句话说明
+ * @param forms     先发布的表单
+ * @param processes 再发布的流程定义（JSON 文字）
+ * @param clock     固定时钟的时刻
+ * @param actors    名字 → 操作人
+ * @param steps     步骤
+ */
+record Scenario(String file, String name, List<FormFile> forms, List<String> processes, Instant clock, Map<String, TestUser> actors,
+                List<Step> steps) {
+    /** spec/scenarios 目录（测试的工作目录是 java/flow-it） */
+    static final Path DIR = Path.of("..", "..", "spec", "scenarios");
+
+    /**
+     * 一张要发布的表单（forms 下的文件）。
+     *
+     * @param key      表单标识
+     * @param name     名称
+     * @param manifest 字段清单的 JSON 文字
+     */
+    record FormFile(String key, String name, String manifest) { }
+
+    /**
+     * 一个步骤。
+     *
+     * @param id      给后面的步骤引用的名字；可以不写
+     * @param as      操作人的名字
+     * @param command 命令或查询
+     * @param args    参数（按命令不同，见 README）
+     * @param expect  期望；没写时只要求不出错
+     */
+    record Step(String id, String as, String command, Map<String, Object> args, Map<String, Object> expect) { }
+
+    /** 目录下的全部场景文件，按名字排序 */
+    static List<String> files() {
+        try (Stream<Path> paths = Files.list(DIR)) {
+            return paths.map(p -> p.getFileName().toString()).filter(n -> n.endsWith(".json")).sorted().toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** 读一个场景文件 */
+    static Scenario read(String file) {
+        Map<String, Object> tree = object(Json.read(text(DIR.resolve(file))), file);
+        List<FormFile> forms = new ArrayList<>();
+        for (Object path : list(tree.get("forms"))) {
+            Map<String, Object> form = object(Json.read(text(DIR.resolve((String) path))), (String) path);
+            forms.add(new FormFile((String) form.get("key"), (String) form.get("name"), Json.write(form.get("manifest"))));
+        }
+        List<String> processes = list(tree.get("processes")).stream().map(path -> text(DIR.resolve((String) path))).toList();
+        Map<String, TestUser> actors = new LinkedHashMap<>();
+        object(tree.get("actors"), "actors").forEach((id, value) -> actors.put(id, actor(id, object(value, id))));
+        List<Step> steps = new ArrayList<>();
+        for (Object step : list(tree.get("steps"))) {
+            Map<String, Object> s = object(step, "step");
+            steps.add(new Step((String) s.get("id"), (String) s.get("as"), (String) s.get("command"),
+                s.get("args") == null ? Map.of() : object(s.get("args"), "args"), s.get("expect") == null ? Map.of() : object(s.get("expect"), "expect")));
+        }
+        return new Scenario(file, (String) tree.get("name"), forms, processes, Instant.parse((String) tree.get("clock")), actors, steps);
+    }
+
+    private static TestUser actor(String id, Map<String, Object> fields) {
+        String name = fields.get("name") == null ? id : (String) fields.get("name");
+        return new TestUser(id, name, texts(fields.get("departments")), texts(fields.get("roles")));
+    }
+
+    private static LinkedHashSet<String> texts(Object value) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (Object item : list(value)) out.add((String) item);
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> object(Object value, String where) {
+        if (!(value instanceof Map<?, ?>)) throw new IllegalArgumentException(where + ": expected an object");
+        return (Map<String, Object>) value;
+    }
+
+    private static List<?> list(Object value) { return value == null ? List.of() : (List<?>) value; }
+
+    private static String text(Path path) {
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public String toString() { return file + "：" + name; }
+}

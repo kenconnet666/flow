@@ -181,6 +181,7 @@ flow/
 - 编号用测试用的 `IdStrategy`（按顺序发号），时钟用固定的 `Clock`：两个后端跑出来的结果逐字段可比——这也是"标准行为都能替换"的用处。
 - `"$.workItems[0]"` 引用前一步的结果；`expect` 只比写出来的字段。
 - Java 用 JUnit 的参数化测试、TS 用 `node:test` 逐个文件跑；新加一个场景只加一个 JSON 文件。
+- 落地（2026-10-26，③b）：格式细化后写在 [spec/scenarios/README.md](../../spec/scenarios/README.md)（先发布的表单与流程、步骤的 `id` 与 `$名字.路径` 引用、按线上 JSON 比较）；Java 的执行器在 `java/flow-it` 的 `scenario` 包。
 
 ## 雪花的机器号（已定，用户 2026-10-26 按推荐定）
 

@@ -1,0 +1,17 @@
+{
+  "name": "采购：同一个待办提交两次，第二次报已处理；实例结束后再提交报实例不在进行中",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": { "alice": { "name": "林小满" }, "bob": { "name": "周启航", "roles": ["finance"] } },
+  "steps": [
+    { "id": "large", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00" } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$large.workItems[0]", "outcome": "pass" } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$large.workItems[0]", "outcome": "pass" },
+      "expect": { "error": { "code": "flow.work-item-not-open" } } },
+    { "id": "small", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "500.00" } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$small.workItems[0]", "outcome": "pass" } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$small.workItems[0]", "outcome": "pass" },
+      "expect": { "error": { "code": "flow.instance-not-active" } } }
+  ]
+}
