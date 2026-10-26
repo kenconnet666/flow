@@ -122,7 +122,7 @@ export default defineFlowForm(fields, ({ form, context }) => {
 | `date` | `"2026-10-26"` | `min`、`max` | `date` |
 | `datetime` | 带 `Z` 的 ISO 8601（同 0001 的时间约定） | `min`、`max` | `date` |
 | `select` | 选项的值；`multiple` 时是数组 | `options`（字面量列表或 `{ source }`）、`multiple` | `select` |
-| `people` | `PeopleEntry` 的数组（同组件库的 `PeoplePicker`：带名字，回显不用再查） | `types`（user / department / position）、`max` | `select`（只比较 id）；可作为处理人来源（同 0002 §3"流程变量里的人"，取 `form.字段名`） |
+| `people` | `PeopleEntry` 的数组（同组件库的 `PeoplePicker`：带名字，回显不用再查） | `types`（user / department / role，加接入方扩展的种类）、`max` | `select`（只比较 id）；可作为处理人来源（同 0002 §3"流程变量里的人"，取 `form.字段名`） |
 | `file` | `{ id, name, size }` 的数组，文件本身由接入方存 | `accept`、`maxCount`、`maxSize` | 不参与 |
 | `list` | 对象的数组（明细行） | `fields`（一层，里面不能再有 `list`）、`minItems`、`maxItems` | 不参与（以后要时加"行数""某列合计"） |
 

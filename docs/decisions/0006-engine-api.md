@@ -23,15 +23,16 @@
 // Java：操作人由接入方定义，引擎只要求实现这个接口
 public interface Actor {
     String id();
-    Set<String> positions();     // 所在岗位：查"可认领"的待办
-    Set<String> departments();   // 所在部门
+    Set<String> departments();   // 所在部门：要让上级部门的待办也能被认领，就把上级部门一起返回
+    Set<String> roles();         // 拥有的角色
+    default Set<String> groups(String kind) { return Set.of(); }   // 接入方扩展的候选种类（岗位、项目组……）的归属
 }
 FlowEngine<U extends Actor> engine;     // U 是接入方自己的用户类型，扩展点里拿到的就是 U，不用强转
 ```
 
 ```ts
 // TS
-interface Actor { id: string; positions: readonly string[]; departments: readonly string[] }
+interface Actor { id: string; departments: readonly string[]; roles: readonly string[]; groups?(kind: string): readonly string[] }
 const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 ```
 
@@ -71,7 +72,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | `saveDraft` | `workItemId`、`form`、`comment` | 暂存，不提交 |
 | `transfer` | `workItemId`、`userId`、`reason` | 转办，自己不再参与 |
 | `delegate` / `confirmDelegation` | `workItemId`、`userId` | 委派；被委派的人处理完回到自己确认 |
-| `addSigners` / `removeSigners` | `workItemId`、`users`、`position`（`before` 前加签、`after` 后加签、`parallel` 并加） | 加签、减签 |
+| `addSigners` / `removeSigners` | `workItemId`、`users`、`mode`（`before` 前加签、`after` 后加签、`parallel` 并加） | 加签、减签 |
 | `withdrawStep` | `workItemId` | 处理人撤回刚处理的一步（下一步还没人处理时） |
 
 ### 3.4 管理员
@@ -96,7 +97,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 
 | 查询 | 返回 |
 | --- | --- |
-| `todo` | 我的待办：落到我的、我所在岗位可认领的、需要我指定的（`scope` 选） |
+| `todo` | 我的待办：落到我的、我的角色或部门可认领的、需要我指定的（`scope` 选） |
 | `done` | 我处理过的 |
 | `started` | 我发起的 |
 | `cc` | 抄送我的（带已读） |
@@ -132,8 +133,8 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | --- | --- | --- | --- |
 | 身份 | `ActorProvider<U>` | Spring 从 `SecurityContext` 取；Nuxt 无默认（接入方必须给） | 替换 |
 | | `PermissionPolicy<U>` | 每个命令、查询前判断能不能做；**默认全部放行**（0004 第 6 节的宽松原则） | 替换 |
-| | `ViewPolicy<U>` | 谁能看实例：参与过的、相关岗位、发起人 | 替换 |
-| 组织 | `OrgDirectory<U>` | 岗位、部门展开成人，人在不在某岗位，收件箱负责人（`inboxManager`）；**无默认**，接入方接自己的组织架构 | 替换 |
+| | `ViewPolicy<U>` | 谁能看实例：参与过的、相关的角色与部门、发起人 | 替换 |
+| 组织 | `OrgDirectory<U>` | 部门、角色（以及扩展的候选种类）展开成人，人在不在某部门、某角色，收件箱负责人（`inboxManager`）；**无默认**，接入方接自己的组织架构 | 替换 |
 | | `AssigneeResolver` | 0005 的 3.2 六种来源加"上一步选" | 注册解析器；或替换整个处理人解析 |
 | 业务 | `Guard`、`Action`、`ComputedValue` | — | 按名字注册（0005 的 5.1、4.1、6.1） |
 | | `FormHandler` | — | 表单后端代码（0004 的 1.5），在线编辑或在代码里注册 |

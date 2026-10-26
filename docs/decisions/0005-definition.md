@@ -56,7 +56,7 @@
 - `variables[].type` 用表单字段类型的一部分：`text`、`number`、`decimal`、`boolean`、`date`、`datetime`、`select`、`people`（0004 的 1.3）。
 - 没有表单的流程可以不写 `form`。
 - `title`：模板只做替换，不做计算；`people` 类型的值换成名字，其余按值原样。实例标题在发起时生成，之后表单改了标题字段，每次提交时重新生成（同 `summary`）。
-- `starters`：可用的来源是岗位、指定的人、部门、解析器（3.2 里的"发起人""同某节点"在发起时没有意义）。接入方的权限扩展点可以再收紧，引擎只按这份名单放行。
+- `starters`：可用的来源是角色、部门、指定的人、解析器（3.2 里的"发起人""同某节点"在发起时没有意义）。接入方的权限扩展点可以再收紧，引擎只按这份名单放行。
 - `key`、`version`、`name` 与表里的列重复：定义存成快照时自己能说明自己是哪个流程的哪一版，单独拿出来（导出、对比）也看得懂。
 
 ### 2.1 流程级设置
@@ -77,13 +77,13 @@
 ### 3.1 泳道
 
 ```jsonc
-{ "id": "finance", "name": "财务部", "inbox": { "position": "finance-review" } }
+{ "id": "finance", "name": "财务部", "inbox": { "role": "finance-review" } }
 ```
 
-- 泳道是流程图上的一行，通常对应一个岗位；`inbox` 是这一行里人工节点没写处理人时的默认去处（岗位收件箱）。
-- 旧契约的 `group` 改成 `inbox: { position }`，和组件库 `PeoplePicker` 的类型（user / department / position）对齐。
+- 泳道是流程图上的一行，通常对应一个角色；`inbox` 是这一行里人工节点没写处理人时的默认去处（角色收件箱）。
+- 旧契约的 `group` 改成 `inbox: { role }`。**标准的组织模型是用户、部门、角色**（加接入方自己的权限、菜单、按钮控制）；"岗位"不是标准名词，要用时绑定到角色，或扩展一种候选（3.2 的"扩展的种类"）（用户 2026-10-26）。
 - **收件箱的负责人**：无人认领时转负责人指定（5.3 的 `unclaimed`）、负责人指定承办人、处理改派申请（0002 §4），都要知道"这个收件箱的负责人是谁"。
-  写成 `inbox: { position, manager: 来源 }`（来源同 3.2）；不写 `manager` 时调接入方的扩展点 `inboxManager(岗位)`。
+  写成 `inbox: { role, manager: 来源 }`（来源同 3.2）；不写 `manager` 时调接入方的扩展点 `inboxManager(角色)`。
 
 ### 3.2 处理人
 
@@ -91,15 +91,16 @@
 
 | 来源 | 写法 | 落到哪 |
 | --- | --- | --- |
-| 岗位收件箱 | `{ "position": "finance-review" }`，或 `{ "position": { "ref": "form.reviewPosition" } }` | 岗位里的人认领，先认领先得 |
+| 角色收件箱 | `{ "role": "finance-review" }`，或 `{ "role": { "ref": "form.reviewRole" } }` | 有这个角色的人认领，先认领先得 |
 | 指定的人 | `{ "user": "u1001" }`，或 `{ "user": { "ref": "form.buyer" } }` | 直接落到人；`people` 类型的值里有几个人就是几个候选 |
-| 部门 | `{ "department": "d20" }` | 部门里的人认领（怎么展开由接入方的解析器定） |
+| 部门 | `{ "department": "d20" }` | 部门下面的人认领（含不含下级部门由 `OrgDirectory` 与 `Actor.departments()` 定，0006 第 2 节） |
 | 发起人 | `{ "initiator": true }` | 发起人 |
 | 同某节点 | `{ "sameAs": "check" }` | 那个节点最后的处理人 |
-| 解析器 | `{ "resolver": "deptLeader", "args": { "level": 2 } }` | 接入方注册的扩展点：部门负责人、上级第 N 级、角色…… |
+| 解析器 | `{ "resolver": "deptLeader", "args": { "level": 2 } }` | 接入方注册的扩展点：部门负责人、上级第 N 级…… |
+| 扩展的种类 | `{ "group": "position", "id": "p1" }` | 接入方注册的候选种类（岗位、项目组……）：有这个归属的人认领；操作人的归属由 `Actor.groups(种类)` 给出（0006 第 2 节） |
 | 上一步选 | `{ "pick": { "from": [来源…], "max": 1 } }` | 上一步的处理人提交时选（5.6，2026-10-26 随第 5 节补入） |
 
-- 解析出来只有一个人：直接落到他；多于一个人或含岗位、部门：进收件箱，候选人认领。
+- 解析出来只有一个人：直接落到他；多于一个人，或含角色、部门、扩展的种类：进收件箱，候选人认领。
 - 解析为空时按 `emptyAssignee`。
 - 不写 `assignees` 时用所在泳道的 `inbox`；两者都没有时发布校验报错。
 
@@ -108,7 +109,7 @@
 - **`assignees` 与会签分开**：`assignees` 是"谁能处理这一个待办"，几个候选里一个人办完就算完；要"每人各办一份"用会签 `multi.participants`（5.2）。
   所以 `{ "user": { "ref": "form.reviewers" } }` 里有三个人时，是三个候选抢一个待办，不是三个人各审一遍。
 - **到达时解析一次**：流程走到这个节点时解析出候选，写进待办的候选表（0001 的 `flow_candidate`）；之后组织架构变了，已经生成的待办不跟着变。要改由管理员改处理人（0002 §6），或负责人指定。
-- **解析器的约定**：接入方注册 `resolve(名字, args, 上下文)`，返回人员、部门、岗位的列表（同组件库 `PeopleEntry` 的 `{ type, id }`）；上下文里有实例、表单的值、流程变量、发起人。两个后端各实现一份同名的解析器。
+- **解析器的约定**：接入方注册 `resolve(名字, args, 上下文)`，返回用户、部门、角色（或扩展种类）的列表（同组件库 `PeopleEntry` 的 `{ type, id }`）；上下文里有实例、表单的值、流程变量、发起人。两个后端各实现一份同名的解析器。
 - **外部参与方**（供应方的账号，0002 §3）：不另设来源，用解析器（`{ "resolver": "supplierAccount", "args": { "supplier": { "ref": "form.supplier" } } }`）返回外部账号；主账号与子账号能做什么由操作拦截判断。
 - **被排除的人**（退回过收件箱，不能再认领同一条，0002 §4）：运行时写进候选表，不在定义里。
 
@@ -171,7 +172,7 @@
 ```jsonc
 {
   "id": "review", "type": "task", "name": "财务复核", "lane": "finance",
-  "assignees": [{ "position": "finance-review" }],
+  "assignees": [{ "role": "finance-review" }],
   "outcomes": [
     { "key": "pass", "label": "通过" },
     { "key": "back", "label": "退回修改", "kind": "return", "comment": "required" },
@@ -232,7 +233,7 @@
 | `due` | `{ "workdays": n }`、`{ "days": n }`、`{ "hours": n }`、`{ "until": { "ref": "form.deadline" } }`；工作日按流程的 `calendar` |
 | `reminders` | `{ "before": 时长 }`（到期前提醒）、`{ "every": 时长, "times": n }`（超时后每隔多久，最多几次） |
 | `overdue` | `{ "action": "complete", "outcome": "pass" }`（视为无异议）、`{ "action": "escalate" }`（走这个节点的提级出边）、`{ "action": "mark" }`（只标红，默认） |
-| `unclaimed` | 进收件箱后多久没人认领：`{ "after": 时长, "action": "assignByManager" }`（转岗位负责人指定）或 `"remind"` |
+| `unclaimed` | 进收件箱后多久没人认领：`{ "after": 时长, "action": "assignByManager" }`（转收件箱负责人指定）或 `"remind"` |
 
 都由 `flow_job` 承载（0001）。
 
@@ -251,7 +252,7 @@
 很多审批里"下一步谁来办"由这一步的处理人在提交时选（审批面板的"选择下一处理人"，frontend.md §3.3）。写在**下一步**节点的处理人来源里：
 
 ```jsonc
-"assignees": [{ "pick": { "from": [{ "position": "finance-review" }], "max": 1 } }]
+"assignees": [{ "pick": { "from": [{ "role": "finance-review" }], "max": 1 } }]
 ```
 
 - 上一步提交时，审批面板列出 `from` 解析出的人让他选（`from` 不写时可以选任何人，人员选择器的数据由接入方给）；选的结果就是这个节点的处理人。
@@ -272,7 +273,7 @@
 | `outcome` | 起点按结果分出边时（第 4 节），哪个结果走这条；不写时任何结果都可以走（再看 `when`） |
 | `when` | 条件树：组件库 `Condition` 的 14 种比较方式；比较的 `field` 可以是表单字段、流程变量、引擎值，以及接入方注册的计算值 `fn.名字`（6.1） |
 | `default` | 排他、包容网关的默认出边 |
-| `kind` | `return`、`escalate`：流程图的画法，以及目标节点怎样分配处理人（退回落原处理人，提级进上级岗位的收件箱） |
+| `kind` | `return`、`escalate`：流程图的画法，以及目标节点怎样分配处理人（退回落原处理人，提级进目标节点的收件箱） |
 | `effects` | 走这条线时改流程变量：`{ "set": "team", "value": 值或引用 }`、`{ "increment": "negotiationRound", "by": 1 }` |
 | `label` | 流程图上的文字；不写时用处理结果的名字 |
 
