@@ -14,6 +14,7 @@ import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -24,7 +25,8 @@ import java.util.Map;
  *   <li>核对处理结果与意见：结果要是节点上写的一个，意见必填的要填；</li>
  *   <li>收表单：只取这个节点上能改的字段，其余用存着的值；</li>
  *   <li>待办改成"已处理"（带条件的更新，改到 0 行就是别人先处理了）；</li>
- *   <li>按结果的种类往下走：同意、否决按出边流转，终止直接结束实例；</li>
+ *   <li>往下走：会签节点先看结束了没有（{@link Countersign}：还要等别人、轮到下一个人、或按某个结果结束）；
+ *       节点结束了按结果的种类往下：同意、否决、退回、提级按出边流转，终止直接结束实例；</li>
  *   <li>重算标题与摘要列，写回。</li>
  * </ol>
  */
@@ -80,21 +82,45 @@ public final class CompleteHandler {
             Map<String, Object> data = outcome == null ? Map.of() : Map.of(FlowEvent.OUTCOME_LABEL, outcome.label());
             run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), command.comment(), data);
 
-            // 6. 往下走
-            String kind = outcome == null ? "approve" : outcome.kindOrDefault();
-            switch (kind) {
-                // 同意：被退回过、退回它的节点要求直接回去时直接回去，否则照常往下（Execution.proceed）
-                case "approve" -> run.proceed(task.id(), outcomeKey);
-                // 否决、退回、提级：按结果选线（退回、提级的线带 kind，Execution.leave 按它分配处理人）
-                case "reject", "return", "escalate" -> run.leave(task.id(), outcomeKey);
-                case "terminate" -> run.finish(ProcessInstance.TERMINATED, outcome.result(), FlowEvent.INSTANCE_TERMINATED, command.comment());
-                default -> throw new UnsupportedOperationException("outcome kind '" + kind + "' is not supported");
+            // 6. 往下走：会签节点先看结束了没有
+            Outcome chosen = outcome != null ? outcome : implicitApprove(outcomeKey);
+            if (task.multi() == null) {
+                goOn(run, task, chosen, command.comment());
+            } else {
+                List<WorkItem> round = context.stores().workItems().ofInstance(instance.id()).stream()
+                    .filter(i -> i.node().equals(task.id()) && i.round() == item.round()).toList();
+                Countersign.Decision decision = Countersign.decide(task.multi(), chosen, round, run.instance().state().queue(task.id()).size());
+                if (decision instanceof Countersign.Decision.Next) {
+                    run.nextSigner(task, round.size() + 1);
+                } else if (decision instanceof Countersign.Decision.Finish finish) {
+                    run.closeCountersign(task);
+                    goOn(run, task, chosenOutcome(task, finish.outcome()), command.comment());
+                }
+                // Wait：还要等别人，这一步只记下这个人的处理
             }
 
             // 7. 写回
             run.flush(null);
             return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
         });
+    }
+
+    /**
+     * 节点按这个结果往下走：同意时被退回过、退回它的节点要求直接回去就直接回去，否则照常往下（Execution.proceed）；
+     * 否决、退回、提级按结果选线（退回、提级的线带 kind，Execution.leave 按它分配处理人）；终止直接结束实例。
+     */
+    private static void goOn(Execution run, ProcessNode.Task task, Outcome outcome, String comment) {
+        switch (outcome.kindOrDefault()) {
+            case "approve" -> run.proceed(task.id(), outcome.key());
+            case "reject", "return", "escalate" -> run.leave(task.id(), outcome.key());
+            case "terminate" -> run.finish(ProcessInstance.TERMINATED, outcome.result(), FlowEvent.INSTANCE_TERMINATED, comment);
+            default -> throw new UnsupportedOperationException("outcome kind '" + outcome.kindOrDefault() + "' is not supported");
+        }
+    }
+
+    /** 节点没写处理结果时，提交的结果当作一个"同意"（按没写结果的出边走） */
+    private static Outcome implicitApprove(String key) {
+        return new Outcome(key, key, null, null, null, false, List.of(), false, null, null);
     }
 
     /** 选的结果：节点写了结果时必须是其中一个；节点没写结果时为 null（按没写结果的出边走） */

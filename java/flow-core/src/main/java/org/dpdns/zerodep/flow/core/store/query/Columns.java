@@ -50,13 +50,23 @@ public final class Columns {
     public static final class RunStateJson implements Converter<RunState, String> {
         @Override
         public String toDatabase(RunState value) {
-            return value == null ? null : Json.write(Map.of("rounds", value.rounds(), "waiting", value.waiting(), "returns", value.returns()));
+            return value == null ? null
+                : Json.write(Map.of("rounds", value.rounds(), "waiting", value.waiting(), "returns", value.returns(), "queues", value.queues()));
         }
 
         @Override
         public RunState fromDatabase(String value) {
             Map<String, Object> json = object(value);
-            return new RunState(counts(json.get("rounds")), counts(json.get("waiting")), names(json.get("returns")));
+            return new RunState(counts(json.get("rounds")), counts(json.get("waiting")), names(json.get("returns")), queues(json.get("queues")));
+        }
+
+        /** 节点 → 一串用户编号 */
+        private static Map<String, List<Long>> queues(Object stored) {
+            Map<String, List<Long>> out = new LinkedHashMap<>();
+            if (stored instanceof Map<?, ?> map) {
+                map.forEach((node, ids) -> out.put((String) node, ((List<?>) ids).stream().map(id -> ((Number) id).longValue()).toList()));
+            }
+            return out;
         }
 
         /** 节点 → 节点 */

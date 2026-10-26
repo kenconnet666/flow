@@ -64,6 +64,10 @@ export interface WorkItem {
   readonly nodeName: string | null;
   /** 这个节点第几轮 */
   readonly round: number;
+  /** 会签时是第几个参与人（依次会签按它的先后）；不是会签时为 null */
+  readonly signSeq: number | null;
+  /** 票签的权重；不是票签时为 null */
+  readonly weight: number | null;
   readonly state: WorkItemState;
   readonly assignment: WorkItemAssignment;
   /** 怎样来的：start、forward…… */

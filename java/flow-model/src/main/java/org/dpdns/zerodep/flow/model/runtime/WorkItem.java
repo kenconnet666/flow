@@ -12,6 +12,8 @@ import java.time.Instant;
  * @param node         节点
  * @param nodeName     节点名称（快照）
  * @param round        这个节点第几轮
+ * @param signSeq      会签时是第几个参与人（依次会签按它的先后）；不是会签时为 null
+ * @param weight       票签的权重；不是票签时为 null
  * @param state        {@code open}、{@code done}、{@code canceled}
  * @param assignment   {@code pool}（收件箱里等认领）、{@code claimed}、{@code direct}
  * @param arrival      怎样来的：{@code start}、{@code forward}……
@@ -29,6 +31,7 @@ import java.time.Instant;
  * @param completedAt  处理时间
  */
 public record WorkItem(Long id, Long instanceId, String processKey, int priority, String node, String nodeName, int round,
+                       Integer signSeq, Integer weight,
                        String state, String assignment, String arrival, String inboxKind, Long inboxId, Long assigneeId,
                        String assigneeName, Instant createdAt, Instant claimedAt, Instant dueAt, String outcome, String comment,
                        Long completedBy, String completedByName, Instant completedAt) {

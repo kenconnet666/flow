@@ -1,0 +1,325 @@
+{
+  "name": "会签（0005 的 5.2）：全部同意时有人不同意立即结束；依次一个接一个；或签第一个人说了算；按比例、按票数先达到的结果为准",
+  "forms": [],
+  "processes": [
+    "processes/sign-all.json",
+    "processes/sign-sequential.json",
+    "processes/sign-any.json",
+    "processes/sign-ratio.json",
+    "processes/sign-votes.json"
+  ],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": {
+      "id": 1001,
+      "name": "林小满"
+    },
+    "bob": {
+      "id": 1002,
+      "name": "周启航"
+    },
+    "boss": {
+      "id": 1004,
+      "name": "总经理"
+    }
+  },
+  "steps": [
+    {
+      "id": "all",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "sign-all"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "assigneeId": "1001",
+            "signSeq": 1,
+            "weight": null
+          },
+          {
+            "assigneeId": "1002",
+            "signSeq": 2
+          },
+          {
+            "assigneeId": "1004",
+            "signSeq": 3
+          }
+        ]
+      }
+    },
+    {
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$all.workItems[0]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "active"
+        },
+        "closed": [
+          {
+            "assigneeId": "1001"
+          }
+        ],
+        "workItems": []
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$all.workItems[1]",
+        "outcome": "disagree"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "rejected"
+        },
+        "closed": [
+          {
+            "assigneeId": "1002"
+          },
+          {
+            "assigneeId": "1004",
+            "state": "open"
+          }
+        ]
+      }
+    },
+    {
+      "id": "seq",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "sign-sequential"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "assigneeId": "1001",
+            "signSeq": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "seq2",
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$seq.workItems[0]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "assigneeId": "1002",
+            "signSeq": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "seq3",
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$seq2.workItems[0]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "assigneeId": "1004",
+            "signSeq": 3
+          }
+        ]
+      }
+    },
+    {
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$seq3.workItems[0]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        }
+      }
+    },
+    {
+      "id": "any",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "sign-any"
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$any.workItems[1]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        },
+        "closed": [
+          {
+            "assigneeId": "1002"
+          },
+          {
+            "assigneeId": "1001",
+            "state": "open"
+          },
+          {
+            "assigneeId": "1004",
+            "state": "open"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ratio",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "sign-ratio"
+      }
+    },
+    {
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$ratio.workItems[0]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "active"
+        }
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$ratio.workItems[1]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        }
+      }
+    },
+    {
+      "id": "ratioNo",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "sign-ratio"
+      }
+    },
+    {
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$ratioNo.workItems[0]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "active"
+        }
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$ratioNo.workItems[1]",
+        "outcome": "disagree"
+      },
+      "expect": {
+        "instance": {
+          "status": "active"
+        }
+      }
+    },
+    {
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$ratioNo.workItems[2]",
+        "outcome": "disagree"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "rejected"
+        }
+      }
+    },
+    {
+      "id": "votes",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "sign-votes"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 1
+          },
+          {
+            "weight": 2
+          }
+        ]
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$votes.workItems[1]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "active"
+        }
+      }
+    },
+    {
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$votes.workItems[2]",
+        "outcome": "agree"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        }
+      }
+    }
+  ]
+}

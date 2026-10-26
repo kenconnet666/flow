@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
@@ -9,7 +10,9 @@ import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.definition.Ref;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -27,8 +30,54 @@ import java.util.function.Function;
  */
 final class AssigneeResolver {
     private final WorkItemStore workItems;
+    private final OrgDirectory org;
 
-    AssigneeResolver(WorkItemStore workItems) { this.workItems = workItems; }
+    AssigneeResolver(WorkItemStore workItems, OrgDirectory org) {
+        this.workItems = workItems;
+        this.org = org;
+    }
+
+    /**
+     * 会签的一个参与人（0005 的 5.2）。
+     *
+     * @param user   用户
+     * @param weight 票签的权重：写在指定的人上（{@code { "user": 1001, "weight": 2 }}），其余是 1
+     */
+    record Participant(Long user, int weight) { }
+
+    /**
+     * 会签的参与人：来源列表里的人、角色与部门下的人（{@link OrgDirectory#members} 展开），或引用的 people 值；
+     * 同一个人只算一次（先出现的为准），保持先后。
+     */
+    List<Participant> participants(ProcessNode.Task task, InstanceRecord instance, Function<String, Object> read) {
+        Map<Long, Participant> out = new LinkedHashMap<>();
+        if (task.multi().participants() instanceof Ref ref) {
+            for (Long id : OrgIds.all(read.apply(ref.ref()))) out.putIfAbsent(id, new Participant(id, 1));
+            return List.copyOf(out.values());
+        }
+        for (AssigneeSource source : task.multi().participantSources()) {
+            if (source instanceof AssigneeSource.User user) {
+                int weight = user.weight() == null ? 1 : user.weight();
+                for (Long id : OrgIds.all(valueOf(user.user(), read))) out.putIfAbsent(id, new Participant(id, weight));
+            } else if (source instanceof AssigneeSource.Role role) {
+                for (Long id : OrgIds.all(valueOf(role.role(), read))) addMembers(out, Candidate.ROLE, id);
+            } else if (source instanceof AssigneeSource.Department dept) {
+                for (Long id : OrgIds.all(valueOf(dept.department(), read))) addMembers(out, Candidate.DEPARTMENT, id);
+            } else if (source instanceof AssigneeSource.Initiator) {
+                out.putIfAbsent(instance.startedBy(), new Participant(instance.startedBy(), 1));
+            } else if (source instanceof AssigneeSource.SameAs same) {
+                workItems.lastCompletedBy(instance.id(), same.node()).ifPresent(id -> out.putIfAbsent(id, new Participant(id, 1)));
+            } else {
+                throw new UnsupportedOperationException("countersign participant source " + source.getClass().getSimpleName() + " is not supported yet");
+            }
+        }
+        return List.copyOf(out.values());
+    }
+
+    /** 角色、部门下的人都加进来 */
+    private void addMembers(Map<Long, Participant> out, String kind, Long id) {
+        for (Long member : org.members(kind, id)) out.putIfAbsent(member, new Participant(member, 1));
+    }
 
     /**
      * 解析一个人工节点的处理人。

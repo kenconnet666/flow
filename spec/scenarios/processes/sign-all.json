@@ -1,0 +1,78 @@
+{
+  "key": "sign-all",
+  "name": "会签：全部同意",
+  "title": "会签：全部同意",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "提交"
+    },
+    {
+      "id": "sign",
+      "type": "task",
+      "name": "会签",
+      "assignees": [
+        {
+          "initiator": true
+        }
+      ],
+      "multi": {
+        "participants": [
+          {
+            "user": 1001
+          },
+          {
+            "user": 1002
+          },
+          {
+            "user": 1004
+          }
+        ],
+        "complete": "all"
+      },
+      "outcomes": [
+        {
+          "key": "agree",
+          "label": "同意"
+        },
+        {
+          "key": "disagree",
+          "label": "不同意",
+          "kind": "reject"
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "type": "end",
+      "name": "通过",
+      "result": "approved"
+    },
+    {
+      "id": "rejected",
+      "type": "end",
+      "name": "不通过",
+      "result": "rejected"
+    }
+  ],
+  "edges": [
+    {
+      "id": "s",
+      "from": "start",
+      "to": "sign"
+    },
+    {
+      "id": "yes",
+      "from": "sign",
+      "to": "done",
+      "outcome": "agree"
+    },
+    {
+      "id": "no",
+      "from": "sign",
+      "to": "rejected",
+      "outcome": "disagree"
+    }
+  ]
+}

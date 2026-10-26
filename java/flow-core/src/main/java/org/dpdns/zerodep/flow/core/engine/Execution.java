@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
@@ -44,7 +45,7 @@ import java.util.Map;
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>现在有：开始、结束、人工节点（不含会签）、排他网关、并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
+ * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2）、排他网关、并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
  */
@@ -79,7 +80,7 @@ final class Execution {
      */
     Execution(EngineContext context, Actor actor, Instant now, LoadedDefinition definition, InstanceRecord instance, FormValues form, int rev) {
         this.context = context;
-        this.assignees = new AssigneeResolver(context.stores().workItems());
+        this.assignees = new AssigneeResolver(context.stores().workItems(), context.org());
         this.actor = actor;
         this.now = now;
         this.graph = definition.graph();
@@ -212,14 +213,65 @@ final class Execution {
      * 否则进收件箱（{@code pool}），人和角色、部门都存成候选，谁先认领谁办。
      */
     private void arriveAtTask(ProcessNode.Task task, String arrival) {
-        if (task.multi() != null) throw new UnsupportedOperationException("multi-instance tasks (" + task.id() + ") are not supported yet");
         instance = instance.withState(instance.state().enter(task.id()));
-
+        if (task.multi() != null) {
+            arriveAtCountersign(task, arrival);
+            return;
+        }
         Assignees who = assigneesFor(task, arrival);
         if (who.isEmpty()) {
             handleEmptyAssignee(task);
             return;
         }
+        createWorkItem(task, arrival, who, null, null);
+    }
+
+    /**
+     * 到达会签节点：每个参与人一份待办（直接落到人）；依次会签只给第一个人，其余排队（{@link RunState#queue}），
+     * 前一个人同意后轮到下一个（{@link #nextSigner}）。
+     */
+    private void arriveAtCountersign(ProcessNode.Task task, String arrival) {
+        List<AssigneeResolver.Participant> participants = assignees.participants(task, instance, this::read);
+        if (participants.isEmpty()) {
+            handleEmptyAssignee(task);
+            return;
+        }
+        boolean sequential = "sequential".equals(task.multi().complete());
+        boolean weighted = "votes".equals(task.multi().complete());
+        List<AssigneeResolver.Participant> first = sequential ? participants.subList(0, 1) : participants;
+        for (int i = 0; i < first.size(); i++) {
+            AssigneeResolver.Participant p = first.get(i);
+            createWorkItem(task, arrival, Assignees.of(p.user()), i + 1, weighted ? p.weight() : null);
+        }
+        if (sequential) {
+            List<Long> rest = participants.subList(1, participants.size()).stream().map(AssigneeResolver.Participant::user).toList();
+            instance = instance.withState(instance.state().queue(task.id(), rest));
+        }
+    }
+
+    /** 依次会签：轮到排队的下一个人（前一个人同意了） */
+    void nextSigner(ProcessNode.Task task, int seq) {
+        List<Long> queue = instance.state().queue(task.id());
+        instance = instance.withState(instance.state().queue(task.id(), queue.subList(1, queue.size())));
+        createWorkItem(task, "forward", Assignees.of(queue.get(0)), seq, null);
+    }
+
+    /** 会签节点结束了：其余还开着的待办取消，排队的人也不用再等 */
+    void closeCountersign(ProcessNode.Task task) {
+        instance = instance.withState(instance.state().queue(task.id(), List.of()));
+        for (WorkItem item : context.stores().workItems().cancelOpenAt(instance.id(), List.of(task.id()), now)) {
+            closed.add(item);
+            addEvent(FlowEvent.WORK_ITEM_CANCELED, task, null, null, item.id(), null);
+        }
+    }
+
+    /**
+     * 生成一个待办：只有一个人、没有收件箱时直接落到他；否则进收件箱（{@code pool}），人和角色、部门都存成候选，谁先认领谁办。
+     *
+     * @param signSeq 会签时是第几个参与人；不是会签时为 null
+     * @param weight  票签的权重；不是票签时为 null
+     */
+    private void createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight) {
         Long assigneeId = who.isDirect() ? who.directUser() : null;
         String assigneeName = assigneeId == null ? null : context.org().userName(assigneeId);
         String assignment = assigneeId != null ? WorkItem.DIRECT : WorkItem.POOL;
@@ -227,7 +279,7 @@ final class Execution {
         int round = instance.state().round(task.id());
 
         WorkItem draft = new WorkItem(null, instance.id(), instance.processKey(), instance.priority(), task.id(), task.name(), round,
-            WorkItem.OPEN, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.targetId(),
+            signSeq, weight, WorkItem.OPEN, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.targetId(),
             assigneeId, assigneeName, now,
             null, null, null, null, null, null, null);   // 认领时间、截止时间、处理结果、意见、处理人、处理人名字、处理时间：都还没有
         WorkItem item = context.stores().workItems().insert(draft, assigneeId != null ? List.of() : who.candidates());

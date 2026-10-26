@@ -149,6 +149,8 @@ final class FlowTables {
         @Column("assignment") ColText<String> assignment();
         @Column("arrival") ColText<String> arrival();
         @Column("inbox_kind") ColText<String> inboxKind();
+        @Column("sign_seq") ColInteger<Integer> signSeq();
+        @Column("weight") ColInteger<Integer> weight();
         @Column("inbox_id") ColBigint<Long> inboxId();
         @Column("assignee_id") ColBigint<Long> assigneeId();
         @Column("assignee_name") ColText<String> assigneeName();
