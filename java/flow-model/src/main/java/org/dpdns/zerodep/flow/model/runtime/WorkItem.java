@@ -46,4 +46,9 @@ public record WorkItem(Long id, Long instanceId, String processKey, int priority
     /** 直接落到人 */
     public static final String DIRECT = "direct";
 
+    /** 换上数据库给的编号（插入之后） */
+    public WorkItem withId(Long newId) {
+        return new WorkItem(newId, instanceId, processKey, priority, node, nodeName, round, state, assignment, arrival, inboxKind, inboxId,
+            assigneeId, assigneeName, createdAt, claimedAt, dueAt, outcome, comment, completedBy, completedByName, completedAt);
+    }
 }

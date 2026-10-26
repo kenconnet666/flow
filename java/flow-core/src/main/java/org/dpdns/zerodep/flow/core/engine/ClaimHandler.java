@@ -37,7 +37,7 @@ public final class ClaimHandler {
 
             Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance).graph(), instance,
                 FormValues.empty(), instance.rev());
-            run.record(FlowEvent.WORK_ITEM_CLAIMED, run.graph().node(item.node()), null, null, item.id(), null);
+            run.addEvent(FlowEvent.WORK_ITEM_CLAIMED, run.graph().node(item.node()), null, null, item.id(), null);
             context.stores().events().append(run.events);
             return new CommandResult(instance.view(), List.of(), List.of(), run.events);
         });

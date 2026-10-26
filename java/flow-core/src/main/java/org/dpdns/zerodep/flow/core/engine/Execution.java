@@ -5,14 +5,10 @@ import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
-import org.dpdns.zerodep.flow.model.Values;
-import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
-import org.dpdns.zerodep.flow.model.definition.Lane;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.definition.Ref;
 import org.dpdns.zerodep.flow.model.definition.Routing;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
@@ -23,32 +19,34 @@ import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * 一个命令里对一个实例的推进。命令的处理类在事务里创建它，调用 {@link #leave} 等方法让实例往前走，最后 {@link #flush} 一次写回。
- * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和写的流转记录（{@link #events}），作为命令的结果返回。
- * <p>节点的行为按 docs/decisions/0005：
- * <ul>
- *   <li>人工节点：轮次加一，解析处理人，生成一个待办，停下等人处理；</li>
- *   <li>排他网关：按条件选一条线，接着走；</li>
- *   <li>结束节点：结束实例，取消还开着的待办。</li>
- * </ul>
- * 连线上的副作用改流程变量（0005 第 6 节）。这一版走通最小链路：开始、结束、人工节点（不含会签）、排他网关，
- * 处理人来源是指定的人、角色、部门、发起人、同某节点。其余节点类型与来源在两个后端按场景补齐，遇到时报"还不支持"。
+ * 一个命令里对一个实例的推进：让实例从某个节点往前走，直到停在人工节点（等人处理）或走到结束。
+ * <pre>
+ *   命令的处理类（StartHandler、CompleteHandler……）
+ *     │  锁住实例、核对参数、收表单
+ *     ▼
+ *   leave(节点, 结果) ──► 按结果与条件选一条线（Routing.selectEdges）
+ *                         线上的副作用改流程变量
+ *                         enter(下一个节点)
+ *                           ├─ 人工节点：轮次加一，解析处理人，生成待办 ──► 停下，等人处理
+ *                           ├─ 排他网关：leave(网关) ──► 接着走
+ *                           └─ 结束节点：finish（取消还开着的待办）──► 停下
+ *     │
+ *     ▼
+ *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
+ * </pre>
+ * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
+ * <p>这一版走通最小链路：开始、结束、人工节点（不含会签）、排他网关。其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
  */
 final class Execution {
     /** 一次推进最多经过多少个节点：网关绕成圈、条件永远成立时停下来报错，而不是一直走 */
     private static final int MAX_STEPS = 1000;
-    /** 标题模板里的占位：{form.title} */
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{([^{}]+)\\}");
 
     private final EngineContext context;
+    private final AssigneeResolver assignees;
     private final Actor actor;
     private final Instant now;
     private final ProcessGraph graph;
@@ -61,7 +59,7 @@ final class Execution {
     final List<WorkItem> created = new ArrayList<>();
     /** 这次结束的待办（处理完的、取消的），是结束前的样子 */
     final List<WorkItem> closed = new ArrayList<>();
-    /** 这次写的流转记录 */
+    /** 这次的流转记录；{@link #flush} 之后带上数据库给的编号 */
     final List<FlowEvent> events = new ArrayList<>();
 
     /**
@@ -69,10 +67,11 @@ final class Execution {
      * @param graph    实例按的那个版本的图
      * @param instance 实例当前的样子
      * @param form     实例当前的表单值
-     * @param rev      实例锁住后的版本：这一步写的流转记录都带它，排出准确的先后
+     * @param rev      实例锁住后的版本：这一步的流转记录都带它，同一实例的记录按它排出准确的先后
      */
     Execution(EngineContext context, Actor actor, Instant now, ProcessGraph graph, InstanceRecord instance, FormValues form, int rev) {
         this.context = context;
+        this.assignees = new AssigneeResolver(context.stores().workItems());
         this.actor = actor;
         this.now = now;
         this.graph = graph;
@@ -87,7 +86,7 @@ final class Execution {
     /** 表单现在的值 */
     FormValues form() { return form; }
 
-    /** 换上新的表单值（收了表单之后） */
+    /** 换上新的表单值（处理类收了表单之后） */
     void form(FormValues next) { this.form = next; }
 
     /** 实例按的那个版本的图 */
@@ -96,8 +95,13 @@ final class Execution {
     // ───────── 取值：{ ref } ─────────
 
     /**
-     * 按引用的名字取值（0005 的 {@code { ref }}）：{@code form.} 是表单字段，{@code sys.} 是引擎给的（发起人、轮次……），
-     * 其余是流程变量。连线条件、处理人、标题模板都经过这里取值。
+     * 按引用的名字取值（0005 的 {@code { ref }}）。连线条件、处理人、标题模板、字段的显示条件都经过这里取值：
+     * <pre>
+     *   form.amount        表单字段
+     *   sys.initiator      引擎给的：发起人、发起时间、实例编号、业务编号
+     *   sys.round.review   某个节点到过几轮
+     *   negotiationRound   其余是流程变量
+     * </pre>
      */
     Object read(String name) {
         if (name.startsWith("form.")) return form.get(name.substring("form.".length()));
@@ -118,22 +122,17 @@ final class Execution {
         };
     }
 
-    /** 定义里写的值：直接写的值原样，引用（{@link Ref}）去取 */
-    private Object valueOf(Object literalOrRef) {
-        return literalOrRef instanceof Ref ref ? read(ref.ref()) : literalOrRef;
-    }
-
     // ───────── 推进 ─────────
 
     /**
-     * 离开一个节点：按结果与条件选出一条线（{@link Routing#selectEdges}），应用线上的副作用，进入下一个节点。
+     * 离开一个节点：按结果与条件选出一条线，应用线上的副作用，进入下一个节点。
      *
      * @param outcome 节点的处理结果；网关、开始节点传 null
      */
     void leave(String nodeId, String outcome) {
         List<ProcessEdge> edges = Routing.selectEdges(graph, nodeId, outcome, this::read);
         if (edges.isEmpty()) {
-            // 发布时的校验保证每个结果都有出边；走到这里是条件都不成立又没有默认边
+            // 发布时的校验保证每个结果都有出边；走到这里是条件都不成立、又没有默认边
             throw new FlowException(FlowErrorCode.DEFINITION_INVALID, "no edge leaves " + nodeId + " for outcome " + outcome,
                 List.of(ErrorDetail.node(nodeId, "no-edge-selected")));
         }
@@ -141,21 +140,22 @@ final class Execution {
             throw new UnsupportedOperationException("leaving " + nodeId + " on several edges (parallel branches) is not supported yet");
         }
         ProcessEdge edge = edges.get(0);
-        record(FlowEvent.NODE_LEFT, graph.node(nodeId), edge.id(), outcome, null, null);
+        addEvent(FlowEvent.NODE_LEFT, graph.node(nodeId), edge.id(), outcome, null, null);
         if (!edge.effects().isEmpty()) {
-            Map<String, Object> next = Routing.applyEffects(edge.effects(), instance.variables().asMap(), this::read);
-            instance = instance.withVariables(Variables.of(next));
+            Map<String, Object> changed = Routing.applyEffects(edge.effects(), instance.variables().asMap(), this::read);
+            instance = instance.withVariables(Variables.of(changed));
         }
-        enter(edge.to(), nodeId);
+        // 从开始节点出来的待办是"发起"来的，其余是"流转"来的（待办的 arrival）
+        enter(edge.to(), graph.start().id().equals(nodeId) ? "start" : "forward");
     }
 
     /** 进入一个节点，按节点类型做它该做的事 */
-    private void enter(String nodeId, String fromNode) {
+    private void enter(String nodeId, String arrival) {
         if (++steps > MAX_STEPS) throw new IllegalStateException("the instance passed " + MAX_STEPS + " nodes in one step; the gateways loop");
         ProcessNode node = graph.node(nodeId);
-        record(FlowEvent.NODE_ENTERED, node, null, null, null, null);
+        addEvent(FlowEvent.NODE_ENTERED, node, null, null, null, null);
         if (node instanceof ProcessNode.Task task) {
-            arriveAtTask(task, fromNode);
+            arriveAtTask(task, arrival);
         } else if (node instanceof ProcessNode.Gateway && "exclusive".equals(node.type())) {
             leave(nodeId, null);
         } else if (node instanceof ProcessNode.End end) {
@@ -165,57 +165,32 @@ final class Execution {
         }
     }
 
-    /** 到达人工节点：轮次加一，解析处理人，生成一个待办（一个人时直接落到他，否则进收件箱） */
-    private void arriveAtTask(ProcessNode.Task task, String fromNode) {
+    /**
+     * 到达人工节点：轮次加一，解析处理人，生成一个待办。只解析出一个人、没有收件箱时直接落到他；
+     * 否则进收件箱（{@code pool}），人和角色、部门都存成候选，谁先认领谁办。
+     */
+    private void arriveAtTask(ProcessNode.Task task, String arrival) {
         if (task.multi() != null) throw new UnsupportedOperationException("multi-instance tasks (" + task.id() + ") are not supported yet");
         instance = instance.withState(instance.state().enter(task.id()));
 
-        Assignees assignees = resolveAssignees(task);
-        if (assignees.isEmpty()) {
+        Assignees who = assignees.resolve(task, graph, instance, this::read);
+        if (who.isEmpty()) {
             handleEmptyAssignee(task);
             return;
         }
-        String assignee = assignees.isDirect() ? assignees.directUser() : null;
-        Candidate inbox = assignees.firstInbox();
-        WorkItem draft = new WorkItem(null, instance.id(), instance.processKey(), instance.priority(),
-            task.id(), task.name(), instance.state().round(task.id()), WorkItem.OPEN, assignee != null ? WorkItem.DIRECT : WorkItem.POOL,
-            fromNode == null ? "start" : "forward", inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.value(),
-            assignee, assignee == null ? null : context.org().userName(assignee), now, null, null, null, null, null, null, null);
-        WorkItem item = context.stores().workItems().insert(draft, assignee != null ? List.of() : assignees.candidates());
+        String assigneeId = who.isDirect() ? who.directUser() : null;
+        String assigneeName = assigneeId == null ? null : context.org().userName(assigneeId);
+        String assignment = assigneeId != null ? WorkItem.DIRECT : WorkItem.POOL;
+        Candidate inbox = who.firstInbox();
+        int round = instance.state().round(task.id());
+
+        WorkItem draft = new WorkItem(null, instance.id(), instance.processKey(), instance.priority(), task.id(), task.name(), round,
+            WorkItem.OPEN, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.value(),
+            assigneeId, assigneeName, now,
+            null, null, null, null, null, null, null);   // 认领时间、截止时间、处理结果、意见、处理人、处理人名字、处理时间：都还没有
+        WorkItem item = context.stores().workItems().insert(draft, assigneeId != null ? List.of() : who.candidates());
         created.add(item);
-        record(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null);
-    }
-
-    /** 0005 的 3.2：几个来源取并集；节点没写来源时用所在泳道的收件箱 */
-    private Assignees resolveAssignees(ProcessNode.Task task) {
-        List<AssigneeSource> sources = task.assignees();
-        if (sources.isEmpty()) {
-            Lane lane = graph.lane(task.lane());
-            sources = lane == null || lane.inbox() == null ? List.of() : List.of(lane.inbox().source());
-        }
-        Assignees out = Assignees.empty();
-        for (AssigneeSource source : sources) {
-            if (source instanceof AssigneeSource.User user) {
-                out.users().addAll(idsOf(valueOf(user.user())));
-            } else if (source instanceof AssigneeSource.Role role) {
-                idsOf(valueOf(role.role())).forEach(id -> out.inboxes().add(new Candidate(Candidate.ROLE, id)));
-            } else if (source instanceof AssigneeSource.Department dept) {
-                idsOf(valueOf(dept.department())).forEach(id -> out.inboxes().add(new Candidate(Candidate.DEPARTMENT, id)));
-            } else if (source instanceof AssigneeSource.Initiator) {
-                out.users().add(instance.startedBy());
-            } else if (source instanceof AssigneeSource.SameAs same) {
-                context.stores().workItems().lastCompletedBy(instance.id(), same.node()).ifPresent(out.users()::add);
-            } else {
-                throw new UnsupportedOperationException("assignee source " + source.getClass().getSimpleName() + " is not supported yet");
-            }
-        }
-        return out;
-    }
-
-    /** 一个编号，或一组编号（{@code people} 类型的值是列表） */
-    private static List<String> idsOf(Object value) {
-        if (value instanceof Collection<?> items) return items.stream().filter(v -> !Values.isBlank(v)).map(Values::toText).toList();
-        return Values.isBlank(value) ? List.of() : List.of(Values.toText(value));
+        addEvent(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null);
     }
 
     /**
@@ -233,68 +208,42 @@ final class Execution {
     }
 
     /**
-     * 结束实例：取消还开着的待办，写结束的记录。
+     * 结束实例：取消还开着的待办，记结束的流转记录。
      *
      * @param status    结束后的状态：完成、终止、撤回
      * @param result    结束结果
-     * @param eventType 写哪种流转记录
+     * @param eventType 记哪种流转记录
      * @param comment   原因（终止、撤回时）
      */
     void finish(String status, String result, String eventType, String comment) {
         for (WorkItem item : context.stores().workItems().cancelOpen(instance.id(), now)) {
             closed.add(item);
-            record(FlowEvent.WORK_ITEM_CANCELED, graph.node(item.node()), null, null, item.id(), null);
+            addEvent(FlowEvent.WORK_ITEM_CANCELED, graph.node(item.node()), null, null, item.id(), null);
         }
         instance = instance.withEnd(status, result, now);
-        record(eventType, null, null, result, null, comment);
+        addEvent(eventType, null, null, result, null, comment);
     }
 
-    /** 记一条流转记录：同一步的记录共用实例的版本 */
-    void record(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment) {
-        events.add(new FlowEvent(null, instance.id(), workItemId, type, node == null ? null : node.id(),
-            node == null ? null : node.name(), edge, outcome, rev, actor.id(), actor.name(), now, comment, Map.of()));
+    /** 记下一条流转记录（先放在 {@link #events} 里，{@link #flush} 时一起写库）；同一步的记录共用实例的版本 */
+    void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment) {
+        String nodeId = node == null ? null : node.id();
+        String nodeName = node == null ? null : node.name();
+        events.add(new FlowEvent(null, instance.id(), workItemId, type, nodeId, nodeName, edge, outcome, rev, actor.id(), actor.name(), now,
+            comment, Map.of()));
     }
 
     // ───────── 写回 ─────────
 
     /**
-     * 结束这一步：按最新的表单与变量重算标题和摘要列（0005 第 2 节：每次提交都重新生成），算出正在处理的节点，
-     * 写回实例，写入流转记录。
+     * 结束这一步：重算标题、摘要列、正在处理的节点（{@link InstanceDisplay}），写回实例，写入这一步的流转记录。
      *
      * @param fixedTitle 发起时显式给的标题；为 null 时按模板生成
      */
     void flush(String fixedTitle) {
-        Map<String, Object> summary = new LinkedHashMap<>();
-        for (String name : graph.definition().summary()) summary.put(name, read(name));
-        String title = fixedTitle != null ? fixedTitle : renderTitle();
-        instance = instance.withDisplay(title, summary, currentNodes());
+        instance = InstanceDisplay.refresh(instance, graph.definition(), fixedTitle, this::read, context.stores().workItems());
         context.stores().instances().update(instance);
         List<FlowEvent> saved = context.stores().events().append(events);
         events.clear();
         events.addAll(saved);
-    }
-
-    /** 正在处理的节点：还开着的待办所在的节点，去重；实例结束了就是空的 */
-    private List<ProcessInstance.CurrentNode> currentNodes() {
-        if (!ProcessInstance.ACTIVE.equals(instance.status())) return List.of();
-        Map<String, ProcessInstance.CurrentNode> open = new LinkedHashMap<>();
-        for (WorkItem item : context.stores().workItems().ofInstance(instance.id())) {
-            if (WorkItem.OPEN.equals(item.state())) open.putIfAbsent(item.node(), new ProcessInstance.CurrentNode(item.node(), item.nodeName()));
-        }
-        return List.copyOf(open.values());
-    }
-
-    /** 按模板生成标题：花括号里的引用换成值；不写模板时用流程名 */
-    private String renderTitle() {
-        String template = graph.definition().title();
-        if (template == null || template.isBlank()) return graph.definition().name();
-        Matcher m = PLACEHOLDER.matcher(template);
-        StringBuilder out = new StringBuilder();
-        while (m.find()) {
-            Object value = read(m.group(1).trim());
-            m.appendReplacement(out, Matcher.quoteReplacement(value == null ? "" : Values.toText(value)));
-        }
-        m.appendTail(out);
-        return out.toString();
     }
 }

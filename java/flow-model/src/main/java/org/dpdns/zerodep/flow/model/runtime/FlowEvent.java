@@ -44,4 +44,9 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String NODE_ENTERED = "node.entered";
     /** 离开节点 */
     public static final String NODE_LEFT = "node.left";
+
+    /** 换上数据库给的编号（插入之后） */
+    public FlowEvent withId(Long newId) {
+        return new FlowEvent(newId, instanceId, workItemId, type, node, nodeName, edge, outcome, instanceRev, actorId, actorName, at, comment, data);
+    }
 }

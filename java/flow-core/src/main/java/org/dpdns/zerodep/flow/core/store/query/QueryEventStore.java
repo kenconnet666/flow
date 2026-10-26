@@ -23,11 +23,7 @@ final class QueryEventStore implements EventStore {
         if (events.isEmpty()) return events;
         List<Long> ids = db.insertKeys(insertInto(Event.class).values(events));
         List<FlowEvent> saved = new ArrayList<>();
-        for (int i = 0; i < events.size(); i++) {
-            FlowEvent e = events.get(i);
-            saved.add(new FlowEvent(ids.get(i), e.instanceId(), e.workItemId(), e.type(), e.node(), e.nodeName(), e.edge(), e.outcome(),
-                e.instanceRev(), e.actorId(), e.actorName(), e.at(), e.comment(), e.data()));
-        }
+        for (int i = 0; i < events.size(); i++) saved.add(events.get(i).withId(ids.get(i)));   // insertKeys 按行的先后给编号
         return saved;
     }
 

@@ -21,12 +21,11 @@ import java.util.Map;
 /**
  * 发起（0006 的 3.1）。在一个事务里：
  * <ol>
- *   <li>找到流程与它最新发布的版本；流程停用了、操作人不在发起人名单里时不让发起；</li>
- *   <li>流程变量 = 定义里的默认值，盖上命令给的初值；</li>
- *   <li>收表单：只取开始节点上能改的字段，查必填与类型；</li>
- *   <li>写实例与表单的值，记"实例发起"；</li>
- *   <li>从开始节点出发往前走，直到停在人工节点（生成待办）或走到结束；</li>
- *   <li>按最新的值生成标题与摘要列，写回。</li>
+ *   <li>流程与版本：找到流程与它最新发布的版本；流程停用了、操作人不在发起人名单里时不让发起；</li>
+ *   <li>实例：流程变量 = 定义里的默认值，盖上命令给的初值；先写实例，拿到数据库给的编号（后面都要用）；</li>
+ *   <li>表单：只收开始节点上能改的字段（查必填与类型），存第一份；记"实例发起"；</li>
+ *   <li>从开始节点出发往前走，直到停在人工节点（生成待办）或走到结束（{@link Execution}）；</li>
+ *   <li>写回：按最新的值生成标题与摘要列，写回实例，写入流转记录。</li>
  * </ol>
  */
 public final class StartHandler {
@@ -50,7 +49,7 @@ public final class StartHandler {
             ProcessDefinition model = definition.model();
             if (!CandidateRules.isStarter(actor, model.starters())) throw FlowErrors.forbidden("process", command.key(), "not-a-starter");
 
-            // 2. 实例与流程变量
+            // 2. 实例
             Instant now = context.clock().instant();
             InstanceRecord draft = new InstanceRecord(null, command.key(), definition.stored().id(),
                 definition.stored().version(), command.businessKey(), model.name(), command.priority(), Map.of(), ProcessInstance.ACTIVE, null,
@@ -59,17 +58,15 @@ public final class StartHandler {
             InstanceRecord instance = context.stores().instances().insert(draft);
             Execution run = new Execution(context, actor, now, definition.graph(), instance, FormValues.empty(), instance.rev());
 
-            // 3. 表单
+            // 3. 表单：只收开始节点上能改的字段，存第一份
             ProcessNode.Start start = definition.graph().start();
             if (definition.hasForm()) {
                 run.form(FormSubmission.merge(definition.manifest(), start.form(), true, FormValues.empty(), command.form(), run::read));
+                context.stores().formData().insert(instance.id(), definition.form().id(), run.form());
             }
+            run.addEvent(FlowEvent.INSTANCE_STARTED, start, null, null, null, null);
 
-            // 4. 写表单的值
-            if (definition.hasForm()) context.stores().formData().insert(instance.id(), definition.form().id(), run.form());
-            run.record(FlowEvent.INSTANCE_STARTED, start, null, null, null, null);
-
-            // 5. 往前走；6. 写回
+            // 4. 从开始节点往前走；5. 写回
             run.leave(start.id(), null);
             run.flush(command.title());
             return new CommandResult(run.instance().view(), run.created, run.closed, run.events);

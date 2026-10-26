@@ -75,7 +75,7 @@ public final class CompleteHandler {
             Completion completion = new Completion(outcomeKey, command.comment(), actor.id(), actor.name(), now);
             if (!context.stores().workItems().complete(item.id(), completion)) throw FlowErrors.notOpen(item.id());
             run.closed.add(item);
-            run.record(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), command.comment());
+            run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), command.comment());
 
             // 6. 往下走
             String kind = outcome == null ? "approve" : outcome.kindOrDefault();

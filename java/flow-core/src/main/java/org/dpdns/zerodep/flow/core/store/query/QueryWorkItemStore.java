@@ -43,10 +43,7 @@ final class QueryWorkItemStore implements WorkItemStore {
         if (!candidates.isEmpty()) {
             db.execute(insertInto(FlowTables.Candidate.class).values(candidates.stream().map(c -> new NewCandidate(id, c.kind(), c.value())).toList()));
         }
-        return new WorkItem(id, draft.instanceId(), draft.processKey(), draft.priority(), draft.node(), draft.nodeName(), draft.round(),
-            draft.state(), draft.assignment(), draft.arrival(), draft.inboxKind(), draft.inboxId(), draft.assigneeId(), draft.assigneeName(),
-            draft.createdAt(), draft.claimedAt(), draft.dueAt(), draft.outcome(), draft.comment(), draft.completedBy(), draft.completedByName(),
-            draft.completedAt());
+        return draft.withId(id);
     }
 
     @Override
