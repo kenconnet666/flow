@@ -1,0 +1,123 @@
+{
+  "key": "reimburse",
+  "name": "费用报销",
+  "form": {
+    "key": "reimburse-form"
+  },
+  "title": "报销：{form.title}",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "提交"
+    },
+    {
+      "id": "apply",
+      "type": "task",
+      "name": "填写报销单",
+      "assignees": [
+        {
+          "initiator": true
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "submit",
+          "label": "提交"
+        }
+      ],
+      "form": {
+        "default": "editable"
+      }
+    },
+    {
+      "id": "review",
+      "type": "task",
+      "name": "财务复核",
+      "assignees": [
+        {
+          "role": 1
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "pass",
+          "label": "通过"
+        },
+        {
+          "key": "escalate",
+          "label": "提交总经理",
+          "kind": "escalate"
+        }
+      ]
+    },
+    {
+      "id": "approve",
+      "type": "task",
+      "name": "总经理审批",
+      "assignees": [
+        {
+          "role": 2
+        }
+      ],
+      "returnTo": "resubmit",
+      "outcomes": [
+        {
+          "key": "ok",
+          "label": "同意"
+        },
+        {
+          "key": "back",
+          "label": "退回修改",
+          "kind": "return",
+          "comment": "required"
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "type": "end",
+      "name": "通过",
+      "result": "approved"
+    }
+  ],
+  "edges": [
+    {
+      "id": "s",
+      "from": "start",
+      "to": "apply"
+    },
+    {
+      "id": "submitted",
+      "from": "apply",
+      "to": "review",
+      "outcome": "submit"
+    },
+    {
+      "id": "passed",
+      "from": "review",
+      "to": "approve",
+      "outcome": "pass"
+    },
+    {
+      "id": "escalated",
+      "from": "review",
+      "to": "approve",
+      "outcome": "escalate",
+      "kind": "escalate"
+    },
+    {
+      "id": "approved",
+      "from": "approve",
+      "to": "done",
+      "outcome": "ok"
+    },
+    {
+      "id": "returned",
+      "from": "approve",
+      "to": "apply",
+      "outcome": "back",
+      "kind": "return"
+    }
+  ]
+}

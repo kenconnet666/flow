@@ -1,0 +1,234 @@
+{
+  "name": "报销：总经理退回给申请人，申请人改完重新提交后直接回到总经理（returnTo: resubmit），不再过财务；财务也可以直接提级给总经理",
+  "forms": [
+    "forms/reimburse-form.json"
+  ],
+  "processes": [
+    "processes/reimburse.json"
+  ],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": {
+      "id": 1001,
+      "name": "林小满"
+    },
+    "bob": {
+      "id": 1002,
+      "name": "周启航",
+      "roles": [
+        1
+      ]
+    },
+    "boss": {
+      "id": 1004,
+      "name": "总经理",
+      "roles": [
+        2
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "start",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "reimburse",
+        "form": {
+          "title": "出差",
+          "amount": "3200.00"
+        }
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "apply",
+            "assignment": "direct",
+            "assigneeId": "1001",
+            "arrival": "start"
+          }
+        ]
+      }
+    },
+    {
+      "id": "applied",
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$start.workItems[0]",
+        "outcome": "submit"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "review",
+            "assignment": "pool"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reviewed",
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$applied.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "approve",
+            "assignment": "pool",
+            "inboxId": "2"
+          }
+        ]
+      }
+    },
+    {
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$reviewed.workItems[0]",
+        "outcome": "back"
+      },
+      "expect": {
+        "error": {
+          "code": "flow.validation-failed",
+          "errors": [
+            {
+              "field": "comment",
+              "code": "required"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "returned",
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$reviewed.workItems[0]",
+        "outcome": "back",
+        "comment": "发票不全"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "apply",
+            "assignment": "direct",
+            "assigneeId": "1001",
+            "arrival": "return",
+            "round": 2
+          }
+        ],
+        "instance": {
+          "current": [
+            {
+              "node": "apply"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "resubmitted",
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$returned.workItems[0]",
+        "outcome": "submit",
+        "form": {
+          "amount": "3000.00"
+        }
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "approve",
+            "assignment": "direct",
+            "assigneeId": "1004",
+            "arrival": "resubmit",
+            "round": 2
+          }
+        ],
+        "instance": {
+          "current": [
+            {
+              "node": "approve"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$resubmitted.workItems[0]",
+        "outcome": "ok"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        }
+      }
+    },
+    {
+      "id": "second",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "reimburse",
+        "form": {
+          "title": "招待",
+          "amount": "900.00"
+        }
+      }
+    },
+    {
+      "id": "secondApplied",
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$second.workItems[0]",
+        "outcome": "submit"
+      }
+    },
+    {
+      "id": "escalated",
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$secondApplied.workItems[0]",
+        "outcome": "escalate"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "approve",
+            "assignment": "pool",
+            "arrival": "escalate",
+            "inboxKind": "role",
+            "inboxId": "2"
+          }
+        ]
+      }
+    },
+    {
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$escalated.workItems[0]",
+        "outcome": "ok"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed"
+        }
+      }
+    }
+  ]
+}

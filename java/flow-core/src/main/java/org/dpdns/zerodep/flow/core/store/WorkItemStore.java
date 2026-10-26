@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 import org.dpdns.zerodep.query.exec.Page;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +32,9 @@ public interface WorkItemStore {
 
     /** 取消实例上全部打开着的待办并删掉候选，返回取消了的（取消之前的样子） */
     List<WorkItem> cancelOpen(Long instanceId, Instant at);
+
+    /** 只取消这些节点上打开着的待办（退回跳出并行区域时，区域里其余的分支） */
+    List<WorkItem> cancelOpenAt(Long instanceId, Collection<String> nodes, Instant at);
 
     /** 实例的全部待办，按到达的先后 */
     List<WorkItem> ofInstance(Long instanceId);

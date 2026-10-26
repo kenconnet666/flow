@@ -36,13 +36,16 @@ import java.util.Map;
  *                           ├─ 排他网关：leave(网关) ──► 接着走
  *                           ├─ 并行、包容的分叉：选出的每条线都走，记下配对的汇合要等几条
  *                           ├─ 并行、包容的汇合：到了一条，还没等齐 ──► 这条分支停下；等齐了 ──► 接着走
+ *                         退回、提级的线（kind）：跳出并行区域时先取消区域里其余的分支；
+ *                           退回落到那个节点原来的处理人，提级进目标节点的收件箱
  *                           └─ 结束节点：finish（取消还开着的待办）──► 停下
  *     │
  *     ▼
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>现在有：开始、结束、人工节点（不含会签）、排他网关、并行与包容网关（结构化配对，0005 的 4.4）。
+ * <p>现在有：开始、结束、人工节点（不含会签）、排他网关、并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
+ * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
  */
 final class Execution {
@@ -130,7 +133,48 @@ final class Execution {
                 Map<String, Object> changed = Routing.applyEffects(edge.effects(), instance.variables().asMap(), this::read);
                 instance = instance.withVariables(Variables.of(changed));
             }
-            enter(edge.to(), arrival);
+            if (edge.isBackward()) {
+                leaveRegions(nodeId, edge.to());
+                rememberResubmit(nodeId, edge);
+            }
+            enter(edge.to(), edge.isBackward() ? edge.kind() : arrival);
+        }
+    }
+
+    /**
+     * 处理完一个节点后往下走：这个节点是被退回来的、退回它的节点要求"重新提交后直接回来"（{@code returnTo: "resubmit"}）时，
+     * 直接回到那个节点；否则照常 {@link #leave}。
+     */
+    void proceed(String nodeId, String outcome) {
+        String back = instance.state().resubmitTo(nodeId);
+        if (back == null) {
+            leave(nodeId, outcome);
+            return;
+        }
+        instance = instance.withState(instance.state().resubmitted(nodeId));
+        addEvent(FlowEvent.NODE_LEFT, graph.node(nodeId), null, outcome, null, null);
+        enter(back, "resubmit");
+    }
+
+    /**
+     * 退回、提级的线跳出了并行区域（目标不在区域里）：区域里其余还开着的待办一起取消，汇合也不再等它们（0005 的 4.4）。
+     * 由里到外看每一层区域。
+     */
+    private void leaveRegions(String from, String to) {
+        for (String fork : pairs.forksAround(from)) {
+            if (pairs.region(fork).contains(to)) return;
+            for (WorkItem item : context.stores().workItems().cancelOpenAt(instance.id(), pairs.region(fork), now)) {
+                closed.add(item);
+                addEvent(FlowEvent.WORK_ITEM_CANCELED, graph.node(item.node()), null, null, item.id(), null);
+            }
+            instance = instance.withState(instance.state().forget(pairs.joinOf(fork)));
+        }
+    }
+
+    /** 退回它的节点写了 {@code returnTo: "resubmit"}：记下来，被退回的节点重新提交后直接回来 */
+    private void rememberResubmit(String from, ProcessEdge edge) {
+        if ("return".equals(edge.kind()) && graph.node(from) instanceof ProcessNode.Task task && "resubmit".equals(task.returnTo())) {
+            instance = instance.withState(instance.state().returned(edge.to(), from));
         }
     }
 
@@ -171,7 +215,7 @@ final class Execution {
         if (task.multi() != null) throw new UnsupportedOperationException("multi-instance tasks (" + task.id() + ") are not supported yet");
         instance = instance.withState(instance.state().enter(task.id()));
 
-        Assignees who = assignees.resolve(task, graph, instance, this::read);
+        Assignees who = assigneesFor(task, arrival);
         if (who.isEmpty()) {
             handleEmptyAssignee(task);
             return;
@@ -189,6 +233,19 @@ final class Execution {
         WorkItem item = context.stores().workItems().insert(draft, assigneeId != null ? List.of() : who.candidates());
         created.add(item);
         addEvent(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null);
+    }
+
+    /**
+     * 这次到达人工节点由谁处理：退回来的、重新提交直接回来的，落到这个节点原来的处理人（没人处理过时照常解析）；提级来的只进收件箱，
+     * 不直接落到人（第 6 节连线的 kind）；其余照节点上写的来源解析。
+     */
+    private Assignees assigneesFor(ProcessNode.Task task, String arrival) {
+        if ("return".equals(arrival) || "resubmit".equals(arrival)) {
+            Long last = context.stores().workItems().lastCompletedBy(instance.id(), task.id()).orElse(null);
+            if (last != null) return Assignees.of(last);
+        }
+        Assignees who = assignees.resolve(task, graph, instance, this::read);
+        return "escalate".equals(arrival) && !who.inboxes().isEmpty() ? who.inboxesOnly() : who;
     }
 
     /**

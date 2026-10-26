@@ -49,6 +49,15 @@
   ],
   "merges": [
     {
+      "name": "能改的字段没提交（键不在）时用存着的值；明写 null 才清空",
+      "access": { "default": "editable" },
+      "values": {},
+      "stored": { "title": "办公用品", "amount": "12000", "cost": "9000", "lines": [{ "item": "纸", "price": "10" }] },
+      "submitted": { "amount": "800", "cost": null },
+      "expectValues": { "title": "办公用品", "amount": "800", "reason": null, "cost": null, "lines": [{ "item": "纸", "price": "10" }] },
+      "expectErrors": []
+    },
+    {
       "name": "只收能改的：只读的用存着的，节点上隐藏的照旧存着，显示条件不成立的丢掉；明细表能增删行，只读的列按行号用存着的",
       "access": { "default": "readonly", "fields": { "amount": "editable", "cost": "hidden", "lines": "editable", "lines.price": "readonly" } },
       "values": { "form.amount": "800" },

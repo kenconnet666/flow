@@ -7,6 +7,7 @@ import org.dpdns.zerodep.query.exec.Page;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -78,8 +79,20 @@ final class QueryWorkItemStore implements WorkItemStore {
 
     @Override
     public List<WorkItem> cancelOpen(Long instanceId, Instant at) {
-        List<WorkItem> open = db.list(from(FlowTables.WorkItem.class).where(r -> { r.instanceId().eq(instanceId); r.state().eq(WorkItem.OPEN); })
-            .orderBy(r -> r.id()).selectAs(WorkItem.class));
+        return cancel(db.list(from(FlowTables.WorkItem.class).where(r -> { r.instanceId().eq(instanceId); r.state().eq(WorkItem.OPEN); })
+            .orderBy(r -> r.id()).selectAs(WorkItem.class)), at);
+    }
+
+    @Override
+    public List<WorkItem> cancelOpenAt(Long instanceId, Collection<String> nodes, Instant at) {
+        if (nodes.isEmpty()) return List.of();
+        return cancel(db.list(from(FlowTables.WorkItem.class)
+            .where(r -> { r.instanceId().eq(instanceId); r.state().eq(WorkItem.OPEN); r.node().in(nodes); })
+            .orderBy(r -> r.id()).selectAs(WorkItem.class)), at);
+    }
+
+    /** 把这些打开着的待办改成取消、删掉候选；返回它们取消之前的样子 */
+    private List<WorkItem> cancel(List<WorkItem> open, Instant at) {
         if (open.isEmpty()) return open;
         List<Long> ids = open.stream().map(WorkItem::id).toList();
         db.execute(update(FlowTables.WorkItem.class).set(r -> {

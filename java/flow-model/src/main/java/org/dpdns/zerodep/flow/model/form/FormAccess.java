@@ -103,6 +103,7 @@ public final class FormAccess {
 
     /**
      * 收提交（0004 的 4.5）：只取能改的字段，其余用存着的值；被显示条件藏起来的字段值丢掉（存成 null）；再查必填。
+     * 能改的字段没有提交（键不在）时也用存着的值：只提交改了的字段不会把别的清掉；要清空就明写 null。
      * 明细表能增删行时取提交上来的行，不能改的列按行号用存着的值；不能增删行时行数用存着的，只取能改的列。
      */
     public static Submission mergeSubmission(FormManifest manifest, Map<String, FieldState> states, Map<String, Object> stored,
@@ -113,9 +114,10 @@ public final class FormAccess {
             String name = entry.getKey();
             FieldState state = states.getOrDefault(name, FieldState.BY_ACCESS);
             FormManifest columns = entry.getValue().columns();
+            Object given = submitted.containsKey(name) ? submitted.get(name) : stored.get(name);
             Object value = columns != null && state.visible()
-                ? mergeRows(name, columns, state, states, stored.get(name), submitted.get(name), errors)
-                : pick(state, stored.get(name), submitted.get(name));
+                ? mergeRows(name, columns, state, states, stored.get(name), given, errors)
+                : pick(state, stored.get(name), given);
             values.put(name, value);
             if (state.required() && Values.isBlank(value)) errors.add(new SubmissionError(name, "required"));
             else if (state.editable()) {

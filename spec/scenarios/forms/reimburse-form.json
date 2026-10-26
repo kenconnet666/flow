@@ -1,0 +1,17 @@
+{
+  "key": "reimburse-form",
+  "name": "报销单",
+  "manifest": {
+    "title": {
+      "label": "事由",
+      "type": "text",
+      "required": true
+    },
+    "amount": {
+      "label": "金额",
+      "type": "decimal",
+      "scale": 2,
+      "required": true
+    }
+  }
+}

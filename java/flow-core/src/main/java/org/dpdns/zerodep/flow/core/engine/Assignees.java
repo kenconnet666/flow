@@ -18,6 +18,16 @@ record Assignees(Set<Long> users, List<Candidate> inboxes) {
     /** 空的一份，解析时往里加 */
     static Assignees empty() { return new Assignees(new LinkedHashSet<>(), new ArrayList<>()); }
 
+    /** 只有这一个人 */
+    static Assignees of(Long user) {
+        Assignees one = empty();
+        one.users().add(user);
+        return one;
+    }
+
+    /** 只留收件箱（提级：进收件箱，不直接落到人） */
+    Assignees inboxesOnly() { return new Assignees(new LinkedHashSet<>(), new ArrayList<>(inboxes)); }
+
     /** 一个也没有：按定义的 {@code emptyAssignee} 处理 */
     boolean isEmpty() { return users.isEmpty() && inboxes.isEmpty(); }
 

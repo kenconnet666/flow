@@ -1,0 +1,160 @@
+{
+  "name": "合同会审：法务退回起草人，退回跳出并行区域，财务那条分支一起取消；重新提交后两边重新会审",
+  "forms": [
+    "forms/contract-form.json"
+  ],
+  "processes": [
+    "processes/contract-return.json"
+  ],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": {
+      "id": 1001,
+      "name": "林小满"
+    },
+    "bob": {
+      "id": 1002,
+      "name": "周启航",
+      "roles": [
+        1
+      ]
+    },
+    "dave": {
+      "id": 1005,
+      "name": "韩笑",
+      "roles": [
+        3
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "start",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "contract-return",
+        "form": {
+          "title": "办公楼租赁",
+          "amount": "50000.00"
+        }
+      }
+    },
+    {
+      "id": "drafted",
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$start.workItems[0]",
+        "outcome": "submit"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "legal"
+          },
+          {
+            "node": "finance"
+          }
+        ]
+      }
+    },
+    {
+      "id": "back",
+      "as": "dave",
+      "command": "complete",
+      "args": {
+        "workItem": "$drafted.workItems[0]",
+        "outcome": "back",
+        "comment": "违约条款要改"
+      },
+      "expect": {
+        "closed": [
+          {
+            "node": "legal",
+            "state": "open"
+          },
+          {
+            "node": "finance",
+            "state": "open"
+          }
+        ],
+        "workItems": [
+          {
+            "node": "draft",
+            "assigneeId": "1001",
+            "arrival": "return"
+          }
+        ],
+        "instance": {
+          "current": [
+            {
+              "node": "draft"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$drafted.workItems[1]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "error": {
+          "code": "flow.work-item-not-open"
+        }
+      }
+    },
+    {
+      "id": "redrafted",
+      "as": "alice",
+      "command": "complete",
+      "args": {
+        "workItem": "$back.workItems[0]",
+        "outcome": "submit"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "legal",
+            "round": 2
+          },
+          {
+            "node": "finance",
+            "round": 2
+          }
+        ]
+      }
+    },
+    {
+      "as": "dave",
+      "command": "complete",
+      "args": {
+        "workItem": "$redrafted.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "instance": {
+          "status": "active"
+        }
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$redrafted.workItems[1]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        }
+      }
+    }
+  ]
+}

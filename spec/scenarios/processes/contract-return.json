@@ -1,0 +1,135 @@
+{
+  "key": "contract-return",
+  "name": "合同会审（可退回）",
+  "form": {
+    "key": "contract-form"
+  },
+  "title": "合同：{form.title}",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "提交"
+    },
+    {
+      "id": "draft",
+      "type": "task",
+      "name": "起草合同",
+      "assignees": [
+        {
+          "initiator": true
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "submit",
+          "label": "提交"
+        }
+      ],
+      "form": {
+        "default": "editable"
+      }
+    },
+    {
+      "id": "fork",
+      "type": "parallel",
+      "name": "分头会审"
+    },
+    {
+      "id": "legal",
+      "type": "task",
+      "name": "法务审核",
+      "assignees": [
+        {
+          "role": 3
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "pass",
+          "label": "通过"
+        },
+        {
+          "key": "back",
+          "label": "退回修改",
+          "kind": "return",
+          "comment": "required"
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "type": "task",
+      "name": "财务审核",
+      "assignees": [
+        {
+          "role": 1
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "pass",
+          "label": "通过"
+        }
+      ]
+    },
+    {
+      "id": "join",
+      "type": "parallel",
+      "name": "会审汇合"
+    },
+    {
+      "id": "done",
+      "type": "end",
+      "name": "通过",
+      "result": "approved"
+    }
+  ],
+  "edges": [
+    {
+      "id": "s",
+      "from": "start",
+      "to": "draft"
+    },
+    {
+      "id": "submitted",
+      "from": "draft",
+      "to": "fork",
+      "outcome": "submit"
+    },
+    {
+      "id": "toLegal",
+      "from": "fork",
+      "to": "legal"
+    },
+    {
+      "id": "toFinance",
+      "from": "fork",
+      "to": "finance"
+    },
+    {
+      "id": "legalDone",
+      "from": "legal",
+      "to": "join",
+      "outcome": "pass"
+    },
+    {
+      "id": "financeDone",
+      "from": "finance",
+      "to": "join",
+      "outcome": "pass"
+    },
+    {
+      "id": "finish",
+      "from": "join",
+      "to": "done"
+    },
+    {
+      "id": "legalBack",
+      "from": "legal",
+      "to": "draft",
+      "outcome": "back",
+      "kind": "return"
+    }
+  ]
+}

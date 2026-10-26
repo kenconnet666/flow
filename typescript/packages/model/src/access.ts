@@ -94,6 +94,7 @@ function pick(state: FieldState, stored: unknown, submitted: unknown): unknown {
 
 /**
  * 收提交（0004 的 4.5）：只取能改的字段，其余用存着的值；被显示条件藏起来的字段值丢掉（存成 null）；再查必填。
+ * 能改的字段没有提交（键不在）时也用存着的值：只提交改了的字段不会把别的清掉；要清空就明写 null。
  * 明细表能增删行时取提交上来的行，不能改的列按行号用存着的值；不能增删行时行数用存着的，只取能改的列。
  */
 export function mergeSubmission(manifest: FormManifest, states: ReadonlyMap<string, FieldState>, stored: Row, submitted: Row): Submission {
@@ -101,10 +102,12 @@ export function mergeSubmission(manifest: FormManifest, states: ReadonlyMap<stri
   const errors: SubmissionError[] = [];
   for (const [name, field] of Object.entries(manifest)) {
     const state = states.get(name) ?? BY_ACCESS;
+    // 能改的字段没有提交（键不在）时用存着的值：只提交改了的字段不会把别的清掉；要清空就明写 null
+    const given = name in submitted ? submitted[name] : stored[name];
     if (field.type === 'list' && field.fields && state.visible) {
-      values[name] = mergeRows(name, field.fields, state, states, stored[name], submitted[name], errors);
+      values[name] = mergeRows(name, field.fields, state, states, stored[name], given, errors);
     } else {
-      values[name] = pick(state, stored[name], submitted[name]);
+      values[name] = pick(state, stored[name], given);
     }
     if (state.required && isBlank(values[name])) errors.push({ field: name, code: 'required' });
     else if (state.editable) {

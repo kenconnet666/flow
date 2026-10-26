@@ -83,9 +83,12 @@ public final class CompleteHandler {
             // 6. 往下走
             String kind = outcome == null ? "approve" : outcome.kindOrDefault();
             switch (kind) {
-                case "approve", "reject" -> run.leave(task.id(), outcomeKey);
+                // 同意：被退回过、退回它的节点要求直接回去时直接回去，否则照常往下（Execution.proceed）
+                case "approve" -> run.proceed(task.id(), outcomeKey);
+                // 否决、退回、提级：按结果选线（退回、提级的线带 kind，Execution.leave 按它分配处理人）
+                case "reject", "return", "escalate" -> run.leave(task.id(), outcomeKey);
                 case "terminate" -> run.finish(ProcessInstance.TERMINATED, outcome.result(), FlowEvent.INSTANCE_TERMINATED, command.comment());
-                default -> throw new UnsupportedOperationException("outcome kind '" + kind + "' (return, escalate) is not supported yet");
+                default -> throw new UnsupportedOperationException("outcome kind '" + kind + "' is not supported");
             }
 
             // 7. 写回
