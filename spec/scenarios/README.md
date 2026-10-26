@@ -18,7 +18,7 @@
 }
 ```
 
-- 编号用按顺序发号的主键策略（`SequentialIds`），时钟固定：两个后端跑出来的结果逐字段可比。
+- 编号是数据库自增的（每个场景前重建表，从 1 开始），时钟固定：两个后端跑出来的结果逐字段可比。
 - 每个场景开始前清空库、按建表脚本重建。
 
 ## 命令与参数
@@ -29,7 +29,7 @@
 | `claim` | `workItem` | 同上 |
 | `complete` | `workItem`、`outcome`、`comment`、`form` | 同上 |
 | `withdraw` | `instance`、`reason` | 同上 |
-| `todo` | `page`（默认 1）、`size`（默认 20） | `total`、`rows` |
+| `todo` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary }`） |
 | `instance` | `instance` | `instance`、`form`、`workItems`（全部待办）、`timeline` |
 | `publishDefinition` | `definition`（内联的定义） | — |
 

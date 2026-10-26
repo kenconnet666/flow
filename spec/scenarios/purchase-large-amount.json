@@ -18,7 +18,7 @@
         "events": ["instance.started", "node.left", "node.entered", "workItem.created"]
       } },
     { "as": "bob", "command": "todo", "args": { "page": 1, "size": 10 },
-      "expect": { "total": 1, "rows": [{ "node": "review", "title": "采购申请：办公桌", "summary": { "form.title": "办公桌", "form.amount": "12000.00" } }] } },
+      "expect": { "total": 1, "rows": [{ "workItem": { "node": "review" }, "title": "采购申请：办公桌", "summary": { "form.title": "办公桌", "form.amount": "12000.00" } }] } },
     { "as": "carol", "command": "todo", "expect": { "total": 0, "rows": [] } },
     { "as": "carol", "command": "claim", "args": { "workItem": "$start.workItems[0]" }, "expect": { "error": { "code": "flow.not-candidate" } } },
     { "as": "bob", "command": "claim", "args": { "workItem": "$start.workItems[0]" }, "expect": { "events": ["workItem.claimed"] } },

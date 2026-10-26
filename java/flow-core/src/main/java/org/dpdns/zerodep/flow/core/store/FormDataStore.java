@@ -2,7 +2,6 @@ package org.dpdns.zerodep.flow.core.store;
 
 import org.dpdns.zerodep.flow.core.data.FormValues;
 
-import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -10,13 +9,13 @@ import java.util.Optional;
  */
 public interface FormDataStore {
     /** 实例的表单值；流程没有表单时为空 */
-    Optional<StoredFormData> read(String instanceId);
+    Optional<StoredFormData> read(Long instanceId);
 
     /** 发起时写第一份 */
-    void insert(String instanceId, String formVersionId, FormValues values, Instant at);
+    void insert(Long instanceId, Long formVersionId, FormValues values);
 
     /** 处理时整份写回（调用前已锁住实例行） */
-    void update(String instanceId, FormValues values, Instant at);
+    void update(Long instanceId, FormValues values);
 
     /**
      * 存着的一份表单值。
@@ -24,5 +23,5 @@ public interface FormDataStore {
      * @param formVersionId 填的是哪个表单版本
      * @param values        表单的值
      */
-    record StoredFormData(String formVersionId, FormValues values) { }
+    record StoredFormData(Long formVersionId, FormValues values) { }
 }

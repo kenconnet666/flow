@@ -10,14 +10,14 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
  * @param comment    意见
  * @param form       表单的值：只取这个节点上能改的字段，其余用存着的值
  */
-public record CompleteCommand(String workItemId, String outcome, String comment, FormValues form) {
+public record CompleteCommand(Long workItemId, String outcome, String comment, FormValues form) {
     /** 补上空的表单 */
     public CompleteCommand {
         form = form == null ? FormValues.empty() : form;
     }
 
     /** 只给结果 */
-    public static CompleteCommand of(String workItemId, String outcome) {
+    public static CompleteCommand of(Long workItemId, String outcome) {
         return new CompleteCommand(workItemId, outcome, null, FormValues.empty());
     }
 }

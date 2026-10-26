@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class DefinitionCache {
     private final EngineContext context;
-    private final Map<String, LoadedDefinition> loaded = new ConcurrentHashMap<>();
+    private final Map<Long, LoadedDefinition> loaded = new ConcurrentHashMap<>();
 
     public DefinitionCache(EngineContext context) { this.context = context; }
 

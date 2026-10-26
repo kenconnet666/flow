@@ -9,14 +9,11 @@ import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Completion;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
-import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Instant;
-import java.util.Map;
 
 /**
  * 处理一个待办（0006 的 3.3）。在一个事务里，按 0007 第 5 节"推进"的顺序：
@@ -56,7 +53,7 @@ public final class CompleteHandler {
             WorkItem item = context.stores().workItems().find(command.workItemId()).orElseThrow();
             if (!WorkItem.OPEN.equals(item.state())) throw FlowErrors.notOpen(item.id());
             if (item.assigneeId() == null) claims.claim(actor, item);
-            else if (!item.assigneeId().equals(actor.id())) throw new FlowException(FlowErrorCode.NOT_CANDIDATE, Map.of("workItem", item.id()));
+            else if (!item.assigneeId().equals(actor.id())) throw FlowErrors.notCandidate(item.id());
 
             // 3. 结果与意见
             LoadedDefinition definition = definitions.of(instance);
@@ -70,7 +67,7 @@ public final class CompleteHandler {
             Execution run = new Execution(context, actor, now, definition.graph(), instance, stored, rev);
             if (definition.hasForm()) {
                 run.form(FormSubmission.merge(definition.manifest(), task.form(), false, stored, command.form(), run::read));
-                context.stores().formData().update(instance.id(), run.form(), now);
+                context.stores().formData().update(instance.id(), run.form());
             }
 
             // 5. 待办改成已处理

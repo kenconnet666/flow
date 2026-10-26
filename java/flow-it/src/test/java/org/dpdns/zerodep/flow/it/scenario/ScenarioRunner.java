@@ -10,14 +10,12 @@ import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
-import org.dpdns.zerodep.flow.core.id.SequentialIds;
 import org.dpdns.zerodep.flow.it.scenario.Scenario.Step;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.dpdns.zerodep.flow.model.error.FlowException;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
-import org.dpdns.zerodep.query.Sql;
+import org.dpdns.zerodep.flow.model.runtime.TodoItem;
 import org.dpdns.zerodep.query.exec.Page;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
@@ -33,7 +31,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 跑一个场景：清库建表，组装一个用按顺序发号、固定时钟的引擎，发布表单与流程，再逐步执行命令、比期望。
+ * 跑一个场景：清库建表（自增的编号从 1 开始，两个后端跑出来的编号相同），组装一个固定时钟的引擎，发布表单与流程，再逐步执行命令、比期望。
  * 每一步的结果写成线上的 JSON 形状（{@link Wire#encode}：编号、小数、时间都是文字），TS 一侧写成同样的形状，所以两边比的是同一份期望。
  */
 final class ScenarioRunner {
@@ -53,9 +51,8 @@ final class ScenarioRunner {
         LiveMysql.recreateTables();
         Map<String, String> names = new HashMap<>();
         scenario.actors().forEach((id, user) -> names.put(id, user.name()));
-        this.engine = FlowEngine.<TestUser>builder(Sql.database(LiveMysql.dataSource()))
+        this.engine = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
             .orgDirectory(new TestOrg(names))
-            .idStrategy(new SequentialIds())
             .clock(Clock.fixed(scenario.clock(), ZoneOffset.UTC))
             .build();
     }
@@ -86,12 +83,12 @@ final class ScenarioRunner {
             return switch (step.command()) {
                 case "start" -> commandResult(engine.start(actor, new StartCommand(args.text("key"), FormValues.of(args.map("form")),
                     Variables.of(args.map("variables")), args.text("businessKey"), args.text("title"), args.number("priority", 0))));
-                case "claim" -> commandResult(engine.claim(actor, new ClaimCommand(args.text("workItem"))));
-                case "complete" -> commandResult(engine.complete(actor, new CompleteCommand(args.text("workItem"), args.text("outcome"),
+                case "claim" -> commandResult(engine.claim(actor, new ClaimCommand(args.id("workItem"))));
+                case "complete" -> commandResult(engine.complete(actor, new CompleteCommand(args.id("workItem"), args.text("outcome"),
                     args.text("comment"), FormValues.of(args.map("form")))));
-                case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.text("instance"), args.text("reason"))));
+                case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.id("instance"), args.text("reason"))));
                 case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("size", 20)));
-                case "instance" -> detail(engine.instance(actor, args.text("instance")));
+                case "instance" -> detail(engine.instance(actor, args.id("instance")));
                 case "publishDefinition" -> {
                     engine.publishDefinition(actor, Json.write(args.raw("definition")), null);
                     yield Map.of();
@@ -127,7 +124,7 @@ final class ScenarioRunner {
     }
 
     /** 一页列表：同 query 的表格接口（{@link Page#toWire}），total 是数字 */
-    private static Map<String, Object> page(Page<WorkItem> page) {
+    private static Map<String, Object> page(Page<TodoItem> page) {
         Map<String, Object> tree = new LinkedHashMap<>(page.toWire());
         tree.remove(Wire.TYPES);
         return tree;
@@ -177,6 +174,9 @@ final class ScenarioRunner {
     /** 一步的参数，按名字取 */
     private record Arguments(Map<String, Object> values) {
         String text(String name) { return (String) values.get(name); }
+
+        /** 编号：引用解出来的是线上的文字 */
+        Long id(String name) { return values.get(name) == null ? null : Long.valueOf((String) values.get(name)); }
 
         int number(String name, int fallback) {
             Object value = values.get(name);

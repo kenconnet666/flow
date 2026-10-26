@@ -1,20 +1,17 @@
 package org.dpdns.zerodep.flow.core.store.query;
 
-import org.dpdns.zerodep.flow.core.id.IdStrategy;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 import org.dpdns.zerodep.query.exec.Database;
 import org.dpdns.zerodep.query.exec.Page;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import static org.dpdns.zerodep.query.Sql.all;
 import static org.dpdns.zerodep.query.Sql.any;
@@ -25,121 +22,114 @@ import static org.dpdns.zerodep.query.Sql.orders;
 import static org.dpdns.zerodep.query.Sql.update;
 import static org.dpdns.zerodep.query.Sql.val;
 
-/** 待办与候选的默认存储：{@code flow_work_item} 与 {@code flow_candidate} 表；收件箱的查法见 {@link #todo} */
-final class QueryWorkItemStore extends StoreSupport implements WorkItemStore {
-    QueryWorkItemStore(Database db, IdStrategy ids, Supplier<String> tenant) { super(db, ids, tenant); }
+/**
+ * 待办与候选的默认存储：{@code flow_work_item} 与 {@code flow_candidate} 表。待办的记录（{@link WorkItem}）就是表的一行。
+ * 状态的变化都写成带条件的更新（{@code WHERE state = 'open'}……），改到 0 行就是别人先改了；收件箱的查法见 {@link #todo}。
+ */
+final class QueryWorkItemStore implements WorkItemStore {
+    /** 新到的待办的顺序：到达时间从新到旧，同一时刻按编号从大到小 */
+    private static final Comparator<WorkItem> NEWEST_FIRST = Comparator.comparing(WorkItem::createdAt).thenComparing(WorkItem::id).reversed();
 
-    /** flow_work_item 的一行 */
-    record WorkItemRow(String tenantId, Long id, String kind, Long instanceId, String processKey, Short priority, String node, String nodeName,
-                       Integer round, String state, String assignment, String arrival, String inboxKind, String inboxId, String assigneeId,
-                       String assigneeName, LocalDateTime dueAt, LocalDateTime claimedAt, LocalDateTime createdAt, Integer remindCount,
-                       Boolean needsDesignation, String outcome, String comment, String completedBy, String completedByName,
-                       LocalDateTime completedAt, Integer rev) { }
+    private final Database db;
 
-    /** flow_candidate 的一行 */
-    record CandidateRow(String tenantId, Long id, Long workItemId, String kind, String value) { }
+    QueryWorkItemStore(Database db) { this.db = db; }
+
+    /** 候选插入的一行（编号由数据库自增） */
+    record NewCandidate(Long workItemId, String kind, String value) { }
 
     @Override
-    public void insert(WorkItem w, List<Candidate> candidates) {
-        String t = tenant.get();
-        Long id = key(w.id());
-        db.execute(insertInto(FlowTables.WorkItem.class).values(new WorkItemRow(t, id, "task", key(w.instanceId()), w.processKey(), (short) w.priority(),
-            w.node(), w.nodeName(), w.round(), w.state(), w.assignment(), w.arrival(), w.inboxKind(), w.inboxId(), w.assigneeId(),
-            w.assigneeName(), time(w.dueAt()), time(w.claimedAt()), time(w.createdAt()), 0, false, w.outcome(), w.comment(),
-            w.completedBy(), w.completedByName(), time(w.completedAt()), 0)));
-        if (candidates.isEmpty()) return;
-        List<CandidateRow> rows = new ArrayList<>();
-        for (Candidate c : candidates) rows.add(new CandidateRow(t, newId("flow_candidate"), id, c.kind(), c.value()));
-        db.execute(insertInto(FlowTables.Candidate.class).values(rows));
+    public WorkItem insert(WorkItem draft, List<Candidate> candidates) {
+        Long id = db.<Long>insertKeys(insertInto(FlowTables.WorkItem.class).values(draft)).get(0);
+        if (!candidates.isEmpty()) {
+            db.execute(insertInto(FlowTables.Candidate.class).values(candidates.stream().map(c -> new NewCandidate(id, c.kind(), c.value())).toList()));
+        }
+        return new WorkItem(id, draft.instanceId(), draft.processKey(), draft.priority(), draft.node(), draft.nodeName(), draft.round(),
+            draft.state(), draft.assignment(), draft.arrival(), draft.inboxKind(), draft.inboxId(), draft.assigneeId(), draft.assigneeName(),
+            draft.createdAt(), draft.claimedAt(), draft.dueAt(), draft.outcome(), draft.comment(), draft.completedBy(), draft.completedByName(),
+            draft.completedAt());
     }
 
     @Override
-    public Optional<WorkItem> find(String workItemId) {
-        Long id = key(workItemId);
-        return db.optional(from(FlowTables.WorkItem.class).where(r -> r.id().eq(id)).selectAs(WorkItemRow.class)).map(this::workItem);
+    public Optional<WorkItem> find(Long workItemId) {
+        return db.optional(from(FlowTables.WorkItem.class).where(r -> r.id().eq(workItemId)).selectAs(WorkItem.class));
     }
 
     @Override
-    public List<Candidate> candidates(String workItemId) {
-        Long id = key(workItemId);
-        return db.list(from(FlowTables.Candidate.class).where(c -> c.workItemId().eq(id)).orderBy(c -> c.id()).selectAs(CandidateRow.class))
-            .stream().map(c -> new Candidate(c.kind(), c.value())).toList();
+    public List<Candidate> candidates(Long workItemId) {
+        return db.list(from(FlowTables.Candidate.class).where(c -> c.workItemId().eq(workItemId)).orderBy(c -> c.id())
+            .selectAs(Candidate.class));
     }
 
     @Override
-    public boolean claim(String workItemId, String userId, String userName, Instant at) {
-        Long id = key(workItemId);
+    public boolean claim(Long workItemId, String userId, String userName, Instant at) {
         return db.execute(update(FlowTables.WorkItem.class).set(r -> {
             r.assigneeId().to(userId);
             r.assigneeName().to(userName);
             r.assignment().to(WorkItem.CLAIMED);
-            r.claimedAt().to(time(at));
+            r.claimedAt().to(at);
             r.rev().to(r.rev().plus(val(1)));
-        }).where(r -> { r.id().eq(id); r.state().eq(WorkItem.OPEN); r.assigneeId().isNull(); })) == 1;
+        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); r.assigneeId().isNull(); })) == 1;
     }
 
     @Override
-    public boolean complete(String workItemId, Completion c) {
-        Long id = key(workItemId);
+    public boolean complete(Long workItemId, Completion c) {
         boolean changed = db.execute(update(FlowTables.WorkItem.class).set(r -> {
             r.state().to(WorkItem.DONE);
             r.outcome().to(c.outcome());
             r.comment().to(c.comment());
             r.completedBy().to(c.userId());
             r.completedByName().to(c.userName());
-            r.completedAt().to(time(c.at()));
+            r.completedAt().to(c.at());
             r.rev().to(r.rev().plus(val(1)));
-        }).where(r -> { r.id().eq(id); r.state().eq(WorkItem.OPEN); })) == 1;
-        if (changed) db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().eq(id)));
+        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); })) == 1;
+        // 候选只在待办打开时存在（0007 的 1 节第 3 条）
+        if (changed) db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().eq(workItemId)));
         return changed;
     }
 
     @Override
-    public List<WorkItem> cancelOpen(String instanceId, Instant at) {
-        Long instance = key(instanceId);
-        List<WorkItem> open = db.list(from(FlowTables.WorkItem.class)
-            .where(r -> { r.instanceId().eq(instance); r.state().eq(WorkItem.OPEN); })
-            .orderBy(r -> r.id()).selectAs(WorkItemRow.class)).stream().map(this::workItem).toList();
+    public List<WorkItem> cancelOpen(Long instanceId, Instant at) {
+        List<WorkItem> open = db.list(from(FlowTables.WorkItem.class).where(r -> { r.instanceId().eq(instanceId); r.state().eq(WorkItem.OPEN); })
+            .orderBy(r -> r.id()).selectAs(WorkItem.class));
         if (open.isEmpty()) return open;
-        List<Long> keys = open.stream().map(w -> key(w.id())).toList();
+        List<Long> ids = open.stream().map(WorkItem::id).toList();
         db.execute(update(FlowTables.WorkItem.class).set(r -> {
             r.state().to(WorkItem.CANCELED);
             r.rev().to(r.rev().plus(val(1)));
-        }).where(r -> { r.id().in(keys); r.state().eq(WorkItem.OPEN); }));
-        db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().in(keys)));
+        }).where(r -> { r.id().in(ids); r.state().eq(WorkItem.OPEN); }));
+        db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().in(ids)));
         return open;
     }
 
     @Override
-    public List<WorkItem> ofInstance(String instanceId) {
-        Long instance = key(instanceId);
-        return db.list(from(FlowTables.WorkItem.class).where(r -> r.instanceId().eq(instance)).orderBy(r -> orders(r.createdAt(), r.id()))
-            .selectAs(WorkItemRow.class)).stream().map(this::workItem).toList();
+    public List<WorkItem> ofInstance(Long instanceId) {
+        return db.list(from(FlowTables.WorkItem.class).where(r -> r.instanceId().eq(instanceId)).orderBy(r -> orders(r.createdAt(), r.id()))
+            .selectAs(WorkItem.class));
     }
 
     @Override
-    public Optional<String> lastCompletedBy(String instanceId, String node) {
-        Long instance = key(instanceId);
+    public Optional<String> lastCompletedBy(Long instanceId, String node) {
         return db.optional(from(FlowTables.WorkItem.class)
-            .where(r -> { r.instanceId().eq(instance); r.node().eq(node); r.state().eq(WorkItem.DONE); })
+            .where(r -> { r.instanceId().eq(instanceId); r.node().eq(node); r.state().eq(WorkItem.DONE); })
             .orderBy(r -> orders(r.completedAt().desc(), r.id().desc())).limit(1).select(r -> r.completedBy()));
     }
 
     /**
-     * 两段各取前"偏移 + 页长"条再合并（0007 第 4 节）：第一段按（租户, 处理人, 状态, 到达时间）的索引，第二段从候选的覆盖索引进；
-     * 第二段要求没有处理人，两段不重叠，总数是两段之和。
+     * 收件箱分两段查（0007 第 4 节），各取前"偏移 + 页长"条再合并：
+     * <ol>
+     *   <li>落到我的：走（租户, 处理人, 状态, 到达时间）的索引；</li>
+     *   <li>我能认领的：没有处理人，候选里有我、我的角色或部门，而且我没被排除——从候选的覆盖索引进。</li>
+     * </ol>
+     * 第二段要求没有处理人，两段不会重叠，总数是两段之和。
      */
     @Override
     public Page<WorkItem> todo(Member member, int page, int size) {
         if (page < 1 || size < 1) throw new IllegalArgumentException("page and size start at 1");
-        String t = tenant.get();
-        String open = WorkItem.OPEN;
-        int head = (page - 1) * size + size;
-        var mine = from(FlowTables.WorkItem.class).where(r -> { r.tenantId().eq(t); r.assigneeId().eq(member.userId()); r.state().eq(open); });
+        int head = page * size;
+        var mine = from(FlowTables.WorkItem.class).where(r -> { r.assigneeId().eq(member.userId()); r.state().eq(WorkItem.OPEN); });
         var claimable = from(FlowTables.WorkItem.class).where(r -> {
-            r.tenantId().eq(t);
             r.assigneeId().isNull();
-            r.state().eq(open);
+            r.state().eq(WorkItem.OPEN);
             r.candidates().any(c -> any(() -> {
                 for (Map.Entry<String, Set<String>> e : member.memberships().entrySet()) {
                     if (!e.getValue().isEmpty()) all(() -> { c.kind().eq(e.getKey()); c.value().in(e.getValue()); });
@@ -148,19 +138,10 @@ final class QueryWorkItemStore extends StoreSupport implements WorkItemStore {
             r.candidates().none(c -> { c.kind().eq(Candidate.EXCLUDED); c.value().eq(member.userId()); });
         });
         long total = db.count(mine.select(r -> r.id())) + db.count(claimable.select(r -> r.id()));
-        List<WorkItemRow> rows = new ArrayList<>(db.list(mine.orderBy(r -> orders(r.createdAt().desc(), r.id().desc())).limit(head)
-            .selectAs(WorkItemRow.class)));
-        rows.addAll(db.list(claimable.orderBy(r -> orders(r.createdAt().desc(), r.id().desc())).limit(head).selectAs(WorkItemRow.class)));
-        rows.sort(Comparator.comparing(WorkItemRow::createdAt).thenComparing(WorkItemRow::id).reversed());
-        List<WorkItem> slice = rows.stream().skip((long) (page - 1) * size).limit(size)
-            .map(this::workItem).toList();
-        return new Page<>(slice, total, page, size);
-    }
-
-    private WorkItem workItem(WorkItemRow r) {
-        return new WorkItem(text(r.id()), text(r.instanceId()), r.processKey(),
-            r.priority() == null ? 0 : r.priority(), r.node(), r.nodeName(), r.round(), r.state(), r.assignment(), r.arrival(), r.inboxKind(),
-            r.inboxId(), r.assigneeId(), r.assigneeName(), instant(r.createdAt()), instant(r.claimedAt()), instant(r.dueAt()), r.outcome(),
-            r.comment(), r.completedBy(), r.completedByName(), instant(r.completedAt()), null, null);
+        List<WorkItem> rows = new ArrayList<>();
+        rows.addAll(db.list(mine.orderBy(r -> orders(r.createdAt().desc(), r.id().desc())).limit(head).selectAs(WorkItem.class)));
+        rows.addAll(db.list(claimable.orderBy(r -> orders(r.createdAt().desc(), r.id().desc())).limit(head).selectAs(WorkItem.class)));
+        rows.sort(NEWEST_FIRST);
+        return new Page<>(rows.stream().skip((long) (page - 1) * size).limit(size).toList(), total, page, size);
     }
 }

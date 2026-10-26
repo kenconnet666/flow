@@ -5,4 +5,4 @@ package org.dpdns.zerodep.flow.core.command;
  *
  * @param workItemId 待办
  */
-public record ClaimCommand(String workItemId) { }
+public record ClaimCommand(Long workItemId) { }

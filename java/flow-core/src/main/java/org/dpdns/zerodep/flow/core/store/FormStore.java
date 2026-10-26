@@ -17,7 +17,7 @@ public interface FormStore {
     Optional<StoredForm> latest(String formKey);
 
     /** 按编号取一个版本 */
-    Optional<StoredForm> byId(String formVersionId);
+    Optional<StoredForm> byId(Long formVersionId);
 
     /**
      * 发布一个版本要的东西（0004 的 1.1、1.5）：字段清单是 JSON 文字；前端源码与编译结果、后端源码原样存。
@@ -29,5 +29,5 @@ public interface FormStore {
                        String publishedByName, Instant at) { }
 
     /** 发布的一个版本：引擎用到的是字段清单 */
-    record StoredForm(String id, String formKey, int version, String manifest) { }
+    record StoredForm(Long id, String formKey, int version, String manifest) { }
 }

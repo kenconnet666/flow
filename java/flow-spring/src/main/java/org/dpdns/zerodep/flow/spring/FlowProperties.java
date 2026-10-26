@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * flow:
  *   datasource: flowDataSource            # 多数据源时：引擎用哪个 DataSource Bean（只有一个时不用写）
  *   transaction-manager: flowTxManager    # 多数据源时：那个数据源的事务管理器 Bean
- *   worker-id: 3                          # 雪花的机器号写死；不写时在 flow_worker 表里租用
  *   flyway:
  *     enabled: true                       # 启动时执行引擎的建表脚本（单独一套 Flyway，默认关）
  *   http:
@@ -24,9 +23,6 @@ public class FlowProperties {
     /** 引擎的事务交给哪个事务管理器 Bean；只有一个时不用写 */
     private String transactionManager;
 
-    /** 雪花的机器号写死；不写时在 flow_worker 表里租用 */
-    private Long workerId;
-
     /** 建表 */
     private final Flyway flyway = new Flyway();
 
@@ -40,10 +36,6 @@ public class FlowProperties {
     public String getTransactionManager() { return transactionManager; }
 
     public void setTransactionManager(String transactionManager) { this.transactionManager = transactionManager; }
-
-    public Long getWorkerId() { return workerId; }
-
-    public void setWorkerId(Long workerId) { this.workerId = workerId; }
 
     public Flyway getFlyway() { return flyway; }
 

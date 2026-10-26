@@ -177,11 +177,11 @@ final class Execution {
         }
         String assignee = assignees.isDirect() ? assignees.directUser() : null;
         Candidate inbox = assignees.firstInbox();
-        WorkItem item = new WorkItem(context.ids().next("flow_work_item"), instance.id(), instance.processKey(), instance.priority(),
+        WorkItem draft = new WorkItem(null, instance.id(), instance.processKey(), instance.priority(),
             task.id(), task.name(), instance.state().round(task.id()), WorkItem.OPEN, assignee != null ? WorkItem.DIRECT : WorkItem.POOL,
             fromNode == null ? "start" : "forward", inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.value(),
-            assignee, assignee == null ? null : context.org().userName(assignee), now, null, null, null, null, null, null, null, null, null);
-        context.stores().workItems().insert(item, assignee != null ? List.of() : assignees.candidates());
+            assignee, assignee == null ? null : context.org().userName(assignee), now, null, null, null, null, null, null, null);
+        WorkItem item = context.stores().workItems().insert(draft, assignee != null ? List.of() : assignees.candidates());
         created.add(item);
         record(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null);
     }
@@ -250,8 +250,8 @@ final class Execution {
     }
 
     /** 记一条流转记录：同一步的记录共用实例的版本 */
-    void record(String type, ProcessNode node, String edge, String outcome, String workItemId, String comment) {
-        events.add(new FlowEvent(context.ids().next("flow_event"), instance.id(), workItemId, type, node == null ? null : node.id(),
+    void record(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment) {
+        events.add(new FlowEvent(null, instance.id(), workItemId, type, node == null ? null : node.id(),
             node == null ? null : node.name(), edge, outcome, rev, actor.id(), actor.name(), now, comment, Map.of()));
     }
 
@@ -268,8 +268,10 @@ final class Execution {
         for (String name : graph.definition().summary()) summary.put(name, read(name));
         String title = fixedTitle != null ? fixedTitle : renderTitle();
         instance = instance.withDisplay(title, summary, currentNodes());
-        context.stores().instances().update(instance, now);
-        context.stores().events().append(events);
+        context.stores().instances().update(instance);
+        List<FlowEvent> saved = context.stores().events().append(events);
+        events.clear();
+        events.addAll(saved);
     }
 
     /** 正在处理的节点：还开着的待办所在的节点，去重；实例结束了就是空的 */

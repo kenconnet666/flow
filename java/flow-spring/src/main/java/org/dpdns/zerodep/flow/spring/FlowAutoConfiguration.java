@@ -1,8 +1,6 @@
 package org.dpdns.zerodep.flow.spring;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
-import org.dpdns.zerodep.flow.core.id.IdStrategy;
-import org.dpdns.zerodep.flow.core.id.WorkerIdProvider;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
@@ -14,12 +12,9 @@ import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.spring.http.FlowHttpController;
-import org.dpdns.zerodep.query.Sql;
-import org.dpdns.zerodep.query.exec.Database;
 import org.dpdns.zerodep.query.spring.SpringConnections;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -40,7 +35,7 @@ import java.time.Clock;
  *   <li>当前操作人：用了 Spring Security 且登录后的 principal 实现了 {@link Actor} 时自动取；否则声明一个 {@link ActorProvider} Bean；</li>
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
- * 其余扩展点（权限、时钟、主键策略、六个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）。
+ * 其余扩展点（权限、时钟、六个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）。
  * 引擎注入成 {@code FlowEngine<自己的用户类型>} 即可。
  */
 @AutoConfiguration(afterName = {
@@ -52,28 +47,17 @@ import java.time.Clock;
 @ConditionalOnClass(FlowEngine.class)
 @EnableConfigurationProperties(FlowProperties.class)
 public class FlowAutoConfiguration {
-    /** 引擎用的 query 数据库实例：在选定的数据源上，事务交给它的事务管理器（外面已有事务时加入） */
-    @Bean
-    @ConditionalOnMissingBean(name = "flowDatabase")
-    public Database flowDatabase(FlowProperties properties, BeanFactory beans) {
-        DataSource dataSource = pick(beans, DataSource.class, properties.getDatasource(), "flow.datasource");
-        PlatformTransactionManager transactions = pick(beans, PlatformTransactionManager.class, properties.getTransactionManager(),
-            "flow.transaction-manager");
-        return Sql.database(SpringConnections.of(dataSource, transactions), null);
-    }
-
     /**
      * 引擎。返回类型不带泛型参数，所以应用可以注入成 {@code FlowEngine<MyUser>}。
-     * 打开了 Flyway 建表时，先建好表再组装（默认的雪花要在 {@code flow_worker} 表里租机器号）。
+     * 打开了 Flyway 建表时，先建好表再组装。
      */
-    @Bean(destroyMethod = "close")
+    @Bean
     @ConditionalOnMissingBean
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public FlowEngine flowEngine(@Qualifier("flowDatabase") Database db, FlowProperties properties,
+    public FlowEngine flowEngine(BeanFactory beans, FlowProperties properties,
                                  ObjectProvider<FlowSchemaMigration> migration,
                                  ObjectProvider<OrgDirectory> org, ObjectProvider<ActorProvider> actors,
                                  ObjectProvider<PermissionPolicy> permissions, ObjectProvider<Clock> clock,
-                                 ObjectProvider<IdStrategy> ids, ObjectProvider<WorkerIdProvider> workers,
                                  ObjectProvider<DefinitionStore> definitionStore, ObjectProvider<FormStore> formStore,
                                  ObjectProvider<FormDataStore> formDataStore, ObjectProvider<InstanceStore> instanceStore,
                                  ObjectProvider<WorkItemStore> workItemStore, ObjectProvider<EventStore> eventStore) {
@@ -82,13 +66,14 @@ public class FlowAutoConfiguration {
         if (directory == null) {
             throw new IllegalStateException("the flow engine needs an OrgDirectory bean: connect it to your users, departments and roles");
         }
-        FlowEngine.Builder builder = FlowEngine.builder(db).orgDirectory(directory);
+        // 引擎的连接：选定的数据源，事务交给它的事务管理器（外面已有事务时加入）
+        DataSource dataSource = pick(beans, DataSource.class, properties.getDatasource(), "flow.datasource");
+        PlatformTransactionManager transactions = pick(beans, PlatformTransactionManager.class, properties.getTransactionManager(),
+            "flow.transaction-manager");
+        FlowEngine.Builder builder = FlowEngine.builder(SpringConnections.of(dataSource, transactions)).orgDirectory(directory);
         actors.ifAvailable(builder::actorProvider);
         permissions.ifAvailable(builder::permissionPolicy);
         clock.ifUnique(builder::clock);
-        ids.ifAvailable(builder::idStrategy);
-        if (properties.getWorkerId() != null) builder.workerIdProvider(WorkerIdProvider.fixed(properties.getWorkerId()));
-        workers.ifAvailable(builder::workerIdProvider);
         definitionStore.ifAvailable(builder::definitionStore);
         formStore.ifAvailable(builder::formStore);
         formDataStore.ifAvailable(builder::formDataStore);

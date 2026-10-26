@@ -33,7 +33,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @SpringBootTest(classes = SpringTestApp.class, properties = {
     "flow.flyway.enabled=true",
     "flow.http.enabled=true",
-    "flow.worker-id=1",
     // 应用自己没有 Flyway 迁移：关掉 Spring Boot 自带的那一套，只跑引擎的
     "spring.flyway.enabled=false"})
 @AutoConfigureMockMvc

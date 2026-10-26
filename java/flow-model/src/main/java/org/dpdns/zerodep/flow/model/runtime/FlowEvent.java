@@ -21,7 +21,7 @@ import java.util.Map;
  * @param comment     意见、原因
  * @param data        附加的数据
  */
-public record FlowEvent(String id, String instanceId, String workItemId, String type, String node, String nodeName, String edge,
+public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, String node, String nodeName, String edge,
                         String outcome, int instanceRev, String actorId, String actorName, Instant at, String comment,
                         Map<String, Object> data) {
     /** 实例发起 */

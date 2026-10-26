@@ -15,7 +15,7 @@
 | 6 | **等待点各归其位**：人工节点 → 待办；定时、超时、提醒、异步动作 → 作业；外部事件 → 等待表；同步子流程 → 子实例上的父实例列 | 每种等待都有自己要查的方式（按人、按到期时间、按事件名、按父实例），各用各的索引 | 一张"等待"总表：索引顾此失彼 |
 | 7 | **租户列每张表都有**（不用租户时是空串），索引都以它开头 | 表结构一种，打不打开多租户不用改表；常量开头的列不影响索引的使用 | 打开多租户才加列：两套表结构、两套索引 |
 | 8 | **名字存快照**：处理人、发起人、操作人的名字和编号一起存 | 历史记录不依赖组织架构：人离职、改名后记录照样能看；列表不用每行去查人名 | 只存编号、显示时查：历史会变、列表慢 |
-| 9 | **编号列的类型按主键策略**（雪花 `BIGINT`、大雪花 `DECIMAL(p,0)`，0006 的 6.1）；接入方的用户、部门、角色编号是 `VARCHAR(64)` | 引擎里编号都是字符串，只有落库的类型跟着策略走 | — |
+| 9 | **主键是数据库自增的 `BIGINT`**（Java 的 `long`，0006 的 6.1，用户 2026-10-26 改定）；接入方的用户、部门、角色编号是 `VARCHAR(64)` | 引擎的编号就是数字，插入后取回；不用应用生成的雪花 | 雪花、大雪花（原定，改掉了） |
 | 10 | 不建外键；会变的行带 `rev`（乐观锁），只追加的表不带；时间是 UTC 的 `DATETIME(3)`；JSON 用 MySQL 的 `JSON` 类型 | 同 0001 的通用约定 | — |
 | 11 | **流程与表单都是"本身 + 版本"两张表**：`flow_process` 存启用停用、最新版本，`flow_definition` 存不可变的版本 | 停用是对整个流程的，不是对某个版本；和表单的 `flow_form` / `flow_form_version`（0004 的 5.2）对称 | 原草案只有版本表，停用要改所有版本或另找地方记 |
 | 12 | 表名前缀可配（默认 `flow_`）；每组表背后是一个可替换的存储接口（0006 第 6 节） | 标准行为都能替换 | — |
@@ -29,10 +29,10 @@
 | 运行 | `flow_instance`、`flow_work_item`、`flow_candidate`、`flow_wait`、`flow_event` | 实例、待办、候选、外部事件的等待、流转记录 |
 | 协作 | `flow_cc` | 抄送 |
 | 作业与时间 | `flow_job`、`flow_calendar`、`flow_calendar_day` | 作业、工作日历、日历里的例外日 |
-| 基础 | `flow_worker`、`flow_request` | 雪花机器号的租约、命令的幂等记录（建表的历史由接入方的 Flyway 记，见第 9 节） |
+| 基础 | `flow_request` | 命令的幂等记录（建表的历史由接入方的 Flyway 记，见第 9 节） |
 | 归档 | `flow_instance_archive`、`flow_work_item_archive`、`flow_event_archive`、`flow_form_data_archive`、`flow_cc_archive` | 结构同原表，多一列 `archived_at` |
 
-下面的类型里，`ID` 表示按主键策略的编号列，`USER` 是 `VARCHAR(64)`（接入方的用户、部门、角色编号），`NAME` 是 `VARCHAR(200)`，`KEY` 是 `VARCHAR(64)`（流程、表单、节点的标识），`TIME` 是 `DATETIME(3)`。
+下面的类型里，`ID` 表示编号列（`BIGINT`，主键自增），`USER` 是 `VARCHAR(64)`（接入方的用户、部门、角色编号），`NAME` 是 `VARCHAR(200)`，`KEY` 是 `VARCHAR(64)`（流程、表单、节点的标识），`TIME` 是 `DATETIME(3)`。
 每张表都有 `tenant_id VARCHAR(64) NOT NULL DEFAULT ''`，下面不再列。
 
 ## 3. 各表（已定，用户 2026-10-26）
@@ -246,17 +246,6 @@
 
 ### 3.6 基础
 
-**`flow_worker`**：雪花机器号的租约（0001 的"雪花的机器号"）
-
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| `scope`、`worker_id` | `VARCHAR(64)`、INT | 主键；`scope` 是机器号的哪一段（大雪花可能有区域号、机器号两段） |
-| `owner` | `VARCHAR(128)` | 主机名、进程号加随机串 |
-| `lease_until`、`heartbeat_at` | TIME | |
-| `last_timestamp` | `BIGINT` | 上一任最后发号的时间，接手的人等时钟走过它 |
-
-抢号：先用带条件的 UPDATE 抢一个过期的；没有就 INSERT 下一个没用过的号（主键挡住同时插入），号用完报错。
-
 **`flow_request`**：命令的幂等记录（0006 第 1 节）
 
 | 列 | 类型 | 说明 |
@@ -323,7 +312,7 @@
 
 ## 8. 和 0001 原草案相比（已定，用户 2026-10-26）
 
-- 新增 `flow_process`（流程本身）、`flow_form`、`flow_form_version`、`flow_form_data`、`flow_wait`、`flow_calendar`、`flow_worker`、`flow_request` 与归档表；`flow_draft` 改为流程与表单共用。
+- 新增 `flow_process`（流程本身）、`flow_form`、`flow_form_version`、`flow_form_data`、`flow_wait`、`flow_calendar`、`flow_request` 与归档表；`flow_draft` 改为流程与表单共用。
 - 实例上新增 `state`（运行状态）、`summary`、`priority`、`root_instance_id`、`suspension`，`current` 改成带名字的 JSON。
 - 待办上新增 `kind`（普通待办、异常处理）、`waiting` 状态、会签的几列、子待办（委派与加签都生成子待办，不用 `owner` 列）、`draft`（暂存）、`read_at`、催办次数、`priority`、名字快照；`flow_candidate` 改成只存打开着的待办。
 - 工作日历拆成日历（带时区、一周的工作日）与例外日两张。
@@ -334,5 +323,5 @@
 - **引擎不自己建表，也不用 query 的迁移器**：flow-core 的 jar 里带建表脚本 `db/flow/mysql/V1__create_flow_tables.sql`（以后的变更是 `V2__…`、`V3__…`，执行过的脚本不再改），每张表、每列都有中文注释。
 - **推荐用 Flyway 执行**，单独一套、不和应用自己的迁移混在一起：位置 `classpath:db/flow/mysql`，历史表 `flow_schema_history`。不用 Flyway 的交给 DBA 照脚本执行。
 - flow-spring 可以按配置帮忙跑这一套 Flyway（默认关，第 ③c 步做）；引擎的实库测试也是这样建表，等于一直在验证推荐的做法。
-- 脚本里的编号列按默认的雪花是 `BIGINT`；用大雪花时给另一份 `DECIMAL(p, 0)` 的脚本（随大雪花一起做）。
+- 主键列是 `BIGINT AUTO_INCREMENT`（0006 的 6.1）。
 - 理由：接入方多半已经有 Flyway / Liquibase 和 DBA 的审批流程，库自己在启动时改表结构不受欢迎；纯 SQL 脚本一眼能审。

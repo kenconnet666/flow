@@ -14,29 +14,29 @@ import java.util.Set;
  * 状态的变化都写成带条件的更新（改到 0 行就是别人先改了），所以认领先到先得、重复提交挡得住。默认实现是 {@link QueryStores}。
  */
 public interface WorkItemStore {
-    /** 新建待办与它的候选 */
-    void insert(WorkItem item, List<Candidate> candidates);
+    /** 新建待办与它的候选，返回带上数据库给的编号的待办 */
+    WorkItem insert(WorkItem item, List<Candidate> candidates);
 
     /** 读一个 */
-    Optional<WorkItem> find(String workItemId);
+    Optional<WorkItem> find(Long workItemId);
 
     /** 打开着的待办谁能处理、谁被排除 */
-    List<Candidate> candidates(String workItemId);
+    List<Candidate> candidates(Long workItemId);
 
     /** 认领：只在打开着、还没有处理人时改到；返回是否改到 */
-    boolean claim(String workItemId, String userId, String userName, Instant at);
+    boolean claim(Long workItemId, String userId, String userName, Instant at);
 
     /** 处理：只在打开着时改到，并删掉候选；返回是否改到 */
-    boolean complete(String workItemId, Completion completion);
+    boolean complete(Long workItemId, Completion completion);
 
     /** 取消实例上全部打开着的待办并删掉候选，返回取消了的（取消之前的样子） */
-    List<WorkItem> cancelOpen(String instanceId, Instant at);
+    List<WorkItem> cancelOpen(Long instanceId, Instant at);
 
     /** 实例的全部待办，按到达的先后 */
-    List<WorkItem> ofInstance(String instanceId);
+    List<WorkItem> ofInstance(Long instanceId);
 
     /** 某个节点最后一次是谁处理的（{@code sameAs}）；没处理过时为空 */
-    Optional<String> lastCompletedBy(String instanceId, String node);
+    Optional<String> lastCompletedBy(Long instanceId, String node);
 
     /** 收件箱：落到我的，加上我能认领的（候选里有我、我的角色或部门，且我没被排除），按到达时间从新到旧 */
     Page<WorkItem> todo(Member member, int page, int size);

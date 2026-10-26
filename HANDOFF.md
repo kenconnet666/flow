@@ -14,8 +14,8 @@
   - 模型包的内容已齐（2026-10-26），含业务错误码（0008，`spec/error-codes.json`）。
   - Java 引擎 `java/flow-core`（2026-10-26，③a）：包按职责分——
     `FlowEngine`（门面与组装）、`identity`（操作人、组织、权限）、`command`（每个命令一个 record）、`data`（表单值、流程变量、运行状态）、
-    `engine`（每个命令一个处理类，步骤写在类注释里；推进在 `Execution`）、`id`（雪花、按顺序发号）、`store`（六个存储接口）、
-    `store/query`（用 query 的默认实现、`flow_worker` 租机器号）。
+    `engine`（每个命令一个处理类，步骤写在类注释里；推进在 `Execution`）、`store`（六个存储接口）、
+    `store/query`（用 query 的默认实现：列上的转换器把行直接映射成引擎的记录，租户与修改时间由 `FlowDatabase` 统一填）。主键是数据库自增的 `Long`。
     建表不用 query 的迁移器：`flow-core` 的 `resources/db/flow/mysql/V1__create_flow_tables.sql`，推荐 Flyway 单独一套执行（0007 第 9 节）。
   - 场景用例 `spec/scenarios`（③b）：两个后端共同的验收标准，格式见那里的 README；Java 的执行器在 `flow-it` 的 `scenario` 包。
   - Spring Boot 适配 `java/flow-spring`（③c）：自动配置（`flow.*` 配置项见 `FlowProperties`）、当前操作人默认取 Spring Security 的 principal、
@@ -27,12 +27,12 @@
   - CI（`.github/workflows/ci.yml`）：Java（含 MySQL 8.4 服务跑实库测试）与 TS 两个任务。用户要把仓库改成开源，之后 CI 才能免费跑起来。
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：已定（2026-10-26）。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
-    主键默认雪花 BIGINT（另带大雪花，也可实现接口自定义，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
+    主键是数据库自增的 BIGINT（Java 的 long，2026-10-26 改定，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
     “初步方向”已定，表由 0007 接替。
   - [0002 能力清单](docs/decisions/0002-capabilities.md)：已定（2026-10-26），每节注明落在哪份文档。
   - [0003 模型包与前端的分工](docs/decisions/0003-model-and-frontend.md)：已采纳，前端取 B（见下）。
   - [0007 表](docs/decisions/0007-tables.md)：已定（2026-10-26）。待办不拆运行与历史、冷数据进归档表；候选只存打开着的待办，角色、部门按查询时的成员匹配；运行状态放实例 JSON；租户列都有；名字存快照；流程与表单都是"本身 + 版本"。
-  - [0006 引擎对外的接口](docs/decisions/0006-engine-api.md)：已定（2026-10-26）。命令管道、操作人泛型 U、命令与查询清单、事件、扩展点与可替换的部分、两个后端的形态与相同的 HTTP 接口、错误代号；主键只做雪花与大雪花（6.1），query 配合补"列类型按配置决定"并发版。
+  - [0006 引擎对外的接口](docs/decisions/0006-engine-api.md)：已定（2026-10-26）。命令管道、操作人泛型 U、命令与查询清单、事件、扩展点与可替换的部分、两个后端的形态与相同的 HTTP 接口、错误代号；主键改为数据库自增（6.1）。
   - [0008 业务错误码](docs/decisions/0008-error-codes.md)：已定（2026-10-26）。一律业务错误码、HTTP 一律 200，三个仓库都守；码是带命名空间的文字（`flow.`、`query.`、`http.`），成功是 `ok`，各包提供自己的码并互相对应。
   - [0005 流程定义 JSON](docs/decisions/0005-definition.md)：已定（2026-10-26 逐节定稿）。图加结构校验、布局单独放、`{ ref }` 取 form. / sys. / 流程变量 / fn. 四类；处理人六种来源加"上一步选"；11 种节点；会签"一人拒绝即拒绝"；条件与组件库、query 同规则；问题代号清单；通知按事件可改。
   - [0004 表单](docs/decisions/0004-forms.md)：已定（2026-10-26 逐节定稿）。代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
@@ -67,7 +67,7 @@
 1. 定义 JSON：已在 [0005](docs/decisions/0005-definition.md) 定稿。
 2. 引擎对外的接口：已在 [0006](docs/decisions/0006-engine-api.md) 定稿。
 3. 模块划分与场景用例：已定（0001 的"模块划分"）：全部在本仓库，`java/`、`typescript/`、`spec/`、`examples/` 四棵，照 query 的组织。
-4. 雪花的机器号：已定（0001 的"雪花的机器号"）：默认在 `flow_worker` 表里租用，可配置写死或替换 `WorkerIdProvider`。
+4. 雪花的机器号：作废（2026-10-26 主键改为数据库自增）。
 5. 表：已在 [0007](docs/decisions/0007-tables.md) 定稿。
 6. 0002 能力清单：已逐项确认（2026-10-26）。
 
@@ -124,7 +124,7 @@
 
 | 步 | 做什么 | 顺带的基础设施 |
 | --- | --- | --- |
-| ③a（已完成） | Java `flow-core` 的窄链：建表脚本（0007 里链路用到的表）、雪花 `IdStrategy` 与 `flow_worker` 租用机器号、实例行 `rev` 加锁与待办的带条件更新、发布表单与流程、命令 `start` / `claim` / `complete` / `withdraw`、查询收件箱与实例详情、节点 start / end / task / exclusive、处理人来源（指定人、角色、部门、发起人、同某节点）、表单按节点权限合并 | 表名前缀先固定 `flow_`；大雪花要的"列类型按配置决定"推到发布前。还没做的管道部分：拦截器、按命令替换处理类、幂等（`flow_request`）、事件监听，随 ③c 补 |
+| ③a（已完成） | Java `flow-core` 的窄链：建表脚本（0007 里链路用到的表）、实例行 `rev` 加锁与待办的带条件更新、发布表单与流程、命令 `start` / `claim` / `complete` / `withdraw`、查询收件箱与实例详情、节点 start / end / task / exclusive、处理人来源（指定人、角色、部门、发起人、同某节点）、表单按节点权限合并 | 表名前缀先固定 `flow_`。还没做的管道部分：拦截器、按命令替换处理类、幂等（`flow_request`）、事件监听，随 ③c 补 |
 | ③b（已完成） | `spec/scenarios/` 场景用例与 `flow-it` 的实库跑法（MySQL，库 `flow_it`）：场景是两个后端共用的验收标准 | — |
 | ③c（已完成） | `flow-spring`：自动配置、可选的 HTTP 接口（0008 的响应体）、`examples/spring-boot` | 管道里还没做的（拦截器、按命令替换处理类、幂等、事件监听）随后补 |
 | ③d | 前端：`flow-ui/form`（代码表单运行时：字段清单、运行时编译、字段权限）、最小的收件箱与审批面板，接 ③c 的示例后端走通一单审批 | 先做 vue-tsx-pro ROADMAP 9.8（浏览器编译、代码编辑器公开入口）与 9.9（人员选择器换成角色）；flow-ui 的 `flow.` 错误文案 |

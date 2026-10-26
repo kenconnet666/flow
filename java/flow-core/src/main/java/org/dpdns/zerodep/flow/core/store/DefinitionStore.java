@@ -21,7 +21,7 @@ public interface DefinitionStore {
     Optional<StoredDefinition> latest(String processKey);
 
     /** 按编号取一个版本 */
-    Optional<StoredDefinition> byId(String definitionId);
+    Optional<StoredDefinition> byId(Long definitionId);
 
     /** 发布一个版本要的东西；{@code model} 是 0005 的整份定义的 JSON 文字 */
     record Publication(String processKey, String name, String category, String model, String formKey, Integer formVersion,
@@ -34,5 +34,5 @@ public interface DefinitionStore {
     }
 
     /** 发布的一个版本；formKey、formVersion 是发布时定下的表单版本 */
-    record StoredDefinition(String id, String processKey, int version, String model, String formKey, Integer formVersion) { }
+    record StoredDefinition(Long id, String processKey, int version, String model, String formKey, Integer formVersion) { }
 }

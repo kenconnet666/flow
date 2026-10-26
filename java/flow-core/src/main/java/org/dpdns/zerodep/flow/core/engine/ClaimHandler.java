@@ -5,14 +5,11 @@ import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
-import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
-import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 认领收件箱里的待办（0006 的 3.2）。认领不推进实例，所以不锁实例行；先到先得靠带条件的更新
@@ -54,21 +51,19 @@ public final class ClaimHandler {
         if (!WorkItem.OPEN.equals(item.state())) throw FlowErrors.notOpen(item.id());
         if (item.assigneeId() != null) {
             if (item.assigneeId().equals(actor.id())) return;
-            throw new FlowException(FlowErrorCode.ALREADY_CLAIMED, Map.of("workItem", item.id()));
+            throw FlowErrors.alreadyClaimed(item.id());
         }
         if (!CandidateRules.isCandidate(actor, context.stores().workItems().candidates(item.id()))) {
-            throw new FlowException(FlowErrorCode.NOT_CANDIDATE, Map.of("workItem", item.id()));
+            throw FlowErrors.notCandidate(item.id());
         }
         // 两个人同时认领：带条件的更新只有一个改到
         if (!context.stores().workItems().claim(item.id(), actor.id(), actor.name(), context.clock().instant())) {
-            throw new FlowException(FlowErrorCode.ALREADY_CLAIMED, Map.of("workItem", item.id()));
+            throw FlowErrors.alreadyClaimed(item.id());
         }
     }
 
     /** 实例已结束、已暂停时不能再动它的待办 */
     static void requireActive(InstanceRecord instance) {
-        if (!ProcessInstance.ACTIVE.equals(instance.status())) {
-            throw new FlowException(FlowErrorCode.INSTANCE_NOT_ACTIVE, Map.of("instance", instance.id(), "status", instance.status()));
-        }
+        if (!ProcessInstance.ACTIVE.equals(instance.status())) throw FlowErrors.notActive(instance);
     }
 }

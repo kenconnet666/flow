@@ -1,6 +1,6 @@
 # 0006 引擎对外的接口
 
-- 状态：已定（用户 2026-10-26：主键只做雪花与大雪花，其余按推荐定稿）
+- 状态：已定（用户 2026-10-26；主键同日改为数据库自增，见 6.1）
 - 相关：方向见 [0001](0001-engine-direction.md)（第 5 条扩展点在这里展开），能力见 [0002](0002-capabilities.md)，定义见 [0005](0005-definition.md)，表单见 [0004](0004-forms.md)
 - 起点：vue-tsx-pro 提交 `f7bfdc2e` 的 `packages/ui/src/workflow/runtime.ts`（实例、待办、流转记录的类型）
 - 原则：**标准行为都能替换**（0001 的定位）。每一块都写明标准行为，以及怎样换成自己的
@@ -143,7 +143,6 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | | `EdgeSelector`、`ConditionEvaluator`、`TitleRenderer` | 0005 的规则 | 替换 |
 | 时间 | `Clock` | 系统时钟，UTC | 替换（测试里用固定时钟） |
 | | `WorkCalendar`、`DurationCalculator` | `flow_calendar_day` 表 | 替换 |
-| 编号 | `IdStrategy` | 雪花（BIGINT）；另带大雪花（6.1） | 二选一，或实现接口自定义 |
 | 存储 | `DefinitionStore`、`InstanceStore`、`WorkItemStore`、`EventStore`、`JobStore`、`FormStore`、`FormDataStore`、`WorkerStore`、`RequestStore`（后两个随 0007 补） | 用 query 读写 `flow_*` 表；表名前缀可配 | 每个单独替换（例如流转记录存到别处） |
 | 作业 | `JobRunner` | 本进程里定时轮询 `flow_job`，普通读加带条件 UPDATE 抢占（0001 第 4 条） | 替换（例如交给接入方已有的调度平台调 `engine.jobs.runDue()`） |
 | | `JobHandler` | 超时、提醒、无人认领、定时节点、异步动作 | 注册新的作业种类 |
@@ -155,37 +154,14 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | 序列化 | `JsonCodec` | Java 用 query 的 `wire`（不依赖 Jackson），TS 用内置 JSON | 替换（例如用接入方的 Jackson 配置） |
 | 集群 | `FormChangeBroadcaster`（0004 的 1.5，0005 也用来刷新定义缓存） | 不发 | 实现 |
 
-### 6.1 主键策略（已定，用户 2026-10-26）
+### 6.1 主键（已定，用户 2026-10-26 改定）
 
-内置只做两种，都是插入前由应用生成；不满意就实现 `IdStrategy` 自己定（同样由应用生成）。不做数据库自增。
+**数据库自增的 `BIGINT`，Java 里是 `long`（`Long`）**，不用雪花，也不做可替换的主键策略。
 
-| 策略 | 列类型 | 说明 |
-| --- | --- | --- |
-| **雪花（默认）** | `BIGINT` | 默认经典布局：毫秒时间 41 位、机器号 10 位、序号 12 位；布局可调（总共不超过 63 位）。机器号的规则见 0001 的"雪花的机器号" |
-| 大雪花 | `DECIMAL(p, 0)` | 位数布局由接入方自由调：起始时间、时间单位（毫秒或秒）、时间位数、区域位数、机器位数、序号位数；总位数超过 64 位也行，`p` 按总位数算出来。Java 用 `BigInteger`、TS 用 `bigint` 生成 |
-
-两种雪花的位布局都写成 `SnowflakeLayout`，机器号的每一段（区域号、机器号……）由 `WorkerIdProvider` 给出，规则都可调、都能替换（用户 2026-10-26）。
-| 自定义 | 由实现给出 | 实现 `IdStrategy` |
-
-参考 EasyQuery（3.2.17）：应用生成的主键是 `@Column(primaryKeyGenerator = X.class)`，接口 `PrimaryKeyGenerator` 只有一个 `getPrimaryKey()`，外加可覆盖的 `setPrimaryKey(实体, 列)`；生成器按类登记实例，Spring 里收集容器中的 Bean；它自己不带雪花，留给使用方实现。
-（它另有数据库生成的一套：`generatedKey = true` 加 `getGeneratedKeys` 回填。我们不做数据库自增，用不上。）`IdStrategy` 的约定（两个后端同名同义）：
-
-```java
-public interface IdStrategy {
-    /** 给出新编号 */
-    String next(String table);
-    /** 引擎里的编号 ↔ 绑定到语句、从结果读回的值 */
-    Object toDatabase(String id);
-    String fromDatabase(Object value);
-}
-```
-
-- **引擎里编号一律是字符串**（接口、JSON、扩展点的参数都是），不管背后是 `BIGINT` 还是 `DECIMAL`；换策略不改任何接口。EasyQuery 用实体字段自己的类型，那是 ORM 的需要；引擎要让两个后端和前端看到的都一样，所以统一成字符串。
-- **可以按表换策略**：默认整个引擎一种，个别表可以单独换（例如流转记录用大雪花），所以方法都带表名。
-- 登记方式同其他扩展点：Spring 里声明一个 `IdStrategy` Bean 就替换默认的雪花；TS 在选项里传。
-- 雪花、大雪花在时钟回拨时的处理可配：等到时钟追上（默认）、报错、借用序号。
-- 策略在**建表时**定下：建表脚本（0007 第 9 节）里编号列的类型要与策略一致（雪花 `BIGINT`、大雪花 `DECIMAL`）；表建好以后换策略要迁移数据。
-- query 配合补一项能力并发版：表声明（Java 的表接口、TS 的表类）里编号列读写的类型能按配置决定（雪花读写 `Long`、大雪花读写 `BigInteger`），见 0001 的"对 query 的要求"。建表不经过 query（0007 第 9 节）。
+- 建表脚本里主键列是 `BIGINT AUTO_INCREMENT`（0007 第 9 节）；引擎插入后用 query 的 `insertKeys` 取回数据库给的编号。
+- 引擎的接口、记录、扩展点里编号都是 `Long`；写到线上的 JSON（typed JSON）是文字，前端不丢精度。
+- 场景用例每次重建表，自增从 1 开始，两个后端跑出来的编号相同，不需要测试用的发号器。
+- 原来的雪花、大雪花、`IdStrategy`、`WorkerIdProvider`、`flow_worker` 都不要了；query 也不用再补"列类型按配置决定"。
 
 ## 7. 两个后端的形态（已定，用户 2026-10-26）
 

@@ -6,7 +6,7 @@ import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
+import org.dpdns.zerodep.flow.model.runtime.TodoItem;
 import org.dpdns.zerodep.query.exec.Page;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
@@ -34,8 +34,8 @@ final class ResponseBody {
         return Wire.encode(data);
     }
 
-    /** 一页待办：同 query 的表格接口 {@code { rows, total, page, size, totalPages }} */
-    static Object of(Page<WorkItem> page) { return page.toWire(); }
+    /** 一页待办：同 query 的表格接口 {@code { rows, total, page, size, totalPages }}，每行是 {@code { workItem, title, summary }} */
+    static Object of(Page<TodoItem> page) { return page.toWire(); }
 
     /** 发布的流程版本：{@code { id, key, version }}（定义本身就是请求体，不再发回） */
     static Object of(DefinitionStore.StoredDefinition definition) {

@@ -80,7 +80,7 @@ public class FlowHttpController {
     }
 
     @GetMapping("/queries/instances/{id}")
-    public ResponseEntity<String> instance(@PathVariable("id") String id) {
+    public ResponseEntity<String> instance(@PathVariable("id") Long id) {
         return respond(() -> ResponseBody.of(engine.instance(id)));
     }
 

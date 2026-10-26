@@ -52,9 +52,11 @@ public final class StartHandler {
 
             // 2. 实例与流程变量
             Instant now = context.clock().instant();
-            InstanceRecord instance = new InstanceRecord(context.ids().next("flow_instance"), command.key(), definition.stored().id(),
+            InstanceRecord draft = new InstanceRecord(null, command.key(), definition.stored().id(),
                 definition.stored().version(), command.businessKey(), model.name(), command.priority(), Map.of(), ProcessInstance.ACTIVE, null,
                 List.of(), initialVariables(model, command.variables()), RunState.INITIAL, actor.id(), actor.name(), now, null, 0);
+            // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
+            InstanceRecord instance = context.stores().instances().insert(draft);
             Execution run = new Execution(context, actor, now, definition.graph(), instance, FormValues.empty(), instance.rev());
 
             // 3. 表单
@@ -63,9 +65,8 @@ public final class StartHandler {
                 run.form(FormSubmission.merge(definition.manifest(), start.form(), true, FormValues.empty(), command.form(), run::read));
             }
 
-            // 4. 写实例与表单的值
-            context.stores().instances().insert(instance);
-            if (definition.hasForm()) context.stores().formData().insert(instance.id(), definition.form().id(), run.form(), now);
+            // 4. 写表单的值
+            if (definition.hasForm()) context.stores().formData().insert(instance.id(), definition.form().id(), run.form());
             run.record(FlowEvent.INSTANCE_STARTED, start, null, null, null, null);
 
             // 5. 往前走；6. 写回

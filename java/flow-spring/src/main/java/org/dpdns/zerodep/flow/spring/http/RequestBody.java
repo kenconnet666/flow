@@ -46,15 +46,15 @@ final class RequestBody {
     }
 
     /** {@code { workItemId }} */
-    ClaimCommand claim() { return new ClaimCommand(text("workItemId")); }
+    ClaimCommand claim() { return new ClaimCommand(id("workItemId")); }
 
     /** {@code { workItemId, outcome, comment, form }} */
     CompleteCommand complete() {
-        return new CompleteCommand(text("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")));
+        return new CompleteCommand(id("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")));
     }
 
     /** {@code { instanceId, reason }} */
-    WithdrawCommand withdraw() { return new WithdrawCommand(text("instanceId"), text("reason")); }
+    WithdrawCommand withdraw() { return new WithdrawCommand(id("instanceId"), text("reason")); }
 
     /** {@code { key, name, category, manifest, clientSource, clientCompiled, compilerVersion, serverLanguage, serverSource, note }}；manifest 是对象 */
     FormPublication formPublication() {
@@ -64,11 +64,21 @@ final class RequestBody {
 
     private String text(String name) {
         Object value = fields.get(name);
-        if (value == null) return null;
-        if (value instanceof String s) return s;
-        // 编号可能被写成数字：照样认
-        if (value instanceof Number n) return n.toString();
+        if (value == null || value instanceof String) return (String) value;
         throw invalid(name, "expected-text");
+    }
+
+    /** 编号：前端按 typed JSON 发成文字（大整数不丢精度），写成数字也认 */
+    private Long id(String name) {
+        Object value = fields.get(name);
+        if (value == null) return null;
+        try {
+            if (value instanceof Number n) return Long.valueOf(n.toString());
+            if (value instanceof String s) return Long.valueOf(s.trim());
+        } catch (NumberFormatException e) {
+            throw invalid(name, "expected-id");
+        }
+        throw invalid(name, "expected-id");
     }
 
     private int number(String name) {

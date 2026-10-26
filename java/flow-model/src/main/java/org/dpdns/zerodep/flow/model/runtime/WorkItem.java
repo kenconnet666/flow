@@ -1,12 +1,11 @@
 package org.dpdns.zerodep.flow.model.runtime;
 
 import java.time.Instant;
-import java.util.Map;
 
 /**
- * 待办（0007 的 {@code flow_work_item}）：命令与查询返回给前端的形状，两个后端相同。收件箱里的待办另带实例的标题与摘要列。
+ * 待办（0007 的 {@code flow_work_item} 的一行）：命令与查询返回给前端的形状，两个后端相同。收件箱的一行是 {@link TodoItem}（另带实例的标题与摘要列）。
  *
- * @param id           编号
+ * @param id           编号（数据库自增）
  * @param instanceId   实例
  * @param processKey   流程标识
  * @param priority     紧急程度（从实例抄来）
@@ -28,13 +27,11 @@ import java.util.Map;
  * @param completedBy  谁处理的
  * @param completedByName 处理人的名字（快照）
  * @param completedAt  处理时间
- * @param title        实例标题：只在收件箱、已办这类列表里带上
- * @param summary      实例的摘要列：同上
  */
-public record WorkItem(String id, String instanceId, String processKey, int priority, String node, String nodeName, int round,
+public record WorkItem(Long id, Long instanceId, String processKey, int priority, String node, String nodeName, int round,
                        String state, String assignment, String arrival, String inboxKind, String inboxId, String assigneeId,
                        String assigneeName, Instant createdAt, Instant claimedAt, Instant dueAt, String outcome, String comment,
-                       String completedBy, String completedByName, Instant completedAt, String title, Map<String, Object> summary) {
+                       String completedBy, String completedByName, Instant completedAt) {
     /** 等着处理 */
     public static final String OPEN = "open";
     /** 处理完 */
@@ -49,9 +46,4 @@ public record WorkItem(String id, String instanceId, String processKey, int prio
     /** 直接落到人 */
     public static final String DIRECT = "direct";
 
-    /** 带上实例的标题与摘要列（列表用） */
-    public WorkItem withInstance(String title, Map<String, Object> summary) {
-        return new WorkItem(id, instanceId, processKey, priority, node, nodeName, round, state, assignment, arrival, inboxKind, inboxId,
-            assigneeId, assigneeName, createdAt, claimedAt, dueAt, outcome, comment, completedBy, completedByName, completedAt, title, summary);
-    }
 }

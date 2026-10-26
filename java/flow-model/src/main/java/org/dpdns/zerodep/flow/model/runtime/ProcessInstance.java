@@ -23,7 +23,7 @@ import java.util.Map;
  * @param startedAt   发起时间
  * @param endedAt     结束时间
  */
-public record ProcessInstance(String id, String processKey, int version, String businessKey, String title, int priority,
+public record ProcessInstance(Long id, String processKey, int version, String businessKey, String title, int priority,
                               Map<String, Object> summary, String status, String result, List<CurrentNode> current,
                               String startedBy, String startedByName, Instant startedAt, Instant endedAt) {
     /** 实例的状态 */

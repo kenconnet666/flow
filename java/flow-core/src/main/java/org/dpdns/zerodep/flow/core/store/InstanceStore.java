@@ -15,20 +15,20 @@ import java.util.Optional;
  * （0001 第 3 条）。默认实现在 {@code store.query} 包里，可以单独替换。
  */
 public interface InstanceStore {
-    /** 新建 */
-    void insert(InstanceRecord instance);
+    /** 新建，返回带上数据库给的编号的记录 */
+    InstanceRecord insert(InstanceRecord instance);
 
     /** 版本加一并锁住这一行，返回新的版本；实例不存在时为空 */
-    Optional<Integer> lock(String instanceId);
+    Optional<Integer> lock(Long instanceId);
 
     /** 读一行 */
-    Optional<InstanceRecord> find(String instanceId);
+    Optional<InstanceRecord> find(Long instanceId);
 
     /** 按编号读几行（收件箱带上实例的标题与摘要用） */
-    List<InstanceRecord> findAll(Collection<String> instanceIds);
+    List<InstanceRecord> findAll(Collection<Long> instanceIds);
 
-    /** 写回会变的列：标题、摘要、状态、结果、当前节点、流程变量、运行状态、结束时间（调用前已 {@link #lock}） */
-    void update(InstanceRecord instance, Instant at);
+    /** 整行写回：标题、摘要、状态、结果、当前节点、流程变量、运行状态、结束时间（调用前已 {@link #lock}） */
+    void update(InstanceRecord instance);
 
     /**
      * 实例的一行。不可变：推进时用 {@code with...} 换出新的一份。
@@ -52,10 +52,16 @@ public interface InstanceStore {
      * @param endedAt       结束时间
      * @param rev           版本
      */
-    record InstanceRecord(String id, String processKey, String definitionId, int version, String businessKey, String title,
+    record InstanceRecord(Long id, String processKey, Long definitionId, int version, String businessKey, String title,
                           int priority, Map<String, Object> summary, String status, String result,
                           List<ProcessInstance.CurrentNode> current, Variables variables, RunState state,
                           String startedBy, String startedByName, Instant startedAt, Instant endedAt, int rev) {
+        /** 换上数据库给的编号 */
+        public InstanceRecord withId(Long next) {
+            return new InstanceRecord(next, processKey, definitionId, version, businessKey, title, priority, summary, status, result, current,
+                variables, state, startedBy, startedByName, startedAt, endedAt, rev);
+        }
+
         /** 换流程变量 */
         public InstanceRecord withVariables(Variables next) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, status, result, current,

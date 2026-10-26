@@ -10,7 +10,7 @@
 --   命令的幂等记录、归档表随用到它们的命令加新脚本。
 --
 -- 约定：
---   - 编号列：默认的雪花主键是 BIGINT，由应用生成（不用自增）；改用大雪花时换成 DECIMAL(p, 0)（0006 的 6.1）。
+--   - 主键是数据库自增的 BIGINT（引擎里是 Java 的 long，0006 的 6.1）；指向别的表的编号列也是 BIGINT。
 --   - 接入方的用户、部门、角色编号是 VARCHAR(64)；名字存快照（人离职、改名后记录照样能看）。
 --   - 时间都是 UTC 的 DATETIME(3)（毫秒）；JSON 用 MySQL 的 JSON 类型。
 --   - 每张表都有租户列 tenant_id（不用多租户时是空串），索引以它开头；不建外键。
@@ -24,7 +24,7 @@
 
 CREATE TABLE flow_process (
     tenant_id      VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户；不用多租户时是空串',
-    id             BIGINT       NOT NULL COMMENT '编号',
+    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     process_key    VARCHAR(64)  NOT NULL COMMENT '流程标识：同一流程的各版本相同（key 是 MySQL 的保留字，所以不用它做列名）',
     name           VARCHAR(200) NOT NULL COMMENT '最新版本的名称，列表用',
     category       VARCHAR(64)  NULL COMMENT '分类，列表筛选用',
@@ -41,7 +41,7 @@ CREATE TABLE flow_process (
 
 CREATE TABLE flow_definition (
     tenant_id         VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
-    id                BIGINT       NOT NULL COMMENT '编号：实例上的 definition_id 指向它',
+    id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号：实例上的 definition_id 指向它',
     process_key       VARCHAR(64)  NOT NULL COMMENT '流程标识',
     version           INT          NOT NULL COMMENT '版本号，从 1 开始，由后端给',
     model             JSON         NOT NULL COMMENT '整份定义（docs/decisions/0005 的 JSON，含流程图布局）',
@@ -63,7 +63,7 @@ CREATE TABLE flow_definition (
 
 CREATE TABLE flow_form (
     tenant_id      VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
-    id             BIGINT       NOT NULL COMMENT '编号',
+    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     form_key       VARCHAR(64)  NOT NULL COMMENT '表单标识',
     name           VARCHAR(200) NOT NULL COMMENT '最新版本的名称',
     category       VARCHAR(64)  NULL COMMENT '分类',
@@ -80,7 +80,7 @@ CREATE TABLE flow_form (
 
 CREATE TABLE flow_form_version (
     tenant_id         VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
-    id                BIGINT       NOT NULL COMMENT '编号：表单的值上的 form_version_id 指向它',
+    id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号：表单的值上的 form_version_id 指向它',
     form_key          VARCHAR(64)  NOT NULL COMMENT '表单标识',
     version           INT          NOT NULL COMMENT '版本号，从 1 开始',
     client_source     MEDIUMTEXT   NULL COMMENT '前端源码（TSX，0004 的 1.1）',
@@ -116,7 +116,7 @@ CREATE TABLE flow_form_data (
 
 CREATE TABLE flow_instance (
     tenant_id          VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
-    id                 BIGINT       NOT NULL COMMENT '编号',
+    id                 BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     process_key        VARCHAR(64)  NOT NULL COMMENT '流程标识',
     definition_id      BIGINT       NOT NULL COMMENT '按哪个发布版本走（flow_definition.id）',
     version            INT          NOT NULL COMMENT '那个版本的版本号',
@@ -152,8 +152,8 @@ CREATE TABLE flow_instance (
 
 CREATE TABLE flow_work_item (
     tenant_id         VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
-    id                BIGINT       NOT NULL COMMENT '编号',
-    kind              VARCHAR(16)  NOT NULL COMMENT '种类：task 普通待办 / failure 自动节点重试用完后给管理员的异常处理',
+    id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
+    kind              VARCHAR(16)  NOT NULL DEFAULT 'task' COMMENT '种类：task 普通待办 / failure 自动节点重试用完后给管理员的异常处理',
     instance_id       BIGINT       NOT NULL COMMENT '实例',
     process_key       VARCHAR(64)  NOT NULL COMMENT '流程标识（从实例抄来：按流程筛待办不用连实例表）',
     priority          TINYINT      NOT NULL DEFAULT 0 COMMENT '紧急程度（从实例抄来，排序用）',
@@ -192,7 +192,7 @@ CREATE TABLE flow_work_item (
     completed_by      VARCHAR(64)  NULL COMMENT '谁处理的',
     completed_by_name VARCHAR(200) NULL COMMENT '处理人的名字（快照）',
     completed_at      DATETIME(3)  NULL COMMENT '处理时间',
-    rev               INT          NOT NULL COMMENT '乐观锁版本：认领、处理都是带条件的更新',
+    rev               INT          NOT NULL DEFAULT 0 COMMENT '乐观锁版本：认领、处理都是带条件的更新',
     PRIMARY KEY (id),
     KEY ix_flow_work_item_assignee (tenant_id, assignee_id, state, created_at),
     KEY ix_flow_work_item_completed (tenant_id, completed_by, completed_at),
@@ -204,7 +204,7 @@ CREATE TABLE flow_work_item (
 
 CREATE TABLE flow_candidate (
     tenant_id    VARCHAR(64) NOT NULL DEFAULT '' COMMENT '租户',
-    id           BIGINT      NOT NULL COMMENT '编号',
+    id           BIGINT      NOT NULL AUTO_INCREMENT COMMENT '编号',
     work_item_id BIGINT      NOT NULL COMMENT '待办',
     kind         VARCHAR(32) NOT NULL COMMENT '种类：user 指定的人 / role 角色 / department 部门 / 接入方扩展的种类 / excluded 退回过收件箱、不能再认领的人',
     value        VARCHAR(64) NOT NULL COMMENT '用户、角色、部门的编号',
@@ -216,7 +216,7 @@ CREATE TABLE flow_candidate (
 
 CREATE TABLE flow_event (
     tenant_id    VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
-    id           BIGINT       NOT NULL COMMENT '编号',
+    id           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     instance_id  BIGINT       NOT NULL COMMENT '实例',
     work_item_id BIGINT       NULL COMMENT '相关的待办',
     type         VARCHAR(48)  NOT NULL COMMENT '事件种类：instance.started、workItem.completed、node.entered……（0006 第 5 节）',
@@ -236,19 +236,3 @@ CREATE TABLE flow_event (
     KEY ix_flow_event_actor (tenant_id, actor_id, type, at),
     KEY ix_flow_event_type (tenant_id, type, at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '流转记录：只追加不修改；每个事件一条';
-
-
--- ---------------------------------------------------------------------------
--- 基础：雪花机器号的租约
--- ---------------------------------------------------------------------------
-
-CREATE TABLE flow_worker (
-    tenant_id      VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户（机器号不分租户，固定为空串）',
-    scope          VARCHAR(64)  NOT NULL COMMENT '机器号的哪一段：经典雪花只有 worker 一段，大雪花可能还有区域号',
-    worker_id      INT          NOT NULL COMMENT '机器号',
-    owner          VARCHAR(128) NULL COMMENT '现在谁在用：进程号@主机名加随机串',
-    lease_until    DATETIME(3)  NULL COMMENT '租约到什么时候：过期的号别的进程可以抢',
-    heartbeat_at   DATETIME(3)  NULL COMMENT '上一次续租的时间',
-    last_timestamp BIGINT       NULL COMMENT '上一任最后发号的时间：接手的进程等时钟走过它再发号',
-    PRIMARY KEY (scope, worker_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '雪花机器号的租约：每个进程启动时租一个，定期续租，关闭时放掉';
