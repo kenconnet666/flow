@@ -72,14 +72,41 @@ export interface WorkItemView {
   readonly claimable: boolean;
   /** 我能处理（落到我的；或在收件箱里、我是候选——处理时顺带认领） */
   readonly completable: boolean;
+  /** 处理之外我现在能做的协作 */
+  readonly actions: WorkItemActions;
 }
 
-/** 实例详情 */
+/** 处理之外我现在能做的协作：能处理、节点上的 allow 没关掉时才能做 */
+export interface WorkItemActions {
+  /** 转办 */
+  readonly transfer: boolean;
+  /** 委派 */
+  readonly delegate: boolean;
+  /** 加签 */
+  readonly addSigners: boolean;
+  /** 退回收件箱（我从收件箱里认领的） */
+  readonly release: boolean;
+}
+
+/** 实例详情（发起人看进度、历史里打开） */
 export interface InstanceDetail {
   readonly instance: ProcessInstance;
-  readonly form: Readonly<Record<string, unknown>>;
+  /** 表单：都只读，按流程级的 formView 去掉隐藏的字段；流程没有表单时为 null */
+  readonly form: FormView | null;
+  /** 全部待办，按到达的先后 */
   readonly workItems: readonly WorkItem[];
+  /** 流转记录，按先后 */
   readonly timeline: readonly FlowEvent[];
+  /** 我现在能对实例做的事（留言随时能留） */
+  readonly actions: InstanceActions;
+}
+
+/** 我现在能对实例做的事 */
+export interface InstanceActions {
+  /** 撤回：我是发起人、实例进行中、定义的 withdraw 规则还允许 */
+  readonly withdraw: boolean;
+  /** 催办：我是发起人、实例进行中、有打开着的待办 */
+  readonly remind: boolean;
 }
 
 /** 命令的结果：这次改了什么，页面据此刷新 */
@@ -114,5 +141,61 @@ export interface CompleteCommand {
 /** 撤回 */
 export interface WithdrawCommand {
   readonly instanceId: Id;
+  readonly reason?: string;
+}
+
+/** 转办、委派、改派：交给一个人 */
+export interface HandOverCommand {
+  readonly workItemId: Id;
+  readonly userId: Id;
+  readonly reason?: string;
+}
+
+/** 加签的方式：前加签（加的人先办）、后加签（我办完加的人再办）、并加（一起办） */
+export type AddSignMode = 'before' | 'after' | 'parallel';
+
+/** 加签 */
+export interface AddSignersCommand {
+  readonly workItemId: Id;
+  readonly users: readonly Id[];
+  readonly mode: AddSignMode;
+  readonly reason?: string;
+}
+
+/** 减签：取消自己加的、还没办的人 */
+export interface RemoveSignersCommand {
+  readonly workItemId: Id;
+  readonly users: readonly Id[];
+}
+
+/** 退回收件箱 */
+export interface ReleaseCommand {
+  readonly workItemId: Id;
+  readonly reason?: string;
+}
+
+/** 催办：不给 workItemId 时催实例上所有打开着的待办 */
+export interface RemindCommand {
+  readonly instanceId: Id;
+  readonly workItemId?: Id;
+  readonly message?: string;
+}
+
+/** 留言 */
+export interface CommentCommand {
+  readonly instanceId: Id;
+  readonly text: string;
+}
+
+/** 管理员对实例：终止、暂停（resume 只要 instanceId） */
+export interface InstanceCommand {
+  readonly instanceId: Id;
+  readonly reason?: string;
+}
+
+/** 管理员跳转：从指定的节点重新走 */
+export interface JumpCommand {
+  readonly instanceId: Id;
+  readonly node: string;
   readonly reason?: string;
 }

@@ -61,6 +61,43 @@ export interface FlowMessages {
   readonly addRow: (list: string) => string;
   /** 明细表：删掉第几行 */
   readonly removeRow: (row: number) => string;
+  /** 我已办、我发起的列表的标题 */
+  readonly doneList: string;
+  readonly startedList: string;
+  /** 列表的列：处理结果、处理时间、状态、当前环节 */
+  readonly columnOutcome: string;
+  readonly columnCompletedAt: string;
+  readonly columnStatus: string;
+  readonly columnCurrent: string;
+  /** 待办在等委派、加签的人办完 */
+  readonly waiting: string;
+  /** 协作的按钮与对话框（转办、委派、加签、退回收件箱） */
+  readonly transfer: string;
+  readonly delegate: string;
+  readonly addSigners: string;
+  readonly release: string;
+  /** 协作对话框里的字段 */
+  readonly pickUser: string;
+  readonly pickUsers: string;
+  readonly addMode: string;
+  readonly addModes: Readonly<Record<'before' | 'after' | 'parallel', string>>;
+  readonly reason: string;
+  /** 退回收件箱前的确认 */
+  readonly releaseConfirm: string;
+  /** 实例详情上的操作：撤回、催办、留言 */
+  readonly withdraw: string;
+  readonly withdrawConfirm: string;
+  readonly remind: string;
+  /** 催办之后的提示：催到了几个待办（一小时内催过的不再催） */
+  readonly reminded: (count: number) => string;
+  readonly leaveComment: string;
+  readonly commentPlaceholder: string;
+  /** 实例详情：当前在谁手里 */
+  readonly handlers: string;
+  /** 实例详情的标题 */
+  readonly instanceDetail: string;
+  /** 流转记录里事件的说明：交给了谁、加了谁（没有时为 null） */
+  readonly eventDetail: (type: string, data: Readonly<Record<string, unknown>>) => string | null;
 }
 
 declare module '@zerodep-dev/vue-tsx-pro-ui' {
@@ -115,6 +152,18 @@ const zhEvents: Record<string, string> = {
   'workItem.claimed': '认领',
   'workItem.completed': '处理',
   'workItem.canceled': '取消',
+  'workItem.transferred': '转办',
+  'workItem.delegated': '委派',
+  'workItem.signersAdded': '加签',
+  'workItem.signersRemoved': '减签',
+  'workItem.resumed': '回到',
+  'workItem.released': '退回收件箱',
+  'workItem.reassigned': '改派',
+  'workItem.reminded': '催办',
+  'instance.commented': '留言',
+  'instance.suspended': '暂停',
+  'instance.resumed': '恢复',
+  'instance.jumped': '跳转到',
 };
 
 const enEvents: Record<string, string> = {
@@ -126,7 +175,23 @@ const enEvents: Record<string, string> = {
   'workItem.claimed': 'Claimed',
   'workItem.completed': 'Completed',
   'workItem.canceled': 'Canceled',
+  'workItem.transferred': 'Transferred',
+  'workItem.delegated': 'Delegated',
+  'workItem.signersAdded': 'Added signers at',
+  'workItem.signersRemoved': 'Removed a signer at',
+  'workItem.resumed': 'Back at',
+  'workItem.released': 'Released',
+  'workItem.reassigned': 'Reassigned',
+  'workItem.reminded': 'Reminded',
+  'instance.commented': 'Commented',
+  'instance.suspended': 'Suspended',
+  'instance.resumed': 'Resumed',
+  'instance.jumped': 'Jumped to',
 };
+
+/** 事件数据里的名字（引擎存的快照） */
+const text = (value: unknown) => (typeof value === 'string' ? value : null);
+const names = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
 
 /** 界面文案：每种语言一份，英文必须有 */
 export const flowMessages: MessageTable<FlowMessages> = {
@@ -151,11 +216,11 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: '取消',
     submit: '提交',
     timeline: '流转记录',
-    status: { active: '进行中', completed: '已完成', terminated: '已终止', withdrawn: '已撤回' },
+    status: { active: '进行中', suspended: '已暂停', completed: '已完成', terminated: '已终止', withdrawn: '已撤回' },
     event: (type, node, outcome) => {
       const what = zhEvents[type] ?? type;
       if (type === 'workItem.completed') return `${node ?? ''}：${outcome ?? what}`;
-      return node && type.startsWith('workItem.') ? `${what} ${node}` : what;
+      return node && (type.startsWith('workItem.') || type === 'instance.jumped') ? `${what} ${node}` : what;
     },
     valueProblem: (code) => zhProblems[code] ?? '不合要求',
     formFailed: '表单加载失败',
@@ -163,6 +228,45 @@ export const flowMessages: MessageTable<FlowMessages> = {
     system: '系统',
     addRow: (list) => `添加${list}`,
     removeRow: (row) => `删除第 ${row} 行`,
+    doneList: '我已办',
+    startedList: '我发起的',
+    columnOutcome: '处理结果',
+    columnCompletedAt: '处理时间',
+    columnStatus: '状态',
+    columnCurrent: '当前环节',
+    waiting: '这个待办在等委派、加签的人办完，之后回到你手里',
+    transfer: '转办',
+    delegate: '委派',
+    addSigners: '加签',
+    release: '退回收件箱',
+    pickUser: '交给谁',
+    pickUsers: '加哪些人',
+    addMode: '方式',
+    addModes: { before: '前加签（他们先办）', after: '后加签（我办完他们再办）', parallel: '并加（一起办）' },
+    reason: '说明',
+    releaseConfirm: '放回收件箱让别人认领？你以后不能再认领这一条',
+    withdraw: '撤回',
+    withdrawConfirm: '撤回这个申请？打开着的待办都会取消',
+    remind: '催办',
+    reminded: (count) => (count ? `已催办 ${count} 个待办` : '一小时内已经催过了'),
+    leaveComment: '留言',
+    commentPlaceholder: '写给流程里的人看的话，会记进流转记录',
+    handlers: '处理人',
+    instanceDetail: '流程详情',
+    eventDetail: (type, data) => {
+      if (type === 'workItem.signersAdded') {
+        const mode = text(data['mode']);
+        const label = mode === 'before' ? '前加签' : mode === 'after' ? '后加签' : '并加';
+        return `${label}：${names(data['userNames']).join('、')}`;
+      }
+      if (type === 'workItem.signersRemoved') return text(data['userName']);
+      if (type === 'workItem.created') {
+        const who = text(data['assigneeName']);
+        return who && `处理人 ${who}`;
+      }
+      const to = text(data['toUserName']);
+      return to ? `交给 ${to}` : null;
+    },
   },
   'en-US': {
     inbox: 'My tasks',
@@ -185,11 +289,11 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: 'Cancel',
     submit: 'Submit',
     timeline: 'History',
-    status: { active: 'In progress', completed: 'Completed', terminated: 'Terminated', withdrawn: 'Withdrawn' },
+    status: { active: 'In progress', suspended: 'Suspended', completed: 'Completed', terminated: 'Terminated', withdrawn: 'Withdrawn' },
     event: (type, node, outcome) => {
       const what = enEvents[type] ?? type;
       if (type === 'workItem.completed') return `${node ?? ''}: ${outcome ?? what}`;
-      return node && type.startsWith('workItem.') ? `${what} ${node}` : what;
+      return node && (type.startsWith('workItem.') || type === 'instance.jumped') ? `${what} ${node}` : what;
     },
     valueProblem: (code) => enProblems[code] ?? 'Invalid',
     formFailed: 'The form could not be loaded',
@@ -197,6 +301,45 @@ export const flowMessages: MessageTable<FlowMessages> = {
     system: 'System',
     addRow: (list) => `Add to ${list}`,
     removeRow: (row) => `Remove row ${row}`,
+    doneList: 'Done by me',
+    startedList: 'Started by me',
+    columnOutcome: 'Outcome',
+    columnCompletedAt: 'Completed',
+    columnStatus: 'Status',
+    columnCurrent: 'Current step',
+    waiting: 'This task is waiting for the people you delegated to or added; it comes back to you after',
+    transfer: 'Transfer',
+    delegate: 'Delegate',
+    addSigners: 'Add signers',
+    release: 'Release',
+    pickUser: 'Hand to',
+    pickUsers: 'People to add',
+    addMode: 'Mode',
+    addModes: { before: 'Before me (they go first)', after: 'After me', parallel: 'Alongside me' },
+    reason: 'Note',
+    releaseConfirm: 'Put this back for someone else to claim? You will not be able to claim it again',
+    withdraw: 'Withdraw',
+    withdrawConfirm: 'Withdraw this request? Open tasks will be canceled',
+    remind: 'Remind',
+    reminded: (count) => (count ? `Reminded ${count} task(s)` : 'Already reminded within the hour'),
+    leaveComment: 'Comment',
+    commentPlaceholder: 'A note for the people in this process; it goes into the history',
+    handlers: 'Assignees',
+    instanceDetail: 'Process details',
+    eventDetail: (type, data) => {
+      if (type === 'workItem.signersAdded') {
+        const mode = text(data['mode']);
+        const label = mode === 'before' ? 'Before' : mode === 'after' ? 'After' : 'Alongside';
+        return `${label}: ${names(data['userNames']).join(', ')}`;
+      }
+      if (type === 'workItem.signersRemoved') return text(data['userName']);
+      if (type === 'workItem.created') {
+        const who = text(data['assigneeName']);
+        return who && `Assigned to ${who}`;
+      }
+      const to = text(data['toUserName']);
+      return to ? `To ${to}` : null;
+    },
   },
 };
 

@@ -1,5 +1,5 @@
 /**
- * 流程引擎的示例前端：发起、我的待办、办理，接 Spring Boot 示例后端（vite.config.ts 把 /flow 转过去）。
+ * 流程引擎的示例前端：发起、我的待办、办理、我已办、我发起的、流程详情，接 Spring Boot 示例后端（vite.config.ts 把 /flow 转过去）。
  * 组件库的配置里给好请求客户端（带上当前用户）、路由适配、带 flow 错误码文案的语言；flow-ui 的组件取 useHttp() 拼出引擎客户端。
  */
 import { withFlowLang } from '@zerodep-dev/flow-ui';
@@ -8,8 +8,11 @@ import { vueRouterAdapter } from '@zerodep-dev/vue-tsx-pro-ui/vue-router';
 import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import { App } from './App';
+import { DonePage } from './pages/DonePage';
 import { InboxPage } from './pages/InboxPage';
+import { InstancePage } from './pages/InstancePage';
 import { StartListPage } from './pages/StartListPage';
+import { StartedPage } from './pages/StartedPage';
 import { StartPage } from './pages/StartPage';
 import { WorkItemPage } from './pages/WorkItemPage';
 import { currentUser } from './session';
@@ -21,6 +24,9 @@ const router = createRouter({
     { path: '/start/:key', component: StartPage },
     { path: '/inbox', component: InboxPage },
     { path: '/work-items/:id', component: WorkItemPage },
+    { path: '/done', component: DonePage },
+    { path: '/started', component: StartedPage },
+    { path: '/instances/:id', component: InstancePage },
   ],
 });
 

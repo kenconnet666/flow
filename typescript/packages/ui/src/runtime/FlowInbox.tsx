@@ -1,9 +1,12 @@
 /**
- * 收件箱：我的待办（落到我的，加上我能认领的），按到达时间从新到旧，服务端分页（组件库的 QueryTable + useTableQuery）。
+ * 待办列表：我的待办（落到我的，加上我能认领的，按到达时间从新到旧）或我已办（按处理时间从新到旧），
+ * 服务端分页（组件库的 QueryTable + useTableQuery）。
  *
  *   <FlowInbox onOpen={(item) => router.push(`/work-items/${item.workItem.id}`)} />
+ *   <FlowInbox list="done" onOpen={(item) => router.push(`/instances/${item.workItem.instanceId}`)} />
  *
- * 标题列是"办理"的入口；在收件箱里等认领的显示"待认领"。业务摘要列（实例上的 summary）由使用方经 columns 加。
+ * 标题列是打开的入口；我的待办里等认领的显示"待认领"，我已办里是处理结果与流程现在的状态。
+ * 业务摘要列（实例上的 summary）由使用方经 columns 加。
  */
 import type { TodoItem } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
@@ -11,41 +14,52 @@ import { Badge, Link, useTableQuery, type DataTableColumn } from '@zerodep-dev/v
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
+import { statusTone } from './status';
 
 /** FlowInbox 的属性 */
 export interface FlowInboxProps {
+  /** todo 我的待办（默认），done 我已办 */
+  list?: 'todo' | 'done';
   /** 点了某一行的标题 */
   onOpen: (item: TodoItem) => void;
   /** 加在默认列之后的列（业务摘要：金额、供应商……） */
   columns?: readonly DataTableColumn<TodoItem>[];
   /** 每页条数，默认 20 */
   pageSize?: number;
-  /** 标题；默认"我的待办" */
+  /** 标题；默认"我的待办"或"我已办" */
   title?: string;
 }
 
-/** 收件箱 */
-export const FlowInbox = _component(({ onOpen, columns = [], pageSize = 20, title }: FlowInboxProps) => {
+/** 待办列表 */
+export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], pageSize = 20, title }: FlowInboxProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
-  const query = useTableQuery((q, signal) => flow.todo({ page: q.page, pageSize: q.pageSize }, signal), {
+  const query = useTableQuery((q, signal) => flow[list]({ page: q.page, pageSize: q.pageSize }, signal), {
     pageSize,
-    // 收件箱现在没有筛选条件
+    // 两个列表现在都没有筛选条件
     filters: {},
   });
 
-  const defaults = (): DataTableColumn<TodoItem>[] => [
-    {
-      key: 'title',
-      header: messages.columnTitle,
-      value: (item) => item.title ?? item.workItem.processKey,
-      cell: (item) => (
-        <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), onOpen(item))}>
-          {item.title ?? item.workItem.processKey}
-        </Link>
-      ),
-    },
-    { key: 'node', header: messages.columnNode, width: 140, value: (item) => item.workItem.nodeName ?? item.workItem.node },
+  const titleColumn = (): DataTableColumn<TodoItem> => ({
+    key: 'title',
+    header: messages.columnTitle,
+    value: (item) => item.title ?? item.workItem.processKey,
+    cell: (item) => (
+      <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), onOpen(item))}>
+        {item.title ?? item.workItem.processKey}
+      </Link>
+    ),
+  });
+  const nodeColumn = (): DataTableColumn<TodoItem> => ({
+    key: 'node',
+    header: messages.columnNode,
+    width: 140,
+    value: (item) => item.workItem.nodeName ?? item.workItem.node,
+  });
+
+  const todoColumns = (): DataTableColumn<TodoItem>[] => [
+    titleColumn(),
+    nodeColumn(),
     {
       key: 'assignee',
       header: messages.columnAssignee,
@@ -63,12 +77,33 @@ export const FlowInbox = _component(({ onOpen, columns = [], pageSize = 20, titl
     },
   ];
 
+  const doneColumns = (): DataTableColumn<TodoItem>[] => [
+    titleColumn(),
+    nodeColumn(),
+    // 隐式的结果（加签、委派办完）没有名字，显示键
+    { key: 'outcome', header: messages.columnOutcome, width: 120, value: (item) => item.outcomeLabel ?? item.workItem.outcome ?? '' },
+    {
+      key: 'status',
+      header: messages.columnStatus,
+      width: 100,
+      value: (item) => item.status ?? '',
+      cell: (item) => item.status && <Badge tone={statusTone(item.status)}>{messages.status[item.status] ?? item.status}</Badge>,
+    },
+    {
+      key: 'completedAt',
+      header: messages.columnCompletedAt,
+      width: 180,
+      type: 'dateTime',
+      value: (item) => (item.workItem.completedAt ? new Date(item.workItem.completedAt) : null),
+    },
+  ];
+
   return () => (
     <QueryTable
       query={query}
-      columns={[...defaults(), ...columns]}
+      columns={[...(list === 'done' ? doneColumns() : todoColumns()), ...columns]}
       getKey={(item) => String(item.workItem.id)}
-      title={title ?? messages.inbox}
+      title={title ?? (list === 'done' ? messages.doneList : messages.inbox)}
     />
   );
 });

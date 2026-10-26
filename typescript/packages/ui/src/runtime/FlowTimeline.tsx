@@ -1,5 +1,5 @@
 /**
- * 流转记录：实例上发生过的事（发起、到达、认领、处理、撤回……），新的在前。
+ * 流转记录：实例上发生过的事（发起、到达、认领、处理、转办、加签、留言、撤回……），新的在前。
  * 只列人看得懂的几种：节点的进出（node.entered、node.left）是引擎推进的细节，不列。
  *
  *   <FlowTimeline events={detail.timeline} />
@@ -7,7 +7,26 @@
 import type { FlowEvent } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Timeline, useFormat, type StatusTone, type TimelineItem } from '@zerodep-dev/vue-tsx-pro-ui';
-import { Check, CirclePlay, CircleStop, Hand, Inbox, Undo2, X } from '@lucide/icons';
+import {
+  ArrowRightLeft,
+  Bell,
+  Check,
+  CirclePlay,
+  CircleStop,
+  CornerDownLeft,
+  Forward,
+  Hand,
+  Inbox,
+  MessageSquare,
+  Pause,
+  Play,
+  Redo2,
+  Undo2,
+  UserRoundCog,
+  UserRoundMinus,
+  UserRoundPlus,
+  X,
+} from '@lucide/icons';
 import { useFlowMessages } from '../lang/messages';
 
 /** FlowTimeline 的属性 */
@@ -26,6 +45,18 @@ const LOOKS: Readonly<Record<string, { icon: TimelineItem['icon']; tone?: Status
   'instance.withdrawn': { icon: Undo2, tone: 'warning' },
   'instance.terminated': { icon: CircleStop, tone: 'danger' },
   'instance.finished': { icon: CircleStop, tone: 'success' },
+  'workItem.transferred': { icon: ArrowRightLeft },
+  'workItem.delegated': { icon: Forward },
+  'workItem.signersAdded': { icon: UserRoundPlus },
+  'workItem.signersRemoved': { icon: UserRoundMinus },
+  'workItem.resumed': { icon: CornerDownLeft },
+  'workItem.released': { icon: Undo2 },
+  'workItem.reassigned': { icon: UserRoundCog, tone: 'warning' },
+  'workItem.reminded': { icon: Bell },
+  'instance.commented': { icon: MessageSquare },
+  'instance.suspended': { icon: Pause, tone: 'warning' },
+  'instance.resumed': { icon: Play },
+  'instance.jumped': { icon: Redo2, tone: 'warning' },
 };
 
 /** 处理结果的名字：引擎在处理的记录上存了快照（data.outcomeLabel） */
@@ -51,7 +82,8 @@ export const FlowTimeline = _component(({ events }: FlowTimelineProps) => {
             actor: event.actorName ?? messages.system,
             dateTime: event.at,
             time: format.date(event.at, { dateStyle: 'medium', timeStyle: 'short' }),
-            description: event.comment ?? undefined,
+            // 交给了谁、加了谁（引擎存的名字快照），再接意见、说明
+            description: [messages.eventDetail(event.type, event.data ?? {}), event.comment].filter(Boolean).join(' · ') || undefined,
             ...LOOKS[event.type],
           }),
         )}

@@ -8,13 +8,21 @@
  *
  * 不给时组件取 `createFlowClient(useHttp())`：用组件库配置里的请求客户端，前缀 /flow。
  */
-import type { Id, TodoItem } from '@zerodep-dev/flow-model';
+import type { Id, ProcessInstance, TodoItem } from '@zerodep-dev/flow-model';
 import { useHttp, type HttpClient, type TablePage } from '@zerodep-dev/vue-tsx-pro-ui';
 import { inject, provide, type InjectionKey } from 'vue';
 import type {
+  AddSignersCommand,
   CommandResult,
+  CommentCommand,
   CompleteCommand,
+  HandOverCommand,
+  InstanceCommand,
   InstanceDetail,
+  JumpCommand,
+  ReleaseCommand,
+  RemindCommand,
+  RemoveSignersCommand,
   StartableProcess,
   StartCommand,
   StartView,
@@ -22,10 +30,19 @@ import type {
   WorkItemView,
 } from './types';
 
-/** 一页待办 */
-export interface TodoPage extends TablePage<TodoItem> {
+/** 一页：同 query 的表格接口 */
+export interface FlowPage<T> extends TablePage<T> {
   readonly page: number;
   readonly size: number;
+}
+
+/** 一页待办 */
+export type TodoPage = FlowPage<TodoItem>;
+
+/** 分页的参数 */
+export interface PageQuery {
+  readonly page: number;
+  readonly pageSize: number;
 }
 
 /** 引擎接口的全部方法 */
@@ -35,7 +52,11 @@ export interface FlowClient {
   /** 发起页：流程与开始节点上的表单 */
   startView(key: string, signal?: AbortSignal): Promise<StartView>;
   /** 我的待办 */
-  todo(query: { page: number; pageSize: number }, signal?: AbortSignal): Promise<TodoPage>;
+  todo(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
+  /** 我已办：按处理时间从新到旧 */
+  done(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
+  /** 我发起的：按发起时间从新到旧 */
+  started(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
   /** 待办详情 */
   workItem(id: Id, signal?: AbortSignal): Promise<WorkItemView>;
   /** 实例详情 */
@@ -48,6 +69,30 @@ export interface FlowClient {
   complete(command: CompleteCommand): Promise<CommandResult>;
   /** 撤回 */
   withdraw(command: WithdrawCommand): Promise<CommandResult>;
+  /** 转办：交给别人，自己不再参与 */
+  transfer(command: HandOverCommand): Promise<CommandResult>;
+  /** 委派：请别人先办，办完回到自己手里 */
+  delegate(command: HandOverCommand): Promise<CommandResult>;
+  /** 加签 */
+  addSigners(command: AddSignersCommand): Promise<CommandResult>;
+  /** 减签 */
+  removeSigners(command: RemoveSignersCommand): Promise<CommandResult>;
+  /** 退回收件箱 */
+  release(command: ReleaseCommand): Promise<CommandResult>;
+  /** 催办 */
+  remind(command: RemindCommand): Promise<CommandResult>;
+  /** 留言 */
+  comment(command: CommentCommand): Promise<CommandResult>;
+  /** 终止（管理员） */
+  terminate(command: InstanceCommand): Promise<CommandResult>;
+  /** 暂停（管理员） */
+  suspend(command: InstanceCommand): Promise<CommandResult>;
+  /** 恢复（管理员） */
+  resume(instanceId: Id): Promise<CommandResult>;
+  /** 跳转（管理员） */
+  jump(command: JumpCommand): Promise<CommandResult>;
+  /** 改派（管理员、收件箱负责人） */
+  reassign(command: HandOverCommand): Promise<CommandResult>;
 }
 
 /** createFlowClient 的选项 */
@@ -65,12 +110,26 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     startable: (signal) => get('/queries/startable', signal),
     startView: (key, signal) => get(`/queries/start/${encodeURIComponent(key)}`, signal),
     todo: ({ page, pageSize }, signal) => get('/queries/todo', signal, { page, pageSize }),
+    done: ({ page, pageSize }, signal) => get('/queries/done', signal, { page, pageSize }),
+    started: ({ page, pageSize }, signal) => get('/queries/started', signal, { page, pageSize }),
     workItem: (id, signal) => get(`/queries/work-items/${id}`, signal),
     instance: (id, signal) => get(`/queries/instances/${id}`, signal),
     start: (command) => post('/commands/start', command),
     claim: (workItemId) => post('/commands/claim', { workItemId }),
     complete: (command) => post('/commands/complete', command),
     withdraw: (command) => post('/commands/withdraw', command),
+    transfer: (command) => post('/commands/transfer', command),
+    delegate: (command) => post('/commands/delegate', command),
+    addSigners: (command) => post('/commands/add-signers', command),
+    removeSigners: (command) => post('/commands/remove-signers', command),
+    release: (command) => post('/commands/release', command),
+    remind: (command) => post('/commands/remind', command),
+    comment: (command) => post('/commands/comment', command),
+    terminate: (command) => post('/admin/terminate', command),
+    suspend: (command) => post('/admin/suspend', command),
+    resume: (instanceId) => post('/admin/resume', { instanceId }),
+    jump: (command) => post('/admin/jump', command),
+    reassign: (command) => post('/admin/reassign', command),
   };
 }
 
