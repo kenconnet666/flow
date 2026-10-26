@@ -5,6 +5,7 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.JsonNumbers;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.extension.ServiceAction;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.CcStore.NewCc;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
@@ -27,6 +28,7 @@ import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +44,7 @@ import java.util.Map;
  *                           ├─ 人工节点：轮次加一，解析处理人，生成待办（有时限的排上超时、提醒的作业）──► 停下，等人处理
  *                           ├─ 定时节点：记下到什么时候，排一个作业 ──► 停下，到时候作业让它往下走（BuiltinJobs）
  *                           ├─ 抄送节点：抄送给写的人 ──► 接着走
+ *                           ├─ 自动节点：同步的马上做动作、按结果接着走；异步的排一个作业 ──► 停下，作业做完再走
  *                           ├─ 排他网关：leave(网关) ──► 接着走
  *                           ├─ 并行、包容的分叉：选出的每条线都走，记下配对的汇合要等几条
  *                           ├─ 并行、包容的汇合：到了一条，还没等齐 ──► 这条分支停下；等齐了 ──► 接着走
@@ -53,7 +56,7 @@ import java.util.Map;
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、抄送节点、排他网关、
+ * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、抄送节点、自动节点（同步、异步）、排他网关、
  * 并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
@@ -90,7 +93,7 @@ final class Execution {
      */
     Execution(EngineContext context, Actor actor, Instant now, LoadedDefinition definition, InstanceRecord instance, FormValues form, int rev) {
         this.context = context;
-        this.assignees = new AssigneeResolver(context.stores().workItems(), context.org());
+        this.assignees = new AssigneeResolver(context.stores().workItems(), context.org(), context.extensions());
         this.actor = actor;
         this.now = now;
         this.graph = definition.graph();
@@ -192,7 +195,7 @@ final class Execution {
                 addEvent(FlowEvent.WORK_ITEM_CANCELED, graph.node(item.node()), null, null, item.id(), null);
             }
             // 区域里停在定时节点上的分支也不再等（作业到时候看到不在等了就跳过）
-            for (String node : pairs.region(fork)) instance = instance.withState(instance.state().timerDone(node));
+            for (String node : pairs.region(fork)) instance = instance.withState(instance.state().waitDone(node));
             instance = instance.withState(instance.state().forget(pairs.joinOf(fork)));
         }
     }
@@ -217,6 +220,8 @@ final class Execution {
             arriveAtTimer(timer);
         } else if (node instanceof ProcessNode.Cc cc) {
             arriveAtCc(cc);
+        } else if (node instanceof ProcessNode.Service service) {
+            arriveAtService(service);
         } else if (node instanceof ProcessNode.End end) {
             finish(ProcessInstance.COMPLETED, end.result(), FlowEvent.INSTANCE_FINISHED, null);
         } else {
@@ -255,8 +260,52 @@ final class Execution {
 
     /** 定时节点到时候了：不再等，往下走 */
     void timerFired(String nodeId) {
-        instance = instance.withState(instance.state().timerDone(nodeId));
+        instance = instance.withState(instance.state().waitDone(nodeId));
         leave(nodeId, null);
+    }
+
+    /**
+     * 到达自动节点（0005 的 4.1）：轮次加一。同步的（{@code mode: "sync"}）马上做动作、按结果往下走，失败整个流转回滚；
+     * 异步的（默认）停在这里、排一个 action 作业，事务提交后由作业做（{@link #performAction}），失败按节点的 retry 重试。
+     */
+    private void arriveAtService(ProcessNode.Service service) {
+        instance = instance.withState(instance.state().enter(service.id()));
+        if ("sync".equals(service.mode())) {
+            performAction(service);
+            return;
+        }
+        instance = instance.withState(instance.state().waitUntil(service.id(), now));
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put(BuiltinJobs.NODE, service.id());
+        payload.put(BuiltinJobs.ROUND, instance.state().round(service.id()));
+        if (service.retryBackoff() != null) {
+            payload.put(BuiltinJobs.BACKOFF_SECONDS, deadlines.plus(service.retryBackoff(), now).getEpochSecond() - now.getEpochSecond());
+        }
+        // retry.times 是失败后再试几次：一共做 times + 1 次
+        int attempts = service.retryTimes() == null ? BuiltinJobs.MAX_ATTEMPTS : service.retryTimes() + 1;
+        context.stores().jobs().schedule(new NewJob(BuiltinJobs.ACTION, instance.id(), null, now, payload, attempts, now));
+    }
+
+    /**
+     * 做自动节点的动作（接入方注册的 ServiceAction），改它给的流程变量，按它给的结果往下走。
+     * 去重键是"实例:节点:轮次"：同一轮重试时相同。动作抛的不是业务错误码的异常包成 {@code flow.extension-failed}。
+     */
+    void performAction(ProcessNode.Service service) {
+        String key = instance.id() + ":" + service.id() + ":" + instance.state().round(service.id());
+        ServiceAction.Context actionContext = new ServiceAction.Context(instance.view(), service.id(), RefValues.resolve(service.args(), this::read),
+            key, this::read);
+        ServiceAction.Result result;
+        try {
+            result = context.extensions().action(service.action()).perform(actionContext);
+        } catch (FlowException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new FlowException(FlowErrorCode.EXTENSION_FAILED, "action " + service.action() + " failed at " + service.id(),
+                Map.of("kind", "action", "name", service.action()), List.of(), e);
+        }
+        if (!result.variables().isEmpty()) instance = instance.withVariables(instance.variables().with(result.variables()));
+        instance = instance.withState(instance.state().waitDone(service.id()));
+        leave(service.id(), result.outcome());
     }
 
     /** 到达抄送节点：抄送给节点上写的人（角色、部门展开成人），不停，接着往下走 */

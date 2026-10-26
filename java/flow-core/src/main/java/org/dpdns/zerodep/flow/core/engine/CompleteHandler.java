@@ -3,17 +3,22 @@ package org.dpdns.zerodep.flow.core.engine;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.FormDataStore.StoredFormData;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Completion;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
+import org.dpdns.zerodep.flow.model.error.ErrorDetail;
+import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
+import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +27,7 @@ import java.util.Map;
  * <ol>
  *   <li>锁住实例行（版本加一）：并发的处理在这里排队，后到的看到的是前一个处理完的样子；</li>
  *   <li>重读待办：已处理、已取消的报 {@code flow.work-item-not-open}（重复提交）；还在收件箱里的，候选人处理就是先认领；</li>
- *   <li>核对处理结果与意见：结果要是节点上写的一个，意见必填的要填；</li>
+ *   <li>核对处理结果与意见：结果要是节点上写的一个，意见必填的要填；收好表单后问结果上的守卫（{@link OutcomeGuard}）；</li>
  *   <li>收表单：只取这个节点上能改的字段，其余用存着的值；</li>
  *   <li>待办改成"已处理"（带条件的更新，改到 0 行就是别人先处理了；这一步与下一步在 {@link #finishItem}，超时自动处理也走它）；</li>
  *   <li>往下走：委派、加签生成的待办办完了按 {@link SubItems} 回到原来的待办；原来的待办还在等加签的人时先不走；
@@ -73,6 +78,9 @@ public final class CompleteHandler {
                 run.form(FormSubmission.merge(definition.manifest(), task.form(), false, stored, command.form(), run::read));
                 context.stores().formData().update(instance.id(), run.form());
             }
+
+            // 守卫：表单合并好之后、改成已处理之前问一遍，任一不通过整个处理不做
+            checkGuards(actor, run, item, outcome);
 
             // 5、6. 待办改成已处理，往下走
             finishItem(run, task, item, outcome == null ? command.outcome() : outcome.key(), outcome, command.comment());
@@ -152,10 +160,19 @@ public final class CompleteHandler {
         if (task.outcomes().isEmpty()) return null;
         Outcome outcome = task.outcomes().stream().filter(o -> o.key().equals(key)).findFirst()
             .orElseThrow(() -> FlowErrors.invalid("outcome", "unknown-outcome"));
-        if (!outcome.guards().isEmpty()) {
-            throw new UnsupportedOperationException("outcome guards " + outcome.guards() + " are not supported yet");
-        }
         return outcome;
+    }
+
+    /** 结果上写的守卫（接入方注册的 OutcomeGuard）都要通过；不通过的报 {@code flow.guard-rejected}，明细里是守卫的名字与原因 */
+    private void checkGuards(Actor actor, Execution run, WorkItem item, Outcome outcome) {
+        if (outcome == null || outcome.guards().isEmpty()) return;
+        List<ErrorDetail> refused = new ArrayList<>();
+        OutcomeGuard.Context guardContext = new OutcomeGuard.Context(actor, run.instance().view(), item, outcome.key(), run.form().asMap());
+        for (String name : outcome.guards()) {
+            String reason = context.extensions().guard(name).check(guardContext);
+            if (reason != null) refused.add(new ErrorDetail(name, null, item.node(), null, null, Map.of("reason", reason)));
+        }
+        if (!refused.isEmpty()) throw new FlowException(FlowErrorCode.GUARD_REJECTED, "guards refused outcome " + outcome.key(), refused);
     }
 
     /** 结果要求写意见时（{@code comment: "required"}）不能空 */

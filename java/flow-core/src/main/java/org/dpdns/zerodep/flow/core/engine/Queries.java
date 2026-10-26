@@ -73,11 +73,11 @@ public final class Queries {
     }
 
     /**
-     * 我的待办：落到我的，加上我、我的角色或部门能认领的（我没被排除），按到达时间从新到旧；
+     * 我的待办：落到我的，加上我、我的角色、部门或扩展种类（{@link Actor#groups()}）能认领的（我没被排除），按到达时间从新到旧；
      * 每行带上实例的标题与摘要列（0006 第 4 节"待办的业务摘要列"）。
      */
     public Page<TodoItem> todo(Actor actor, int page, int size) {
-        Map<String, Set<Long>> memberships = new LinkedHashMap<>();
+        Map<String, Set<Long>> memberships = new LinkedHashMap<>(actor.groups());
         memberships.put(Candidate.USER, Set.of(actor.id()));
         memberships.put(Candidate.ROLE, actor.roles());
         memberships.put(Candidate.DEPARTMENT, actor.departments());

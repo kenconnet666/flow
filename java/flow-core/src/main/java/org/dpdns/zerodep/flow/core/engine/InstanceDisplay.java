@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>标题：定义的 {@code title} 模板，花括号里的引用换成值，如 {@code "采购申请：{form.title}"} → "采购申请：办公桌"；</li>
  *   <li>摘要列：定义的 {@code summary} 里每个引用 → 值，收件箱直接显示，不用再查表单；</li>
- *   <li>正在处理的节点：还开着的待办在哪些节点上（去重），加上停着等时间的定时节点；实例结束了就是空的。</li>
+ *   <li>正在处理的节点：还开着的待办在哪些节点上（去重），加上停着等的定时节点、异步的自动节点；实例结束了就是空的。</li>
  * </ul>
  */
 final class InstanceDisplay {
@@ -58,7 +58,7 @@ final class InstanceDisplay {
         return out.toString();
     }
 
-    /** 还开着的待办所在的节点，按到达的先后、去重；再加上停着等时间的定时节点 */
+    /** 还开着的待办所在的节点，按到达的先后、去重；再加上停着等的节点（定时、异步的自动节点） */
     private static List<CurrentNode> currentNodes(InstanceRecord instance, ProcessDefinition definition, WorkItemStore workItems) {
         // 结束了的没有正在处理的节点；暂停的照样显示停在哪
         if (instance.endedAt() != null) return List.of();
@@ -66,7 +66,7 @@ final class InstanceDisplay {
         for (WorkItem item : workItems.ofInstance(instance.id())) {
             if (WorkItem.OPEN.equals(item.state())) open.putIfAbsent(item.node(), new CurrentNode(item.node(), item.nodeName()));
         }
-        for (String node : instance.state().timers().keySet()) {
+        for (String node : instance.state().waits().keySet()) {
             String name = definition.nodes().stream().filter(n -> n.id().equals(node)).map(ProcessNode::name).findFirst().orElse(null);
             open.putIfAbsent(node, new CurrentNode(node, name));
         }

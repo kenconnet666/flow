@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
+import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
@@ -19,7 +20,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 
 /**
- * 管理员命令（0006 的 3.4）：终止、暂停与恢复、跳转、改派。谁能做由 {@code PermissionPolicy} 定（默认放行，接入方收紧）；
+ * 管理员命令（0006 的 3.4）：终止、暂停与恢复、跳转、改派、失败的作业重试。谁能做由 {@code PermissionPolicy} 定（默认放行，接入方收紧）；
  * 引擎只管实例的状态对不对：已结束的实例什么也不能做，暂停的实例只能恢复或终止。都先锁住实例，做完写回、写流转记录。
  */
 public final class AdminHandler {
@@ -75,6 +76,12 @@ public final class AdminHandler {
             data.put("toUserName", name);
             run.addEvent(FlowEvent.WORK_ITEM_REASSIGNED, run.graph().node(item.node()), null, null, item.id(), command.reason(), data);
         });
+    }
+
+    /** 失败的作业重新来过：改回等着做、马上到期；不是失败的作业时报 {@code flow.not-found} */
+    public boolean retryJob(Actor actor, RetryJobCommand command) {
+        if (!context.stores().jobs().revive(command.jobId(), context.clock().instant())) throw FlowErrors.notFound("job", command.jobId());
+        return true;
     }
 
     /**

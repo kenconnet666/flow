@@ -15,7 +15,8 @@ import java.util.Map;
  * 抢到的切到它的租户、在一个事务里交给它那一种的 {@link JobHandler}。几个进程同时跑也不会重复做。
  * <p>谁来定时调 {@link #runDue} 由接入方定：Spring Boot 里默认每隔几秒调一次（{@code flow.jobs.*}），
  * 也可以关掉它、交给已有的调度平台调 {@code engine.runDueJobs()}。
- * <p>失败的作业事务回滚，过一会儿重试（1、4、9……分钟），重试用完标成失败、留在表里给管理员看。
+ * <p>失败的作业事务回滚，过一会儿重试（间隔由那一种的 {@link JobHandler#retryDelay} 定，默认 1、4、9……分钟），
+ * 重试用完标成失败、留在表里给管理员看，再交给 {@link JobHandler#gaveUp} 善后。
  */
 public final class JobRunner {
     private static final System.Logger LOG = System.getLogger(JobRunner.class.getName());
@@ -53,8 +54,8 @@ public final class JobRunner {
 
     private void runOne(Job job, Instant now) {
         JobStore jobs = context.stores().jobs();
+        JobHandler handler = handlers.get(job.kind());
         try {
-            JobHandler handler = handlers.get(job.kind());
             if (handler == null) throw new IllegalStateException("no JobHandler is registered for job kind '" + job.kind() + "'");
             context.transaction(() -> {
                 JobHandler.Next next = handler.run(job, now);
@@ -65,8 +66,21 @@ public final class JobRunner {
             int attempts = job.attempts() + 1;
             String error = e.getClass().getName() + ": " + e.getMessage();
             LOG.log(System.Logger.Level.WARNING, "flow job " + job.id() + " (" + job.kind() + ") failed, attempt " + attempts, e);
-            if (attempts >= job.maxAttempts()) jobs.fail(job.id(), error);
-            else jobs.retry(job.id(), now.plus(Duration.ofMinutes((long) attempts * attempts)), error);
+            if (attempts < job.maxAttempts()) {
+                jobs.retry(job.id(), now.plus(handler == null ? Duration.ofMinutes(1) : handler.retryDelay(job, attempts)), error);
+                return;
+            }
+            jobs.fail(job.id(), error);
+            if (handler != null) giveUp(handler, job, error, now);
+        }
+    }
+
+    /** 重试用完的善后（记一笔流转记录……）；它再失败只记日志，作业已经是失败的了 */
+    private void giveUp(JobHandler handler, Job job, String error, Instant now) {
+        try {
+            context.transaction(() -> handler.gaveUp(job, error, now));
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.ERROR, "flow job " + job.id() + " gave up and its handler failed to record it", e);
         }
     }
 }

@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import org.dpdns.zerodep.flow.core.command.FormPublication;
+import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
@@ -38,7 +39,7 @@ public final class Publishing {
         ProcessDefinition model = parseDefinition(json);
         StoredForm form = model.form() == null ? null : formOf(model.form());
         FormManifest manifest = form == null ? null : FormManifest.parse(Json.read(form.manifest()));
-        List<Problem> errors = errorsOnly(ProcessValidator.validate(model, new PublishContext(manifest)));
+        List<Problem> errors = errorsOnly(ProcessValidator.validate(model, new PublishContext(manifest, context.extensions())));
         if (!errors.isEmpty()) {
             throw new FlowException(FlowErrorCode.DEFINITION_INVALID, "the definition has " + errors.size() + " error(s)",
                 errors.stream().map(ErrorDetail::of).toList());
@@ -95,11 +96,19 @@ public final class Publishing {
     }
 
     /**
-     * 发布时的校验上下文：给出表单的字段清单（查 {@code form.} 引用）。解析器、动作、守卫、计算值、会签规则现在还没有注册口，
-     * 定义里用到就报"未注册"；自定义节点类型不知道，不查。
+     * 发布时的校验上下文：给出表单的字段清单（查 {@code form.} 引用）与注册了的解析器、动作、守卫（{@link Extensions}）。
+     * 计算值、会签规则现在还没有注册口，定义里用到就报"未注册"；自定义节点类型不知道，不查。
      */
-    private record PublishContext(FormManifest form) implements ValidationContext {
+    private record PublishContext(FormManifest form, Extensions extensions) implements ValidationContext {
         @Override
-        public Boolean isRegistered(ExtensionKind kind, String name) { return kind == ExtensionKind.NODE ? null : false; }
+        public Boolean isRegistered(ExtensionKind kind, String name) {
+            return switch (kind) {
+                case RESOLVER -> extensions.hasResolver(name);
+                case ACTION -> extensions.hasAction(name);
+                case GUARD -> extensions.hasGuard(name);
+                case NODE -> null;
+                default -> false;
+            };
+        }
     }
 }

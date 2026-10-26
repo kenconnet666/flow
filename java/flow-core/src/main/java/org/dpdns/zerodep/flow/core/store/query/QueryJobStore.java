@@ -93,6 +93,17 @@ final class QueryJobStore implements JobStore {
     }
 
     @Override
+    public boolean revive(Long jobId, Instant now) {
+        return db.execute(update(FlowTables.Job.class).set(r -> {
+            r.state().to(Job.PENDING);
+            r.attempts().to(0);
+            r.dueAt().to(now);
+            r.lockedBy().to((String) null);
+            r.lockedUntil().to((Instant) null);
+        }).where(r -> { r.id().eq(jobId); r.state().eq(Job.FAILED); })) == 1;
+    }
+
+    @Override
     public void cancelForInstance(Long instanceId) {
         db.execute(deleteFrom(FlowTables.Job.class).where(r -> { r.instanceId().eq(instanceId); r.state().eq(Job.PENDING); }));
     }

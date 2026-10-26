@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.identity;
 
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -19,6 +20,9 @@ public interface Actor {
     /** 拥有的角色 */
     Set<Long> roles();
 
-    /** 接入方扩展的候选种类（岗位、项目组……）里的归属 */
-    default Set<Long> groups(String kind) { return Set.of(); }
+    /** 接入方扩展的候选种类（岗位、项目组……）里的归属：种类 → 编号；收件箱按它匹配 {@code { "group": 种类, "id": … }} 的待办 */
+    default Map<String, Set<Long>> groups() { return Map.of(); }
+
+    /** 某一种扩展种类里的归属 */
+    default Set<Long> groups(String kind) { return groups().getOrDefault(kind, Set.of()); }
 }

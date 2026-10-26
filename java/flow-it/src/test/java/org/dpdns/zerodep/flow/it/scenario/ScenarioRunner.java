@@ -13,6 +13,7 @@ import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
+import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
@@ -26,6 +27,7 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.it.scenario.Scenario.Step;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
+import org.dpdns.zerodep.flow.it.support.TestExtensions;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.dpdns.zerodep.flow.model.error.FlowException;
@@ -64,10 +66,10 @@ final class ScenarioRunner {
         this.scenario = scenario;
         LiveMysql.recreateTables();
         this.clock = new MovableClock(scenario.clock());
-        this.engine = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
+        FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
             .orgDirectory(new TestOrg(scenario.actors().values()))
-            .clock(clock)
-            .build();
+            .clock(clock);
+        this.engine = new TestExtensions().register(builder).build();
     }
 
     /** 发布，再逐步执行；哪一步不符就报 AssertionError，消息里带步骤的序号 */
@@ -75,7 +77,13 @@ final class ScenarioRunner {
         for (Scenario.FormFile form : scenario.forms()) {
             engine.publishForm(ADMIN, new FormPublication(form.key(), form.name(), null, form.manifest(), null, null, null, null, null, null));
         }
-        for (String process : scenario.processes()) engine.publishDefinition(ADMIN, process, null);
+        for (String process : scenario.processes()) {
+            try {
+                engine.publishDefinition(ADMIN, process, null);
+            } catch (FlowException e) {
+                throw new AssertionError("publishing a process failed: " + e.errors(), e);   // 定义写错了：列出问题代号与位置
+            }
+        }
         List<Step> steps = scenario.steps();
         for (int i = 0; i < steps.size(); i++) {
             Step step = steps.get(i);
@@ -120,6 +128,7 @@ final class ScenarioRunner {
                 case "release" -> commandResult(engine.release(actor, new ReleaseCommand(args.id("workItem"), args.text("reason"))));
                 case "remind" -> commandResult(engine.remind(actor, new RemindCommand(args.id("instance"), args.id("workItem"), args.text("message"))));
                 case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"))));
+                case "retryJob" -> Map.of("revived", engine.retryJob(actor, new RetryJobCommand(args.id("job"))));
                 case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
                 case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));
                 case "ccList" -> page(engine.ccList(actor, args.number("page", 1), args.number("size", 20)));
@@ -206,7 +215,8 @@ final class ScenarioRunner {
             if (s.group(2) != null) value = ((List<?>) value).get(Integer.parseInt(s.group(2)));
         }
         // 引用到一个对象（待办、实例）时取它的编号
-        return value instanceof Map<?, ?> object ? (String) object.get("id") : (String) value;
+        if (value instanceof Map<?, ?> object) return (String) object.get("id");
+        return value instanceof Number number ? String.valueOf(number) : (String) value;   // 流转记录 data 里的编号是数
     }
 
     /** 一步的参数，按名字取 */

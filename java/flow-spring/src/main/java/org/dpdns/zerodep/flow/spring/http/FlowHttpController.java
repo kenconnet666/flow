@@ -25,7 +25,7 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
  * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc
- * POST {前缀}/admin/terminate、suspend、resume、jump、reassign
+ * POST {前缀}/admin/terminate、suspend、resume、jump、reassign、retry-job
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
  * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started、cc
@@ -183,6 +183,12 @@ public class FlowHttpController {
     @PostMapping("/commands/read-cc")
     public ResponseEntity<String> readCc(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
         return respond(() -> ResponseBody.view(Map.of("read", engine.readCc(RequestBody.parse(body).readCc()))));
+    }
+
+    /** 失败的作业重新来过（管理员）：{@code { jobId }} */
+    @PostMapping("/admin/retry-job")
+    public ResponseEntity<String> retryJob(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.view(Map.of("revived", engine.retryJob(RequestBody.parse(body).retryJob()))));
     }
 
     /** 我发起的 */

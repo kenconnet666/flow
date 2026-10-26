@@ -65,6 +65,8 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String WORK_ITEM_UNCLAIMED = "workItem.unclaimed";
     /** 抄送（抄送节点或手动抄送）：data 里是收到的人 users 与名字 userNames，comment 是附言；手动抄送的操作人是抄送人 */
     public static final String INSTANCE_CC = "instance.cc";
+    /** 作业重试用完（异步的自动节点做不成）：data 里是作业 jobId、种类 kind 与原因 error；实例停在那个节点，管理员 retryJob 或跳转 */
+    public static final String JOB_FAILED = "job.failed";
     /** 留言 */
     public static final String INSTANCE_COMMENTED = "instance.commented";
     /** 暂停 */

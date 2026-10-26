@@ -1,0 +1,49 @@
+{
+  "name": "扩展与自动节点：解析器算处理人；守卫不通过不能提交；同步的动作按结果分支；异步的动作失败按 retry 重试；同步失败整个回滚；异步重试用完记 job.failed，管理员 retryJob",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/expense.json", "processes/erp-sync.json", "processes/erp-sync-now.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "boss": { "id": 1004, "name": "总经理", "roles": [2] }
+  },
+  "steps": [
+    { "id": "big", "as": "alice", "command": "start", "args": { "key": "expense", "form": { "title": "服务器", "amount": "200000.00" } },
+      "expect": { "workItems": [{ "node": "approve", "assignment": "direct", "assigneeId": "1004" }] } },
+    { "as": "boss", "command": "complete", "args": { "workItem": "$big.workItems[0]", "outcome": "ok" },
+      "expect": { "error": { "code": "flow.guard-rejected", "errors": [{ "code": "budget", "node": "approve", "params": { "reason": "超出预算" } }] } } },
+    { "as": "boss", "command": "workItem", "args": { "workItem": "$big.workItems[0]" }, "expect": { "workItem": { "state": "open" } } },
+
+    { "id": "mid", "as": "alice", "command": "start", "args": { "key": "expense", "form": { "title": "显示器", "amount": "30000.00" } } },
+    { "as": "boss", "command": "complete", "args": { "workItem": "$mid.workItems[0]", "outcome": "ok" },
+      "expect": { "instance": { "status": "active", "current": [{ "node": "archive", "name": "归档" }] } } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T08:00:00Z" }, "expect": { "ran": 1 } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$mid.instance" },
+      "expect": { "instance": { "status": "active", "current": [{ "node": "archive" }] } } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T08:00:59Z" }, "expect": { "ran": 0 } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T08:01:00Z" }, "expect": { "ran": 1 } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$mid.instance" },
+      "expect": { "instance": { "status": "completed", "result": "approved", "current": [] } } },
+
+    { "id": "small", "as": "alice", "command": "start", "args": { "key": "expense", "form": { "title": "鼠标", "amount": "500.00" } } },
+    { "as": "boss", "command": "complete", "args": { "workItem": "$small.workItems[0]", "outcome": "ok" },
+      "expect": { "instance": { "status": "completed", "result": "approved" } } },
+
+    { "as": "alice", "command": "start", "args": { "key": "erp-sync-now" },
+      "expect": { "error": { "code": "flow.extension-failed" } } },
+    { "as": "alice", "command": "started", "expect": { "total": 3 } },
+
+    { "id": "erp", "as": "alice", "command": "start", "args": { "key": "erp-sync" },
+      "expect": { "instance": { "current": [{ "node": "push" }] } } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T08:02:00Z" }, "expect": { "ran": 1 } },
+    { "id": "stuck", "as": "alice", "command": "instance", "args": { "instance": "$erp.instance" },
+      "expect": {
+        "instance": { "status": "active", "current": [{ "node": "push" }] },
+        "timeline": ["instance.started", "node.left", "node.entered", { "type": "job.failed", "node": "push", "data": { "kind": "action" } }]
+      } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T09:00:00Z" }, "expect": { "ran": 0 } },
+    { "as": "boss", "command": "retryJob", "args": { "job": "$stuck.timeline[3].data.jobId" }, "expect": { "revived": true } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T09:00:00Z" }, "expect": { "ran": 1 } },
+    { "as": "boss", "command": "retryJob", "args": { "job": "$stuck.timeline[3].data.jobId" }, "expect": { "revived": true } }
+  ]
+}

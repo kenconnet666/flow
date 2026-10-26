@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.extension.Extensions;
+import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
@@ -24,17 +26,21 @@ import java.util.function.Function;
  *   { "department": 20 }          收件箱：这个部门的人认领
  *   { "initiator": true }         人：发起人
  *   { "sameAs": "check" }         人：那个节点最后的处理人
+ *   { "resolver": "deptLeader" }  人：接入方注册的解析器算出来的（PeopleResolver）
+ *   { "group": "post", "id": 5 }  收件箱：接入方扩展的种类（岗位、项目组……），候选按 Actor.groups 匹配
  *   （节点没写来源）              所在泳道的收件箱
  * </pre>
- * 几个来源取并集。解析器（{@code resolver}）、扩展的种类（{@code group}）、上一步选（{@code pick}）随场景补上，遇到时报"还不支持"。
+ * 几个来源取并集。上一步选（{@code pick}）随场景补上，遇到时报"还不支持"。
  */
 final class AssigneeResolver {
     private final WorkItemStore workItems;
     private final OrgDirectory org;
+    private final Extensions extensions;
 
-    AssigneeResolver(WorkItemStore workItems, OrgDirectory org) {
+    AssigneeResolver(WorkItemStore workItems, OrgDirectory org, Extensions extensions) {
         this.workItems = workItems;
         this.org = org;
+        this.extensions = extensions;
     }
 
     /**
@@ -76,6 +82,10 @@ final class AssigneeResolver {
                 out.putIfAbsent(instance.startedBy(), new Participant(instance.startedBy(), 1));
             } else if (source instanceof AssigneeSource.SameAs same) {
                 workItems.lastCompletedBy(instance.id(), same.node()).ifPresent(id -> out.putIfAbsent(id, new Participant(id, 1)));
+            } else if (source instanceof AssigneeSource.Resolver resolver) {
+                for (Long id : named(resolver, instance, read)) out.putIfAbsent(id, new Participant(id, 1));
+            } else if (source instanceof AssigneeSource.Group group) {
+                for (Long id : OrgIds.all(valueOf(group.id(), read))) addMembers(out, group.kind(), id);
             } else {
                 throw new UnsupportedOperationException("assignee source " + source.getClass().getSimpleName() + " cannot be expanded into people yet");
             }
@@ -106,11 +116,21 @@ final class AssigneeResolver {
                 out.users().add(instance.startedBy());
             } else if (source instanceof AssigneeSource.SameAs same) {
                 workItems.lastCompletedBy(instance.id(), same.node()).ifPresent(out.users()::add);
+            } else if (source instanceof AssigneeSource.Resolver resolver) {
+                out.users().addAll(named(resolver, instance, read));
+            } else if (source instanceof AssigneeSource.Group group) {
+                for (Long id : OrgIds.all(valueOf(group.id(), read))) out.inboxes().add(new Candidate(group.kind(), id));
             } else {
                 throw new UnsupportedOperationException("assignee source " + source.getClass().getSimpleName() + " is not supported yet");
             }
         }
         return out;
+    }
+
+    /** 接入方注册的解析器算出的人；参数里的引用先换成值 */
+    private List<Long> named(AssigneeSource.Resolver source, InstanceRecord instance, Function<String, Object> read) {
+        PeopleResolver resolver = extensions.resolver(source.name());
+        return resolver.resolve(new PeopleResolver.Context(instance.view(), RefValues.resolve(source.args(), read), read));
     }
 
     /** 节点上写的来源；没写时用所在泳道的收件箱 */

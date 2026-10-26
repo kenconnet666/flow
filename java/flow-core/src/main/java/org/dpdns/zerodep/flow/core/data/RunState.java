@@ -12,10 +12,10 @@ import java.util.Map;
  * @param waiting 并行、包容的汇合 → 还有几条分支没到（分叉时记下走了几条，每到一条减一，减到 0 汇合才往下走）
  * @param returns 被退回的节点 → 退回它的节点：退回它的节点写了 {@code returnTo: "resubmit"}，重新提交后直接回去（0005 的 5.4）
  * @param queues  依次会签的节点 → 还没轮到的人（0005 的 5.2 {@code sequential}）
- * @param timers  停在定时节点上 → 到什么时候往下走（实例的"正在处理的节点"也列出它们）
+ * @param waits   停着等的节点（定时节点、异步的自动节点）→ 等到什么时候（实例的"正在处理的节点"也列出它们）
  */
 public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting, Map<String, String> returns,
-                       Map<String, List<Long>> queues, Map<String, Instant> timers) {
+                       Map<String, List<Long>> queues, Map<String, Instant> waits) {
     /** 刚发起 */
     public static final RunState INITIAL = new RunState(Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
@@ -25,7 +25,7 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
         waiting = waiting == null ? Map.of() : Map.copyOf(waiting);
         returns = returns == null ? Map.of() : Map.copyOf(returns);
         queues = queues == null ? Map.of() : Map.copyOf(queues);
-        timers = timers == null ? Map.of() : Map.copyOf(timers);
+        waits = waits == null ? Map.of() : Map.copyOf(waits);
     }
 
     // ───────── 轮次 ─────────
@@ -37,7 +37,7 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
     public RunState enter(String node) {
         Map<String, Integer> next = new LinkedHashMap<>(rounds);
         next.merge(node, 1, Integer::sum);
-        return new RunState(next, waiting, returns, queues, timers);
+        return new RunState(next, waiting, returns, queues, waits);
     }
 
     // ───────── 并行、包容的汇合 ─────────
@@ -46,7 +46,7 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
     public RunState fork(String join, int branches) {
         Map<String, Integer> next = new LinkedHashMap<>(waiting);
         next.put(join, branches);
-        return new RunState(rounds, next, returns, queues, timers);
+        return new RunState(rounds, next, returns, queues, waits);
     }
 
     /** 汇合 join 还要等几条；没有在等时是 0 */
@@ -58,7 +58,7 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
         int remaining = next.getOrDefault(join, 1) - 1;
         if (remaining > 0) next.put(join, remaining);
         else next.remove(join);
-        return new RunState(rounds, next, returns, queues, timers);
+        return new RunState(rounds, next, returns, queues, waits);
     }
 
     /** 不再等汇合 join（区域里的分支都取消了：退回跳出了区域） */
@@ -66,7 +66,7 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
         if (!waiting.containsKey(join)) return this;
         Map<String, Integer> next = new LinkedHashMap<>(waiting);
         next.remove(join);
-        return new RunState(rounds, next, returns, queues, timers);
+        return new RunState(rounds, next, returns, queues, waits);
     }
 
     // ───────── 退回后直接回去 ─────────
@@ -75,7 +75,7 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
     public RunState returned(String target, String from) {
         Map<String, String> next = new LinkedHashMap<>(returns);
         next.put(target, from);
-        return new RunState(rounds, waiting, next, queues, timers);
+        return new RunState(rounds, waiting, next, queues, waits);
     }
 
     /** node 重新提交后要直接回去的节点；没有时为 null */
@@ -86,12 +86,12 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
         if (!returns.containsKey(node)) return this;
         Map<String, String> next = new LinkedHashMap<>(returns);
         next.remove(node);
-        return new RunState(rounds, waiting, next, queues, timers);
+        return new RunState(rounds, waiting, next, queues, waits);
     }
 
     // ───────── 跳转 ─────────
 
-    /** 管理员跳转：不再等汇合、定时节点，不再记退回后直接回去与依次会签的队列（原来的待办都取消了）；轮次照旧 */
+    /** 管理员跳转：不再等汇合、定时与异步的节点，不再记退回后直接回去与依次会签的队列（原来的待办都取消了）；轮次照旧 */
     public RunState withoutPending() { return new RunState(rounds, Map.of(), Map.of(), Map.of(), Map.of()); }
 
     // ───────── 依次会签 ─────────
@@ -104,22 +104,22 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
         Map<String, List<Long>> next = new LinkedHashMap<>(queues);
         if (remaining.isEmpty()) next.remove(node);
         else next.put(node, List.copyOf(remaining));
-        return new RunState(rounds, waiting, returns, next, timers);
+        return new RunState(rounds, waiting, returns, next, waits);
     }
 
-    // ───────── 定时节点 ─────────
+    // ───────── 停着等的节点：定时节点、异步的自动节点 ─────────
 
-    /** 停在定时节点 node 上，到 until 再往下走 */
+    /** 停在 node 上等：定时节点等到 until，异步的自动节点等作业做完（until 是排作业的时刻） */
     public RunState waitUntil(String node, Instant until) {
-        Map<String, Instant> next = new LinkedHashMap<>(timers);
+        Map<String, Instant> next = new LinkedHashMap<>(waits);
         next.put(node, until);
         return new RunState(rounds, waiting, returns, queues, next);
     }
 
-    /** 定时节点 node 到时候了（或它所在的分支取消了），不再等 */
-    public RunState timerDone(String node) {
-        if (!timers.containsKey(node)) return this;
-        Map<String, Instant> next = new LinkedHashMap<>(timers);
+    /** node 不再等了：到时候了、作业做完了，或它所在的分支取消了 */
+    public RunState waitDone(String node) {
+        if (!waits.containsKey(node)) return this;
+        Map<String, Instant> next = new LinkedHashMap<>(waits);
         next.remove(node);
         return new RunState(rounds, waiting, returns, queues, next);
     }

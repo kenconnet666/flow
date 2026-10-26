@@ -10,6 +10,7 @@ import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
+import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
@@ -36,6 +37,10 @@ import org.dpdns.zerodep.flow.core.engine.Queries;
 import org.dpdns.zerodep.flow.core.engine.StartHandler;
 import org.dpdns.zerodep.flow.core.engine.TenantScope;
 import org.dpdns.zerodep.flow.core.engine.WithdrawHandler;
+import org.dpdns.zerodep.flow.core.extension.Extensions;
+import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
+import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
+import org.dpdns.zerodep.flow.core.extension.ServiceAction;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
@@ -317,6 +322,15 @@ public final class FlowEngine<U extends Actor> {
         return admin.reassign(actor, command);
     }
 
+    /** 失败的作业重新来过（管理员）（当前操作人） */
+    public boolean retryJob(RetryJobCommand command) { return retryJob(actors.current(), command); }
+
+    /** 失败的作业重新来过（管理员）：修好外部系统后让异步的自动节点再做一次 */
+    public boolean retryJob(U actor, RetryJobCommand command) {
+        allow(actor, "retryJob", String.valueOf(command.jobId()));
+        return admin.retryJob(actor, command);
+    }
+
     // ───────── 作业 ─────────
 
     /**
@@ -430,6 +444,9 @@ public final class FlowEngine<U extends Actor> {
         private final List<JobHandler> jobHandlers = new ArrayList<>();
         private final List<FlowListener> listeners = new ArrayList<>();
         private AfterCommit afterCommit = AfterCommit.immediately();
+        private final List<PeopleResolver> resolvers = new ArrayList<>();
+        private final List<OutcomeGuard> guards = new ArrayList<>();
+        private final List<ServiceAction> actions = new ArrayList<>();
 
         private Builder(ConnectionProvider connections) { this.connections = Objects.requireNonNull(connections, "connections"); }
 
@@ -475,6 +492,15 @@ public final class FlowEngine<U extends Actor> {
         /** 工作日历：时限写成工作日时按它算；默认周一到周五、UTC 的日期（{@link WorkCalendar#weekdays}） */
         public Builder<U> workCalendar(WorkCalendar calendar) { this.calendar = calendar; return this; }
 
+        /** 注册一个处理人解析器（定义里的 {@code { "resolver": 名字 }}）；同名的后注册的换掉先注册的 */
+        public Builder<U> resolver(PeopleResolver resolver) { this.resolvers.add(resolver); return this; }
+
+        /** 注册一个提交前的守卫（处理结果的 {@code guards}） */
+        public Builder<U> guard(OutcomeGuard guard) { this.guards.add(guard); return this; }
+
+        /** 注册一个自动节点的动作（{@code service} 节点的 {@code action}） */
+        public Builder<U> action(ServiceAction action) { this.actions.add(action); return this; }
+
         /** 注册一个监听：发通知、同步业务表、审计（{@link FlowListener}） */
         public Builder<U> listener(FlowListener listener) { this.listeners.add(listener); return this; }
 
@@ -499,7 +525,8 @@ public final class FlowEngine<U extends Actor> {
                 eventStore != null ? eventStore : defaults.events(),
                 jobStore != null ? jobStore : defaults.jobs(),
                 ccStore != null ? ccStore : defaults.ccs());
-            return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit)), actors, permissions, List.copyOf(jobHandlers));
+            return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
+                new Extensions(resolvers, guards, actions)), actors, permissions, List.copyOf(jobHandlers));
         }
     }
 }

@@ -1,0 +1,22 @@
+{
+  "key": "expense",
+  "name": "费用申请",
+  "form": { "key": "purchase-form" },
+  "title": "费用申请：{form.title}",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "approve", "type": "task", "name": "审批", "assignees": [{ "resolver": "manager" }],
+      "outcomes": [{ "key": "ok", "label": "同意", "guards": ["budget"] }] },
+    { "id": "classify", "type": "service", "name": "分级", "action": "classify", "mode": "sync", "args": { "amount": { "ref": "form.amount" } } },
+    { "id": "archive", "type": "service", "name": "归档", "action": "archive", "args": { "failures": 1 },
+      "retry": { "times": 2, "backoff": { "minutes": 1 } } },
+    { "id": "done", "type": "end", "name": "结束", "result": "approved" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "approve" },
+    { "id": "approved", "from": "approve", "to": "classify", "outcome": "ok" },
+    { "id": "big", "from": "classify", "to": "archive", "outcome": "big" },
+    { "id": "small", "from": "classify", "to": "done", "outcome": "small" },
+    { "id": "archived", "from": "archive", "to": "done" }
+  ]
+}

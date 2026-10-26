@@ -49,8 +49,21 @@
 | `terminate`、`suspend` | `instance`、`reason` | 同 `start` |
 | `resume` | `instance` | 同 `start` |
 | `jump` | `instance`、`node`、`reason` | 同 `start` |
+| `retryJob` | `job`（作业编号，`job.failed` 的 data 里有） | `revived` |
 | `runJobs` | `at`：把时钟拨到这一刻（不能往回拨），做到期的作业；这一步不写 `as` | `ran`（做了几个作业） |
 | `publishDefinition` | `definition`（内联的定义） | — |
+
+## 场景里注册的扩展
+
+两个后端跑场景时都注册这一套（Java 在 `flow-it` 的 `TestExtensions`），定义里可以直接用：
+
+| 种类 | 名字 | 做什么 |
+| --- | --- | --- |
+| 解析器 | `manager` | 谁发起都由 1004（总经理）处理 |
+| 守卫 | `budget` | 表单的 `amount` 超过 100000 时不通过，原因"超出预算" |
+| 动作 | `classify` | 参数 `amount` ≥ 10000 走结果 `big`，否则 `small`；记流程变量 `level` |
+| 动作 | `archive` | 同一个去重键的前 `failures`（参数）次失败，之后成功 |
+| 动作 | `explode` | 总是失败 |
 
 ## 引用前面的结果
 

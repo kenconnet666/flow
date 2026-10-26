@@ -70,7 +70,9 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
       form?.showErrors(details.filter((d) => d.field !== 'comment'));
       return;
     }
-    failure = errorText(error);
+    // 守卫不通过：显示守卫给的原因（"超出预算"），比通用的"条件不满足"有用
+    const reasons = details.map((d) => d.params?.['reason']).filter((r): r is string => typeof r === 'string');
+    failure = error instanceof HttpError && error.code === 'flow.guard-rejected' && reasons.length ? reasons.join('；') : errorText(error);
     void view.refresh();
   }
 

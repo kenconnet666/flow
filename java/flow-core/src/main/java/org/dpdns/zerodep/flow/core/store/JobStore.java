@@ -63,6 +63,9 @@ public interface JobStore {
     /** 失败了，重试用完：标成 {@link Job#FAILED}，留着给管理员看 */
     void fail(Long jobId, String error);
 
+    /** 失败的作业重新来过（管理员 retryJob）：改回等着做、失败次数清零、马上到期；返回改到没有 */
+    boolean revive(Long jobId, Instant now);
+
     /** 实例结束了：它还没做的作业都删掉（失败的留着） */
     void cancelForInstance(Long instanceId);
 }

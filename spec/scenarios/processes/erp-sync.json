@@ -1,0 +1,14 @@
+{
+  "key": "erp-sync",
+  "name": "同步到 ERP",
+  "title": "同步到 ERP",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "push", "type": "service", "name": "推送", "action": "explode", "retry": { "times": 0 } },
+    { "id": "done", "type": "end", "name": "结束", "result": "synced" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "push" },
+    { "id": "pushed", "from": "push", "to": "done" }
+  ]
+}
