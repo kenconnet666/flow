@@ -5,13 +5,14 @@
 
 ## 1. 现状（2026-10-26）
 
-- **代码**（2026-10-26 起按 0004 "已定"的顺序做，现在在第 ② 步：模型包）：
+- **代码**（2026-10-26 起按 0004 "已定"的顺序做；第 ② 步模型包已完成，下一步是第 ③ 步最小链路，拆分见第 6 节）：
   - 目录按 0001 的"模块划分"：根 `pom.xml` 聚合 `java/flow-model`；`typescript/` 是 pnpm 工作区（`packages/model`、`test`）；`spec/` 放两边共用的样例。
   - 模型包已有：条件求值（`spec/conditions`）、定义的类型与校验（`spec/definitions`，0005 第 7 节的全部问题代号）、选边与连线副作用（`spec/routing`）、
     字段清单自身的校验（`spec/manifests`）、提交值的类型校验（`spec/values`）、两个版本的差别（`spec/diff`）、
     字段权限的合算与提交的合并（`spec/access`）。Java 在 `org.dpdns.zerodep.flow.model.*`，TS 是 `@zerodep-dev/flow-model`。
   - 本地跑：`./mvnw -q test`（Java）；`cd typescript && pnpm install && pnpm test`（TS）。新加一份共用样例只加 JSON 文件，两边的测试都会跑到。
-  - 模型包的内容已齐（2026-10-26）。
+  - 模型包的内容已齐（2026-10-26），含业务错误码（0008，`spec/error-codes.json`）。
+  - CI（`.github/workflows/ci.yml`）已加，但 2026-10-26 因 GitHub 账号的付费问题没能启动，等用户处理。
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：已定（2026-10-26）。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
     主键默认雪花 BIGINT（另带大雪花，也可实现接口自定义，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
@@ -105,6 +106,15 @@
 
 ## 6. 下一步
 
-1. （已完成）query 2.0.0 与 vue-tsx-pro 0.1.0 都已发布。
-2. 契约都已定（2026-10-26）。整体顺序按 0004 "已定"里的"顺序"一行，现在做第 ② 步：建目录与模型包。
-3. 按 0001 的"模块划分"建目录，再建模型包（TS 与 Java 各一份，共用 spec/ 的样例）、两个后端、前端。
+主线是流程引擎（用户 2026-10-26）：query 与组件库只在引擎用到时补，不单独开新活。顺序按 0004 "已定"里的"顺序"一行，② 已完成。
+
+第 ③ 步最小链路的拆分（2026-10-26 提出，待用户确认）：
+
+| 步 | 做什么 | 顺带的基础设施 |
+| --- | --- | --- |
+| ③a | Java `flow-core` 的窄链：建表迁移（0007 里链路用到的表）、雪花 `IdStrategy` 与 `flow_worker` 租用机器号、命令管道（实例行 `rev` 加锁、待办 CAS）、命令 `publish` / `start` / `claim` / `complete` / `withdraw`、查询收件箱与实例详情、节点 start / end / task / exclusive、处理人来源（指定人、角色、部门、发起人，经组织扩展点） | 表名前缀先固定 `flow_`；大雪花要的"列类型按配置决定"推到发布前 |
+| ③b | `spec/scenarios/` 场景用例与 `flow-it` 的实库跑法（MySQL，库 `flow_it`）：场景是两个后端共用的验收标准 | — |
+| ③c | `flow-spring`：自动配置、可选的 HTTP 接口（0008 的响应体）、`examples/spring-boot` | — |
+| ③d | 前端：`flow-ui/form`（代码表单运行时：字段清单、运行时编译、字段权限）、最小的收件箱与审批面板，接 ③c 的示例后端走通一单审批 | 先做 vue-tsx-pro ROADMAP 9.8（浏览器编译、代码编辑器公开入口）与 9.9（人员选择器换成角色）；flow-ui 的 `flow.` 错误文案 |
+
+之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐能力（并行与包容网关、会签、退回、转办委派加签、定时与作业、抄送、子流程、外部事件、管理员命令）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
