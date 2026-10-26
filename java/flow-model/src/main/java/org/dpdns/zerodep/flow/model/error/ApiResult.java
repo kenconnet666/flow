@@ -13,7 +13,7 @@ import java.util.function.Function;
  * @param errors  按字段、按问题的明细
  * @param data    成功时的数据
  */
-public record ApiResult<T>(String code, String message, Map<String, Object> params, List<Object> errors, T data) {
+public record ApiResult<T>(String code, String message, Map<String, String> params, List<ErrorDetail> errors, T data) {
     /** 成功的码 */
     public static final String OK = "ok";
 

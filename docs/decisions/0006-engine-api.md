@@ -172,8 +172,6 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 
 ```java
 public interface IdStrategy {
-    /** 编号列的物理类型（建表与迁移用） */
-    ColumnType columnType(String table);
     /** 给出新编号 */
     String next(String table);
     /** 引擎里的编号 ↔ 绑定到语句、从结果读回的值 */
@@ -186,8 +184,8 @@ public interface IdStrategy {
 - **可以按表换策略**：默认整个引擎一种，个别表可以单独换（例如流转记录用大雪花），所以方法都带表名。
 - 登记方式同其他扩展点：Spring 里声明一个 `IdStrategy` Bean 就替换默认的雪花；TS 在选项里传。
 - 雪花、大雪花在时钟回拨时的处理可配：等到时钟追上（默认）、报错、借用序号。
-- 策略在**建表时**定下：表建好以后换策略要迁移数据，引擎启动时发现配置与表的列类型不一致就报错。
-- query 配合补一项能力并发版：表声明里的列类型能在建数据库对象时按配置决定（id 列按策略取 `BIGINT` 或 `DECIMAL(p,0)`），见 0001 的"对 query 的要求"。
+- 策略在**建表时**定下：建表脚本（0007 第 9 节）里编号列的类型要与策略一致（雪花 `BIGINT`、大雪花 `DECIMAL`）；表建好以后换策略要迁移数据。
+- query 配合补一项能力并发版：表声明（Java 的表接口、TS 的表类）里编号列读写的类型能按配置决定（雪花读写 `Long`、大雪花读写 `BigInteger`），见 0001 的"对 query 的要求"。建表不经过 query（0007 第 9 节）。
 
 ## 7. 两个后端的形态（已定，用户 2026-10-26）
 

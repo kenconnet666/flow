@@ -16,16 +16,43 @@ concurrency:
 
 jobs:
   java:
-    name: Java 测试
+    name: Java 测试（含 MySQL 实库）
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    # 实库测试的库：flow_it，用户 flow（测试专用，密码不是机密）
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: flow_it
+          MYSQL_USER: flow
+          MYSQL_PASSWORD: flow-ci
+          MYSQL_ROOT_PASSWORD: flow-ci-root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uflow -pflow-ci"
+          --health-interval 3s --health-timeout 3s --health-retries 40
+    env:
+      FLOW_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/flow_it
+      FLOW_MYSQL_USER: flow
+      FLOW_MYSQL_PASSWORD: flow-ci
+      FLOW_REQUIRE_LIVE: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # flow 依赖 query 主干的 SNAPSHOT（根 pom 的 query.version）：先把 query 装进本机的 Maven 仓库
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: kenconnet666/query
+          path: query
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
+      - name: 安装 query 的 SNAPSHOT
+        working-directory: query
+        run: ./mvnw --batch-mode install -DskipTests -pl java/wire,java/query-core,java/query-mysql -am
       - name: 编译并运行全部测试
         run: ./mvnw --batch-mode --threads 1C verify
 

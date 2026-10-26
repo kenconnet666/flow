@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.dpdns.zerodep</groupId>
+        <artifactId>flow-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+    <artifactId>flow-core</artifactId>
+    <name>flow-core</name>
+    <description>The workflow engine: commands, queries and extension points over query, without Spring.</description>
+    <properties>
+        <automatic.module.name>org.dpdns.zerodep.flow.core</automatic.module.name>
+    </properties>
+    <dependencies>
+        <!-- 不依赖方言包：由接入方给的连接决定方言（query 的通用门面） -->
+        <dependency>
+            <groupId>org.dpdns.zerodep</groupId>
+            <artifactId>flow-model</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.dpdns.zerodep</groupId>
+            <artifactId>query-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

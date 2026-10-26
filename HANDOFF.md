@@ -5,14 +5,22 @@
 
 ## 1. 现状（2026-10-26）
 
-- **代码**（2026-10-26 起按 0004 "已定"的顺序做；第 ② 步模型包已完成，下一步是第 ③ 步最小链路，拆分见第 6 节）：
+- **代码**（2026-10-26 起按 0004 "已定"的顺序做；第 ② 步模型包已完成，第 ③a 步 Java 引擎的窄链已完成，下一步 ③b，拆分见第 6 节）：
   - 目录按 0001 的"模块划分"：根 `pom.xml` 聚合 `java/flow-model`；`typescript/` 是 pnpm 工作区（`packages/model`、`test`）；`spec/` 放两边共用的样例。
   - 模型包已有：条件求值（`spec/conditions`）、定义的类型与校验（`spec/definitions`，0005 第 7 节的全部问题代号）、选边与连线副作用（`spec/routing`）、
     字段清单自身的校验（`spec/manifests`）、提交值的类型校验（`spec/values`）、两个版本的差别（`spec/diff`）、
     字段权限的合算与提交的合并（`spec/access`）。Java 在 `org.dpdns.zerodep.flow.model.*`，TS 是 `@zerodep-dev/flow-model`。
   - 本地跑：`./mvnw -q test`（Java）；`cd typescript && pnpm install && pnpm test`（TS）。新加一份共用样例只加 JSON 文件，两边的测试都会跑到。
   - 模型包的内容已齐（2026-10-26），含业务错误码（0008，`spec/error-codes.json`）。
-  - CI（`.github/workflows/ci.yml`）已加，但 2026-10-26 因 GitHub 账号的付费问题没能启动，等用户处理。
+  - Java 引擎 `java/flow-core`（2026-10-26，③a）：包按职责分——
+    `FlowEngine`（门面与组装）、`identity`（操作人、组织、权限）、`command`（每个命令一个 record）、`data`（表单值、流程变量、运行状态）、
+    `engine`（每个命令一个处理类，步骤写在类注释里；推进在 `Execution`）、`id`（雪花、按顺序发号）、`store`（六个存储接口）、
+    `store/query`（用 query 的默认实现、`flow_worker` 租机器号）。
+    建表不用 query 的迁移器：`flow-core` 的 `resources/db/flow/mysql/V1__create_flow_tables.sql`，推荐 Flyway 单独一套执行（0007 第 9 节）。
+  - 实库测试 `java/flow-it`：本机连 query 的开发 MySQL（WSL）里的 `flow_it` 库，变量 `FLOW_MYSQL_URL` / `_USER` / `_PASSWORD`
+    （用户是 query，密码在 query 的 `infra/mysql/.env`）；没设时跳过。每个测试前用 Flyway 清库再建表。
+  - 现在依赖 query 主干的 2.1.0-SNAPSHOT（要 wire 的 `Json.write`）：本机先在 query 里 `mvnw install`；CI 先检出 query 装好再测。
+  - CI（`.github/workflows/ci.yml`）：Java（含 MySQL 8.4 服务跑实库测试）与 TS 两个任务。用户要把仓库改成开源，之后 CI 才能免费跑起来。
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：已定（2026-10-26）。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
     主键默认雪花 BIGINT（另带大雪花，也可实现接口自定义，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
@@ -108,11 +116,11 @@
 
 主线是流程引擎（用户 2026-10-26）：query 与组件库只在引擎用到时补，不单独开新活。顺序按 0004 "已定"里的"顺序"一行，② 已完成。
 
-第 ③ 步最小链路的拆分（2026-10-26 提出，待用户确认）：
+第 ③ 步最小链路的拆分（2026-10-26，用户让先做下去）：
 
 | 步 | 做什么 | 顺带的基础设施 |
 | --- | --- | --- |
-| ③a | Java `flow-core` 的窄链：建表迁移（0007 里链路用到的表）、雪花 `IdStrategy` 与 `flow_worker` 租用机器号、命令管道（实例行 `rev` 加锁、待办 CAS）、命令 `publish` / `start` / `claim` / `complete` / `withdraw`、查询收件箱与实例详情、节点 start / end / task / exclusive、处理人来源（指定人、角色、部门、发起人，经组织扩展点） | 表名前缀先固定 `flow_`；大雪花要的"列类型按配置决定"推到发布前 |
+| ③a（已完成） | Java `flow-core` 的窄链：建表脚本（0007 里链路用到的表）、雪花 `IdStrategy` 与 `flow_worker` 租用机器号、实例行 `rev` 加锁与待办的带条件更新、发布表单与流程、命令 `start` / `claim` / `complete` / `withdraw`、查询收件箱与实例详情、节点 start / end / task / exclusive、处理人来源（指定人、角色、部门、发起人、同某节点）、表单按节点权限合并 | 表名前缀先固定 `flow_`；大雪花要的"列类型按配置决定"推到发布前。还没做的管道部分：拦截器、按命令替换处理类、幂等（`flow_request`）、事件监听，随 ③c 补 |
 | ③b | `spec/scenarios/` 场景用例与 `flow-it` 的实库跑法（MySQL，库 `flow_it`）：场景是两个后端共用的验收标准 | — |
 | ③c | `flow-spring`：自动配置、可选的 HTTP 接口（0008 的响应体）、`examples/spring-boot` | — |
 | ③d | 前端：`flow-ui/form`（代码表单运行时：字段清单、运行时编译、字段权限）、最小的收件箱与审批面板，接 ③c 的示例后端走通一单审批 | 先做 vue-tsx-pro ROADMAP 9.8（浏览器编译、代码编辑器公开入口）与 9.9（人员选择器换成角色）；flow-ui 的 `flow.` 错误文案 |

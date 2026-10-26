@@ -29,7 +29,7 @@
 | 运行 | `flow_instance`、`flow_work_item`、`flow_candidate`、`flow_wait`、`flow_event` | 实例、待办、候选、外部事件的等待、流转记录 |
 | 协作 | `flow_cc` | 抄送 |
 | 作业与时间 | `flow_job`、`flow_calendar`、`flow_calendar_day` | 作业、工作日历、日历里的例外日 |
-| 基础 | `flow_worker`、`flow_request`、`flow_migration` | 雪花机器号的租约、命令的幂等记录、迁移历史 |
+| 基础 | `flow_worker`、`flow_request` | 雪花机器号的租约、命令的幂等记录（建表的历史由接入方的 Flyway 记，见第 9 节） |
 | 归档 | `flow_instance_archive`、`flow_work_item_archive`、`flow_event_archive`、`flow_form_data_archive`、`flow_cc_archive` | 结构同原表，多一列 `archived_at` |
 
 下面的类型里，`ID` 表示按主键策略的编号列，`USER` 是 `VARCHAR(64)`（接入方的用户、部门、角色编号），`NAME` 是 `VARCHAR(200)`，`KEY` 是 `VARCHAR(64)`（流程、表单、节点的标识），`TIME` 是 `DATETIME(3)`。
@@ -268,7 +268,7 @@
 
 和命令在同一个事务里插入：同一个 `request_id` 同时来两次，第二个在唯一键上等第一个提交，然后读到它的结果。
 
-**`flow_migration`**：query 的迁移器维护（`historyTable("flow_migration")`）。
+建表的历史不是引擎的表：用推荐的 Flyway 方式时是 Flyway 的 `flow_schema_history`（第 9 节）。
 
 ## 4. 主要查询与用到的索引（已定，用户 2026-10-26）
 
@@ -328,3 +328,11 @@
 - 待办上新增 `kind`（普通待办、异常处理）、`waiting` 状态、会签的几列、子待办（委派与加签都生成子待办，不用 `owner` 列）、`draft`（暂存）、`read_at`、催办次数、`priority`、名字快照；`flow_candidate` 改成只存打开着的待办。
 - 工作日历拆成日历（带时区、一周的工作日）与例外日两张。
 - 全部表加租户列，索引以租户开头（作业表除外）。
+
+## 9. 建表（已定，用户 2026-10-26）
+
+- **引擎不自己建表，也不用 query 的迁移器**：flow-core 的 jar 里带建表脚本 `db/flow/mysql/V1__create_flow_tables.sql`（以后的变更是 `V2__…`、`V3__…`，执行过的脚本不再改），每张表、每列都有中文注释。
+- **推荐用 Flyway 执行**，单独一套、不和应用自己的迁移混在一起：位置 `classpath:db/flow/mysql`，历史表 `flow_schema_history`。不用 Flyway 的交给 DBA 照脚本执行。
+- flow-spring 可以按配置帮忙跑这一套 Flyway（默认关，第 ③c 步做）；引擎的实库测试也是这样建表，等于一直在验证推荐的做法。
+- 脚本里的编号列按默认的雪花是 `BIGINT`；用大雪花时给另一份 `DECIMAL(p, 0)` 的脚本（随大雪花一起做）。
+- 理由：接入方多半已经有 Flyway / Liquibase 和 DBA 的审批流程，库自己在启动时改表结构不受欢迎；纯 SQL 脚本一眼能审。

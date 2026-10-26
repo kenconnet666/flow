@@ -1,0 +1,30 @@
+{
+  "key": "purchase",
+  "name": "采购申请",
+  "form": { "key": "purchase-form" },
+  "summary": ["form.title", "form.amount"],
+  "title": "采购申请：{form.title}",
+  "settings": { "withdraw": "beforeAction" },
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交", "form": { "default": "editable", "fields": { "note": "hidden" } } },
+    { "id": "review", "type": "task", "name": "财务复核", "assignees": [{ "role": "finance" }],
+      "outcomes": [
+        { "key": "pass", "label": "通过" },
+        { "key": "reject", "label": "否决", "kind": "reject", "comment": "required" }
+      ],
+      "form": { "default": "readonly", "fields": { "note": "editable" } } },
+    { "id": "route", "type": "exclusive", "name": "金额大不大" },
+    { "id": "approve", "type": "task", "name": "总经理审批", "assignees": [{ "user": "boss" }],
+      "outcomes": [{ "key": "pass", "label": "同意" }] },
+    { "id": "done", "type": "end", "name": "通过", "result": "approved" },
+    { "id": "rejected", "type": "end", "name": "否决", "result": "rejected" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "review" },
+    { "id": "reviewed", "from": "review", "to": "route", "outcome": "pass" },
+    { "id": "refused", "from": "review", "to": "rejected", "outcome": "reject" },
+    { "id": "large", "from": "route", "to": "approve", "when": { "field": "form.amount", "op": "gte", "value": "10000" } },
+    { "id": "small", "from": "route", "to": "done", "default": true },
+    { "id": "approved", "from": "approve", "to": "done", "outcome": "pass" }
+  ]
+}

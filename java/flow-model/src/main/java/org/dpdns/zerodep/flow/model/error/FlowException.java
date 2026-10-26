@@ -9,8 +9,8 @@ import java.util.Map;
  */
 public class FlowException extends RuntimeException {
     private final FlowErrorCode code;
-    private final Map<String, Object> params;
-    private final List<Object> errors;
+    private final Map<String, String> params;
+    private final List<ErrorDetail> errors;
 
     /** 只有码 */
     public FlowException(FlowErrorCode code) {
@@ -18,8 +18,13 @@ public class FlowException extends RuntimeException {
     }
 
     /** 码与文案里要填的参数 */
-    public FlowException(FlowErrorCode code, Map<String, Object> params) {
+    public FlowException(FlowErrorCode code, Map<String, String> params) {
         this(code, code.code(), params, List.of(), null);
+    }
+
+    /** 码与明细（表单校验、发布校验） */
+    public FlowException(FlowErrorCode code, String message, List<ErrorDetail> errors) {
+        this(code, message, Map.of(), errors, null);
     }
 
     /**
@@ -30,7 +35,7 @@ public class FlowException extends RuntimeException {
      * @param errors  按字段、按问题的明细
      * @param cause   原始异常
      */
-    public FlowException(FlowErrorCode code, String message, Map<String, Object> params, List<?> errors, Throwable cause) {
+    public FlowException(FlowErrorCode code, String message, Map<String, String> params, List<ErrorDetail> errors, Throwable cause) {
         super(message, cause);
         this.code = code;
         this.params = params == null ? Map.of() : Map.copyOf(params);
@@ -41,8 +46,8 @@ public class FlowException extends RuntimeException {
     public FlowErrorCode code() { return code; }
 
     /** 文案里要填的参数 */
-    public Map<String, Object> params() { return params; }
+    public Map<String, String> params() { return params; }
 
     /** 按字段、按问题的明细 */
-    public List<Object> errors() { return errors; }
+    public List<ErrorDetail> errors() { return errors; }
 }

@@ -29,25 +29,39 @@ export type FlowErrorCode = (typeof FLOW_ERROR_CODES)[number];
 /** 成功的码 */
 export const OK = 'ok';
 
+/**
+ * 错误明细的一项：表单校验是哪个字段、什么问题，发布校验是哪个节点或连线、什么问题。与 Java 的 `ErrorDetail` 同形，没有的部分省掉
+ */
+export interface ErrorDetail {
+  /** 问题的代号：表单的值问题（`required`、`max`……）或 0005 第 7 节的问题代号 */
+  readonly code: string;
+  readonly field?: string;
+  readonly node?: string;
+  readonly edge?: string;
+  readonly lane?: string;
+  /** 文案里要填的参数 */
+  readonly params?: Readonly<Record<string, string>>;
+}
+
 /** 响应体（0008 的第 1 节）；失败时 `code` 是任何包的业务错误码 */
 export interface ApiResult<T = unknown> {
   readonly code: string;
   readonly message?: string;
-  readonly params?: Readonly<Record<string, unknown>>;
+  readonly params?: Readonly<Record<string, string>>;
   /** 按字段、按问题的明细：表单校验、发布校验 */
-  readonly errors?: readonly unknown[];
+  readonly errors?: readonly ErrorDetail[];
   readonly data?: T;
 }
 
 /** 带业务错误码的错误；扩展抛的原始错误放在 cause */
 export class FlowError extends Error {
   readonly code: FlowErrorCode;
-  readonly params: Readonly<Record<string, unknown>>;
-  readonly errors: readonly unknown[];
+  readonly params: Readonly<Record<string, string>>;
+  readonly errors: readonly ErrorDetail[];
 
   constructor(
     code: FlowErrorCode,
-    options: { message?: string; params?: Record<string, unknown>; errors?: readonly unknown[]; cause?: unknown } = {},
+    options: { message?: string; params?: Record<string, string>; errors?: readonly ErrorDetail[]; cause?: unknown } = {},
   ) {
     super(options.message ?? code, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'FlowError';
