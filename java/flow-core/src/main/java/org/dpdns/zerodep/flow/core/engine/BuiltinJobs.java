@@ -27,7 +27,8 @@ import java.util.function.BiFunction;
  *       {@code complete} 按指定的结果自动处理、{@code escalate} 按提级的结果走；</li>
  *   <li>{@code remind}：提醒处理人（记一条催办，通知由接入方监听流转记录去发）；超时后每隔一段时间的提醒排下一次；</li>
  *   <li>{@code unclaimed}：进收件箱很久没人认领，提醒，或转收件箱的负责人指定；</li>
- *   <li>{@code action}：异步的自动节点做动作，失败按节点的 retry 重试，重试用完在实例上记一条 {@code job.failed}；</li>
+ *   <li>{@code action}：异步的自动节点做动作，失败按节点的 retry 重试，重试用完在实例上记一条 {@code job.failed}（成了管理端的"异常"），
+ *       节点写了 {@code onFailure: "error"} 时实例同时暂停；</li>
  *   <li>{@code receiveTimeout}：等待节点等超时，记一条 {@code node.overdue}，节点的 overdue 写了 complete 时按那个结果往下走。</li>
  * </ul>
  * 都先锁住实例再做，操作人是 {@link SystemActor}。待办已经办完（不再打开）、实例已经结束的作业直接跳过；实例暂停时往后推一小时。
@@ -75,11 +76,8 @@ public final class BuiltinJobs {
 
         @Override
         public Next run(Job job, Instant now) {
-            String node = (String) job.payload().get(NODE);
-            int round = ((Number) job.payload().get(ROUND)).intValue();
             return onInstance(job, now, run -> {
-                RunState state = run.instance().state();
-                if (state.waits().containsKey(node) && state.round(node) == round) run.performAction((ProcessNode.Service) run.graph().node(node));
+                if (stillWaiting(job, run.instance().state())) run.performAction((ProcessNode.Service) run.graph().node(nodeOf(job)));
                 return null;
             });
         }
@@ -92,10 +90,14 @@ public final class BuiltinJobs {
 
         @Override
         public void gaveUp(Job job, String error, Instant now) {
-            String node = (String) job.payload().get(NODE);
             onInstance(job, now, run -> {
+                ProcessNode node = run.graph().node(nodeOf(job));
                 Map<String, Object> data = Map.of("jobId", job.id(), "kind", job.kind(), "error", error);
-                run.addEvent(FlowEvent.JOB_FAILED, run.graph().node(node), null, null, null, null, data);
+                run.addEvent(FlowEvent.JOB_FAILED, node, null, null, null, null, data);
+                // onFailure: error——整个实例停下（别的分支也不能处理），管理员恢复后重试或跳过；默认 manual 只停在这个节点
+                if (node instanceof ProcessNode.Service service && "error".equals(service.onFailure())) {
+                    run.changeStatus(ProcessInstance.SUSPENDED, FlowEvent.INSTANCE_SUSPENDED, null);
+                }
                 return null;
             });
         }
@@ -103,11 +105,8 @@ public final class BuiltinJobs {
 
     /** 定时节点到点：实例还停在这个节点的这一轮上时往下走（跳转、退回跳出区域后不再等了的跳过） */
     private JobHandler.Next timer(Job job, Instant now) {
-        String node = (String) job.payload().get(NODE);
-        int round = ((Number) job.payload().get(ROUND)).intValue();
         return onInstance(job, now, run -> {
-            RunState state = run.instance().state();
-            if (state.waits().containsKey(node) && state.round(node) == round) run.timerFired(node);
+            if (stillWaiting(job, run.instance().state())) run.timerFired(nodeOf(job));
             return null;
         });
     }
@@ -134,11 +133,9 @@ public final class BuiltinJobs {
 
     /** 等待节点等超时：还在等这一轮时记一条，overdue 写了 complete 就当作事件按那个结果到了，否则接着等 */
     private JobHandler.Next receiveTimeout(Job job, Instant now) {
-        String node = (String) job.payload().get(NODE);
-        int round = ((Number) job.payload().get(ROUND)).intValue();
+        String node = nodeOf(job);
         return onInstance(job, now, run -> {
-            RunState state = run.instance().state();
-            if (!state.waits().containsKey(node) || state.round(node) != round) return null;
+            if (!stillWaiting(job, run.instance().state())) return null;
             ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(node);
             run.addEvent(FlowEvent.NODE_OVERDUE, receive, null, null, null, null, Map.of("dueAt", job.dueAt().toString()));
             TaskRules.Overdue rule = receive.overdue();
@@ -191,6 +188,18 @@ public final class BuiltinJobs {
     }
 
     // ───────── 共用的步骤 ─────────
+
+    /** 作业对应的节点（定时、自动节点、等待超时的作业）；待办上的作业（超时、提醒、没人认领）为 null */
+    static String nodeOf(Job job) {
+        return (String) job.payload().get(NODE);
+    }
+
+    /** 实例还停在作业的那个节点的那一轮上（跳转、退回跳出区域后就对不上了，作业跳过） */
+    static boolean stillWaiting(Job job, RunState state) {
+        String node = nodeOf(job);
+        return node != null && job.payload().get(ROUND) instanceof Number round
+            && state.waits().containsKey(node) && state.round(node) == round.intValue();
+    }
 
     /** 对实例做一件事 */
     @FunctionalInterface

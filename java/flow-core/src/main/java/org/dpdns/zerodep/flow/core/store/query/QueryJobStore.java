@@ -7,6 +7,7 @@ import org.dpdns.zerodep.query.exec.Page;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.dpdns.zerodep.query.Sql.any;
 import static org.dpdns.zerodep.query.Sql.deleteFrom;
@@ -105,9 +106,17 @@ final class QueryJobStore implements JobStore {
     }
 
     @Override
-    public Page<Job> failed(int page, int size) {
-        return db.page(from(FlowTables.Job.class).where(r -> r.state().eq(Job.FAILED)).orderBy(r -> orders(r.dueAt().desc(), r.id().desc()))
-            .selectAs(Job.class), page, size);
+    public Optional<Job> find(Long jobId) {
+        return db.optional(from(FlowTables.Job.class).where(r -> r.id().eq(jobId)).selectAs(Job.class));
+    }
+
+    @Override
+    public Page<Job> failed(Long instanceId, int page, int size) {
+        return db.page(from(FlowTables.Job.class).where(r -> {
+                r.state().eq(Job.FAILED);
+                if (instanceId != null) r.instanceId().eq(instanceId);
+            })
+            .orderBy(r -> orders(r.dueAt().desc(), r.id().desc())).selectAs(Job.class), page, size);
     }
 
     @Override

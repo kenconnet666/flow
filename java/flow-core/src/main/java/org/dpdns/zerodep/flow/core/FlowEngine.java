@@ -19,6 +19,7 @@ import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
+import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
@@ -62,7 +63,6 @@ import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
-import org.dpdns.zerodep.flow.core.store.JobStore.Job;
 import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.RequestStore;
 import org.dpdns.zerodep.flow.core.store.StepStore;
@@ -72,6 +72,7 @@ import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
 import org.dpdns.zerodep.flow.core.store.query.QueryStores;
 import org.dpdns.zerodep.flow.core.view.DefinitionProblem;
+import org.dpdns.zerodep.flow.core.view.IncidentView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.StartView;
@@ -413,6 +414,15 @@ public final class FlowEngine<U extends Actor> {
         return admin.retryJob(actor, command);
     }
 
+    /** 跳过失败的作业（管理员）（当前操作人） */
+    public CommandResult skipJob(SkipJobCommand command) { return skipJob(actors.current(), command); }
+
+    /** 跳过失败的作业（管理员）：异步的自动节点不再做动作，按指定的结果往下走 */
+    public CommandResult skipJob(U actor, SkipJobCommand command) {
+        allow(actor, "skipJob", String.valueOf(command.jobId()));
+        return admin.skipJob(actor, command);
+    }
+
     // ───────── 幂等 ─────────
 
     /** 幂等地做一个命令（当前操作人），见 {@link #idempotent(Actor, String, String, Supplier)} */
@@ -536,13 +546,16 @@ public final class FlowEngine<U extends Actor> {
         return queries.processes();
     }
 
-    /** 重试用完的作业（当前操作人） */
-    public Page<Job> failedJobs(int page, int size) { return failedJobs(actors.current(), page, size); }
+    /** 异常（当前操作人） */
+    public Page<IncidentView> incidents(Long instanceId, int page, int size) { return incidents(actors.current(), instanceId, page, size); }
 
-    /** 重试用完的作业，新的在前（{@code jobs.failed}）：管理员修好外部系统后 retryJob */
-    public Page<Job> failedJobs(U actor, int page, int size) {
-        allow(actor, "jobs.failed", null);
-        return queries.failedJobs(page, size);
+    /**
+     * 异常：重试用完的作业，新的在前（{@code incidents}）；instanceId 不为 null 时只看这个实例的。
+     * 管理员修好外部系统后 retryJob，或 skipJob 按结果往下走，或终止实例
+     */
+    public Page<IncidentView> incidents(U actor, Long instanceId, int page, int size) {
+        allow(actor, "incidents", instanceId == null ? null : String.valueOf(instanceId));
+        return queries.incidents(instanceId, page, size);
     }
 
     /** 我发起的（当前操作人） */

@@ -28,13 +28,13 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
  * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal、assign、withdraw-step
- * POST {前缀}/admin/terminate、suspend、resume、jump、reassign、retry-job
+ * POST {前缀}/admin/terminate、suspend、resume、jump、reassign、retry-job、skip-job
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
  * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started、cc、designations
  * GET  {前缀}/queries/work-items/{id}
  * GET  {前缀}/queries/instances/{id}
- * GET  {前缀}/queries/instances?status=&amp;processKey=&amp;keyword=、processes、failed-jobs（管理端）
+ * GET  {前缀}/queries/instances?status=&amp;processKey=&amp;keyword=、processes、incidents?instanceId=（管理端）
  * </pre>
  * 命令（POST）的请求头带 {@code Idempotency-Key} 时幂等：同一个键再来时返回第一次的响应体，不再做一遍。
  * HTTP 一律 200，成败看响应体的 {@code code}（0008）：{@code ok}，或 {@code flow.}、{@code query.} 的业务错误码；
@@ -224,11 +224,12 @@ public class FlowHttpController {
         return respond(() -> ResponseBody.view(engine.processes()));
     }
 
-    /** 重试用完的作业 */
-    @GetMapping("/queries/failed-jobs")
-    public ResponseEntity<String> failedJobs(@RequestParam(name = "page", defaultValue = "1") int page,
-                                             @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-        return respond(() -> ResponseBody.page(engine.failedJobs(page, pageSize)));
+    /** 异常：重试用完的作业；带 instanceId 时只看这个实例的 */
+    @GetMapping("/queries/incidents")
+    public ResponseEntity<String> incidents(@RequestParam(name = "instanceId", required = false) Long instanceId,
+                                            @RequestParam(name = "page", defaultValue = "1") int page,
+                                            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.page(engine.incidents(instanceId, page, pageSize)));
     }
 
     /** 撤回刚处理的一步：{@code { workItemId, reason }} */
@@ -273,6 +274,12 @@ public class FlowHttpController {
     @PostMapping("/admin/retry-job")
     public ResponseEntity<String> retryJob(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
         return command("admin/retry-job", () -> ResponseBody.view(Map.of("revived", engine.retryJob(RequestBody.parse(body).retryJob()))));
+    }
+
+    /** 跳过失败的作业（管理员）：{@code { jobId, outcome, reason }} */
+    @PostMapping("/admin/skip-job")
+    public ResponseEntity<String> skipJob(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("admin/skip-job", () -> ResponseBody.of(engine.skipJob(RequestBody.parse(body).skipJob())));
     }
 
     /** 我发起的 */

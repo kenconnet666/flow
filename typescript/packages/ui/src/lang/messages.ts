@@ -121,6 +121,19 @@ export interface FlowMessages {
   readonly jumpTo: string;
   readonly reassign: string;
   readonly reassignTo: string;
+  /** 异常处理：列表的标题与列、重试、跳过 */
+  readonly incidents: string;
+  readonly columnError: string;
+  readonly columnAttempts: string;
+  readonly columnFailedAt: string;
+  readonly incidentRetry: string;
+  readonly incidentSkip: string;
+  readonly incidentSkipTitle: (node: string) => string;
+  readonly incidentOutcome: string;
+  readonly incidentRetried: string;
+  readonly incidentSkipped: string;
+  /** 实例因为异常暂停了（onFailure: error） */
+  readonly incidentResumeFirst: string;
   /** 选下一步的处理人 */
   readonly pickTitle: string;
   readonly pickFor: (node: string) => string;
@@ -242,6 +255,7 @@ const zhEvents: Record<string, string> = {
   'signal.ignored': '收到不在等的事件',
   'node.overdue': '等待超时',
   'job.failed': '自动处理失败',
+  'job.skipped': '跳过自动处理',
   'instance.suspended': '暂停',
   'instance.resumed': '恢复',
   'instance.jumped': '跳转到',
@@ -274,13 +288,14 @@ const enEvents: Record<string, string> = {
   'signal.ignored': 'Event ignored',
   'node.overdue': 'Timed out at',
   'job.failed': 'Automatic step failed at',
+  'job.skipped': 'Skipped automatic step',
   'instance.suspended': 'Suspended',
   'instance.resumed': 'Resumed',
   'instance.jumped': 'Jumped to',
 };
 
 /** 标题后面接节点名的实例级事件（"跳转到 财务复核""收到事件 等对方盖章"） */
-const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'job.failed']);
+const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'job.failed', 'job.skipped']);
 
 /** 定义的问题代号（0005 第 7 节）的中文说明 */
 const zhProblemTexts: Record<string, (p: Readonly<Record<string, string>>) => string> = {
@@ -424,6 +439,17 @@ export const flowMessages: MessageTable<FlowMessages> = {
     jumpTo: '跳到哪个节点',
     reassign: '改派',
     reassignTo: '改派给谁',
+    incidents: '异常处理',
+    columnError: '原因',
+    columnAttempts: '次数',
+    columnFailedAt: '失败时间',
+    incidentRetry: '重试',
+    incidentSkip: '跳过',
+    incidentSkipTitle: (node) => `跳过「${node}」，按结果往下走`,
+    incidentOutcome: '走哪个结果',
+    incidentRetried: '已重新排队，稍后自动执行',
+    incidentSkipped: '已跳过，流程往下走了',
+    incidentResumeFirst: '流程因为这个异常暂停了：先恢复，再重试或跳过',
     pickTitle: '选择下一步的处理人',
     pickFor: (node) => `${node} 的处理人`,
     noPeopleSource: '没有可选的人员数据，请联系管理员',
@@ -556,6 +582,17 @@ export const flowMessages: MessageTable<FlowMessages> = {
     jumpTo: 'Jump to step',
     reassign: 'Reassign',
     reassignTo: 'Reassign to',
+    incidents: 'Incidents',
+    columnError: 'Error',
+    columnAttempts: 'Attempts',
+    columnFailedAt: 'Failed at',
+    incidentRetry: 'Retry',
+    incidentSkip: 'Skip',
+    incidentSkipTitle: (node) => `Skip "${node}" and move on`,
+    incidentOutcome: 'Continue with outcome',
+    incidentRetried: 'Queued again; it runs shortly',
+    incidentSkipped: 'Skipped; the process moved on',
+    incidentResumeFirst: 'The process was suspended by this failure: resume it first, then retry or skip',
     pickTitle: 'Choose who handles the next step',
     pickFor: (node) => `Assignee for ${node}`,
     noPeopleSource: 'No people directory is available; contact your administrator',

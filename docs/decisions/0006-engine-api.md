@@ -85,7 +85,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | `changeAssignees` | 改某个待办的处理人或候选 |
 | `changeData` | 改流程变量、表单的值；全部留痕 |
 | `migrate` | 进行中的实例换到新版本：给出节点的对应关系，校验后迁移（0002 §1） |
-| `retryJob` / `resolveFailure` | 失败的作业重试；"异常处理"待办选重试、指定结果继续或终止（0005 的 4.1） |
+| `retryJob` / `skipJob` | 异常（重试用完的作业，查询 `incidents`）重试；或跳过、按指定的结果往下走（0005 的 4.1）；终止实例用 `terminate` |
 
 ### 3.5 定义与表单
 

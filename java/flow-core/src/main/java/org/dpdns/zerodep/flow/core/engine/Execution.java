@@ -329,6 +329,13 @@ final class Execution {
         leave(service.id(), result.outcome());
     }
 
+    /** 管理员跳过失败的动作（{@code skipJob}）：记一条，不再等，按指定的结果往下走 */
+    void skipAction(ProcessNode.Service service, Long jobId, String outcome, String reason) {
+        addEvent(FlowEvent.JOB_SKIPPED, service, null, outcome, null, reason, Map.of("jobId", jobId));
+        instance = instance.withState(instance.state().waitDone(service.id()));
+        leave(service.id(), outcome);
+    }
+
     /**
      * 到达等待节点（0005 的 4.3）：轮次加一，停在这里等外部事件（{@code flow_wait} 一行，按事件名加实例或业务编号找到）；
      * 写了 {@code due} 时排一个超时作业。事件到了由 {@code SignalHandler} 调 {@link #received}。

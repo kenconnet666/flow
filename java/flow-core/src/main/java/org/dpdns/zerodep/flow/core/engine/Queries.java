@@ -13,6 +13,7 @@ import org.dpdns.zerodep.flow.core.store.JobStore.Job;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Member;
 import org.dpdns.zerodep.flow.core.view.FormView;
+import org.dpdns.zerodep.flow.core.view.IncidentView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.PickView;
 import org.dpdns.zerodep.flow.core.view.ProcessDiagram;
@@ -24,6 +25,7 @@ import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.model.definition.FieldAccess;
 import org.dpdns.zerodep.flow.model.definition.NodeFormAccess;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
+import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.form.FormAccess.FieldState;
 import org.dpdns.zerodep.flow.model.form.FormAccess;
@@ -156,9 +158,30 @@ public final class Queries {
         return stored.orElseThrow(() -> FlowErrors.notFound("definition", processKey + (version == null ? "" : "@" + version))).model();
     }
 
-    /** 重试用完的作业，新的在前 */
-    public Page<Job> failedJobs(int page, int size) {
-        return context.stores().jobs().failed(page, size);
+    /** 异常：重试用完的作业，新的在前；instanceId 不为 null 时只看这个实例的 */
+    public Page<IncidentView> incidents(Long instanceId, int page, int size) {
+        Page<Job> jobs = context.stores().jobs().failed(instanceId, page, size);
+        Map<Long, InstanceRecord> instances = instancesOf(jobs.rows().stream().map(Job::instanceId).collect(Collectors.toSet()));
+        List<IncidentView> rows = jobs.rows().stream().map(job -> incident(job, instances.get(job.instanceId()))).toList();
+        return new Page<>(rows, jobs.total(), jobs.page(), jobs.size());
+    }
+
+    /** 一个异常：按实例的定义版本找节点的名称、跳过时能选的结果 */
+    private IncidentView incident(Job job, InstanceRecord instance) {
+        String node = BuiltinJobs.nodeOf(job);
+        if (node == null && job.workItemId() != null) {
+            node = context.stores().workItems().find(job.workItemId()).map(WorkItem::node).orElse(null);
+        }
+        if (instance == null) {
+            return new IncidentView(job.id(), job.kind(), job.instanceId(), null, null, node, null, job.attempts(), job.lastError(),
+                job.dueAt(), false, List.of());
+        }
+        ProcessGraph graph = definitions.of(instance).graph();
+        ProcessNode target = graph.node(node);
+        boolean skippable = BuiltinJobs.ACTION.equals(job.kind()) && instance.endedAt() == null && BuiltinJobs.stillWaiting(job, instance.state());
+        return new IncidentView(job.id(), job.kind(), instance.id(), instance.title(), instance.processKey(), node,
+            target == null ? null : target.name(), job.attempts(), job.lastError(), job.dueAt(), skippable,
+            node == null ? List.of() : AdminHandler.skipOutcomes(graph, node));
     }
 
     /** 等我指定承办人的待办（无人认领超时、我是收件箱负责人），每行带实例的标题与摘要列 */

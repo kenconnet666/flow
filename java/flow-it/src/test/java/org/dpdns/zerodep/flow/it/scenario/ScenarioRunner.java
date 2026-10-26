@@ -19,6 +19,7 @@ import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
+import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
@@ -129,7 +130,7 @@ final class ScenarioRunner {
                 case "enableProcess" -> view(engine.setProcessActive(actor, args.text("key"), true));
                 case "versions" -> wire(Map.of("versions", engine.versions(actor, args.text("key"))));
                 case "processes" -> wire(Map.of("processes", engine.processes(actor)));
-                case "failedJobs" -> page(engine.failedJobs(actor, args.number("page", 1), args.number("size", 20)));
+                case "incidents" -> page(engine.incidents(actor, args.id("instance"), args.number("page", 1), args.number("size", 20)));
                 case "started" -> page(engine.started(actor, args.number("page", 1), args.number("size", 20)));
                 case "instance" -> view(engine.instance(actor, args.id("instance")));
                 case "transfer" -> commandResult(engine.transfer(actor, new TransferCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
@@ -146,6 +147,7 @@ final class ScenarioRunner {
                 case "assign" -> commandResult(engine.assign(actor, new AssignCommand(args.id("workItem"), args.id("user"))));
                 case "designations" -> page(engine.designations(actor, args.number("page", 1), args.number("size", 20)));
                 case "retryJob" -> Map.of("revived", engine.retryJob(actor, new RetryJobCommand(args.id("job"))));
+                case "skipJob" -> commandResult(engine.skipJob(actor, new SkipJobCommand(args.id("job"), args.text("outcome"), args.text("reason"))));
                 case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
                 case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));
                 case "ccList" -> page(engine.ccList(actor, args.number("page", 1), args.number("size", 20)));

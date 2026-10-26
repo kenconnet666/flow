@@ -4,7 +4,7 @@
  * - 客户端：createFlowClient、provideFlowClient / useFlowClient
  * - 页面级组件：待办列表 FlowInbox（我的待办、我已办）、我发起的 FlowStartedList、抄送我的 FlowCcList、
  *   待办详情 WorkItemDetail（表单、意见与处理结果、协作、流转记录）、流程详情 FlowInstanceDetail（进度、撤回、催办、留言）、
- *   发起页 StartForm；部件：流程图 FlowDiagram、处理结果的按钮区 ApprovalActions、协作 CollaborationActions、流转记录 FlowTimeline
+ *   发起页 StartForm；部件：流程图 FlowDiagram、处理结果的按钮区 ApprovalActions、协作 CollaborationActions、异常的重试与跳过 IncidentActions、流转记录 FlowTimeline
  * - 文案：withFlowLang 给组件库的语言加上 flow 的错误码文案；界面文案在 Lang.messages.flow 里改
  * - 表单（代码表单的写法、表单容器）在子路径 `@zerodep-dev/flow-ui/form`
  * - 管理端（流程监控、流程管理、定义编辑）在子路径 `@zerodep-dev/flow-ui/admin`：定义编辑带代码编辑器，不用的页面不加载
@@ -23,6 +23,7 @@ export type * from './client/types';
 export { flowErrorCodes, flowMessages, useFlowMessages, withFlowLang, type FlowMessages } from './lang/messages';
 export { ApprovalActions, type ApprovalActionsProps } from './runtime/ApprovalActions';
 export { CollaborationActions, type Collaboration, type CollaborationActionsProps } from './runtime/CollaborationActions';
+export { IncidentActions, type IncidentActionsProps } from './runtime/IncidentActions';
 export { FlowInbox, type FlowInboxProps } from './runtime/FlowInbox';
 export { FlowInstanceDetail, type FlowInstanceDetailProps } from './runtime/FlowInstanceDetail';
 export { FlowCcList, type FlowCcListProps } from './runtime/FlowCcList';

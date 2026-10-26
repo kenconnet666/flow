@@ -38,7 +38,7 @@
 | `started` | 同上 | `total`、`rows`（每行是实例） |
 | `instances` | `status`、`processKey`、`keyword`、`startedBy`、`page`、`size` | 同上（管理端搜实例） |
 | `processes` | — | `processes`（每项 `{ key, name, category, status, latestVersion }`） |
-| `failedJobs` | `page`、`size` | `total`、`rows`（重试用完的作业） |
+| `incidents` | `instance`（不写时看全部）、`page`、`size` | `total`、`rows`（异常：重试用完的作业，带节点、能不能跳过、能选的结果） |
 | `workItem` | `workItem` | `workItem`、`instance`、`form`、`outcomes`、`claimable`、`completable`、`actions` |
 | `instance` | `instance` | `instance`、`form`（同发起页的 form，按流程级 formView 只读）、`workItems`（全部待办）、`timeline`、`actions` |
 | `transfer`、`delegate`、`reassign` | `workItem`、`user`、`reason` | 同 `start` |
@@ -57,6 +57,7 @@
 | `assign` | `workItem`、`user` | 同 `start`（收件箱负责人指定承办人） |
 | `designations` | `page`、`size` | 同 `todo`（等我指定承办人的） |
 | `retryJob` | `job`（作业编号，`job.failed` 的 data 里有） | `revived` |
+| `skipJob` | `job`、`outcome`、`reason` | 同 `complete`（跳过失败的作业，按结果往下走） |
 | `runJobs` | `at`：把时钟拨到这一刻（不能往回拨），做到期的作业；这一步不写 `as` | `ran`（做了几个作业） |
 | `publishDefinition` | `definition`（内联的定义） | — |
 | `validateDefinition` | `definition` | `problems`（每项 `{ code, severity, node, edge, lane, field, params }`） |

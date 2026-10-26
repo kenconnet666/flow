@@ -17,6 +17,7 @@ import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
+import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
@@ -133,6 +134,9 @@ final class RequestBody {
 
     /** {@code { jobId }} */
     RetryJobCommand retryJob() { return new RetryJobCommand(id("jobId")); }
+
+    /** {@code { jobId, outcome, reason }} */
+    SkipJobCommand skipJob() { return new SkipJobCommand(id("jobId"), text("outcome"), text("reason")); }
 
     /** {@code { instanceId }} */
     ReadCcCommand readCc() { return new ReadCcCommand(id("instanceId")); }

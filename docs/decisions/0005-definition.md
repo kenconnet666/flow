@@ -125,7 +125,7 @@
 | `exclusive` | 排他网关 | — | 条件，按先后取第一条成立的，都不成立走 `default` |
 | `parallel` | 并行网关 | — | 分叉时每条都走；汇合时等所有入边 |
 | `inclusive` | 包容网关 | — | 条件成立的都走；汇合时只等实际走了的分支 |
-| `service` | 自动节点 | `action`（接入方注册的动作名）、`args`（JSON）、`mode`（`"async"` 默认、`"sync"`，见 4.1）、`retry`（`{ "times": 3, "backoff": { "minutes": 1 } }`）、`onFailure`（`"manual"` 转人工处理、`"error"` 实例标成出错） | 动作返回的结果（`outcome`），或一条出边 |
+| `service` | 自动节点 | `action`（接入方注册的动作名）、`args`（JSON）、`mode`（`"async"` 默认、`"sync"`，见 4.1）、`retry`（`{ "times": 3, "backoff": { "minutes": 1 } }`）、`onFailure`（`"manual"` 默认，转管理员处理；`"error"` 整个实例暂停） | 动作返回的结果（`outcome`），或一条出边 |
 | `call` | 调用流程（子流程） | `process`（流程 key）、`mode`（`"sync"` 等子流程结束、`"async"` 发起后不等）、`input`（`{ "子流程变量或 form.字段": 值 }`）、`output`（同步时把子流程的值写回） | 同步时按子流程结束的 `result`（`outcome`） |
 | `timer` | 定时等待 | `wait`：`{ "workdays": 2 }`、`{ "days": 1 }`、`{ "hours": 4 }`，或 `{ "until": { "ref": "form.signDate" } }` | 一条出边 |
 | `receive` | 等待外部事件 | `event`（事件名）、`outcomes`（事件可能带回的结果列表）、`due`（等多久）、`overdue`（超时怎么办，同 5.3）、`output` | 事件带回的结果（`outcome`） |
@@ -140,7 +140,9 @@
 - 接入方注册动作 `perform(名字, args, 上下文)`，返回 `{ outcome?, variables? }`（走哪个结果、改哪些流程变量）。`args` 里可以有 `{ ref }`，执行前取好值。
 - `mode: "async"`（默认）：流转的事务提交后由作业（`flow_job`）执行，失败按 `retry` 重试。外部调用（发通知、调别的系统）都应当这样，**动作要能重复执行**（至少执行一次），上下文里给一个幂等键（作业编号）。
 - `mode: "sync"`：在流转的同一个事务里执行，失败就整个流转回滚、报给发起这次操作的人。只适合写本库的表。
-- `onFailure: "manual"`：重试用完后生成一个给管理员的"异常处理"待办，可以重试、指定一个结果继续走、或终止实例。
+- 重试用完后成了一条**异常**（管理端的异常列表 `incidents`、实例上记一条 `job.failed`，接入方监听它通知管理员），管理员可以重试（`retryJob`）、跳过并指定一个结果往下走（`skipJob`，结果要是出边上写的）、或终止实例。
+  - `onFailure: "manual"`（默认）：实例停在这个节点，别的分支照常走。
+  - `onFailure: "error"`：整个实例暂停（别的分支的待办也不能处理），管理员恢复后再重试或跳过。
 
 ### 4.2 调用流程
 

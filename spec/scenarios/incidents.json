@@ -1,0 +1,43 @@
+{
+  "name": "异常处理：自动节点重试用完成了异常，管理员按结果跳过往下走；onFailure: error 时实例暂停，恢复后再跳过；跳过的结果要是出边上写的",
+  "processes": ["processes/erp-sync-choice.json", "processes/erp-sync-strict.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "admin": { "id": 1004, "name": "总经理", "roles": [2] }
+  },
+  "steps": [
+    { "id": "choice", "as": "alice", "command": "start", "args": { "key": "erp-sync-choice" },
+      "expect": { "instance": { "current": [{ "node": "push" }] } } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T08:00:00Z" }, "expect": { "ran": 1 } },
+    { "id": "list", "as": "admin", "command": "incidents",
+      "expect": { "total": 1, "rows": [{ "kind": "action", "node": "push", "nodeName": "推送", "instanceTitle": "同步到 ERP（按结果分支）",
+        "attempts": 1, "error": "ERP 不可用", "skippable": true, "outcomes": ["synced", "skipped"] }] } },
+    { "as": "admin", "command": "incidents", "args": { "instance": "$choice.instance" }, "expect": { "total": 1 } },
+    { "as": "admin", "command": "skipJob", "args": { "job": "$list.rows[0].jobId", "outcome": "bogus" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "outcome", "code": "unknown-outcome" }] } } },
+    { "as": "admin", "command": "skipJob", "args": { "job": "$list.rows[0].jobId" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "outcome", "code": "required" }] } } },
+    { "as": "admin", "command": "skipJob", "args": { "job": "$list.rows[0].jobId", "outcome": "skipped", "reason": "ERP 停机，手工补录" },
+      "expect": {
+        "instance": { "status": "completed", "result": "manual" },
+        "events": [{ "type": "job.skipped", "node": "push", "outcome": "skipped", "comment": "ERP 停机，手工补录" },
+          { "type": "node.left", "edge": "byHand" }, { "type": "node.entered", "node": "manual" }, "instance.finished"]
+      } },
+    { "as": "admin", "command": "incidents", "expect": { "total": 0 } },
+    { "as": "admin", "command": "retryJob", "args": { "job": "$list.rows[0].jobId" }, "expect": { "error": { "code": "flow.not-found" } } },
+
+    { "id": "strict", "as": "alice", "command": "start", "args": { "key": "erp-sync-strict" } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T08:01:00Z" }, "expect": { "ran": 1 } },
+    { "id": "stopped", "as": "admin", "command": "instance", "args": { "instance": "$strict.instance" },
+      "expect": {
+        "instance": { "status": "suspended", "current": [{ "node": "push" }] },
+        "timeline": ["instance.started", "node.left", "node.entered", { "type": "job.failed", "node": "push" }, "instance.suspended"]
+      } },
+    { "as": "admin", "command": "skipJob", "args": { "job": "$stopped.timeline[3].data.jobId" },
+      "expect": { "error": { "code": "flow.instance-not-active" } } },
+    { "as": "admin", "command": "resume", "args": { "instance": "$strict.instance" } },
+    { "as": "admin", "command": "skipJob", "args": { "job": "$stopped.timeline[3].data.jobId" },
+      "expect": { "instance": { "status": "completed", "result": "synced" } } }
+  ]
+}

@@ -192,15 +192,35 @@ export interface InstanceSearch {
   readonly keyword?: string;
 }
 
-/** 重试用完的作业 */
-export interface FailedJob {
-  readonly id: Id;
+/** 异常（管理端）：重试用完的作业，多半是自动节点调外部系统失败 */
+export interface Incident {
+  readonly jobId: Id;
+  /** 作业的种类：action 自动节点的动作、timer、overdue…… */
   readonly kind: string;
   readonly instanceId: Id;
-  readonly workItemId: Id | null;
-  readonly dueAt: string;
+  readonly instanceTitle: string | null;
+  readonly processKey: string | null;
+  /** 卡在哪个节点 */
+  readonly node: string | null;
+  readonly nodeName: string | null;
+  /** 试了几次 */
   readonly attempts: number;
-  readonly lastError: string | null;
+  /** 最后一次失败的原因 */
+  readonly error: string | null;
+  /** 最后一次尝试的时间 */
+  readonly failedAt: string;
+  /** 能跳过、按结果往下走（自动节点的动作，实例还停在那里） */
+  readonly skippable: boolean;
+  /** 跳过时能选的结果；空的时不用选 */
+  readonly outcomes: readonly string[];
+}
+
+/** 跳过失败的作业（管理员） */
+export interface SkipJobCommand {
+  readonly jobId: Id;
+  /** 走哪个结果的出边；节点只有一条没写结果的出边时不填 */
+  readonly outcome?: string;
+  readonly reason?: string;
 }
 
 /** 我现在能对实例做的事 */

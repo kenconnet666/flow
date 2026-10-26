@@ -17,11 +17,12 @@ import type {
   CommandResult,
   DefinitionProblem,
   DefinitionVersion,
-  FailedJob,
+  Incident,
   InstanceSearch,
   ProcessSummary,
   PublishedDefinition,
   SignalCommand,
+  SkipJobCommand,
   CommentCommand,
   CompleteCommand,
   HandOverCommand,
@@ -71,8 +72,8 @@ export interface FlowClient {
   instances(query: PageQuery & InstanceSearch, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
   /** 管理端的流程列表 */
   processes(signal?: AbortSignal): Promise<readonly ProcessSummary[]>;
-  /** 重试用完的作业 */
-  failedJobs(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<FailedJob>>;
+  /** 异常（重试用完的作业），新的在前；给 instanceId 时只看这个实例的 */
+  incidents(query: PageQuery & { readonly instanceId?: Id }, signal?: AbortSignal): Promise<FlowPage<Incident>>;
   /** 流程的全部版本，新的在前 */
   versions(processKey: string, signal?: AbortSignal): Promise<readonly DefinitionVersion[]>;
   /** 某个版本的定义（发布时的原文）；version 不给时取最新的 */
@@ -133,6 +134,8 @@ export interface FlowClient {
   reassign(command: HandOverCommand): Promise<CommandResult>;
   /** 失败的作业重新来过（管理员）：异步的自动节点重试用完后 */
   retryJob(jobId: Id): Promise<{ readonly revived: boolean }>;
+  /** 跳过失败的作业（管理员）：自动节点不再做动作，按指定的结果往下走 */
+  skipJob(command: SkipJobCommand): Promise<CommandResult>;
 }
 
 /** createFlowClient 的选项 */
@@ -160,7 +163,8 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
       return get('/queries/instances', signal, { page, pageSize, ...filters });
     },
     processes: (signal) => get('/queries/processes', signal),
-    failedJobs: ({ page, pageSize }, signal) => get('/queries/failed-jobs', signal, { page, pageSize }),
+    incidents: ({ page, pageSize, instanceId }, signal) =>
+      get('/queries/incidents', signal, { page, pageSize, ...(instanceId == null ? {} : { instanceId: String(instanceId) }) }),
     versions: (processKey, signal) => get(`/queries/processes/${encodeURIComponent(processKey)}/versions`, signal),
     definitionJson: (processKey, version, signal) =>
       get(`/queries/processes/${encodeURIComponent(processKey)}/definition`, signal, version == null ? {} : { version }),
@@ -193,6 +197,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     jump: (command) => post('/admin/jump', command),
     reassign: (command) => post('/admin/reassign', command),
     retryJob: (jobId) => post('/admin/retry-job', { jobId }),
+    skipJob: (command) => post('/admin/skip-job', command),
   };
 }
 

@@ -29,6 +29,6 @@
         { "node": "done", "name": "通过", "type": "end" },
         { "node": "rejected", "name": "否决", "type": "end" }
       ] } },
-    { "as": "admin", "command": "failedJobs", "expect": { "total": 0 } }
+    { "as": "admin", "command": "incidents", "expect": { "total": 0 } }
   ]
 }

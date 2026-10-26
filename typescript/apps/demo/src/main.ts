@@ -11,6 +11,7 @@ import { App } from './App';
 import { CcPage } from './pages/CcPage';
 import { DesignationsPage } from './pages/DesignationsPage';
 import { DonePage } from './pages/DonePage';
+import { IncidentsPage } from './pages/IncidentsPage';
 import { InboxPage } from './pages/InboxPage';
 import { InstancePage } from './pages/InstancePage';
 import { StartListPage } from './pages/StartListPage';
@@ -34,6 +35,7 @@ const router = createRouter({
     { path: '/started', component: StartedPage },
     { path: '/cc', component: CcPage },
     { path: '/admin', component: MonitorPage },
+    { path: '/admin/incidents', component: IncidentsPage },
     { path: '/admin/processes', component: ProcessesPage },
     { path: '/admin/processes/:key', component: ProcessEditPage },
     { path: '/instances/:id', component: InstancePage },

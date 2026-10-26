@@ -5,6 +5,7 @@ import org.dpdns.zerodep.query.exec.Page;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 作业（0007 的 3.5 {@code flow_job}）：定时节点、待办的超时、提醒、无人认领这些到时候要做的事。
@@ -68,8 +69,11 @@ public interface JobStore {
     /** 失败的作业重新来过（管理员 retryJob）：改回等着做、失败次数清零、马上到期；返回改到没有 */
     boolean revive(Long jobId, Instant now);
 
-    /** 重试用完的作业（当前租户），新的在前：管理员看哪里卡住了 */
-    Page<Job> failed(int page, int size);
+    /** 一个作业（当前租户） */
+    Optional<Job> find(Long jobId);
+
+    /** 重试用完的作业（当前租户），新的在前：管理员看哪里卡住了；instanceId 不为 null 时只看这个实例的 */
+    Page<Job> failed(Long instanceId, int page, int size);
 
     /** 实例结束了：它还没做的作业都删掉（失败的留着） */
     void cancelForInstance(Long instanceId);

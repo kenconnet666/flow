@@ -1,6 +1,6 @@
 /**
  * 流程详情（发起人看进度、从我已办里打开）：实例的概要、当前在谁手里、只读的表单、流转记录，
- * 以及撤回、催办（引擎说我能做时）、抄送（给了挑人的数据来源时）与留言；管理端打开时（admin）多一块管理员操作。
+ * 以及撤回、催办（引擎说我能做时）、抄送（给了挑人的数据来源时）与留言；管理端打开时（admin）多一块管理员操作与这个实例的异常。
  *
  *   <FlowInstanceDetail id={instanceId} people={peopleSource} onChange={(result) => …} />
  *
@@ -20,6 +20,7 @@ import {
   PeoplePicker,
   Popconfirm,
   Skeleton,
+  Text,
   Textarea,
   useErrorMessage,
   useFormat,
@@ -33,6 +34,7 @@ import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
 import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
+import { IncidentActions } from './IncidentActions';
 import { InstanceAdminActions } from './InstanceAdminActions';
 import { statusTone } from './status';
 
@@ -46,7 +48,7 @@ export interface FlowInstanceDetailProps {
   modules?: Readonly<Record<string, unknown>>;
   /** 撤回、催办、抄送、留言、管理员操作之后 */
   onChange?: (result: CommandResult) => void;
-  /** 显示管理员操作（暂停、恢复、终止、跳转、改派）：管理端打开时给；能不能做仍由后端的 PermissionPolicy 定 */
+  /** 显示管理员操作（暂停、恢复、终止、跳转、改派）与异常（重试、跳过）：管理端打开时给；能不能做仍由后端的 PermissionPolicy 定 */
   admin?: boolean;
 }
 
@@ -60,6 +62,11 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
   const errorText = useErrorMessage();
   const format = useFormat();
   const detail = useRequest((instanceId: Id, signal) => flow.instance(instanceId, signal), { params: () => id });
+  // 异常只在管理端看：一个实例同时卡住的地方不多，取第一页就够
+  const incidents = useRequest(
+    (instanceId: Id, signal) => (admin ? flow.incidents({ instanceId, page: 1, pageSize: 20 }, signal) : Promise.resolve(null)),
+    { params: () => id },
+  );
 
   let busy = _state<string | null>(null);
   let failure = _state<string | null>(null);
@@ -69,7 +76,6 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
   let ccPicked = _state<readonly PeopleEntry[]>([]);
   let ccMessage = _state('');
 
-  /** 发一个命令：成功时刷新并告诉父级 */
   /** 发一个命令：成功时刷新并告诉父级，返回 true */
   async function run(key: string, action: () => Promise<CommandResult>, done?: (result: CommandResult) => void): Promise<boolean> {
     busy = key;
@@ -78,7 +84,7 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
     try {
       const result = await action();
       done?.(result);
-      await detail.refresh();
+      await Promise.all([detail.refresh(), admin ? incidents.refresh() : null]);
       onChange?.(result);
       return true;
     } catch (error) {
@@ -106,6 +112,13 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
     return run('cc', () => flow.cc({ instanceId: id, users, ...(message ? { message } : {}) }), () => (notice = messages.ccDone(users.length)));
   }
 
+  /** 异常重试、跳过之后：提示，刷新详情与异常 */
+  async function incidentDone(kind: 'retry' | 'skip') {
+    failure = null;
+    notice = kind === 'retry' ? messages.incidentRetried : messages.incidentSkipped;
+    await Promise.all([detail.refresh(), incidents.refresh()]);
+  }
+
   const leaveComment = () =>
     run('comment', () => flow.comment({ instanceId: id, text: comment.trim() }), () => (comment = ''));
 
@@ -130,10 +143,11 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
                 { key: 'startedBy', label: messages.startedBy, value: instance.startedByName ?? '' },
                 { key: 'startedAt', label: messages.startedAt, value: format.date(instance.startedAt, { dateStyle: 'medium', timeStyle: 'short' }) },
                 ...(instance.current.length
-                  ? [
-                      { key: 'current', label: messages.columnCurrent, value: instance.current.map((c) => c.name ?? c.node).join('、') },
-                      { key: 'handlers', label: messages.handlers, value: [...new Set(open.map((item) => holder(item, messages.pool)))].join('、') },
-                    ]
+                  ? [{ key: 'current', label: messages.columnCurrent, value: instance.current.map((c) => c.name ?? c.node).join('、') }]
+                  : []),
+                // 停在自动节点、定时、等事件上时没有人在办
+                ...(open.length
+                  ? [{ key: 'handlers', label: messages.handlers, value: [...new Set(open.map((item) => holder(item, messages.pool)))].join('、') }]
                   : []),
               ]}
             />
@@ -166,6 +180,22 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
               </Flex>
             )}
             {admin && <InstanceAdminActions detail={data} {...(people ? { people } : {})} busy={busy} onRun={(key, action) => run(key, action)} />}
+            {admin && (incidents.data?.rows.length ?? 0) > 0 && (
+              <Alert tone="danger" title={messages.incidents} description={instance.status === 'suspended' ? messages.incidentResumeFirst : undefined}>
+                <Flex direction="column" gap="xs">
+                  {incidents.data!.rows.map((row) => (
+                    <Flex key={String(row.jobId)} gap="sm" align="center" wrap>
+                      <Text weight="medium">{row.nodeName ?? row.node ?? row.kind}</Text>
+                      <Text tone="muted">{row.error ?? ''}</Text>
+                      {/* 暂停时重试、跳过都做不成：先恢复 */}
+                      {instance.status === 'active' && (
+                        <IncidentActions incident={row} onDone={incidentDone} onError={(message) => ((failure = message), (notice = null))} />
+                      )}
+                    </Flex>
+                  ))}
+                </Flex>
+              </Alert>
+            )}
           </Flex>
         </Card>
         {people && (

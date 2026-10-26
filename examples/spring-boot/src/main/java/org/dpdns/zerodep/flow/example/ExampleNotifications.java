@@ -18,7 +18,7 @@ public class ExampleNotifications implements FlowListener {
     @Override
     public Set<String> types() {
         return Set.of(FlowEvent.WORK_ITEM_CREATED, FlowEvent.WORK_ITEM_REMINDED, FlowEvent.WORK_ITEM_OVERDUE, FlowEvent.INSTANCE_CC,
-            FlowEvent.INSTANCE_FINISHED);
+            FlowEvent.INSTANCE_FINISHED, FlowEvent.JOB_FAILED);
     }
 
     @Override
@@ -29,6 +29,7 @@ public class ExampleNotifications implements FlowListener {
             case FlowEvent.WORK_ITEM_CREATED -> "新待办「" + title + "」" + event.nodeName() + "，处理人 " + dataText(event, "assigneeName", "收件箱");
             case FlowEvent.WORK_ITEM_REMINDED -> "催办「" + title + "」" + event.nodeName();
             case FlowEvent.WORK_ITEM_OVERDUE -> "超时「" + title + "」" + event.nodeName();
+            case FlowEvent.JOB_FAILED -> "异常「" + title + "」" + event.nodeName() + "：" + dataText(event, "error", "") + "，通知管理员处理";
             case FlowEvent.INSTANCE_CC -> "抄送「" + title + "」给 " + dataText(event, "userNames", "");
             default -> "「" + title + "」已结束，结果 " + event.outcome() + "，通知发起人 " + notice.instance().startedByName();
         };

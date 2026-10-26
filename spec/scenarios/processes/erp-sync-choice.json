@@ -1,0 +1,16 @@
+{
+  "key": "erp-sync-choice",
+  "name": "同步到 ERP（按结果分支）",
+  "title": "同步到 ERP（按结果分支）",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "push", "type": "service", "name": "推送", "action": "explode", "retry": { "times": 0 } },
+    { "id": "synced", "type": "end", "name": "已同步", "result": "synced" },
+    { "id": "manual", "type": "end", "name": "手工补录", "result": "manual" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "push" },
+    { "id": "ok", "from": "push", "to": "synced", "outcome": "synced" },
+    { "id": "byHand", "from": "push", "to": "manual", "outcome": "skipped" }
+  ]
+}

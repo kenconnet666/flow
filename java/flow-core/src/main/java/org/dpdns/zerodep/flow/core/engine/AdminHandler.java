@@ -5,22 +5,28 @@ import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
+import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.store.JobStore.Job;
+import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
+import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 
 /**
- * 管理员命令（0006 的 3.4）：终止、暂停与恢复、跳转、改派、失败的作业重试。谁能做由 {@code PermissionPolicy} 定（默认放行，接入方收紧）；
+ * 管理员命令（0006 的 3.4）：终止、暂停与恢复、跳转、改派、失败的作业重试或跳过。谁能做由 {@code PermissionPolicy} 定（默认放行，接入方收紧）；
  * 引擎只管实例的状态对不对：已结束的实例什么也不能做，暂停的实例只能恢复或终止。都先锁住实例，做完写回、写流转记录。
  */
 public final class AdminHandler {
@@ -82,6 +88,36 @@ public final class AdminHandler {
     public boolean retryJob(Actor actor, RetryJobCommand command) {
         if (!context.stores().jobs().revive(command.jobId(), context.clock().instant())) throw FlowErrors.notFound("job", command.jobId());
         return true;
+    }
+
+    /**
+     * 跳过失败的作业：异步的自动节点不再做动作，按指定的结果往下走，作业删掉。只有自动节点的作业能跳过，
+     * 实例要进行中（暂停的先恢复）、还停在那个节点的那一轮上；结果要是节点出边上写的，不填时要有一条没写结果的出边。
+     */
+    public CommandResult skipJob(Actor actor, SkipJobCommand command) {
+        Job job = context.stores().jobs().find(command.jobId()).filter(j -> Job.FAILED.equals(j.state()))
+            .orElseThrow(() -> FlowErrors.notFound("job", command.jobId()));
+        if (!BuiltinJobs.ACTION.equals(job.kind())) throw FlowErrors.invalid("jobId", "not-skippable");
+        String outcome = command.outcome() == null || command.outcome().isBlank() ? null : command.outcome();
+        return onInstance(actor, job.instanceId(), true, (run, instance) -> {
+            if (!BuiltinJobs.stillWaiting(job, instance.state())) throw FlowErrors.forbidden("job", job.id(), "not-waiting");
+            ProcessNode.Service service = (ProcessNode.Service) run.graph().node(BuiltinJobs.nodeOf(job));
+            if (outcome == null ? !hasPlainEdge(run.graph(), service.id()) : !skipOutcomes(run.graph(), service.id()).contains(outcome)) {
+                throw FlowErrors.invalid("outcome", outcome == null ? "required" : "unknown-outcome");
+            }
+            context.stores().jobs().done(job.id());
+            run.skipAction(service, job.id(), outcome, command.reason());
+        });
+    }
+
+    /** 跳过时能选的结果：节点出边上写的，按出边的先后、去重 */
+    static List<String> skipOutcomes(ProcessGraph graph, String node) {
+        return graph.outgoing(node).stream().map(ProcessEdge::outcome).filter(Objects::nonNull).distinct().toList();
+    }
+
+    /** 有没写结果的出边（跳过时可以不选结果） */
+    private static boolean hasPlainEdge(ProcessGraph graph, String node) {
+        return graph.outgoing(node).stream().anyMatch(edge -> edge.outcome() == null);
     }
 
     /**
