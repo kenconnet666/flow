@@ -56,9 +56,9 @@ public final class BuiltinJobs {
     private final DefinitionCache definitions;
     private final CompleteHandler completions;
 
-    public BuiltinJobs(EngineContext context, DefinitionCache definitions, CompleteHandler completions) {
+    public BuiltinJobs(EngineContext context, CompleteHandler completions) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
         this.completions = completions;
     }
 

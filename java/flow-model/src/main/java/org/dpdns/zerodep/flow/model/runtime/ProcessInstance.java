@@ -22,10 +22,11 @@ import java.util.Map;
  * @param startedByName 发起人的名字（快照）
  * @param startedAt   发起时间
  * @param endedAt     结束时间
+ * @param parentInstanceId 调用它的父实例（0005 的 4.2）；不是子流程时为 null
  */
 public record ProcessInstance(Long id, String processKey, int version, String businessKey, String title, int priority,
                               Map<String, Object> summary, String status, String result, List<CurrentNode> current,
-                              Long startedBy, String startedByName, Instant startedAt, Instant endedAt) {
+                              Long startedBy, String startedByName, Instant startedAt, Instant endedAt, Long parentInstanceId) {
     /** 实例的状态 */
     public static final String ACTIVE = "active";
     /** 管理员暂停：待办都不能处理，直到恢复 */

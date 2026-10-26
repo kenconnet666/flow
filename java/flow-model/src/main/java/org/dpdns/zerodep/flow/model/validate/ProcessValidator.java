@@ -27,7 +27,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -385,8 +384,8 @@ public final class ProcessValidator {
             } else if (node instanceof ProcessNode.Call call) {
                 add(refs, call.forEach(), at, null, Expect.LIST);
                 for (Object value : call.input().values()) {
-                    // forEach 循环里那一项的名字只在 input 里有效
-                    if (value instanceof Ref r && Objects.equals(r.ref(), call.as())) continue;
+                    // forEach 循环里那一项（及它的字段 as.名字）只在 input 里有效
+                    if (value instanceof Ref r && call.as() != null && (r.ref().equals(call.as()) || r.ref().startsWith(call.as() + "."))) continue;
                     add(refs, value, at, null, Expect.ANY);
                 }
             } else if (node instanceof ProcessNode.Service service) {

@@ -39,9 +39,9 @@ public final class CollaborationHandler {
     private final DefinitionCache definitions;
     private final ClaimHandler claims;
 
-    public CollaborationHandler(EngineContext context, DefinitionCache definitions, ClaimHandler claims) {
+    public CollaborationHandler(EngineContext context, ClaimHandler claims) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
         this.claims = claims;
     }
 

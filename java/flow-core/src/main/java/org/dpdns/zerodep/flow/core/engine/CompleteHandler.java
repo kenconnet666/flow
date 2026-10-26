@@ -41,9 +41,9 @@ public final class CompleteHandler {
     private final DefinitionCache definitions;
     private final ClaimHandler claims;
 
-    public CompleteHandler(EngineContext context, DefinitionCache definitions, ClaimHandler claims) {
+    public CompleteHandler(EngineContext context, ClaimHandler claims) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
         this.claims = claims;
     }
 

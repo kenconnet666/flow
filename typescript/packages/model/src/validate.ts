@@ -427,8 +427,8 @@ function collectReferences(definition: ProcessDefinition): Reference[] {
     else if (node.type === 'call') {
       add(node.forEach, at, 'list');
       for (const value of Object.values(node.input ?? {})) {
-        // forEach 循环里那一项的名字只在 input 里有效
-        if (isRef(value) && value.ref === node.as) continue;
+        // forEach 循环里那一项（及它的字段 as.名字）只在 input 里有效
+        if (isRef(value) && node.as && (value.ref === node.as || value.ref.startsWith(node.as + '.'))) continue;
         add(value, at);
       }
     } else if (node.type === 'service') for (const value of Object.values(node.args ?? {})) add(value, at);

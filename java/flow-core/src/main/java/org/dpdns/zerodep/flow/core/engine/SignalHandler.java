@@ -28,9 +28,9 @@ public final class SignalHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
-    public SignalHandler(EngineContext context, DefinitionCache definitions) {
+    public SignalHandler(EngineContext context) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
     }
 
     /** 送来一个事件，返回每个往下走了（或记了一笔）的实例这一步的结果 */

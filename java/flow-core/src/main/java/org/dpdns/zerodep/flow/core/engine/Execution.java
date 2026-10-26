@@ -47,6 +47,7 @@ import java.util.Map;
  *                           ├─ 抄送节点：抄送给写的人 ──► 接着走
  *                           ├─ 自动节点：同步的马上做动作、按结果接着走；异步的排一个作业 ──► 停下，作业做完再走
  *                           ├─ 等待节点：记下在等什么事件 ──► 停下，事件到了（signal）再走
+ *                           ├─ 调用节点：发起子实例；同步的停下等它们结束（CallActivities）
  *                           ├─ 排他网关：leave(网关) ──► 接着走
  *                           ├─ 并行、包容的分叉：选出的每条线都走，记下配对的汇合要等几条
  *                           ├─ 并行、包容的汇合：到了一条，还没等齐 ──► 这条分支停下；等齐了 ──► 接着走
@@ -58,7 +59,7 @@ import java.util.Map;
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、抄送节点、自动节点（同步、异步）、等待外部事件、排他网关、
+ * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、抄送节点、自动节点（同步、异步）、等待外部事件、调用流程、排他网关、
  * 并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
@@ -85,6 +86,11 @@ final class Execution {
     final List<WorkItem> closed = new ArrayList<>();
     /** 这次的流转记录；{@link #flush} 之后带上数据库给的编号 */
     final List<FlowEvent> events = new ArrayList<>();
+
+    /** 子实例：这个命令里调用它的父实例的推进（子实例马上就结束时直接回到它）；不是这样发起的为 null */
+    Execution caller;
+    /** 子实例被父实例连带终止：结束时不再回到父实例 */
+    boolean quiet;
 
     /**
      * @param actor    这次的操作人；记进流转记录
@@ -114,6 +120,9 @@ final class Execution {
 
     /** 换上新的表单值（处理类收了表单之后） */
     void form(FormValues next) { this.form = next; }
+
+    /** 引擎内部共用的东西 */
+    EngineContext context() { return context; }
 
     /** 实例按的那个版本的图 */
     ProcessGraph graph() { return graph; }
@@ -226,6 +235,9 @@ final class Execution {
             arriveAtService(service);
         } else if (node instanceof ProcessNode.Receive receive) {
             arriveAtReceive(receive);
+        } else if (node instanceof ProcessNode.Call call) {
+            instance = instance.withState(instance.state().enter(call.id()));
+            CallActivities.call(this, call);
         } else if (node instanceof ProcessNode.End end) {
             finish(ProcessInstance.COMPLETED, end.result(), FlowEvent.INSTANCE_FINISHED, null);
         } else {
@@ -345,6 +357,25 @@ final class Execution {
         if (!variableChanges.isEmpty()) instance = instance.withVariables(instance.variables().with(variableChanges));
         instance = instance.withState(instance.state().waitDone(receive.id()));
         leave(receive.id(), outcome);
+    }
+
+    /** 同步调用流程：停在调用节点上，等 count 个子实例结束（等的个数记在汇合的计数里，键是调用节点） */
+    void waitForChildren(String node, int count) {
+        instance = instance.withState(instance.state().fork(node, count).waitUntil(node, now));
+    }
+
+    /** 一个子实例结束了：少等一个，返回是不是最后一个 */
+    boolean childArrived(String node) {
+        boolean last = instance.state().waitingAt(node) <= 1;
+        instance = instance.withState(instance.state().arrive(node));
+        return last;
+    }
+
+    /** 子实例都结束了：output 收进流程变量，按结果往下走 */
+    void callReturned(ProcessNode.Call call, String outcome, Map<String, Object> variables) {
+        if (!variables.isEmpty()) instance = instance.withVariables(instance.variables().with(variables));
+        instance = instance.withState(instance.state().waitDone(call.id()));
+        leave(call.id(), outcome);
     }
 
     /** 到达抄送节点：抄送给节点上写的人（角色、部门展开成人），不停，接着往下走 */
@@ -579,6 +610,9 @@ final class Execution {
         context.stores().jobs().cancelForInstance(instance.id());
         context.stores().waits().removeForInstance(instance.id());
         addEvent(eventType, null, null, result, null, comment);
+        // 调用流程：终止、撤回时子实例一起终止；子实例结束了回到父实例（0005 的 4.2）
+        if (ProcessInstance.TERMINATED.equals(status) || ProcessInstance.WITHDRAWN.equals(status)) CallActivities.terminateChildren(this, comment);
+        if (instance.parentInstanceId() != null && !quiet) CallActivities.childEnded(this);
     }
 
     /** 记下一条流转记录（先放在 {@link #events} 里，{@link #flush} 时一起写库）；同一步的记录共用实例的版本 */

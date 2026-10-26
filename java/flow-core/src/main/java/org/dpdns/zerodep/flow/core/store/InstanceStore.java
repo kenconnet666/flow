@@ -32,6 +32,12 @@ public interface InstanceStore {
     /** 某人发起的，按发起时间从新到旧 */
     Page<InstanceRecord> startedBy(Long userId, int page, int size);
 
+    /** 调用节点这一轮发起的子实例，按编号 */
+    List<InstanceRecord> children(Long parentInstanceId, String parentNode, int parentRound);
+
+    /** 还没结束的子实例（父实例终止、撤回时一起终止） */
+    List<InstanceRecord> activeChildren(Long parentInstanceId);
+
     /** 整行写回：标题、摘要、状态、结果、当前节点、流程变量、运行状态、结束时间（调用前已 {@link #lock}） */
     void update(InstanceRecord instance);
 
@@ -55,46 +61,51 @@ public interface InstanceStore {
      * @param startedByName 发起人的名字（快照）
      * @param startedAt     发起时间
      * @param endedAt       结束时间
+     * @param parentInstanceId 调用它的父实例；不是子流程时为 null
+     * @param parentNode    父实例里调用它的节点
+     * @param parentRound   那个节点是第几轮
+     * @param rootInstanceId 最外层的实例（多层调用时整棵一起查、一起终止）；不是子流程时为 null
      * @param rev           版本
      */
     record InstanceRecord(Long id, String processKey, Long definitionId, int version, String businessKey, String title,
                           int priority, Map<String, Object> summary, String status, String result,
                           List<ProcessInstance.CurrentNode> current, Variables variables, RunState state,
-                          Long startedBy, String startedByName, Instant startedAt, Instant endedAt, int rev) {
+                          Long startedBy, String startedByName, Instant startedAt, Instant endedAt,
+                          Long parentInstanceId, String parentNode, Integer parentRound, Long rootInstanceId, int rev) {
         /** 换流程变量 */
         public InstanceRecord withVariables(Variables next) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, status, result, current,
-                next, state, startedBy, startedByName, startedAt, endedAt, rev);
+                next, state, startedBy, startedByName, startedAt, endedAt, parentInstanceId, parentNode, parentRound, rootInstanceId, rev);
         }
 
         /** 换状态：暂停、恢复 */
         public InstanceRecord withStatus(String nextStatus) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, nextStatus, result, current,
-                variables, state, startedBy, startedByName, startedAt, endedAt, rev);
+                variables, state, startedBy, startedByName, startedAt, endedAt, parentInstanceId, parentNode, parentRound, rootInstanceId, rev);
         }
 
         /** 换运行状态 */
         public InstanceRecord withState(RunState next) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, status, result, current,
-                variables, next, startedBy, startedByName, startedAt, endedAt, rev);
+                variables, next, startedBy, startedByName, startedAt, endedAt, parentInstanceId, parentNode, parentRound, rootInstanceId, rev);
         }
 
         /** 结束：状态、结果、结束时间，正在处理的节点清空 */
         public InstanceRecord withEnd(String nextStatus, String nextResult, Instant at) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, nextStatus, nextResult,
-                List.of(), variables, state, startedBy, startedByName, startedAt, at, rev);
+                List.of(), variables, state, startedBy, startedByName, startedAt, at, parentInstanceId, parentNode, parentRound, rootInstanceId, rev);
         }
 
         /** 换列表上显示的东西：标题、摘要列、正在处理的节点 */
         public InstanceRecord withDisplay(String nextTitle, Map<String, Object> nextSummary, List<ProcessInstance.CurrentNode> nextCurrent) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, nextTitle, priority, nextSummary, status, result,
-                nextCurrent, variables, state, startedBy, startedByName, startedAt, endedAt, rev);
+                nextCurrent, variables, state, startedBy, startedByName, startedAt, endedAt, parentInstanceId, parentNode, parentRound, rootInstanceId, rev);
         }
 
         /** 给前端的形状 */
         public ProcessInstance view() {
             return new ProcessInstance(id, processKey, version, businessKey, title, priority, summary, status, result, current,
-                startedBy, startedByName, startedAt, endedAt);
+                startedBy, startedByName, startedAt, endedAt, parentInstanceId);
         }
     }
 }

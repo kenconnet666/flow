@@ -1,0 +1,30 @@
+{
+  "name": "调用流程：forEach 的那一项（as）与它的字段只在 input 里有效，用在别处报没声明",
+  "form": {
+    "title": { "label": "标题", "type": "text", "required": true }
+  },
+  "definition": {
+    "key": "sourcing",
+    "name": "询价",
+    "form": { "key": "sourcing-form" },
+    "variables": [{ "name": "suppliers", "type": "list" }, { "name": "prices", "type": "list" }],
+    "nodes": [
+      { "id": "start", "type": "start", "name": "发起" },
+      { "id": "quotes", "type": "call", "name": "各家报价", "process": "quote", "mode": "sync",
+        "forEach": { "ref": "suppliers" }, "as": "supplier",
+        "input": { "form.title": { "ref": "supplier.name" }, "form.supplier": { "ref": "supplier" }, "form.note": { "ref": "form.title" } },
+        "output": { "prices": "form.amount" } },
+      { "id": "notify", "type": "service", "name": "通知", "action": "notify", "args": { "who": { "ref": "supplier.name" } } },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "quotes" },
+      { "id": "e2", "from": "quotes", "to": "notify" },
+      { "id": "e3", "from": "notify", "to": "end" }
+    ]
+  },
+  "context": {},
+  "expect": [
+    { "code": "ref-unknown", "severity": "error", "node": "notify", "params": { "ref": "supplier.name" } }
+  ]
+}

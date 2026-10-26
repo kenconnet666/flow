@@ -119,18 +119,17 @@ public final class FlowEngine<U extends Actor> {
     private FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, List<JobHandler> jobHandlers) {
         this.actors = actors;
         this.permissions = permissions;
-        DefinitionCache definitions = new DefinitionCache(context);
-        this.starts = new StartHandler(context, definitions);
-        this.claims = new ClaimHandler(context, definitions);
-        this.completions = new CompleteHandler(context, definitions, claims);
-        this.withdrawals = new WithdrawHandler(context, definitions);
-        this.collaboration = new CollaborationHandler(context, definitions, claims);
-        this.admin = new AdminHandler(context, definitions);
-        this.signals = new SignalHandler(context, definitions);
+        this.starts = new StartHandler(context);
+        this.claims = new ClaimHandler(context);
+        this.completions = new CompleteHandler(context, claims);
+        this.withdrawals = new WithdrawHandler(context);
+        this.collaboration = new CollaborationHandler(context, claims);
+        this.admin = new AdminHandler(context);
+        this.signals = new SignalHandler(context);
         this.publishing = new Publishing(context);
-        this.queries = new Queries(context, definitions);
+        this.queries = new Queries(context);
         // 内置的作业在前，接入方注册的在后：同一种时接入方的换掉内置的
-        List<JobHandler> handlers = new ArrayList<>(new BuiltinJobs(context, definitions, completions).handlers());
+        List<JobHandler> handlers = new ArrayList<>(new BuiltinJobs(context, completions).handlers());
         handlers.addAll(jobHandlers);
         this.jobs = new JobRunner(context, handlers);
     }
@@ -545,7 +544,7 @@ public final class FlowEngine<U extends Actor> {
                 ccStore != null ? ccStore : defaults.ccs(),
                 waitStore != null ? waitStore : defaults.waits());
             return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
-                new Extensions(resolvers, guards, actions)), actors, permissions, List.copyOf(jobHandlers));
+                new Extensions(resolvers, guards, actions), new DefinitionCache(stores)), actors, permissions, List.copyOf(jobHandlers));
         }
     }
 }

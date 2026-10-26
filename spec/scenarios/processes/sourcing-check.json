@@ -1,0 +1,22 @@
+{
+  "key": "sourcing-check",
+  "name": "比价",
+  "form": { "key": "purchase-form" },
+  "title": "比价：{form.title}",
+  "variables": [{ "name": "childAmount", "type": "decimal" }],
+  "nodes": [
+    { "id": "start", "type": "start", "name": "发起" },
+    { "id": "quote", "type": "call", "name": "报价", "process": "quote", "mode": "sync",
+      "input": { "form.title": { "ref": "form.title" }, "form.amount": "0.00" },
+      "output": { "childAmount": "form.amount" } },
+    { "id": "route", "type": "exclusive", "name": "贵不贵" },
+    { "id": "cheap", "type": "end", "name": "便宜", "result": "cheap" },
+    { "id": "expensive", "type": "end", "name": "贵", "result": "expensive" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "quote" },
+    { "id": "e2", "from": "quote", "to": "route", "outcome": "quoted" },
+    { "id": "low", "from": "route", "to": "cheap", "when": { "field": "childAmount", "op": "lt", "value": "100" } },
+    { "id": "high", "from": "route", "to": "expensive", "default": true }
+  ]
+}

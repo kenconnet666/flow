@@ -43,6 +43,8 @@ export interface ProcessInstance {
   readonly startedByName: string | null;
   readonly startedAt: string;
   readonly endedAt: string | null;
+  /** 调用它的父实例（调用流程）；不是子流程时为 null */
+  readonly parentInstanceId: Id | null;
 }
 
 /** 待办的状态 */

@@ -21,9 +21,9 @@ public final class ClaimHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
-    public ClaimHandler(EngineContext context, DefinitionCache definitions) {
+    public ClaimHandler(EngineContext context) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
     }
 
     /** 认领，记一条"认领"的流转记录 */

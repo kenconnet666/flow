@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.store.Stores;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
@@ -17,16 +18,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * 集群里别的节点发布新版本时不需要通知这里——新版本是新编号。
  */
 public final class DefinitionCache {
-    private final EngineContext context;
+    private final Stores stores;
     private final Map<Long, LoadedDefinition> loaded = new ConcurrentHashMap<>();
 
-    public DefinitionCache(EngineContext context) { this.context = context; }
+    public DefinitionCache(Stores stores) { this.stores = stores; }
 
     /** 实例按哪个版本走 */
     public LoadedDefinition of(InstanceRecord instance) {
         LoadedDefinition found = loaded.get(instance.definitionId());
         if (found != null) return found;
-        return of(context.stores().definitions().byId(instance.definitionId())
+        return of(stores.definitions().byId(instance.definitionId())
             .orElseThrow(() -> FlowErrors.notFound("definition", instance.definitionId())));
     }
 
@@ -39,7 +40,7 @@ public final class DefinitionCache {
         ProcessGraph graph = ProcessGraph.of(Definitions.parse(stored.model()));
         GatewayPairs pairs = GatewayPairs.of(graph.definition());
         if (stored.formKey() == null) return new LoadedDefinition(stored, graph, null, null, pairs);
-        StoredForm form = context.stores().forms().version(stored.formKey(), stored.formVersion())
+        StoredForm form = stores.forms().version(stored.formKey(), stored.formVersion())
             .orElseThrow(() -> FlowErrors.notFound("form", stored.formKey() + "@" + stored.formVersion()));
         return new LoadedDefinition(stored, graph, form, FormManifest.parse(Json.read(form.manifest())), pairs);
     }

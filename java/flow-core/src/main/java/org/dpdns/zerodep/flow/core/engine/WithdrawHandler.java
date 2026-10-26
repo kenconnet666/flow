@@ -21,9 +21,9 @@ public final class WithdrawHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
-    public WithdrawHandler(EngineContext context, DefinitionCache definitions) {
+    public WithdrawHandler(EngineContext context) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
     }
 
     /** 撤回；不是发起人、规则不允许时报 {@code flow.forbidden} */

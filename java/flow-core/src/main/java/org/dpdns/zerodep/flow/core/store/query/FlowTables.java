@@ -131,6 +131,10 @@ final class FlowTables {
         @Column("started_by_name") ColText<String> startedByName();
         @Column(value = "started_at", converter = Columns.Utc.class) ColTimestamp<Instant> startedAt();
         @Column(value = "ended_at", converter = Columns.Utc.class) ColTimestamp<Instant> endedAt();
+        @Column("parent_instance_id") ColBigint<Long> parentInstanceId();
+        @Column("parent_node") ColText<String> parentNode();
+        @Column("parent_round") ColInteger<Integer> parentRound();
+        @Column("root_instance_id") ColBigint<Long> rootInstanceId();
         @Column("rev") ColInteger<Integer> rev();
     }
 

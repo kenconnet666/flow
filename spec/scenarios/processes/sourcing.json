@@ -1,0 +1,21 @@
+{
+  "key": "sourcing",
+  "name": "询价",
+  "form": { "key": "purchase-form" },
+  "title": "询价：{form.title}",
+  "variables": [{ "name": "suppliers", "type": "list" }, { "name": "prices", "type": "list" }],
+  "nodes": [
+    { "id": "start", "type": "start", "name": "发起" },
+    { "id": "quotes", "type": "call", "name": "各家报价", "process": "quote", "mode": "sync",
+      "forEach": { "ref": "suppliers" }, "as": "supplier",
+      "input": { "form.title": { "ref": "supplier.name" }, "form.amount": { "ref": "supplier.amount" } },
+      "output": { "prices": "form.amount" } },
+    { "id": "decide", "type": "task", "name": "定供应商", "assignees": [{ "user": 1004 }], "outcomes": [{ "key": "ok", "label": "确定" }] },
+    { "id": "end", "type": "end", "name": "结束", "result": "decided" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "quotes" },
+    { "id": "e2", "from": "quotes", "to": "decide" },
+    { "id": "e3", "from": "decide", "to": "end", "outcome": "ok" }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "调用流程：forEach 同步等全部结束、output 收成列表；单个同步按子实例的结果与 output 分支；异步不等；父实例终止时子实例一起终止",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/quote.json", "processes/sourcing.json", "processes/sourcing-check.json", "processes/kickoff.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "carol": { "id": 1003, "name": "沈若水" },
+    "boss": { "id": 1004, "name": "总经理" }
+  },
+  "steps": [
+    { "id": "a", "as": "alice", "command": "start",
+      "args": { "key": "sourcing", "form": { "title": "打印纸", "amount": "0.00" },
+        "variables": { "suppliers": [{ "name": "供应商甲", "amount": "100.00" }, { "name": "供应商乙", "amount": "120.00" }] } },
+      "expect": {
+        "instance": { "status": "active", "current": [{ "node": "quotes", "name": "各家报价" }] },
+        "workItems": [{ "node": "fill", "assigneeId": "1003" }, { "node": "fill", "assigneeId": "1003" }]
+      } },
+    { "as": "carol", "command": "workItem", "args": { "workItem": "$a.workItems[0]" },
+      "expect": { "instance": { "title": "报价：供应商甲", "parentInstanceId": "1", "startedByName": "林小满" },
+        "form": { "values": { "title": "供应商甲", "amount": "100.00" } } } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$a.workItems[0]", "outcome": "done", "form": { "amount": "95.00" } },
+      "expect": { "instance": { "status": "completed", "result": "quoted" }, "workItems": [] } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$a.workItems[1]", "outcome": "done" },
+      "expect": { "instance": { "status": "completed" }, "workItems": [{ "node": "decide", "assigneeId": "1004" }] } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$a.instance" },
+      "expect": { "instance": { "status": "active", "current": [{ "node": "decide" }] } } },
+    { "as": "alice", "command": "started", "expect": { "total": 3 } },
+
+    { "id": "b", "as": "alice", "command": "start", "args": { "key": "sourcing-check", "form": { "title": "订书机", "amount": "0.00" } } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$b.workItems[0]", "outcome": "done", "form": { "amount": "95.00" } } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$b.instance" },
+      "expect": { "instance": { "status": "completed", "result": "cheap" } } },
+
+    { "id": "c", "as": "alice", "command": "start", "args": { "key": "kickoff", "form": { "title": "新仓库", "amount": "0.00" } },
+      "expect": { "instance": { "status": "completed", "result": "started" }, "workItems": [{ "node": "fill" }] } },
+
+    { "id": "d", "as": "alice", "command": "start",
+      "args": { "key": "sourcing", "form": { "title": "墨盒", "amount": "0.00" },
+        "variables": { "suppliers": [{ "name": "供应商丙", "amount": "10.00" }] } } },
+    { "as": "boss", "command": "terminate", "args": { "instance": "$d.instance", "reason": "不买了" },
+      "expect": { "instance": { "status": "terminated" }, "closed": [{ "node": "fill" }] } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$d.workItems[0].instanceId" },
+      "expect": { "instance": { "status": "terminated" }, "timeline": [
+        { "type": "instance.started", "data": { "parentNode": "quotes" } }, "node.left", "node.entered", "workItem.created",
+        "workItem.canceled", { "type": "instance.terminated", "comment": "不买了" }] } }
+  ]
+}

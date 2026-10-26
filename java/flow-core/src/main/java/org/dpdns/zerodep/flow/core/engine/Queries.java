@@ -44,9 +44,9 @@ public final class Queries {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
-    public Queries(EngineContext context, DefinitionCache definitions) {
+    public Queries(EngineContext context) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
     }
 
     /** 我能发起的流程：启用着、发起人名单里有我（名单只认写死的值），按分类、名称排 */

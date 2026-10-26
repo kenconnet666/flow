@@ -44,6 +44,19 @@ final class QueryInstanceStore implements InstanceStore {
         return db.list(from(Instance.class).where(r -> r.id().in(instanceIds)).selectAs(InstanceRecord.class));
     }
 
+    @Override
+    public List<InstanceRecord> children(Long parentInstanceId, String parentNode, int parentRound) {
+        return db.list(from(Instance.class)
+            .where(r -> { r.parentInstanceId().eq(parentInstanceId); r.parentNode().eq(parentNode); r.parentRound().eq(parentRound); })
+            .orderBy(r -> r.id()).selectAs(InstanceRecord.class));
+    }
+
+    @Override
+    public List<InstanceRecord> activeChildren(Long parentInstanceId) {
+        return db.list(from(Instance.class).where(r -> { r.parentInstanceId().eq(parentInstanceId); r.endedAt().isNull(); })
+            .orderBy(r -> r.id()).selectAs(InstanceRecord.class));
+    }
+
     /** 走（租户, 发起人, 发起时间）的索引 */
     @Override
     public Page<InstanceRecord> startedBy(Long userId, int page, int size) {

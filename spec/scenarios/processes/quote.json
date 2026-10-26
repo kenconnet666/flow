@@ -1,0 +1,16 @@
+{
+  "key": "quote",
+  "name": "供应商报价",
+  "form": { "key": "purchase-form" },
+  "title": "报价：{form.title}",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "发起" },
+    { "id": "fill", "type": "task", "name": "填报价", "assignees": [{ "user": 1003 }], "form": { "default": "editable" },
+      "outcomes": [{ "key": "done", "label": "提交" }] },
+    { "id": "end", "type": "end", "name": "已报价", "result": "quoted" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "fill" },
+    { "id": "filled", "from": "fill", "to": "end", "outcome": "done" }
+  ]
+}

@@ -19,9 +19,10 @@ import java.util.function.Supplier;
  * @param calendar 工作日历：时限写成工作日时按它算
  * @param dispatcher 把写下的流转记录交给监听，管着引擎的事务边界
  * @param extensions 接入方按名字注册的解析器、守卫、动作
+ * @param definitions 发布的版本，解析一次就记住
  */
 public record EngineContext(Database db, Stores stores, Clock clock, OrgDirectory org, WorkCalendar calendar, EventDispatcher dispatcher,
-                            Extensions extensions) {
+                            Extensions extensions, DefinitionCache definitions) {
     /** 在引擎的事务里做（外面已有同一个数据源的事务时加入）；最外层做完时发提交后的监听 */
     public <T> T transaction(Supplier<T> work) { return dispatcher.transaction(db, work); }
 

@@ -27,9 +27,9 @@ public final class AdminHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
-    public AdminHandler(EngineContext context, DefinitionCache definitions) {
+    public AdminHandler(EngineContext context) {
         this.context = context;
-        this.definitions = definitions;
+        this.definitions = context.definitions();
     }
 
     /** 终止：打开着的待办都取消，实例结束，结果是 {@code terminated}（进行中、暂停的都能终止） */

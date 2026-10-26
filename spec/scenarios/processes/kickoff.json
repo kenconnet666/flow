@@ -1,0 +1,15 @@
+{
+  "key": "kickoff",
+  "name": "开工通知",
+  "form": { "key": "purchase-form" },
+  "title": "开工：{form.title}",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "发起" },
+    { "id": "ask", "type": "call", "name": "顺便要一份报价", "process": "quote", "input": { "form.title": { "ref": "form.title" } } },
+    { "id": "end", "type": "end", "name": "结束", "result": "started" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "ask" },
+    { "id": "e2", "from": "ask", "to": "end" }
+  ]
+}
