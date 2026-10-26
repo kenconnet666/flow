@@ -28,7 +28,8 @@
 | vue-tsx-pro（公开） | `kenconnet666/vue-tsx-pro` | 前端技术栈与通用底座：画布 `@vue-tsx-pro/ui/diagram`（节点、连线、泳道、撤销重做、小地图、导出）、条件构造器 `ConditionBuilder`（条件树与 query 的 `conditionBy` 同形）、人员与组织选择器 `PeoplePicker`、FilterBar 的高级筛选、`QueryTable` + `useTableQuery`（与 query 的 `db.table` 对接） |
 
 **0003 的 B**：流程组件（流程图、设计器、审批面板、收件箱）在本仓库按模型包重做，界面风格与 vue-tsx-pro 新的画布示例一致
-（虚线泳道、点阵、`DiagramNode`）；vue-tsx-pro 现有的 `/workflow` 子路径（FlowDiagram、FlowDesigner、ApprovalActions）以后整个删掉。
+（虚线泳道、点阵、`DiagramNode`）；vue-tsx-pro 的 `/workflow` 子路径（FlowDiagram、FlowDesigner、ApprovalActions、流程定义与校验）2026-10-26 已删除，
+旧实现在 vue-tsx-pro 的提交 `f7bfdc2e` 的 `packages/ui/src/workflow/`，重做时可以参考（契约的类型、校验规则、排布、文案）。前端方案在 [docs/frontend.md](docs/frontend.md)。
 组件库暂时缺的能力，本仓库像 vue-tsx-pro 的文档站那样用 `@vue-tsx-pro/tsx` 的 Vite 预设直接编译自己的 TSX 补上，不必等组件库发版。
 模型包定稿时把流程定义条件里的 `var` 对齐成 `field`（与组件库的 `Condition` 同形）。
 

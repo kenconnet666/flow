@@ -3,7 +3,7 @@
 - 状态：讨论中（2026-10-24 起草）。"已定"一节是用户确认过的，其余逐项确认后改为已采纳
 - 相关：
   - 能力清单见 [0002](0002-capabilities.md)；
-  - 前端组件的重做方案见 vue-tsx-pro 的 `WORKFLOW.md`（前端后做）；
+  - 前端组件的重做方案见 [docs/frontend.md](../frontend.md)（原是 vue-tsx-pro 的 WORKFLOW.md，前端后做）；
   - 持久化用 query（`C:\Users\lionheart\IdeaProjects\query`），PolarDB 与社区 MySQL 的差异见 query 的 0011。
 
 ## 定位

@@ -3,7 +3,7 @@
 - 状态：已采纳（用户 2026-10-25 确认）；"前端怎样拿到模型包"按用户 2026-10-26 的方向定为 B
 - 相关：
   - 引擎的方向见 [0001](0001-engine-direction.md)，能力清单见 [0002](0002-capabilities.md)；
-  - 前端组件的方案见 vue-tsx-pro 的 `WORKFLOW.md`（§5 分步、§6 已定的细节），进度在它的 ROADMAP 阶段 9。
+  - 前端组件的方案见 [docs/frontend.md](../frontend.md)（§5 分步、§6 已定的细节；原是 vue-tsx-pro 的 WORKFLOW.md），底座的进度在 vue-tsx-pro 的 ROADMAP 阶段 9。
 
 ## 背景
 
@@ -22,7 +22,7 @@
 
 ## 前端怎样拿到模型包（2026-10-26 定为 B）
 
-vue-tsx-pro 是公开仓库，CI 要能安装全部依赖；本仓库是私有的，模型包暂不发布。流程组件开始改用模型包（WORKFLOW.md §5 第 3 步）之前要定下来：
+vue-tsx-pro 是公开仓库，CI 要能安装全部依赖；本仓库是私有的，模型包暂不发布。流程组件开始改用模型包（frontend.md §5 第 3 步）之前要定下来：
 
 | 做法 | 好处 | 代价 |
 | --- | --- | --- |
@@ -33,6 +33,6 @@ vue-tsx-pro 是公开仓库，CI 要能安装全部依赖；本仓库是私有�
 （后端支持 Nuxt、Next 这类 Node 框架与 Java Spring，前端用 vue-tsx-pro 的技术栈）。因此取 B：
 
 - vue-tsx-pro 只留通用底座（画布、撤销重做、条件构造器、人员与组织选择器、FilterBar 的高级筛选），现有的 `/workflow` 子路径
-  （FlowDiagram、FlowDesigner、ApprovalActions 等）以后整个删掉，流程组件在本仓库按模型包重做，界面风格与新的画布一致；
+  （FlowDiagram、FlowDesigner、ApprovalActions 等）已于 2026-10-26 整个删除（连同文档站的“流程”分类；旧实现在 vue-tsx-pro 的提交 `f7bfdc2e`），流程组件在本仓库按模型包重做，界面风格与新的画布一致；
 - 组件库暂时缺的能力，本仓库像 vue-tsx-pro 的文档站那样用 `@vue-tsx-pro/tsx` 的编译插件直接编译自己的 TSX 补上，不必等组件库发版；
 - 条件树与组件库的 `Condition`（`{ field, op, value }` 加 all / any / not）同形，模型包定稿时把流程定义里的 `var` 对齐成 `field`。
