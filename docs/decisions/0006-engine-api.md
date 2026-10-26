@@ -160,8 +160,10 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 
 | 策略 | 列类型 | 说明 |
 | --- | --- | --- |
-| **雪花（默认）** | `BIGINT` | 经典布局：毫秒时间 41 位、机器号 10 位、序号 12 位；机器号的分配见 0001 待讨论第 4 条 |
+| **雪花（默认）** | `BIGINT` | 默认经典布局：毫秒时间 41 位、机器号 10 位、序号 12 位；布局可调（总共不超过 63 位）。机器号的规则见 0001 的"雪花的机器号" |
 | 大雪花 | `DECIMAL(p, 0)` | 位数布局由接入方自由调：起始时间、时间单位（毫秒或秒）、时间位数、区域位数、机器位数、序号位数；总位数超过 64 位也行，`p` 按总位数算出来。Java 用 `BigInteger`、TS 用 `bigint` 生成 |
+
+两种雪花的位布局都写成 `SnowflakeLayout`，机器号的每一段（区域号、机器号……）由 `WorkerIdProvider` 给出，规则都可调、都能替换（用户 2026-10-26）。
 | 自定义 | 由实现给出 | 实现 `IdStrategy` |
 
 参考 EasyQuery（3.2.17）：应用生成的主键是 `@Column(primaryKeyGenerator = X.class)`，接口 `PrimaryKeyGenerator` 只有一个 `getPrimaryKey()`，外加可覆盖的 `setPrimaryKey(实体, 列)`；生成器按类登记实例，Spring 里收集容器中的 Bean；它自己不带雪花，留给使用方实现。
