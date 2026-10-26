@@ -11,6 +11,7 @@
  */
 import { evaluateCondition, type ConditionReader } from './condition.js';
 import type { FieldAccess, NodeFormAccess } from './definition.js';
+import { checkFieldValue, type ValueProblem } from './field-values.js';
 import type { FieldDefinition, FormManifest } from './manifest.js';
 import { isBlank } from './values.js';
 
@@ -73,7 +74,7 @@ export interface SubmissionError {
   /** 字段路径；明细表的列带行号：`lines[0].price` */
   readonly field: string;
   /** `required`：必填没填 */
-  readonly code: 'required';
+  readonly code: 'required' | ValueProblem;
 }
 
 /** 合并的结果 */
@@ -106,6 +107,11 @@ export function mergeSubmission(manifest: FormManifest, states: ReadonlyMap<stri
       values[name] = pick(state, stored[name], submitted[name]);
     }
     if (state.required && isBlank(values[name])) errors.push({ field: name, code: 'required' });
+    else if (state.editable) {
+      // 明细表在这里只查行数，各个格子在 mergeRows 里按列的权限查
+      const { fields: _columns, ...shape } = field;
+      for (const e of checkFieldValue(field.type === 'list' ? shape : field, values[name])) errors.push({ field: name + e.path, code: e.code });
+    }
   }
   return { values, errors };
 }
@@ -128,6 +134,9 @@ function mergeRows(
       const columnState = states.get(`${name}.${column}`) ?? BY_ACCESS;
       row[column] = pick(columnState, storedRows[i]?.[column], submittedRows[i]?.[column]);
       if (columnState.required && isBlank(row[column])) errors.push({ field: `${name}[${i}].${column}`, code: 'required' });
+      else if (columnState.editable) {
+        for (const e of checkFieldValue(columns[column]!, row[column])) errors.push({ field: `${name}[${i}].${column}${e.path}`, code: e.code });
+      }
     }
     return row;
   });

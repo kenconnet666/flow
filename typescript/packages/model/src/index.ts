@@ -10,3 +10,5 @@ export * from './manifest.js';
 export * from './validate.js';
 export * from './routing.js';
 export * from './access.js';
+export * from './field-values.js';
+export * from './validate-manifest.js';

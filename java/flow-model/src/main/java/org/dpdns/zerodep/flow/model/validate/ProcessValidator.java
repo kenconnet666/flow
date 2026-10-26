@@ -89,7 +89,7 @@ public final class ProcessValidator {
     private void report(String code, String node, String edge, String lane, String... params) {
         Map<String, String> map = new LinkedHashMap<>();
         for (int i = 0; i + 1 < params.length; i += 2) map.put(params[i], params[i + 1]);
-        problems.add(new Problem(code, WARNINGS.contains(code) ? Problem.Severity.WARNING : Problem.Severity.ERROR, node, edge, lane, map));
+        problems.add(new Problem(code, WARNINGS.contains(code) ? Problem.Severity.WARNING : Problem.Severity.ERROR, node, edge, lane, null, map));
     }
 
     private void atNode(String code, String node, String... params) { report(code, node, null, null, params); }

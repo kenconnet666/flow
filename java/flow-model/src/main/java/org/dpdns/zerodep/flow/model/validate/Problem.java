@@ -12,9 +12,10 @@ import java.util.Map;
  * @param node     出问题的节点；没有时为 null
  * @param edge     出问题的连线
  * @param lane     出问题的泳道
+ * @param field    字段清单的校验：出问题的字段路径（明细表的列写成 {@code 列表.列}）
  * @param params   参数，保持写入的先后
  */
-public record Problem(String code, Severity severity, String node, String edge, String lane, Map<String, String> params) {
+public record Problem(String code, Severity severity, String node, String edge, String lane, String field, Map<String, String> params) {
     public Problem { params = params == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(params)); }
 
     /** 严重程度 */

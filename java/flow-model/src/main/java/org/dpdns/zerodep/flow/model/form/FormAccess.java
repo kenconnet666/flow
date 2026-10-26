@@ -83,7 +83,7 @@ public final class FormAccess {
      * 提交时一个字段的问题。
      *
      * @param field 字段路径；明细表的列带行号：{@code lines[0].price}
-     * @param code  {@code required}：必填没填
+     * @param code  {@code required}：必填没填；其余见 {@link FieldValues.ValueError#code()}（类型、长度、范围、选项……）
      */
     public record SubmissionError(String field, String code) { }
 
@@ -118,6 +118,13 @@ public final class FormAccess {
                 : pick(state, stored.get(name), submitted.get(name));
             values.put(name, value);
             if (state.required() && Values.isBlank(value)) errors.add(new SubmissionError(name, "required"));
+            else if (state.editable()) {
+                // 明细表在这里只查行数，各个格子在 mergeRows 里按列的权限查
+                FormManifest.Field field = entry.getValue();
+                FormManifest.Field shape = columns == null ? field
+                    : new FormManifest.Field(field.label(), field.type(), field.required(), field.multiple(), null, null, null, field.attributes());
+                for (FieldValues.ValueError e : FieldValues.check(shape, value)) errors.add(new SubmissionError(name + e.path(), e.code()));
+            }
         }
         return new Submission(Collections.unmodifiableMap(values), List.copyOf(errors));
     }
@@ -137,6 +144,11 @@ public final class FormAccess {
                 Object value = pick(columnState, storedRow.get(column), submittedRow.get(column));
                 row.put(column, value);
                 if (columnState.required() && Values.isBlank(value)) errors.add(new SubmissionError(name + "[" + i + "]." + column, "required"));
+                else if (columnState.editable()) {
+                    for (FieldValues.ValueError e : FieldValues.check(columns.fields().get(column), value)) {
+                        errors.add(new SubmissionError(name + "[" + i + "]." + column + e.path(), e.code()));
+                    }
+                }
             }
             rows.add(Collections.unmodifiableMap(row));
         }

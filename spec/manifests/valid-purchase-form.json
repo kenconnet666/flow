@@ -1,0 +1,23 @@
+{
+  "name": "完整的采购表单：没有问题",
+  "manifest": {
+    "title": { "label": "标题", "type": "text", "required": true, "maxLength": 50, "pattern": "[^<>]*" },
+    "amount": { "label": "金额", "type": "decimal", "scale": 2, "min": "0", "max": "99999999.99", "default": "0" },
+    "count": { "label": "件数", "type": "number", "integer": true, "min": 1, "default": 1 },
+    "urgent": { "label": "加急", "type": "boolean", "default": false },
+    "signDate": { "label": "签约日", "type": "date", "min": "2026-01-01", "max": "2026-12-31" },
+    "dueAt": { "label": "截止时间", "type": "datetime" },
+    "level": { "label": "等级", "type": "select", "options": [{ "value": "a", "label": "甲" }, { "value": "b", "label": "乙" }], "default": "a" },
+    "suppliers": { "label": "供应商", "type": "select", "multiple": true, "options": { "source": "supplier" } },
+    "buyer": { "label": "经办人", "type": "people", "types": ["user"], "max": 1 },
+    "files": { "label": "附件", "type": "file", "maxCount": 5, "maxSize": 10485760 },
+    "reason": { "label": "超额原因", "type": "text", "visibleWhen": { "field": "form.amount", "op": "gt", "value": "10000" },
+      "requiredWhen": { "all": [{ "field": "form.amount", "op": "gt", "value": "50000" }, { "field": "sys.initiator", "op": "exists" }] } },
+    "lines": { "label": "明细", "type": "list", "minItems": 1, "maxItems": 100, "fields": {
+      "item": { "label": "物品", "type": "text", "required": true },
+      "price": { "label": "单价", "type": "decimal", "scale": 2 },
+      "note": { "label": "说明", "type": "text", "visibleWhen": { "field": "form.urgent", "op": "eq", "value": true } }
+    } }
+  },
+  "expect": []
+}

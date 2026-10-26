@@ -1,0 +1,50 @@
+{
+  "name": "字段清单的问题：字段名、标签、类型、属性、范围、选项、正则、条件、默认值、明细表",
+  "context": { "fieldTypes": ["money"] },
+  "manifest": {
+    "Amount": { "label": "金额", "type": "decimal" },
+    "noLabel": { "label": " ", "type": "text" },
+    "odd": { "label": "怪类型", "type": "slider" },
+    "cash": { "label": "带币种的金额", "type": "money" },
+    "title": { "label": "标题", "type": "text", "minLength": 10, "maxLength": 5, "pattern": "([a-z" },
+    "count": { "label": "数量", "type": "number", "min": 10, "max": 1, "default": "3" },
+    "price": { "label": "单价", "type": "decimal", "scale": -1, "min": "abc", "default": "1.234" },
+    "signDate": { "label": "签约日", "type": "date", "min": "2026-02-30" },
+    "level": { "label": "等级", "type": "select", "options": [{ "value": "a", "label": "甲" }, { "value": "a", "label": "又一个甲" }] },
+    "tags": { "label": "标签", "type": "select", "options": [] },
+    "buyer": { "label": "经办人", "type": "people", "max": 0 },
+    "note": { "label": "备注", "type": "text",
+      "visibleWhen": { "all": [{ "field": "form.count", "op": "gt" }, { "field": "fn.budgetLeft", "op": "lt", "value": "1" }] },
+      "requiredWhen": { "any": [{ "field": "form.ghost", "op": "exists" }, { "field": "round", "op": "gt", "value": 1 }, { "field": "sys.initiator", "op": "eq", "value": "u1" }] } },
+    "lines": { "label": "明细", "type": "list", "maxItems": 2, "minItems": 3, "fields": {
+      "item": { "label": "物品", "type": "text" },
+      "sub": { "label": "子明细", "type": "list", "fields": { "x": { "label": "x", "type": "text" } } },
+      "bad name": { "label": "名字带空格", "type": "text" }
+    } },
+    "empty": { "label": "空明细", "type": "list", "fields": {} }
+  },
+  "expect": [
+    { "code": "field-name-invalid", "severity": "error", "field": "Amount" },
+    { "code": "field-label-missing", "severity": "error", "field": "noLabel" },
+    { "code": "field-type-unknown", "severity": "error", "field": "odd", "params": {"type": "slider"} },
+    { "code": "pattern-invalid", "severity": "error", "field": "title" },
+    { "code": "range-invalid", "severity": "error", "field": "title", "params": {"attribute": "length"} },
+    { "code": "range-invalid", "severity": "error", "field": "count", "params": {"attribute": "value"} },
+    { "code": "default-invalid", "severity": "error", "field": "count" },
+    { "code": "attribute-invalid", "severity": "error", "field": "price", "params": {"attribute": "scale"} },
+    { "code": "attribute-invalid", "severity": "error", "field": "price", "params": {"attribute": "min"} },
+    { "code": "default-invalid", "severity": "error", "field": "price" },
+    { "code": "attribute-invalid", "severity": "error", "field": "signDate", "params": {"attribute": "min"} },
+    { "code": "option-duplicate", "severity": "error", "field": "level", "params": {"value": "a"} },
+    { "code": "options-empty", "severity": "error", "field": "tags" },
+    { "code": "attribute-invalid", "severity": "error", "field": "buyer", "params": {"attribute": "max"} },
+    { "code": "condition-incomplete", "severity": "error", "field": "note", "params": {"condition": "visibleWhen"} },
+    { "code": "condition-fn-in-form", "severity": "error", "field": "note", "params": {"condition": "visibleWhen", "ref": "fn.budgetLeft"} },
+    { "code": "ref-unknown", "severity": "error", "field": "note", "params": {"condition": "requiredWhen", "ref": "form.ghost"} },
+    { "code": "ref-unknown", "severity": "error", "field": "note", "params": {"condition": "requiredWhen", "ref": "round"} },
+    { "code": "range-invalid", "severity": "error", "field": "lines", "params": {"attribute": "items"} },
+    { "code": "list-nested", "severity": "error", "field": "lines.sub" },
+    { "code": "field-name-invalid", "severity": "error", "field": "lines.bad name" },
+    { "code": "list-no-columns", "severity": "error", "field": "empty" }
+  ]
+}

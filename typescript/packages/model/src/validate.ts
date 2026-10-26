@@ -32,6 +32,8 @@ export interface Problem {
   readonly node?: string;
   readonly edge?: string;
   readonly lane?: string;
+  /** 字段清单的校验：出问题的字段路径（明细表的列写成 `列表.列`） */
+  readonly field?: string;
   readonly params?: Readonly<Record<string, string | number>>;
 }
 
