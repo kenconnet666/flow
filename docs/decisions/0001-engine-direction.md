@@ -128,9 +128,75 @@
 | 表名换名规则 | 未做（P1）：宿主要换前缀或换库时用；引擎的表名前缀可配（0006 第 6 节）要用到它 |
 | 列类型按配置决定 | 未做（2026-10-26 新增，用户同意 query 配合升级发版）：表声明里的列类型在建数据库对象时按配置决定，引擎的编号列按主键策略取 `BIGINT` 或 `DECIMAL(p,0)`（0006 的 6.1）；两端都要，建表、迁移、读写都按配置的类型 |
 
+## 模块划分（已定，用户 2026-10-26 按推荐定）
+
+全部在本仓库（`kenconnet666/flow`）里，目录照 query 仓库的做法：Java、TS 各一棵，共用的样例放 `spec/`。
+
+```
+flow/
+├─ pom.xml                     Maven 的根（聚合 java/ 下的模块），groupId org.dpdns.zerodep，Java 17
+├─ java/
+│  ├─ flow-model/              模型包：定义、校验与问题代号、条件求值、字段清单与权限合算（不依赖任何库）
+│  ├─ flow-core/               引擎：命令管道、查询、扩展点、默认实现（依赖 flow-model、query-core）
+│  ├─ flow-spring/             Spring Boot 自动配置与可选的 HTTP 接口（依赖 flow-core、query-spring）
+│  └─ flow-it/                 实库测试：跑 spec/ 里的场景用例
+├─ typescript/                 pnpm 工作区
+│  ├─ packages/
+│  │  ├─ model/                @zerodep-dev/flow-model：同 Java 的 flow-model
+│  │  ├─ core/                 @zerodep-dev/flow：引擎（依赖 model、query 的核心包）
+│  │  ├─ nuxt/                 @zerodep-dev/flow-nuxt：Nuxt 模块与可选的 HTTP 接口
+│  │  └─ ui/                   @zerodep-dev/flow-ui：流程图、设计器、审批面板、收件箱，/form、/form-tools、/form-designer（0004 的 7.3）
+│  ├─ apps/docs/               组件的演示站（组件库的 /docs-kit），边做边看
+│  └─ test/                    实库测试：跑 spec/ 里的场景用例
+├─ spec/                       两个后端共用的样例（JSON）
+│  ├─ definitions/             定义 + 期望的问题代号
+│  ├─ conditions/              条件 + 值 + 期望的结果
+│  ├─ access/                  表单字段权限的合算（0004 的 4.2）
+│  └─ scenarios/               场景：定义 + 一串命令 + 每一步期望的结果
+├─ examples/                   示例项目：Spring Boot、Nuxt 各一个；集群刷新的 Redis Stream、Kafka 示例（0004 的 1.5）
+└─ docs/
+```
+
+- 现在根目录的 `pom.xml`（单模块、`artifactId` 为 `flow`）与 `src/main/java/.../Main.java` 是占位，建模块时改成上面的聚合 POM 并删掉 `src/`。
+- 开发数据库沿用 query 的 `infra/`（WSL 里的 MySQL 8.4），连接变量先读 `FLOW_MYSQL_*`，没有时读 query 的 `QUERY_MYSQL_*`；测试用自己的库 `flow_it`。
+
+### 场景用例的格式
+
+```jsonc
+{
+  "name": "会签有人否决时立即结束",
+  "definition": "definitions/sign-veto.json",     // 或直接内联
+  "form": "forms/purchase.json",                  // 可选：字段清单（场景里不跑表单代码）
+  "clock": "2026-10-24T08:00:00Z",                // 固定时钟；步骤里可以 "advance": { "workdays": 2 }
+  "actors": { "alice": { "positions": ["finance"] }, "bob": {} },
+  "steps": [
+    { "as": "alice", "command": "start", "args": { "key": "sign-veto", "form": { "amount": "1200.00" } },
+      "expect": { "workItems": [{ "node": "sign", "assignee": "bob", "state": "open" }] } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$.workItems[0]", "outcome": "reject" },
+      "expect": { "instance": { "status": "completed", "result": "rejected" }, "events": ["workItem.completed", "instance.finished"] } }
+  ]
+}
+```
+
+- 编号用测试用的 `IdStrategy`（按顺序发号），时钟用固定的 `Clock`：两个后端跑出来的结果逐字段可比——这也是"标准行为都能替换"的用处。
+- `"$.workItems[0]"` 引用前一步的结果；`expect` 只比写出来的字段。
+- Java 用 JUnit 的参数化测试、TS 用 `node:test` 逐个文件跑；新加一个场景只加一个 JSON 文件。
+
+## 雪花的机器号（已定，用户 2026-10-26 按推荐定）
+
+| 项 | 做法 |
+| --- | --- |
+| 默认：数据库里租用 | 表 `flow_worker`（机器号、持有者、租约到期时间、最后发号时间）。启动时用带条件的 UPDATE 抢一个空闲或过期的机器号（同作业的抢占写法，0001 第 4 条），之后定时续约 |
+| 配置写死 | `flow.ids.worker-id = 7`：固定部署、机器号由运维分配时用，不碰 `flow_worker` |
+| 替换 | `WorkerIdProvider` 接口：例如 Kubernetes StatefulSet 的序号、配置中心发的号 |
+| 防重复 | 续约失败超过租约时长，停止发号并报错，不冒险继续；接手一个过期的机器号时，等时钟走过上一任记下的"最后发号时间"再发号 |
+| 时钟回拨 | 同 0006 的 6.1：等时钟追上（默认）、报错、借用序号 |
+| 大雪花 | 同样的租约；区域号、机器号的位数按大雪花的布局配置，区域号写在配置里 |
+
 ## 待讨论
 
-1. 定义 JSON 要扩展的字段：按 [0002](0002-capabilities.md) 的能力逐项落到定义里。已在 [0005](0005-definition.md) 定稿（2026-10-26）。
-2. 引擎对外的接口：命令（发起、认领、处理、退回、转办……）、查询、扩展点的签名，Java 与 TS 各一份。已在 [0006](0006-engine-api.md) 定稿（2026-10-26）。
-3. 模块划分：Java 是 `flow-core` 加 `flow-spring`（使用方在 Spring 里引一个 jar），TS 是核心包加 Nuxt 适配，两边都依赖模型包（[0003](0003-model-and-frontend.md)）；两个后端共享的场景用例放在哪里、什么格式。
-4. 雪花 ID 的机器号在集群里怎么分配。
+1. 定义 JSON 要扩展的字段：已在 [0005](0005-definition.md) 定稿（2026-10-26）。
+2. 引擎对外的接口：已在 [0006](0006-engine-api.md) 定稿（2026-10-26）。
+3. 模块划分与场景用例：已定，见上文"模块划分"。
+4. 雪花的机器号：已定，见上文"雪花的机器号"。
+5. 表：上文"表的草案"按 0004、0005、0006 重新设计，见 [0007](0007-tables.md)（讨论中）。
