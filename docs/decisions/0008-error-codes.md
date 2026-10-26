@@ -51,3 +51,14 @@ HTTP 一律 200（网关、登录这些我们管不到的层面除外），成�
 | flow | 0006 第 8 节去掉 HTTP 状态码一列；模型包加 `FlowErrorCode`；两个后端的 HTTP 接口一律 200 加上面的形状；`FlowException` / `FlowError` 带码 |
 | query | 两端的异常加 `code()` / `code`；`spec/` 加一份错误码清单两端核对；表格请求读不懂时抛带 `query.request-invalid` 的异常 |
 | vue-tsx-pro | `http` 内置按上面的形状拆包（`code` 不是 `ok` 就抛带码的错误，`HttpError` 加 `code`、`params`、`errors`）；网络、超时、取消、非 200、解析失败给 `http.` 码；语言包加 `http.`、`query.` 的文案；`useTableQuery` 等按码显示 |
+
+## 5. 落地情况（2026-10-26）
+
+| 仓库 | 做了什么 |
+| --- | --- |
+| flow | `spec/error-codes.json`；模型包 TS 的 `FLOW_ERROR_CODES`、`FlowError`、`apiOk` / `apiFail`，Java 的 `FlowErrorCode`、`FlowException`、`ApiResult`。两个后端的 HTTP 接口在第③步接上 |
+| query | `spec/error-codes.json`（`package` 分 core、idb）；Java 的 `QueryErrorCode` 与 `CodedException`，TS 各错误类带 `code`（`QUERY_ERROR_CODES`、`IDB_ERROR_CODES`）；表格请求读不懂（数字、条件树、没有的列）报 `query.request-invalid`。超时单列 `query.statement-timeout`，本地库加 `query.quota-exceeded` |
+| vue-tsx-pro | `createHttpClient` 内置拆包（`envelope: false` 关掉）；`HttpError` 带 `code`、`params`、`errors`；取消仍是 AbortError，`errorCodeOf` 认作 `http.aborted`；语言包的 `errorCodes` 给 `http.`、`query.` 文案，`defineLang` 合并。组件自然适配：QueryTable 加载失败给原因与重试，远程选项的列表、Upload 按码说明，`useForm.submit` 把 `errors` 里的 `{ field, code, message }` 标到字段、其余进 `formError` 并返回 false |
+
+- 前端语言包里的 `query.` 码与 query 的清单靠 vue-tsx-pro 的测试核对（两个仓库不共用文件，改清单时两边一起改）。
+- `flow.` 的文案放在 flow-ui 的语言包，用 `defineLang(zhCN, { errorCodes: flowZhCN })` 补进去（flow-ui 起步时做）。
