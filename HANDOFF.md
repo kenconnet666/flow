@@ -13,6 +13,8 @@
     “初步方向”“表的草案”还待确认。
   - [0002 能力清单](docs/decisions/0002-capabilities.md)：讨论中，用户要求“需要的功能第一版都做，尽量完善”，逐项讨论后定稿。
   - [0003 模型包与前端的分工](docs/decisions/0003-model-and-frontend.md)：已采纳，前端取 B（见下）。
+  - [0004 表单](docs/decisions/0004-forms.md)：讨论中。形态已定：代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
+    文件约定、设计器的子集、字段权限、存储与安全待确认。
 - **依赖的两个库已做好发布前的准备，由用户手动发布**：
   - vue-tsx-pro（组件库）`@vue-tsx-pro/tsx`、`@vue-tsx-pro/ui` 0.1.0，按它的 `RELEASE.md` 发到 npm；
   - query（ORM）Java 发 Maven 中央仓库、TS 发 npm `@zerodep-dev/query-*`，按它的 `docs/release.md`。发布前要定版本号：
