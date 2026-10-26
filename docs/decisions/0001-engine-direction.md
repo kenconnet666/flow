@@ -168,7 +168,7 @@ flow/
   "definition": "definitions/sign-veto.json",     // 或直接内联
   "form": "forms/purchase.json",                  // 可选：字段清单（场景里不跑表单代码）
   "clock": "2026-10-24T08:00:00Z",                // 固定时钟；步骤里可以 "advance": { "workdays": 2 }
-  "actors": { "alice": { "roles": ["finance"] }, "bob": {} },
+  "actors": { "alice": { "id": 1001, "roles": [1] }, "bob": { "id": 1002 } },
   "steps": [
     { "as": "alice", "command": "start", "args": { "key": "sign-veto", "form": { "amount": "1200.00" } },
       "expect": { "workItems": [{ "node": "sign", "assignee": "bob", "state": "open" }] } },

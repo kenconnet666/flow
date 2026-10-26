@@ -20,8 +20,8 @@ import java.util.function.Supplier;
 public final class FlowDatabase {
     private FlowDatabase() { }
 
-    /** 在这些连接上建引擎用的数据库实例；tenant 给出当前租户，不用多租户时是 {@code () -> ""} */
-    public static Database create(ConnectionProvider connections, Supplier<String> tenant, Clock clock) {
+    /** 在这些连接上建引擎用的数据库实例；tenant 给出当前租户，不用多租户时是 {@code () -> 0L} */
+    public static Database create(ConnectionProvider connections, Supplier<Long> tenant, Clock clock) {
         return Sql.database(connections, config -> config
             .filter("flow-tenant", Tenanted.class, t -> t.tenantId().eq(tenant.get()))
             .onInsert(Tenanted.class, Tenanted::tenantId, tenant)

@@ -7,14 +7,14 @@
   "settings": { "withdraw": "beforeAction" },
   "nodes": [
     { "id": "start", "type": "start", "name": "提交", "form": { "default": "editable", "fields": { "note": "hidden" } } },
-    { "id": "review", "type": "task", "name": "财务复核", "assignees": [{ "role": "finance" }],
+    { "id": "review", "type": "task", "name": "财务复核", "assignees": [{ "role": 1 }],
       "outcomes": [
         { "key": "pass", "label": "通过" },
         { "key": "reject", "label": "否决", "kind": "reject", "comment": "required" }
       ],
       "form": { "default": "readonly", "fields": { "note": "editable" } } },
     { "id": "route", "type": "exclusive", "name": "金额大不大" },
-    { "id": "approve", "type": "task", "name": "总经理审批", "assignees": [{ "user": "boss" }],
+    { "id": "approve", "type": "task", "name": "总经理审批", "assignees": [{ "user": 1004 }],
       "outcomes": [{ "key": "pass", "label": "同意" }] },
     { "id": "done", "type": "end", "name": "通过", "result": "approved" },
     { "id": "rejected", "type": "end", "name": "否决", "result": "rejected" }

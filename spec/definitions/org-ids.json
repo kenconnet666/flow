@@ -1,0 +1,27 @@
+{
+  "name": "组织的编号：直接写的用户、角色、部门编号要是正整数（或只有数字的文字），写成名字时报错；引用不查",
+  "definition": {
+    "key": "org-ids",
+    "name": "编号",
+    "variables": [{ "name": "approver", "type": "people" }],
+    "starters": [{ "department": "stores" }],
+    "lanes": [{ "id": "finance", "name": "财务部", "inbox": { "role": "finance", "manager": [{ "user": 1002 }] } }],
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "check", "type": "task", "name": "审核", "assignees": [{ "user": 0 }, { "role": "9007199254740993" }, { "user": { "ref": "approver" } }],
+        "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "pool", "type": "task", "name": "收件箱", "lane": "finance", "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "check" },
+      { "id": "e2", "from": "check", "to": "pool" },
+      { "id": "e3", "from": "pool", "to": "end" }
+    ]
+  },
+  "expect": [
+    { "code": "org-id-invalid", "severity": "error", "params": {"value": "stores"} },
+    { "code": "org-id-invalid", "severity": "error", "params": {"value": "finance"} },
+    { "code": "org-id-invalid", "severity": "error", "node": "check", "params": {"value": "0"} }
+  ]
+}

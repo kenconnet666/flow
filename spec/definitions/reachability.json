@@ -5,12 +5,12 @@
     "name": "走得通",
     "nodes": [
       { "id": "start", "type": "start", "name": "提交" },
-      { "id": "a", "type": "task", "name": "甲", "assignees": [{ "user": "u1" }],
+      { "id": "a", "type": "task", "name": "甲", "assignees": [{ "user": 1001 }],
         "outcomes": [{ "key": "ok", "label": "好" }, { "key": "up", "label": "提级", "kind": "escalate" }, { "key": "loop", "label": "转圈" }] },
-      { "id": "b", "type": "task", "name": "乙", "assignees": [{ "user": "u2" }], "outcomes": [{ "key": "ok", "label": "好" }, { "key": "back", "label": "退回", "kind": "return" }] },
-      { "id": "spin", "type": "task", "name": "出不去", "assignees": [{ "user": "u3" }], "outcomes": [{ "key": "ok", "label": "好" }] },
-      { "id": "lonely", "type": "task", "name": "旁支", "assignees": [{ "user": "u4" }], "outcomes": [{ "key": "ok", "label": "好" }] },
-      { "id": "orphan", "type": "task", "name": "孤立", "assignees": [{ "user": "u5" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "b", "type": "task", "name": "乙", "assignees": [{ "user": 1002 }], "outcomes": [{ "key": "ok", "label": "好" }, { "key": "back", "label": "退回", "kind": "return" }] },
+      { "id": "spin", "type": "task", "name": "出不去", "assignees": [{ "user": 1003 }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "lonely", "type": "task", "name": "旁支", "assignees": [{ "user": 1004 }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "orphan", "type": "task", "name": "孤立", "assignees": [{ "user": 1005 }], "outcomes": [{ "key": "ok", "label": "好" }] },
       { "id": "end", "type": "end", "name": "结束" }
     ],
     "edges": [

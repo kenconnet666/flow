@@ -29,9 +29,9 @@ import java.time.Instant;
  * @param completedAt  处理时间
  */
 public record WorkItem(Long id, Long instanceId, String processKey, int priority, String node, String nodeName, int round,
-                       String state, String assignment, String arrival, String inboxKind, String inboxId, String assigneeId,
+                       String state, String assignment, String arrival, String inboxKind, Long inboxId, Long assigneeId,
                        String assigneeName, Instant createdAt, Instant claimedAt, Instant dueAt, String outcome, String comment,
-                       String completedBy, String completedByName, Instant completedAt) {
+                       Long completedBy, String completedByName, Instant completedAt) {
     /** 等着处理 */
     public static final String OPEN = "open";
     /** 处理完 */
@@ -45,10 +45,4 @@ public record WorkItem(Long id, Long instanceId, String processKey, int priority
     public static final String CLAIMED = "claimed";
     /** 直接落到人 */
     public static final String DIRECT = "direct";
-
-    /** 换上数据库给的编号（插入之后） */
-    public WorkItem withId(Long newId) {
-        return new WorkItem(newId, instanceId, processKey, priority, node, nodeName, round, state, assignment, arrival, inboxKind, inboxId,
-            assigneeId, assigneeName, createdAt, claimedAt, dueAt, outcome, comment, completedBy, completedByName, completedAt);
-    }
 }

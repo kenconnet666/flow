@@ -153,7 +153,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 我的待办：落到我的，加上我能认领的；按到达时间从新到旧，带实例的标题与摘要列 */
     public Page<TodoItem> todo(U actor, int page, int size) {
-        allow(actor, "todo", actor.id());
+        allow(actor, "todo", String.valueOf(actor.id()));
         return queries.todo(actor, page, size);
     }
 
@@ -184,7 +184,7 @@ public final class FlowEngine<U extends Actor> {
         private OrgDirectory org;
         private PermissionPolicy<U> permissions = PermissionPolicy.allowAll();
         private Clock clock = Clock.systemUTC();
-        private Supplier<String> tenant = () -> "";
+        private Supplier<Long> tenant = () -> 0L;
         private DefinitionStore definitionStore;
         private FormStore formStore;
         private FormDataStore formDataStore;
@@ -206,8 +206,8 @@ public final class FlowEngine<U extends Actor> {
         /** 时钟；默认系统时钟（UTC），测试里用固定时钟 */
         public Builder<U> clock(Clock clock) { this.clock = clock; return this; }
 
-        /** 当前租户；默认不用多租户（空串） */
-        public Builder<U> tenant(Supplier<String> tenant) { this.tenant = tenant; return this; }
+        /** 当前租户的编号；默认不用多租户（0） */
+        public Builder<U> tenant(Supplier<Long> tenant) { this.tenant = tenant; return this; }
 
         /** 换掉流程定义的存储 */
         public Builder<U> definitionStore(DefinitionStore store) { this.definitionStore = store; return this; }

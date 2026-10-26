@@ -12,4 +12,4 @@ import java.util.Set;
  * @param departments 所在部门
  * @param roles       角色
  */
-public record ExampleUser(String id, String name, Set<String> departments, Set<String> roles) implements Actor { }
+public record ExampleUser(Long id, String name, Set<Long> departments, Set<Long> roles) implements Actor { }

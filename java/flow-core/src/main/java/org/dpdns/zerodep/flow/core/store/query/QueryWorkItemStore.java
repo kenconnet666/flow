@@ -35,15 +35,15 @@ final class QueryWorkItemStore implements WorkItemStore {
     QueryWorkItemStore(Database db) { this.db = db; }
 
     /** 候选插入的一行（编号由数据库自增） */
-    record NewCandidate(Long workItemId, String kind, String value) { }
+    record NewCandidate(Long workItemId, String kind, Long targetId) { }
 
     @Override
     public WorkItem insert(WorkItem draft, List<Candidate> candidates) {
-        Long id = db.<Long>insertKeys(insertInto(FlowTables.WorkItem.class).values(draft)).get(0);
+        WorkItem saved = db.<WorkItem>insertReturning(insertInto(FlowTables.WorkItem.class).values(draft)).get(0);
         if (!candidates.isEmpty()) {
-            db.execute(insertInto(FlowTables.Candidate.class).values(candidates.stream().map(c -> new NewCandidate(id, c.kind(), c.value())).toList()));
+            db.execute(insertInto(FlowTables.Candidate.class).values(candidates.stream().map(c -> new NewCandidate(saved.id(), c.kind(), c.targetId())).toList()));
         }
-        return draft.withId(id);
+        return saved;
     }
 
     @Override
@@ -58,27 +58,19 @@ final class QueryWorkItemStore implements WorkItemStore {
     }
 
     @Override
-    public boolean claim(Long workItemId, String userId, String userName, Instant at) {
-        return db.execute(update(FlowTables.WorkItem.class).set(r -> {
-            r.assigneeId().to(userId);
-            r.assigneeName().to(userName);
-            r.assignment().to(WorkItem.CLAIMED);
-            r.claimedAt().to(at);
-            r.rev().to(r.rev().plus(val(1)));
-        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); r.assigneeId().isNull(); })) == 1;
+    public boolean claim(Long workItemId, Claim claim) {
+        return db.execute(update(FlowTables.WorkItem.class)
+            .set(claim)
+            .set(r -> { r.assignment().to(WorkItem.CLAIMED); r.rev().to(r.rev().plus(val(1))); })
+            .where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); r.assigneeId().isNull(); })) == 1;
     }
 
     @Override
-    public boolean complete(Long workItemId, Completion c) {
-        boolean changed = db.execute(update(FlowTables.WorkItem.class).set(r -> {
-            r.state().to(WorkItem.DONE);
-            r.outcome().to(c.outcome());
-            r.comment().to(c.comment());
-            r.completedBy().to(c.userId());
-            r.completedByName().to(c.userName());
-            r.completedAt().to(c.at());
-            r.rev().to(r.rev().plus(val(1)));
-        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); })) == 1;
+    public boolean complete(Long workItemId, Completion completion) {
+        boolean changed = db.execute(update(FlowTables.WorkItem.class)
+            .set(completion)
+            .set(r -> { r.state().to(WorkItem.DONE); r.rev().to(r.rev().plus(val(1))); })
+            .where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); })) == 1;
         // 候选只在待办打开时存在（0007 的 1 节第 3 条）
         if (changed) db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().eq(workItemId)));
         return changed;
@@ -92,6 +84,7 @@ final class QueryWorkItemStore implements WorkItemStore {
         List<Long> ids = open.stream().map(WorkItem::id).toList();
         db.execute(update(FlowTables.WorkItem.class).set(r -> {
             r.state().to(WorkItem.CANCELED);
+            r.completedAt().to(at);   // 取消也记下时间：列表上看得出什么时候结束的
             r.rev().to(r.rev().plus(val(1)));
         }).where(r -> { r.id().in(ids); r.state().eq(WorkItem.OPEN); }));
         db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().in(ids)));
@@ -105,7 +98,7 @@ final class QueryWorkItemStore implements WorkItemStore {
     }
 
     @Override
-    public Optional<String> lastCompletedBy(Long instanceId, String node) {
+    public Optional<Long> lastCompletedBy(Long instanceId, String node) {
         return db.optional(from(FlowTables.WorkItem.class)
             .where(r -> { r.instanceId().eq(instanceId); r.node().eq(node); r.state().eq(WorkItem.DONE); })
             .orderBy(r -> orders(r.completedAt().desc(), r.id().desc())).limit(1).select(r -> r.completedBy()));
@@ -128,11 +121,11 @@ final class QueryWorkItemStore implements WorkItemStore {
             r.assigneeId().isNull();
             r.state().eq(WorkItem.OPEN);
             r.candidates().any(c -> any(() -> {
-                for (Map.Entry<String, Set<String>> e : member.memberships().entrySet()) {
-                    if (!e.getValue().isEmpty()) all(() -> { c.kind().eq(e.getKey()); c.value().in(e.getValue()); });
+                for (Map.Entry<String, Set<Long>> e : member.memberships().entrySet()) {
+                    if (!e.getValue().isEmpty()) all(() -> { c.kind().eq(e.getKey()); c.targetId().in(e.getValue()); });
                 }
             }));
-            r.candidates().none(c -> { c.kind().eq(Candidate.EXCLUDED); c.value().eq(member.userId()); });
+            r.candidates().none(c -> { c.kind().eq(Candidate.EXCLUDED); c.targetId().eq(member.userId()); });
         });
         long total = db.count(mine.select(r -> r.id())) + db.count(claimable.select(r -> r.id()));
         List<WorkItem> rows = new ArrayList<>();

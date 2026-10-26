@@ -9,7 +9,7 @@ import java.util.Map;
  *
  * @param names 用户编号 → 名字
  */
-public record TestOrg(Map<String, String> names) implements OrgDirectory {
+public record TestOrg(Map<Long, String> names) implements OrgDirectory {
     @Override
-    public String userName(String userId) { return names.getOrDefault(userId, userId); }
+    public String userName(Long userId) { return names.getOrDefault(userId, String.valueOf(userId)); }
 }

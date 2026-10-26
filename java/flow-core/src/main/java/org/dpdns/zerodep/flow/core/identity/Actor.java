@@ -7,18 +7,18 @@ import java.util.Set;
  * 角色收件箱、部门收件箱按 {@link #roles()}、{@link #departments()} 匹配候选（0007 的 1 节第 4 条），所以换了角色、调了部门的人马上看得到。
  */
 public interface Actor {
-    /** 用户编号 */
-    String id();
+    /** 用户编号（接入方用户表的主键） */
+    Long id();
 
     /** 显示的名字，存进待办、流转记录的快照（0007 的 1 节第 8 条）；默认是编号 */
-    default String name() { return id(); }
+    default String name() { return String.valueOf(id()); }
 
     /** 所在部门：要让上级部门的待办也能被认领，就把上级部门一起返回 */
-    Set<String> departments();
+    Set<Long> departments();
 
     /** 拥有的角色 */
-    Set<String> roles();
+    Set<Long> roles();
 
     /** 接入方扩展的候选种类（岗位、项目组……）里的归属 */
-    default Set<String> groups(String kind) { return Set.of(); }
+    default Set<Long> groups(String kind) { return Set.of(); }
 }

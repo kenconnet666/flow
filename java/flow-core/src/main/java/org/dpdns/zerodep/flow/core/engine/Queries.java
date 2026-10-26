@@ -31,7 +31,7 @@ public final class Queries {
      * 每行带上实例的标题与摘要列（0006 第 4 节"待办的业务摘要列"）。
      */
     public Page<TodoItem> todo(Actor actor, int page, int size) {
-        Map<String, Set<String>> memberships = new LinkedHashMap<>();
+        Map<String, Set<Long>> memberships = new LinkedHashMap<>();
         memberships.put(Candidate.USER, Set.of(actor.id()));
         memberships.put(Candidate.ROLE, actor.roles());
         memberships.put(Candidate.DEPARTMENT, actor.departments());

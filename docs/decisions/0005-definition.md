@@ -44,7 +44,7 @@
   ],
   "summary": ["form.title", "form.amount"],      // 待办列表的摘要列：每次提交抄进实例的展示用摘要
   "title": "采购申请：{form.title}",              // 实例标题的模板：花括号里是 { ref } 的名字；不写时用流程名
-  "starters": [{ "department": "d-stores" }],    // 谁能发起：来源同 3.2；不写时人人可发起
+  "starters": [{ "department": 10 }],    // 谁能发起：来源同 3.2；不写时人人可发起
   "settings": { /* 第 2.1 节 */ },
   "lanes": [ /* 第 3 节 */ ],
   "nodes": [ /* 第 4、5 节 */ ],
@@ -77,7 +77,7 @@
 ### 3.1 泳道
 
 ```jsonc
-{ "id": "finance", "name": "财务部", "inbox": { "role": "finance-review" } }
+{ "id": "finance", "name": "财务部", "inbox": { "role": 1 } }
 ```
 
 - 泳道是流程图上的一行，通常对应一个角色；`inbox` 是这一行里人工节点没写处理人时的默认去处（角色收件箱）。
@@ -87,17 +87,17 @@
 
 ### 3.2 处理人
 
-人工节点的 `assignees` 是一个或多个来源，取并集：
+人工节点的 `assignees` 是一个或多个来源，取并集。用户、角色、部门的编号是接入方组织表的主键（正整数，超出 JavaScript 安全整数时写成只有数字的文字），写成名字时发布报 `org-id-invalid`：
 
 | 来源 | 写法 | 落到哪 |
 | --- | --- | --- |
-| 角色收件箱 | `{ "role": "finance-review" }`，或 `{ "role": { "ref": "form.reviewRole" } }` | 有这个角色的人认领，先认领先得 |
-| 指定的人 | `{ "user": "u1001" }`，或 `{ "user": { "ref": "form.buyer" } }` | 直接落到人；`people` 类型的值里有几个人就是几个候选 |
-| 部门 | `{ "department": "d20" }` | 部门下面的人认领（含不含下级部门由 `OrgDirectory` 与 `Actor.departments()` 定，0006 第 2 节） |
+| 角色收件箱 | `{ "role": 1 }`，或 `{ "role": { "ref": "form.reviewRole" } }` | 有这个角色的人认领，先认领先得 |
+| 指定的人 | `{ "user": 1001 }`，或 `{ "user": { "ref": "form.buyer" } }` | 直接落到人；`people` 类型的值里有几个人就是几个候选 |
+| 部门 | `{ "department": 20 }` | 部门下面的人认领（含不含下级部门由 `OrgDirectory` 与 `Actor.departments()` 定，0006 第 2 节） |
 | 发起人 | `{ "initiator": true }` | 发起人 |
 | 同某节点 | `{ "sameAs": "check" }` | 那个节点最后的处理人 |
 | 解析器 | `{ "resolver": "deptLeader", "args": { "level": 2 } }` | 接入方注册的扩展点：部门负责人、上级第 N 级…… |
-| 扩展的种类 | `{ "group": "position", "id": "p1" }` | 接入方注册的候选种类（岗位、项目组……）：有这个归属的人认领；操作人的归属由 `Actor.groups(种类)` 给出（0006 第 2 节） |
+| 扩展的种类 | `{ "group": "position", "id": 7 }` | 接入方注册的候选种类（岗位、项目组……）：有这个归属的人认领；操作人的归属由 `Actor.groups(种类)` 给出（0006 第 2 节） |
 | 上一步选 | `{ "pick": { "from": [来源…], "max": 1 } }` | 上一步的处理人提交时选（5.6，2026-10-26 随第 5 节补入） |
 
 - 解析出来只有一个人：直接落到他；多于一个人，或含角色、部门、扩展的种类：进收件箱，候选人认领。
@@ -172,7 +172,7 @@
 ```jsonc
 {
   "id": "review", "type": "task", "name": "财务复核", "lane": "finance",
-  "assignees": [{ "role": "finance-review" }],
+  "assignees": [{ "role": 1 }],
   "outcomes": [
     { "key": "pass", "label": "通过" },
     { "key": "back", "label": "退回修改", "kind": "return", "comment": "required" },
@@ -212,7 +212,7 @@
 | `all` | 所有人都处理完 |
 | `any` | 任一人处理完（或签） |
 | `ratio` | 选同一结果的人数达到 `ratio`（0–1） |
-| `votes` | 选同一结果的票数达到 `votes`；参与人可带权重（`{ "user": "u1", "weight": 2 }`） |
+| `votes` | 选同一结果的票数达到 `votes`；参与人可带权重（`{ "user": 1001, "weight": 2 }`） |
 | `sequential` | 一个接一个，全部处理完 |
 
 节点按哪个结果结束（同钉钉会签"一人拒绝即拒绝"的做法）：
@@ -252,7 +252,7 @@
 很多审批里"下一步谁来办"由这一步的处理人在提交时选（审批面板的"选择下一处理人"，frontend.md §3.3）。写在**下一步**节点的处理人来源里：
 
 ```jsonc
-"assignees": [{ "pick": { "from": [{ "role": "finance-review" }], "max": 1 } }]
+"assignees": [{ "pick": { "from": [{ "role": 1 }], "max": 1 } }]
 ```
 
 - 上一步提交时，审批面板列出 `from` 解析出的人让他选（`from` 不写时可以选任何人，人员选择器的数据由接入方给）；选的结果就是这个节点的处理人。
@@ -340,6 +340,7 @@
 | `escalate-no-inbox` | 错误 | 提级连线的目标节点没有收件箱 |
 | `ref-unknown` | 错误 | 引用了没声明的流程变量、表单里没有的字段、不存在的节点（`sys.round.节点`） |
 | `ref-type-mismatch` | 错误 | 引用的类型用不上（处理人来源取了一个不是 `people` 的字段，时限取了不是日期的字段） |
+| `org-id-invalid` | 错误 | 直接写的用户、角色、部门编号不是正整数（或只有数字的文字），多半是写成了名字；编号是接入方组织表的主键 |
 | `condition-incomplete` | 错误 | 条件里有没写完的比较或空的组（6.2） |
 | `condition-fn-in-form` | 错误 | 表单的显示、必填条件里用了 `fn.`（6.1） |
 | `multi-no-fallback` | 错误 | 按比例、按票数的会签没写 `fallback`（5.2） |

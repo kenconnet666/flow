@@ -24,7 +24,7 @@ public interface WorkItemStore {
     List<Candidate> candidates(Long workItemId);
 
     /** 认领：只在打开着、还没有处理人时改到；返回是否改到 */
-    boolean claim(Long workItemId, String userId, String userName, Instant at);
+    boolean claim(Long workItemId, Claim claim);
 
     /** 处理：只在打开着时改到，并删掉候选；返回是否改到 */
     boolean complete(Long workItemId, Completion completion);
@@ -36,7 +36,7 @@ public interface WorkItemStore {
     List<WorkItem> ofInstance(Long instanceId);
 
     /** 某个节点最后一次是谁处理的（{@code sameAs}）；没处理过时为空 */
-    Optional<String> lastCompletedBy(Long instanceId, String node);
+    Optional<Long> lastCompletedBy(Long instanceId, String node);
 
     /** 收件箱：落到我的，加上我能认领的（候选里有我、我的角色或部门，且我没被排除），按到达时间从新到旧 */
     Page<WorkItem> todo(Member member, int page, int size);
@@ -44,10 +44,10 @@ public interface WorkItemStore {
     /**
      * 一行候选。
      *
-     * @param kind  {@code user}、{@code role}、{@code department}、接入方扩展的种类，或 {@code excluded}（退回过收件箱，不能再认领）
-     * @param value 用户、角色、部门的编号
+     * @param kind     {@code user}、{@code role}、{@code department}、接入方扩展的种类，或 {@code excluded}（退回过收件箱，不能再认领）
+     * @param targetId 用户、角色、部门的编号，按 kind 区分是哪一种
      */
-    record Candidate(String kind, String value) {
+    record Candidate(String kind, Long targetId) {
         /** 指定的人 */
         public static final String USER = "user";
         /** 角色 */
@@ -58,9 +58,31 @@ public interface WorkItemStore {
         public static final String EXCLUDED = "excluded";
     }
 
-    /** 处理的结果 */
-    record Completion(String outcome, String comment, String userId, String userName, Instant at) { }
+    /**
+     * 认领时写进待办的几列（属性名就是列名，默认存储直接 {@code set(claim)}）。
+     *
+     * @param assigneeId   认领的人
+     * @param assigneeName 认领的人的名字（快照）
+     * @param claimedAt    认领时间
+     */
+    record Claim(Long assigneeId, String assigneeName, Instant claimedAt) { }
 
-    /** 拿来匹配候选的归属：候选种类 → 编号；含 {@code user} → 自己 */
-    record Member(String userId, Map<String, Set<String>> memberships) { }
+    /**
+     * 处理时写进待办的几列（属性名就是列名）。
+     *
+     * @param outcome         处理结果
+     * @param comment         意见
+     * @param completedBy     处理的人
+     * @param completedByName 处理的人的名字（快照）
+     * @param completedAt     处理时间
+     */
+    record Completion(String outcome, String comment, Long completedBy, String completedByName, Instant completedAt) { }
+
+    /**
+     * 拿来匹配候选的归属。
+     *
+     * @param userId      自己
+     * @param memberships 候选种类 → 我在这一种里的编号（{@code user} → 自己，{@code role} → 我的角色……）
+     */
+    record Member(Long userId, Map<String, Set<Long>> memberships) { }
 }

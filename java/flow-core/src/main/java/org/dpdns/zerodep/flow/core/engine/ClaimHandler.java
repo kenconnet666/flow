@@ -5,6 +5,7 @@ import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.store.WorkItemStore.Claim;
 import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
@@ -57,7 +58,7 @@ public final class ClaimHandler {
             throw FlowErrors.notCandidate(item.id());
         }
         // 两个人同时认领：带条件的更新只有一个改到
-        if (!context.stores().workItems().claim(item.id(), actor.id(), actor.name(), context.clock().instant())) {
+        if (!context.stores().workItems().claim(item.id(), new Claim(actor.id(), actor.name(), context.clock().instant()))) {
             throw FlowErrors.alreadyClaimed(item.id());
         }
     }

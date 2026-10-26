@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
  */
 final class ScenarioRunner {
     /** 发布表单与流程的人 */
-    private static final TestUser ADMIN = new TestUser("admin", "管理员", Set.of(), Set.of());
+    private static final TestUser ADMIN = new TestUser(1000L, "管理员", Set.of(), Set.of());
     /** 引用：$名字.路径 或 $.路径（上一步） */
     private static final Pattern REFERENCE = Pattern.compile("^\\$([\\w-]*)\\.(.+)$");
     private static final Pattern SEGMENT = Pattern.compile("^(\\w+)(?:\\[(\\d+)])?$");
@@ -49,8 +49,8 @@ final class ScenarioRunner {
     ScenarioRunner(Scenario scenario) {
         this.scenario = scenario;
         LiveMysql.recreateTables();
-        Map<String, String> names = new HashMap<>();
-        scenario.actors().forEach((id, user) -> names.put(id, user.name()));
+        Map<Long, String> names = new HashMap<>();
+        scenario.actors().values().forEach(user -> names.put(user.id(), user.name()));
         this.engine = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
             .orgDirectory(new TestOrg(names))
             .clock(Clock.fixed(scenario.clock(), ZoneOffset.UTC))

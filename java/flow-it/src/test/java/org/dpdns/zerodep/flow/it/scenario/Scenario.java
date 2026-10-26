@@ -45,7 +45,7 @@ record Scenario(String file, String name, List<FormFile> forms, List<String> pro
      * 一个步骤。
      *
      * @param id      给后面的步骤引用的名字；可以不写
-     * @param as      操作人的名字
+     * @param as      操作人的代号（{@code actors} 的键）
      * @param command 命令或查询
      * @param args    参数（按命令不同，见 README）
      * @param expect  期望；没写时只要求不出错
@@ -71,7 +71,7 @@ record Scenario(String file, String name, List<FormFile> forms, List<String> pro
         }
         List<String> processes = list(tree.get("processes")).stream().map(path -> text(DIR.resolve((String) path))).toList();
         Map<String, TestUser> actors = new LinkedHashMap<>();
-        object(tree.get("actors"), "actors").forEach((id, value) -> actors.put(id, actor(id, object(value, id))));
+        object(tree.get("actors"), "actors").forEach((alias, value) -> actors.put(alias, actor(alias, object(value, alias))));
         List<Step> steps = new ArrayList<>();
         for (Object step : list(tree.get("steps"))) {
             Map<String, Object> s = object(step, "step");
@@ -81,15 +81,21 @@ record Scenario(String file, String name, List<FormFile> forms, List<String> pro
         return new Scenario(file, (String) tree.get("name"), forms, processes, Instant.parse((String) tree.get("clock")), actors, steps);
     }
 
-    private static TestUser actor(String id, Map<String, Object> fields) {
-        String name = fields.get("name") == null ? id : (String) fields.get("name");
-        return new TestUser(id, name, texts(fields.get("departments")), texts(fields.get("roles")));
+    /** 一个操作人：代号 → 编号、名字、角色、部门（编号都是整数） */
+    private static TestUser actor(String alias, Map<String, Object> fields) {
+        String name = fields.get("name") == null ? alias : (String) fields.get("name");
+        return new TestUser(id(fields.get("id"), alias), name, ids(fields.get("departments"), alias), ids(fields.get("roles"), alias));
     }
 
-    private static LinkedHashSet<String> texts(Object value) {
-        LinkedHashSet<String> out = new LinkedHashSet<>();
-        for (Object item : list(value)) out.add((String) item);
+    private static LinkedHashSet<Long> ids(Object value, String alias) {
+        LinkedHashSet<Long> out = new LinkedHashSet<>();
+        for (Object item : list(value)) out.add(id(item, alias));
         return out;
+    }
+
+    private static Long id(Object value, String alias) {
+        if (!(value instanceof Number n)) throw new IllegalArgumentException("actor " + alias + ": ids must be whole numbers, got " + value);
+        return n.longValue();
     }
 
     @SuppressWarnings("unchecked")

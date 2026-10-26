@@ -32,14 +32,23 @@ export type Due = Duration | { readonly until: Value<string> };
 
 // ---------- 处理人（0005 第 3 节） ----------
 
+/** 接入方组织表里的编号（用户、角色、部门，一般是自增主键）；超出安全整数时写成只有数字的文字 */
+export type OrgId = number | `${bigint}`;
+
+/** 是不是一个组织的编号：正的安全整数，或只有数字的文字 */
+export function isOrgId(value: unknown): value is OrgId {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0;
+  return typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value);
+}
+
 /** 处理人的来源；`assignees` 里的几个取并集 */
 export type AssigneeSource =
   /** 指定的人；`people` 字段里有几个人就是几个候选 */
-  | { readonly user: Value<string>; readonly weight?: number }
+  | { readonly user: Value<OrgId>; readonly weight?: number }
   /** 角色收件箱：有这个角色的人认领 */
-  | { readonly role: Value<string> }
+  | { readonly role: Value<OrgId> }
   /** 部门下面的人认领 */
-  | { readonly department: Value<string> }
+  | { readonly department: Value<OrgId> }
   /** 发起人 */
   | { readonly initiator: true }
   /** 与某个人工节点最后的处理人相同 */
@@ -47,15 +56,15 @@ export type AssigneeSource =
   /** 接入方注册的解析器 */
   | { readonly resolver: string; readonly args?: Readonly<Record<string, unknown>> }
   /** 接入方扩展的候选种类（岗位、项目组……） */
-  | { readonly group: string; readonly id: Value<string> }
+  | { readonly group: string; readonly id: Value<OrgId> }
   /** 上一步的处理人提交时选（0005 的 5.6） */
   | { readonly pick: { readonly from?: readonly AssigneeSource[]; readonly max?: number } };
 
 /** 收件箱：角色、部门或扩展的种类，加负责人 */
 export type Inbox = (
-  | { readonly role: Value<string> }
-  | { readonly department: Value<string> }
-  | { readonly group: string; readonly id: Value<string> }
+  | { readonly role: Value<OrgId> }
+  | { readonly department: Value<OrgId> }
+  | { readonly group: string; readonly id: Value<OrgId> }
 ) & {
   /** 收件箱的负责人：无人认领时指定承办人、处理改派；不写时调接入方的 `inboxManager` */
   readonly manager?: readonly AssigneeSource[];

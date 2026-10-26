@@ -178,14 +178,14 @@ final class Execution {
             handleEmptyAssignee(task);
             return;
         }
-        String assigneeId = who.isDirect() ? who.directUser() : null;
+        Long assigneeId = who.isDirect() ? who.directUser() : null;
         String assigneeName = assigneeId == null ? null : context.org().userName(assigneeId);
         String assignment = assigneeId != null ? WorkItem.DIRECT : WorkItem.POOL;
         Candidate inbox = who.firstInbox();
         int round = instance.state().round(task.id());
 
         WorkItem draft = new WorkItem(null, instance.id(), instance.processKey(), instance.priority(), task.id(), task.name(), round,
-            WorkItem.OPEN, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.value(),
+            WorkItem.OPEN, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.targetId(),
             assigneeId, assigneeName, now,
             null, null, null, null, null, null, null);   // 认领时间、截止时间、处理结果、意见、处理人、处理人名字、处理时间：都还没有
         WorkItem item = context.stores().workItems().insert(draft, assigneeId != null ? List.of() : who.candidates());

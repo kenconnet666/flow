@@ -11,9 +11,10 @@
 --
 -- 约定：
 --   - 主键是数据库自增的 BIGINT（引擎里是 Java 的 long，0006 的 6.1）；指向别的表的编号列也是 BIGINT。
---   - 接入方的用户、部门、角色编号是 VARCHAR(64)；名字存快照（人离职、改名后记录照样能看）。
+--   - 接入方的用户、部门、角色编号与租户编号也是 BIGINT（一般就是接入方那几张表的自增主键）；名字存快照（人离职、改名后记录照样能看）。
+--   - 流程标识、表单标识、节点标识、业务单据编号是人起的名字或业务上的编号，用 VARCHAR。
 --   - 时间都是 UTC 的 DATETIME(3)（毫秒）；JSON 用 MySQL 的 JSON 类型。
---   - 每张表都有租户列 tenant_id（不用多租户时是空串），索引以它开头；不建外键。
+--   - 每张表都有租户列 tenant_id（不用多租户时是 0），索引以它开头；不建外键。
 --   - 会变的行带 rev（乐观锁版本），只追加的表不带。
 -- ============================================================================
 
@@ -23,7 +24,7 @@
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE flow_process (
-    tenant_id      VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户；不用多租户时是空串',
+    tenant_id      BIGINT       NOT NULL DEFAULT 0 COMMENT '租户；不用多租户时是 0',
     id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     process_key    VARCHAR(64)  NOT NULL COMMENT '流程标识：同一流程的各版本相同（key 是 MySQL 的保留字，所以不用它做列名）',
     name           VARCHAR(200) NOT NULL COMMENT '最新版本的名称，列表用',
@@ -33,14 +34,14 @@ CREATE TABLE flow_process (
     rev            INT          NOT NULL COMMENT '乐观锁版本：两个人同时发布时后到的失败',
     created_at     DATETIME(3)  NOT NULL COMMENT '第一次发布的时间',
     updated_at     DATETIME(3)  NOT NULL COMMENT '最后一次发布或启停的时间',
-    updated_by     VARCHAR(64)  NULL COMMENT '最后一次发布或启停的人',
+    updated_by     BIGINT       NULL COMMENT '最后一次发布或启停的人',
     PRIMARY KEY (id),
     UNIQUE KEY ux_flow_process_key (tenant_id, process_key),
     KEY ix_flow_process_category (tenant_id, category)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '流程本身：每个流程标识一行，记启用停用与最新版本';
 
 CREATE TABLE flow_definition (
-    tenant_id         VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id         BIGINT       NOT NULL DEFAULT 0 COMMENT '租户',
     id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号：实例上的 definition_id 指向它',
     process_key       VARCHAR(64)  NOT NULL COMMENT '流程标识',
     version           INT          NOT NULL COMMENT '版本号，从 1 开始，由后端给',
@@ -48,7 +49,7 @@ CREATE TABLE flow_definition (
     form_key          VARCHAR(64)  NULL COMMENT '用的表单标识（从 model 抄出来，查"哪些流程用了这张表单"用）；流程没有表单时为空',
     form_version      INT          NULL COMMENT '用的表单版本：发布时定下，之后表单再发布不影响这个流程版本',
     note              VARCHAR(500) NULL COMMENT '发布说明',
-    published_by      VARCHAR(64)  NULL COMMENT '发布人',
+    published_by      BIGINT       NULL COMMENT '发布人',
     published_by_name VARCHAR(200) NULL COMMENT '发布人的名字（快照）',
     published_at      DATETIME(3)  NOT NULL COMMENT '发布时间',
     PRIMARY KEY (id),
@@ -62,7 +63,7 @@ CREATE TABLE flow_definition (
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE flow_form (
-    tenant_id      VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id      BIGINT       NOT NULL DEFAULT 0 COMMENT '租户',
     id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     form_key       VARCHAR(64)  NOT NULL COMMENT '表单标识',
     name           VARCHAR(200) NOT NULL COMMENT '最新版本的名称',
@@ -72,14 +73,14 @@ CREATE TABLE flow_form (
     rev            INT          NOT NULL COMMENT '乐观锁版本',
     created_at     DATETIME(3)  NOT NULL COMMENT '第一次发布的时间',
     updated_at     DATETIME(3)  NOT NULL COMMENT '最后一次发布或启停的时间',
-    updated_by     VARCHAR(64)  NULL COMMENT '最后一次发布或启停的人',
+    updated_by     BIGINT       NULL COMMENT '最后一次发布或启停的人',
     PRIMARY KEY (id),
     UNIQUE KEY ux_flow_form_key (tenant_id, form_key),
     KEY ix_flow_form_category (tenant_id, category)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '表单本身：每个表单标识一行';
 
 CREATE TABLE flow_form_version (
-    tenant_id         VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id         BIGINT       NOT NULL DEFAULT 0 COMMENT '租户',
     id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号：表单的值上的 form_version_id 指向它',
     form_key          VARCHAR(64)  NOT NULL COMMENT '表单标识',
     version           INT          NOT NULL COMMENT '版本号，从 1 开始',
@@ -91,16 +92,16 @@ CREATE TABLE flow_form_version (
     server_language   VARCHAR(8)   NULL COMMENT '后端代码的语言：java / ts；没有后端代码时为空',
     server_source     MEDIUMTEXT   NULL COMMENT '后端源码（0004 的 1.5，启动时加载）',
     note              VARCHAR(500) NULL COMMENT '发布说明',
-    published_by      VARCHAR(64)  NULL COMMENT '发布人',
+    published_by      BIGINT       NULL COMMENT '发布人',
     published_by_name VARCHAR(200) NULL COMMENT '发布人的名字（快照）',
-    reviewed_by       VARCHAR(64)  NULL COMMENT '审阅人：打开双人发布时才有（0004 的 6.2）',
+    reviewed_by       BIGINT       NULL COMMENT '审阅人：打开双人发布时才有（0004 的 6.2）',
     published_at      DATETIME(3)  NOT NULL COMMENT '发布时间',
     PRIMARY KEY (id),
     UNIQUE KEY ux_flow_form_version (tenant_id, form_key, version)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '表单发布的版本：发布后不能改';
 
 CREATE TABLE flow_form_data (
-    tenant_id       VARCHAR(64) NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id       BIGINT      NOT NULL DEFAULT 0 COMMENT '租户',
     instance_id     BIGINT      NOT NULL COMMENT '实例：每个实例一行',
     form_version_id BIGINT      NOT NULL COMMENT '填的是哪个表单版本',
     data            JSON        NOT NULL COMMENT '表单的值：字段名 → 值',
@@ -115,7 +116,7 @@ CREATE TABLE flow_form_data (
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE flow_instance (
-    tenant_id          VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id          BIGINT       NOT NULL DEFAULT 0 COMMENT '租户',
     id                 BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     process_key        VARCHAR(64)  NOT NULL COMMENT '流程标识',
     definition_id      BIGINT       NOT NULL COMMENT '按哪个发布版本走（flow_definition.id）',
@@ -135,7 +136,7 @@ CREATE TABLE flow_instance (
     root_instance_id   BIGINT       NULL COMMENT '最外层的实例：多层嵌套时整棵一起查、一起终止',
     source_instance_id BIGINT       NULL COMMENT '由别的流程发起时，来源实例（追溯用）',
     source_node        VARCHAR(64)  NULL COMMENT '来源实例里发起它的节点',
-    started_by         VARCHAR(64)  NULL COMMENT '发起人',
+    started_by         BIGINT       NULL COMMENT '发起人',
     started_by_name    VARCHAR(200) NULL COMMENT '发起人的名字（快照）',
     started_at         DATETIME(3)  NULL COMMENT '发起时间',
     ended_at           DATETIME(3)  NULL COMMENT '结束时间；进行中时为空',
@@ -151,7 +152,7 @@ CREATE TABLE flow_instance (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '流程实例：发起一次一行';
 
 CREATE TABLE flow_work_item (
-    tenant_id         VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id         BIGINT       NOT NULL DEFAULT 0 COMMENT '租户',
     id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     kind              VARCHAR(16)  NOT NULL DEFAULT 'task' COMMENT '种类：task 普通待办 / failure 自动节点重试用完后给管理员的异常处理',
     instance_id       BIGINT       NOT NULL COMMENT '实例',
@@ -164,11 +165,11 @@ CREATE TABLE flow_work_item (
     assignment        VARCHAR(16)  NOT NULL COMMENT '落到谁：pool 收件箱里等认领 / claimed 认领了 / direct 直接落到人 / designated 负责人指定',
     arrival           VARCHAR(16)  NOT NULL COMMENT '怎样来的：start / forward / return / escalate / transfer / delegate / addSign / jump',
     inbox_kind        VARCHAR(32)  NULL COMMENT '收件箱的种类：role / department / 接入方扩展的种类；不在收件箱里时为空（显示用，认领按候选表）',
-    inbox_id          VARCHAR(64)  NULL COMMENT '收件箱是哪个角色、部门',
-    assignee_id       VARCHAR(64)  NULL COMMENT '当前处理人；在收件箱里等认领时为空',
+    inbox_id          BIGINT       NULL COMMENT '收件箱是哪个角色、部门',
+    assignee_id       BIGINT       NULL COMMENT '当前处理人；在收件箱里等认领时为空',
     assignee_name     VARCHAR(200) NULL COMMENT '处理人的名字（快照）',
     from_node         VARCHAR(64)  NULL COMMENT '从哪个节点来',
-    from_user_id      VARCHAR(64)  NULL COMMENT '从谁那里来（上一步的处理人、转办人）',
+    from_user_id      BIGINT       NULL COMMENT '从谁那里来（上一步的处理人、转办人）',
     from_user_name    VARCHAR(200) NULL COMMENT '那个人的名字（快照）',
     from_item_id      BIGINT       NULL COMMENT '从哪个待办来',
     sign_group        BIGINT       NULL COMMENT '会签：同一节点同一轮的参与人共用一个编号',
@@ -183,15 +184,15 @@ CREATE TABLE flow_work_item (
     remind_count      INT          NOT NULL DEFAULT 0 COMMENT '被催办的次数',
     last_reminded_at  DATETIME(3)  NULL COMMENT '上一次催办的时间（催办的频率限制用）',
     needs_designation BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '无人认领超时，等收件箱负责人指定',
-    designator_id     VARCHAR(64)  NULL COMMENT '等谁来指定',
+    designator_id     BIGINT       NULL COMMENT '等谁来指定',
     reassign_request  JSON         NULL COMMENT '申请改派：谁、原因、何时',
     draft             JSON         NULL COMMENT '暂存：表单的值与意见，还没提交',
     outcome           VARCHAR(64)  NULL COMMENT '处理结果（节点上的一个结果）',
     comment           TEXT         NULL COMMENT '意见',
     attachments       JSON         NULL COMMENT '附件',
-    completed_by      VARCHAR(64)  NULL COMMENT '谁处理的',
+    completed_by      BIGINT       NULL COMMENT '谁处理的',
     completed_by_name VARCHAR(200) NULL COMMENT '处理人的名字（快照）',
-    completed_at      DATETIME(3)  NULL COMMENT '处理时间',
+    completed_at      DATETIME(3)  NULL COMMENT '处理时间；取消的待办是取消的时间',
     rev               INT          NOT NULL DEFAULT 0 COMMENT '乐观锁版本：认领、处理都是带条件的更新',
     PRIMARY KEY (id),
     KEY ix_flow_work_item_assignee (tenant_id, assignee_id, state, created_at),
@@ -203,19 +204,19 @@ CREATE TABLE flow_work_item (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '待办：一张表加状态（不拆运行表和历史表），已办也查这张表';
 
 CREATE TABLE flow_candidate (
-    tenant_id    VARCHAR(64) NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id    BIGINT      NOT NULL DEFAULT 0 COMMENT '租户',
     id           BIGINT      NOT NULL AUTO_INCREMENT COMMENT '编号',
     work_item_id BIGINT      NOT NULL COMMENT '待办',
     kind         VARCHAR(32) NOT NULL COMMENT '种类：user 指定的人 / role 角色 / department 部门 / 接入方扩展的种类 / excluded 退回过收件箱、不能再认领的人',
-    value        VARCHAR(64) NOT NULL COMMENT '用户、角色、部门的编号',
+    target_id    BIGINT      NOT NULL COMMENT '用户、角色、部门的编号（按 kind 区分是哪一种）',
     PRIMARY KEY (id),
-    KEY ix_flow_candidate_match (tenant_id, kind, value, work_item_id),
-    UNIQUE KEY ux_flow_candidate_item (work_item_id, kind, value)
+    KEY ix_flow_candidate_match (tenant_id, kind, target_id, work_item_id),
+    UNIQUE KEY ux_flow_candidate_item (work_item_id, kind, target_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
   COMMENT = '打开着的待办谁能处理、谁被排除：角色、部门存一行（不展开成人），待办结束时删掉';
 
 CREATE TABLE flow_event (
-    tenant_id    VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '租户',
+    tenant_id    BIGINT       NOT NULL DEFAULT 0 COMMENT '租户',
     id           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号',
     instance_id  BIGINT       NOT NULL COMMENT '实例',
     work_item_id BIGINT       NULL COMMENT '相关的待办',
@@ -225,7 +226,7 @@ CREATE TABLE flow_event (
     edge         VARCHAR(64)  NULL COMMENT '走的连线',
     outcome      VARCHAR(64)  NULL COMMENT '处理结果、结束结果',
     instance_rev INT          NOT NULL COMMENT '写这条记录时实例的版本：同一实例的记录按它排出准确的先后，同一步写的几条相同',
-    actor_id     VARCHAR(64)  NULL COMMENT '操作人；引擎自己推进时为空',
+    actor_id     BIGINT       NULL COMMENT '操作人；引擎自己推进时为空',
     actor_name   VARCHAR(200) NULL COMMENT '操作人的名字（快照）',
     at           DATETIME(3)  NOT NULL COMMENT '时间',
     comment      TEXT         NULL COMMENT '意见、原因',

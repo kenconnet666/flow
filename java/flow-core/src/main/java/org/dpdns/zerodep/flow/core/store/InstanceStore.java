@@ -55,13 +55,7 @@ public interface InstanceStore {
     record InstanceRecord(Long id, String processKey, Long definitionId, int version, String businessKey, String title,
                           int priority, Map<String, Object> summary, String status, String result,
                           List<ProcessInstance.CurrentNode> current, Variables variables, RunState state,
-                          String startedBy, String startedByName, Instant startedAt, Instant endedAt, int rev) {
-        /** 换上数据库给的编号 */
-        public InstanceRecord withId(Long next) {
-            return new InstanceRecord(next, processKey, definitionId, version, businessKey, title, priority, summary, status, result, current,
-                variables, state, startedBy, startedByName, startedAt, endedAt, rev);
-        }
-
+                          Long startedBy, String startedByName, Instant startedAt, Instant endedAt, int rev) {
         /** 换流程变量 */
         public InstanceRecord withVariables(Variables next) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, status, result, current,

@@ -27,7 +27,7 @@
     { "name": "选项：数字与文字不相等", "field": { "label": "s", "type": "select", "options": [{ "value": 1, "label": "一" }] }, "value": "1", "expect": [["", "option"]] },
     { "name": "选项：多选要数组", "field": { "label": "s", "type": "select", "multiple": true, "options": [{ "value": "a", "label": "甲" }] }, "value": "a", "expect": [["", "type"]] },
     { "name": "选项：字典的值只查形状", "field": { "label": "s", "type": "select", "multiple": true, "options": { "source": "supplier" } }, "value": ["s1", "s2"], "expect": [] },
-    { "name": "人员：类型与人数", "field": { "label": "p", "type": "people", "types": ["user"], "max": 1 }, "value": [{ "id": "u1", "type": "user", "name": "甲" }, { "id": "d1", "type": "department", "name": "乙部" }], "expect": [["", "peopleType"], ["", "maxCount"]] },
+    { "name": "人员：类型与人数", "field": { "label": "p", "type": "people", "types": ["user"], "max": 1 }, "value": [{ "id": 1001, "type": "user", "name": "甲" }, { "id": 10, "type": "department", "name": "乙部" }], "expect": [["", "peopleType"], ["", "maxCount"]] },
     { "name": "人员：形状不对", "field": { "label": "p", "type": "people" }, "value": ["u1"], "expect": [["", "type"]] },
     { "name": "附件：个数与大小", "field": { "label": "f", "type": "file", "maxCount": 1, "maxSize": 100 }, "value": [{ "id": "f1", "name": "a.pdf", "size": 50 }, { "id": "f2", "name": "b.pdf", "size": 200 }], "expect": [["", "maxCount"], ["", "maxSize"]] },
     { "name": "明细表：行数与格子", "field": { "label": "l", "type": "list", "minItems": 3, "fields": { "item": { "label": "物品", "type": "text", "maxLength": 2 }, "price": { "label": "单价", "type": "decimal" } } },

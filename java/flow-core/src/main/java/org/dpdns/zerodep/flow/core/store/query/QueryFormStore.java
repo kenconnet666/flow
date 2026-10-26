@@ -22,11 +22,14 @@ final class QueryFormStore implements FormStore {
 
     /** 新建表单时插入的一行 */
     record NewForm(String formKey, String name, String category, String status, Integer latestVersion, Integer rev,
-                   Instant createdAt, String updatedBy) { }
+                   Instant createdAt, Long updatedBy) { }
+
+    /** 再次发布时表单本身要改的几列（属性名就是列名） */
+    record FormChange(Integer latestVersion, String name, String category, Long updatedBy) { }
 
     /** 发布的一个版本（插入的一行；编号由数据库自增） */
     record NewFormVersion(String formKey, Integer version, String clientSource, String clientCompiled, String compilerVersion,
-                          String manifest, String serverLanguage, String serverSource, String note, String publishedBy,
+                          String manifest, String serverLanguage, String serverSource, String note, Long publishedBy,
                           String publishedByName, Instant publishedAt) { }
 
     /** 表单本身的最新版本号（只读这一列） */
@@ -41,13 +44,10 @@ final class QueryFormStore implements FormStore {
             if (existing.isPresent()) {
                 int current = existing.get().latestVersion();
                 version = current + 1;
-                db.execute(update(Form.class).set(r -> {
-                    r.latestVersion().to(version);
-                    r.name().to(p.name());
-                    r.category().to(p.category());
-                    r.updatedBy().to(p.publishedBy());
-                    r.rev().to(r.rev().plus(val(1)));
-                }).where(r -> { r.formKey().eq(p.formKey()); r.latestVersion().eq(current); }).expect(1));
+                db.execute(update(Form.class)
+                    .set(new FormChange(version, p.name(), p.category(), p.publishedBy()))
+                    .set(r -> r.rev().to(r.rev().plus(val(1))))
+                    .where(r -> { r.formKey().eq(p.formKey()); r.latestVersion().eq(current); }).expect(1));
             } else {
                 version = 1;
                 db.execute(insertInto(Form.class).values(new NewForm(p.formKey(), p.name(), p.category(),

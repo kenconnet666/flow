@@ -6,5 +6,5 @@ package org.dpdns.zerodep.flow.core.identity;
  */
 public interface OrgDirectory {
     /** 用户的显示名字；查不到时返回编号本身 */
-    String userName(String userId);
+    String userName(Long userId);
 }

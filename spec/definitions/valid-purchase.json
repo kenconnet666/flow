@@ -18,12 +18,12 @@
     ],
     "summary": ["form.title", "form.amount"],
     "title": "采购申请：{form.title}",
-    "starters": [{ "department": "d-stores" }],
+    "starters": [{ "department": 10 }],
     "settings": { "calendar": "default", "withdraw": "beforeAction" },
     "lanes": [
       { "id": "store", "name": "门店" },
-      { "id": "finance", "name": "财务部", "inbox": { "role": "finance-review" } },
-      { "id": "purchasing", "name": "采购部", "inbox": { "role": "buyer", "manager": [{ "resolver": "deptLeader" }] } }
+      { "id": "finance", "name": "财务部", "inbox": { "role": 1 } },
+      { "id": "purchasing", "name": "采购部", "inbox": { "role": 3, "manager": [{ "resolver": "deptLeader" }] } }
     ],
     "nodes": [
       { "id": "start", "type": "start", "name": "提交", "lane": "store", "form": { "default": "editable" } },

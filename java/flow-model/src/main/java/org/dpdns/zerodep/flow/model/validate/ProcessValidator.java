@@ -6,6 +6,7 @@ import org.dpdns.zerodep.flow.model.definition.Due;
 import org.dpdns.zerodep.flow.model.definition.FieldAccess;
 import org.dpdns.zerodep.flow.model.definition.Lane;
 import org.dpdns.zerodep.flow.model.definition.MultiInstance;
+import org.dpdns.zerodep.flow.model.definition.OrgId;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
@@ -74,6 +75,7 @@ public final class ProcessValidator {
         validator.checkGateways();
         validator.checkReturnsAndEscalations();
         validator.checkReferences();
+        validator.checkOrgIds();
         validator.checkForm();
         validator.checkPublishOnly();
         return validator.deduped();
@@ -500,6 +502,40 @@ public final class ProcessValidator {
 
     private static void addDue(List<Reference> refs, Due due, String node) {
         if (due instanceof Due.Until until) add(refs, until.value(), node, null, Expect.DATE);
+    }
+
+    // ---------- 组织的编号 ----------
+
+    /**
+     * 直接写在定义里的用户、角色、部门编号要是正整数（接入方组织表的主键），写成名字（{@code "role": "finance"}）时报 {@code org-id-invalid}；
+     * 引用（{@code { ref }}）到运行时才有值，不在这里查。走的来源同 {@link #collectReferences}，另加泳道的收件箱本身。
+     */
+    private void checkOrgIds() {
+        checkOrgIds(definition.starters(), null);
+        for (Lane lane : definition.lanes()) {
+            if (lane.inbox() == null) continue;
+            checkOrgIds(List.of(lane.inbox().source()), null);
+            checkOrgIds(lane.inbox().manager(), null);
+        }
+        for (ProcessNode node : definition.nodes()) {
+            if (node instanceof ProcessNode.Task task) {
+                checkOrgIds(task.assignees(), node.id());
+                if (task.multi() != null && !(task.multi().participants() instanceof Ref)) checkOrgIds(task.multi().participantSources(), node.id());
+            } else if (node instanceof ProcessNode.Cc cc) {
+                checkOrgIds(cc.to(), node.id());
+            }
+        }
+    }
+
+    private void checkOrgIds(List<AssigneeSource> sources, String node) {
+        for (AssigneeSource source : flatten(sources)) {
+            Object id = source instanceof AssigneeSource.User u ? u.user()
+                : source instanceof AssigneeSource.Role r ? r.role()
+                : source instanceof AssigneeSource.Department d ? d.department()
+                : source instanceof AssigneeSource.Group g ? g.id()
+                : null;
+            if (id != null && !(id instanceof Ref) && !OrgId.isValid(id)) atNode("org-id-invalid", node, "value", String.valueOf(id));
+        }
     }
 
     // ---------- 表单（0004 第 4 节） ----------

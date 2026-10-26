@@ -21,11 +21,14 @@ final class QueryDefinitionStore implements DefinitionStore {
 
     /** 新建流程时插入的一行 */
     record NewProcess(String processKey, String name, String category, String status, Integer latestVersion, Integer rev,
-                      Instant createdAt, String updatedBy) { }
+                      Instant createdAt, Long updatedBy) { }
+
+    /** 再次发布时流程本身要改的几列（属性名就是列名） */
+    record ProcessChange(Integer latestVersion, String name, String category, Long updatedBy) { }
 
     /** 发布的一个版本（插入的一行；编号由数据库自增） */
     record NewDefinition(String processKey, Integer version, String model, String formKey, Integer formVersion, String note,
-                         String publishedBy, String publishedByName, Instant publishedAt) { }
+                         Long publishedBy, String publishedByName, Instant publishedAt) { }
 
     /** 第一次发布时建上流程本身；之后最新版本号加一（只在最新版本还是读到的那个时改到：两个人同时发布，后到的失败） */
     @Override
@@ -33,13 +36,10 @@ final class QueryDefinitionStore implements DefinitionStore {
         return db.transaction(() -> {
             int version = process(p.processKey()).map(existing -> {
                 int next = existing.latestVersion() + 1;
-                db.execute(update(Process.class).set(r -> {
-                    r.latestVersion().to(next);
-                    r.name().to(p.name());
-                    r.category().to(p.category());
-                    r.updatedBy().to(p.publishedBy());
-                    r.rev().to(r.rev().plus(val(1)));
-                }).where(r -> { r.processKey().eq(p.processKey()); r.latestVersion().eq(existing.latestVersion()); }).expect(1));
+                db.execute(update(Process.class)
+                    .set(new ProcessChange(next, p.name(), p.category(), p.publishedBy()))
+                    .set(r -> r.rev().to(r.rev().plus(val(1))))
+                    .where(r -> { r.processKey().eq(p.processKey()); r.latestVersion().eq(existing.latestVersion()); }).expect(1));
                 return next;
             }).orElseGet(() -> {
                 db.execute(insertInto(Process.class).values(new NewProcess(p.processKey(), p.name(), p.category(),

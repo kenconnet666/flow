@@ -21,8 +21,7 @@ final class QueryInstanceStore implements InstanceStore {
 
     @Override
     public InstanceRecord insert(InstanceRecord instance) {
-        List<Long> ids = db.insertKeys(insertInto(Instance.class).values(instance));
-        return instance.withId(ids.get(0));
+        return db.<InstanceRecord>insertReturning(insertInto(Instance.class).values(instance)).get(0);
     }
 
     /** 先把版本加一（这条 UPDATE 锁住实例行，0007 第 5 节"推进"的第一步），再读回新的版本 */

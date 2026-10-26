@@ -29,6 +29,11 @@ final class FlowErrors {
         return new FlowException(FlowErrorCode.VALIDATION_FAILED, field + ": " + code, List.of(ErrorDetail.field(field, code)));
     }
 
+    /** 定义、表单里写的用户、角色、部门编号不是整数（多半是把角色写成了名字） */
+    static FlowException badOrgId(Object value) {
+        return new FlowException(FlowErrorCode.DEFINITION_INVALID, Map.of("orgId", String.valueOf(value)));
+    }
+
     /** 待办已处理、已取消（重复提交） */
     static FlowException notOpen(Long workItemId) { return workItem(FlowErrorCode.WORK_ITEM_NOT_OPEN, workItemId); }
 

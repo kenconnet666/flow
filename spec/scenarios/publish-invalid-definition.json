@@ -3,7 +3,7 @@
   "forms": [],
   "processes": [],
   "clock": "2026-10-26T08:00:00Z",
-  "actors": { "admin": { "name": "管理员" } },
+  "actors": { "admin": { "id": 1000, "name": "管理员" } },
   "steps": [
     { "as": "admin", "command": "publishDefinition",
       "args": { "definition": {

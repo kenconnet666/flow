@@ -3,7 +3,7 @@
   "forms": ["forms/purchase-form.json"],
   "processes": ["processes/purchase.json"],
   "clock": "2026-10-26T08:00:00Z",
-  "actors": { "alice": { "name": "林小满" }, "bob": { "name": "周启航", "roles": ["finance"] } },
+  "actors": { "alice": { "id": 1001, "name": "林小满" }, "bob": { "id": 1002, "name": "周启航", "roles": [1] } },
   "steps": [
     { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "500.00" } } },
     { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass" },

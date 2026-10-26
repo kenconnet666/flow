@@ -8,7 +8,7 @@
         "lanes": [{ "id": "store", "name": "门店" }, { "id": "old", "name": "旧泳道" }],
         "nodes": [
           { "id": "start", "type": "start", "name": "提交" },
-          { "id": "review", "type": "task", "name": "复核", "assignees": [{ "role": "finance" }], "outcomes": [{ "key": "pass", "label": "通过" }], "due": { "workdays": 2 } },
+          { "id": "review", "type": "task", "name": "复核", "assignees": [{ "role": 1 }], "outcomes": [{ "key": "pass", "label": "通过" }], "due": { "workdays": 2 } },
           { "id": "gone", "type": "task", "name": "删掉的", "outcomes": [{ "key": "ok", "label": "好" }] },
           { "id": "end", "type": "end", "name": "完成" }
         ],
@@ -23,7 +23,7 @@
         "lanes": [{ "name": "门店", "id": "store" }, { "id": "finance", "name": "财务部" }],
         "nodes": [
           { "id": "start", "type": "start", "name": "提交" },
-          { "id": "review", "type": "task", "name": "财务复核", "assignees": [{ "role": "finance" }], "outcomes": [{ "key": "pass", "label": "通过" }, { "key": "back", "label": "退回" }], "due": { "workdays": 2.0 } },
+          { "id": "review", "type": "task", "name": "财务复核", "assignees": [{ "role": 1 }], "outcomes": [{ "key": "pass", "label": "通过" }, { "key": "back", "label": "退回" }], "due": { "workdays": 2.0 } },
           { "id": "audit", "type": "task", "name": "审计", "outcomes": [{ "key": "ok", "label": "好" }] },
           { "id": "end", "type": "end", "name": "完成", "result": "approved" }
         ],

@@ -11,7 +11,7 @@
   "forms": ["forms/purchase-form.json"],      // 先发布的表单：{ key, name, manifest }
   "processes": ["processes/purchase.json"],   // 再发布的流程定义（0005 的 JSON）
   "clock": "2026-10-26T08:00:00Z",            // 固定时钟
-  "actors": { "bob": { "name": "周启航", "roles": ["finance"], "departments": [] } },
+  "actors": { "bob": { "id": 1002, "name": "周启航", "roles": [1], "departments": [] } },   // 键是步骤里 as 用的代号
   "steps": [
     { "id": "start", "as": "alice", "command": "start", "args": { … }, "expect": { … } }
   ]
@@ -20,6 +20,8 @@
 
 - 编号是数据库自增的（每个场景前重建表，从 1 开始），时钟固定：两个后端跑出来的结果逐字段可比。
 - 每个场景开始前清空库、按建表脚本重建。
+- 操作人：键是代号（步骤里的 `as`），`id`、`roles`、`departments` 是接入方组织表里的编号（整数）。各场景用同一套：
+  1000 管理员、1001 林小满、1002 周启航（财务）、1003 沈若水、1004 总经理；角色 1 财务、2 总经理；部门 10 门店、20 财务部、30 总经办。
 
 ## 命令与参数
 

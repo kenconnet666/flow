@@ -4,17 +4,17 @@
   "processes": ["processes/purchase.json"],
   "clock": "2026-10-26T08:00:00Z",
   "actors": {
-    "alice": { "name": "林小满" },
-    "bob": { "name": "周启航", "roles": ["finance"] },
-    "carol": { "name": "沈若水" },
-    "boss": { "name": "总经理" }
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "carol": { "id": 1003, "name": "沈若水" },
+    "boss": { "id": 1004, "name": "总经理" }
   },
   "steps": [
     { "id": "start", "as": "alice", "command": "start",
       "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00" } },
       "expect": {
         "instance": { "title": "采购申请：办公桌", "status": "active", "current": [{ "node": "review", "name": "财务复核" }] },
-        "workItems": [{ "node": "review", "state": "open", "assignment": "pool", "inboxKind": "role", "inboxId": "finance", "assigneeId": null }],
+        "workItems": [{ "node": "review", "state": "open", "assignment": "pool", "inboxKind": "role", "inboxId": "1", "assigneeId": null }],
         "events": ["instance.started", "node.left", "node.entered", "workItem.created"]
       } },
     { "as": "bob", "command": "todo", "args": { "page": 1, "size": 10 },
@@ -27,7 +27,7 @@
       "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "comment": "同意", "form": { "note": "预算内" } },
       "expect": {
         "closed": [{ "node": "review" }],
-        "workItems": [{ "node": "approve", "assignment": "direct", "assigneeId": "boss", "assigneeName": "总经理" }],
+        "workItems": [{ "node": "approve", "assignment": "direct", "assigneeId": "1004", "assigneeName": "总经理" }],
         "instance": { "current": [{ "node": "approve", "name": "总经理审批" }] }
       } },
     { "as": "boss", "command": "complete", "args": { "workItem": "$review.workItems[0]", "outcome": "pass" },
@@ -36,8 +36,8 @@
       "expect": {
         "form": { "title": "办公桌", "amount": "12000.00", "note": "预算内" },
         "workItems": [
-          { "node": "review", "state": "done", "outcome": "pass", "comment": "同意", "completedBy": "bob", "completedByName": "周启航" },
-          { "node": "approve", "state": "done", "outcome": "pass", "completedBy": "boss" }
+          { "node": "review", "state": "done", "outcome": "pass", "comment": "同意", "completedBy": "1002", "completedByName": "周启航" },
+          { "node": "approve", "state": "done", "outcome": "pass", "completedBy": "1004" }
         ]
       } }
   ]

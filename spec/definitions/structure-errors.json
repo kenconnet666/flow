@@ -6,8 +6,8 @@
     "lanes": [{ "id": "a", "name": "甲" }, { "id": "a", "name": "甲又一个" }],
     "nodes": [
       { "id": "start", "type": "start", "name": "提交" },
-      { "id": "check", "type": "task", "name": "审核", "lane": "nowhere", "assignees": [{ "user": "u1" }], "outcomes": [{ "key": "ok", "label": "好" }] },
-      { "id": "check", "type": "task", "name": "审核又一个", "assignees": [{ "user": "u1" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "check", "type": "task", "name": "审核", "lane": "nowhere", "assignees": [{ "user": 1001 }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "check", "type": "task", "name": "审核又一个", "assignees": [{ "user": 1001 }], "outcomes": [{ "key": "ok", "label": "好" }] },
       { "id": "odd", "type": "approval", "name": "写错的类型" }
     ],
     "edges": [

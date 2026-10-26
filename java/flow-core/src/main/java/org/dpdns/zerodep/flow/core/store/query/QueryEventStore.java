@@ -5,7 +5,6 @@ import org.dpdns.zerodep.flow.core.store.query.FlowTables.Event;
 import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.dpdns.zerodep.query.exec.Database;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.dpdns.zerodep.query.Sql.from;
@@ -21,10 +20,7 @@ final class QueryEventStore implements EventStore {
     @Override
     public List<FlowEvent> append(List<FlowEvent> events) {
         if (events.isEmpty()) return events;
-        List<Long> ids = db.insertKeys(insertInto(Event.class).values(events));
-        List<FlowEvent> saved = new ArrayList<>();
-        for (int i = 0; i < events.size(); i++) saved.add(events.get(i).withId(ids.get(i)));   // insertKeys 按行的先后给编号
-        return saved;
+        return db.insertReturning(insertInto(Event.class).values(events));   // 按行的先后换上编号
     }
 
     @Override

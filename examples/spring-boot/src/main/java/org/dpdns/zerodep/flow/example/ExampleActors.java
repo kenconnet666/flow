@@ -18,8 +18,14 @@ public class ExampleActors implements ActorProvider<ExampleUser> {
     @Override
     public ExampleUser current() {
         var request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-        ExampleUser user = ExampleOrgDirectory.USERS.get(request.getHeader("X-User"));
+        ExampleUser user = userOf(request.getHeader("X-User"));
         if (user == null) throw new FlowException(FlowErrorCode.FORBIDDEN, Map.of("reason", "not-signed-in"));
         return user;
+    }
+
+    /** 请求头里的用户编号；没带、不是数字、查不到时为 null */
+    private static ExampleUser userOf(String header) {
+        if (header == null || !header.matches("[0-9]+")) return null;
+        return ExampleOrgDirectory.USERS.get(Long.valueOf(header));
     }
 }

@@ -11,6 +11,7 @@ import { conditionFields, isConditionComplete, type Condition } from './conditio
 import {
   BRANCHING_TYPES,
   BUILTIN_NODE_TYPES,
+  isOrgId,
   isRef,
   type AssigneeSource,
   type FieldAccess,
@@ -82,6 +83,7 @@ export function validateProcess(definition: ProcessDefinition, context: Validati
   checkGateways(definition, graph, report);
   checkReturnsAndEscalations(definition, graph, report);
   checkReferences(definition, graph, context, report);
+  checkOrgIds(definition, report);
   checkForm(definition, context, report);
   checkPublishOnly(definition, context, report);
   return dedupe(problems);
@@ -355,6 +357,33 @@ function checkReturnsAndEscalations(definition: ProcessDefinition, graph: Proces
 function hasInbox(node: TaskNode, graph: ProcessGraph): boolean {
   if (node.assignees === undefined || node.assignees.length === 0) return graph.lane(node.lane)?.inbox !== undefined;
   return node.assignees.some((s) => 'role' in s || 'department' in s || 'group' in s);
+}
+
+// ---------- 组织的编号 ----------
+
+/**
+ * 直接写在定义里的用户、角色、部门编号要是正整数（接入方组织表的主键），写成名字（`"role": "finance"`）时报 `org-id-invalid`；
+ * 引用（`{ ref }`）到运行时才有值，不在这里查。走的来源同 {@link collectReferences}，另加泳道的收件箱本身。与 Java 一致。
+ */
+function checkOrgIds(definition: ProcessDefinition, report: Report): void {
+  const check = (sources: readonly AssigneeSource[] | undefined, at: { node?: string }) => {
+    for (const source of flattenSources(sources ?? [])) {
+      const id = 'user' in source ? source.user : 'role' in source ? source.role : 'department' in source ? source.department : 'group' in source ? source.id : undefined;
+      if (id !== undefined && !isRef(id) && !isOrgId(id)) report('org-id-invalid', at, { value: String(id) });
+    }
+  };
+  check(definition.starters, {});
+  for (const lane of definition.lanes ?? []) {
+    if (!lane.inbox) continue;
+    check([lane.inbox as AssigneeSource], {});
+    check(lane.inbox.manager, {});
+  }
+  for (const node of definition.nodes) {
+    if (node.type === 'task') {
+      check(node.assignees, { node: node.id });
+      if (node.multi && !isRef(node.multi.participants)) check(node.multi.participants, { node: node.id });
+    } else if (node.type === 'cc') check(node.to, { node: node.id });
+  }
 }
 
 // ---------- 引用（0005 的 1.1） ----------

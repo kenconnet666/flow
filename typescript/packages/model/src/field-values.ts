@@ -4,6 +4,7 @@
  *
  * 只查形状与范围；`options: { source }` 的字典、接入方注册的字段类型由后端另查。
  */
+import { isOrgId } from './definition.js';
 import type { FieldDefinition } from './manifest.js';
 import { compareValues, isBlank } from './values.js';
 
@@ -107,7 +108,7 @@ export function checkFieldValue(field: FieldDefinition, value: unknown): ValueEr
       return errors;
     }
     case 'people': {
-      if (!Array.isArray(value) || value.some((p) => !isObject(p) || typeof p.id !== 'string' || typeof p.type !== 'string')) {
+      if (!Array.isArray(value) || value.some((p) => !isObject(p) || !isOrgId(p.id) || typeof p.type !== 'string')) {
         return [{ path: self, code: 'type' }];
       }
       if (field.types && value.some((p) => !field.types!.includes((p as { type: string }).type))) errors.push({ path: self, code: 'peopleType' });

@@ -25,7 +25,7 @@ public interface DefinitionStore {
 
     /** 发布一个版本要的东西；{@code model} 是 0005 的整份定义的 JSON 文字 */
     record Publication(String processKey, String name, String category, String model, String formKey, Integer formVersion,
-                       String note, String publishedBy, String publishedByName, Instant at) { }
+                       String note, Long publishedBy, String publishedByName, Instant at) { }
 
     /** 流程本身：启用停用与最新版本 */
     record StoredProcess(String processKey, String name, String status, int latestVersion) {

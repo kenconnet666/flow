@@ -25,7 +25,7 @@ import java.util.Map;
  */
 public record ProcessInstance(Long id, String processKey, int version, String businessKey, String title, int priority,
                               Map<String, Object> summary, String status, String result, List<CurrentNode> current,
-                              String startedBy, String startedByName, Instant startedAt, Instant endedAt) {
+                              Long startedBy, String startedByName, Instant startedAt, Instant endedAt) {
     /** 实例的状态 */
     public static final String ACTIVE = "active";
     /** 正常走到结束节点 */

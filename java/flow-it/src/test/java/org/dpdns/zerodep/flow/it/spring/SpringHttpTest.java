@@ -54,41 +54,41 @@ class SpringHttpTest {
         LiveMysql.recreateTables();
         Path scenarios = Path.of("..", "..", "spec", "scenarios");
         // 经接口发布：表单文件与定义文件原样作为请求体
-        Map<String, Object> form = call(post("/flow/forms/publish"), "alice",
+        Map<String, Object> form = call(post("/flow/forms/publish"), "1001",
             Files.readString(scenarios.resolve("forms/purchase-form.json"), StandardCharsets.UTF_8));
         assertEquals(Map.of("id", data(form).get("id"), "key", "purchase-form", "version", 1L), data(form));
-        Map<String, Object> process = call(post("/flow/definitions/publish").param("note", "第一版"), "alice",
+        Map<String, Object> process = call(post("/flow/definitions/publish").param("note", "第一版"), "1001",
             Files.readString(scenarios.resolve("processes/purchase.json"), StandardCharsets.UTF_8));
         assertEquals(1L, ((Number) data(process).get("version")).longValue());
-        assertEquals("flow.definition-invalid", call(post("/flow/definitions/publish"), "alice", "{\"key\":\"x\"}").get("code"));
+        assertEquals("flow.definition-invalid", call(post("/flow/definitions/publish"), "1001", "{\"key\":\"x\"}").get("code"));
     }
 
     @Test
     void 一单采购走完_出错也是200加业务错误码() throws Exception {
-        Map<String, Object> started = call(post("/flow/commands/start"), "alice",
+        Map<String, Object> started = call(post("/flow/commands/start"), "1001",
             "{\"key\":\"purchase\",\"form\":{\"title\":\"办公桌\",\"amount\":\"12000.00\"}}");
         assertEquals("ok", started.get("code"));
         String review = (String) first(data(started).get("workItems")).get("id");
         String instance = (String) ((Map<?, ?>) data(started).get("instance")).get("id");
 
-        Map<String, Object> todo = call(get("/flow/queries/todo").param("page", "1").param("pageSize", "10"), "bob", null);
+        Map<String, Object> todo = call(get("/flow/queries/todo").param("page", "1").param("pageSize", "10"), "1002", null);
         assertEquals(1L, ((Number) data(todo).get("total")).longValue());
 
-        Map<String, Object> reviewed = call(post("/flow/commands/complete"), "bob",
+        Map<String, Object> reviewed = call(post("/flow/commands/complete"), "1002",
             "{\"workItemId\":\"" + review + "\",\"outcome\":\"pass\",\"form\":{\"note\":\"预算内\"}}");
         String approve = (String) first(data(reviewed).get("workItems")).get("id");
 
-        Map<String, Object> again = call(post("/flow/commands/complete"), "bob", "{\"workItemId\":\"" + review + "\",\"outcome\":\"pass\"}");
+        Map<String, Object> again = call(post("/flow/commands/complete"), "1002", "{\"workItemId\":\"" + review + "\",\"outcome\":\"pass\"}");
         assertEquals("flow.work-item-not-open", again.get("code"));
 
-        Map<String, Object> malformed = call(post("/flow/commands/complete"), "bob", "{not json");
+        Map<String, Object> malformed = call(post("/flow/commands/complete"), "1002", "{not json");
         assertEquals("flow.validation-failed", malformed.get("code"));
         assertEquals(List.of(Map.of("code", "malformed-json", "field", "body")), malformed.get("errors"));
 
-        Map<String, Object> approved = call(post("/flow/commands/complete"), "boss", "{\"workItemId\":\"" + approve + "\",\"outcome\":\"pass\"}");
+        Map<String, Object> approved = call(post("/flow/commands/complete"), "1004", "{\"workItemId\":\"" + approve + "\",\"outcome\":\"pass\"}");
         assertEquals("completed", ((Map<?, ?>) data(approved).get("instance")).get("status"));
 
-        Map<String, Object> detail = call(get("/flow/queries/instances/" + instance), "alice", null);
+        Map<String, Object> detail = call(get("/flow/queries/instances/" + instance), "1001", null);
         assertEquals("预算内", ((Map<?, ?>) data(detail).get("form")).get("note"));
     }
 

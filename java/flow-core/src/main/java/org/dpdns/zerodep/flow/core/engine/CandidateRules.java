@@ -15,15 +15,15 @@ final class CandidateRules {
 
     /** 候选里有我、我的角色、部门或扩展的归属，而且我没被排除（退回过收件箱的人不能再认领） */
     static boolean isCandidate(Actor actor, List<Candidate> candidates) {
-        boolean excluded = candidates.stream().anyMatch(c -> Candidate.EXCLUDED.equals(c.kind()) && c.value().equals(actor.id()));
+        boolean excluded = candidates.stream().anyMatch(c -> Candidate.EXCLUDED.equals(c.kind()) && c.targetId().equals(actor.id()));
         if (excluded) return false;
         for (Candidate c : candidates) {
             boolean matches = switch (c.kind()) {
-                case Candidate.USER -> c.value().equals(actor.id());
-                case Candidate.ROLE -> actor.roles().contains(c.value());
-                case Candidate.DEPARTMENT -> actor.departments().contains(c.value());
+                case Candidate.USER -> c.targetId().equals(actor.id());
+                case Candidate.ROLE -> actor.roles().contains(c.targetId());
+                case Candidate.DEPARTMENT -> actor.departments().contains(c.targetId());
                 case Candidate.EXCLUDED -> false;
-                default -> actor.groups(c.kind()).contains(c.value());
+                default -> actor.groups(c.kind()).contains(c.targetId());
             };
             if (matches) return true;
         }
@@ -37,12 +37,12 @@ final class CandidateRules {
     static boolean isStarter(Actor actor, List<AssigneeSource> starters) {
         if (starters.isEmpty()) return true;
         for (AssigneeSource source : starters) {
-            if (source instanceof AssigneeSource.User user && !(user.user() instanceof Ref) && actor.id().equals(String.valueOf(user.user()))) {
+            if (source instanceof AssigneeSource.User user && !(user.user() instanceof Ref) && actor.id().equals(OrgIds.one(user.user()))) {
                 return true;
             }
-            if (source instanceof AssigneeSource.Role role && actor.roles().contains(String.valueOf(role.role()))) return true;
-            if (source instanceof AssigneeSource.Department dept && actor.departments().contains(String.valueOf(dept.department()))) return true;
-            if (source instanceof AssigneeSource.Group group && actor.groups(group.kind()).contains(String.valueOf(group.id()))) return true;
+            if (source instanceof AssigneeSource.Role role && actor.roles().contains(OrgIds.one(role.role()))) return true;
+            if (source instanceof AssigneeSource.Department dept && actor.departments().contains(OrgIds.one(dept.department()))) return true;
+            if (source instanceof AssigneeSource.Group group && actor.groups(group.kind()).contains(OrgIds.one(group.id()))) return true;
         }
         return false;
     }

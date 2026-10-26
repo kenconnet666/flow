@@ -3,7 +3,7 @@
   "forms": ["forms/purchase-form.json"],
   "processes": ["processes/purchase.json"],
   "clock": "2026-10-26T08:00:00Z",
-  "actors": { "alice": { "name": "林小满" }, "bob": { "name": "周启航", "roles": ["finance"] } },
+  "actors": { "alice": { "id": 1001, "name": "林小满" }, "bob": { "id": 1002, "name": "周启航", "roles": [1] } },
   "steps": [
     { "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "amount": "100.00" } },
       "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "title", "code": "required" }] } } },

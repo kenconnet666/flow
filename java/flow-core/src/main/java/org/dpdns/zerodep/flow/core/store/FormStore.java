@@ -25,7 +25,7 @@ public interface FormStore {
      * @param serverLanguage {@code java}、{@code ts} 或 null（没有后端代码）
      */
     record Publication(String formKey, String name, String category, String manifest, String clientSource, String clientCompiled,
-                       String compilerVersion, String serverLanguage, String serverSource, String note, String publishedBy,
+                       String compilerVersion, String serverLanguage, String serverSource, String note, Long publishedBy,
                        String publishedByName, Instant at) { }
 
     /** 发布的一个版本：引擎用到的是字段清单 */

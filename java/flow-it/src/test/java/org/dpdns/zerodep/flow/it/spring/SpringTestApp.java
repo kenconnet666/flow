@@ -18,22 +18,23 @@ import java.util.Set;
  */
 @SpringBootApplication
 public class SpringTestApp {
-    /** 测试里的人：编号 → 用户 */
-    static final Map<String, TestUser> USERS = Map.of(
-        "alice", new TestUser("alice", "林小满", Set.of(), Set.of()),
-        "bob", new TestUser("bob", "周启航", Set.of(), Set.of("finance")),
-        "boss", new TestUser("boss", "总经理", Set.of(), Set.of()));
+    /** 测试里的人（编号同 spec/scenarios 的约定）：用户编号 → 用户 */
+    static final Map<Long, TestUser> USERS = Map.of(
+        1001L, new TestUser(1001L, "林小满", Set.of(), Set.of()),
+        1002L, new TestUser(1002L, "周启航", Set.of(), Set.of(1L)),
+        1004L, new TestUser(1004L, "总经理", Set.of(), Set.of()));
 
     @Bean
     OrgDirectory orgDirectory() {
-        return new TestOrg(Map.of("alice", "林小满", "bob", "周启航", "boss", "总经理"));
+        return new TestOrg(Map.of(1001L, "林小满", 1002L, "周启航", 1004L, "总经理"));
     }
 
     @Bean
     ActorProvider<TestUser> actorProvider() {
         return () -> {
             var request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-            TestUser user = USERS.get(request.getHeader("X-User"));
+            String header = request.getHeader("X-User");
+            TestUser user = header == null ? null : USERS.get(Long.valueOf(header));
             if (user == null) throw new IllegalStateException("unknown X-User " + request.getHeader("X-User"));
             return user;
         };

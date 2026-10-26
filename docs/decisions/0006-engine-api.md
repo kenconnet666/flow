@@ -22,17 +22,17 @@
 ```java
 // Java：操作人由接入方定义，引擎只要求实现这个接口
 public interface Actor {
-    String id();
-    Set<String> departments();   // 所在部门：要让上级部门的待办也能被认领，就把上级部门一起返回
-    Set<String> roles();         // 拥有的角色
-    default Set<String> groups(String kind) { return Set.of(); }   // 接入方扩展的候选种类（岗位、项目组……）的归属
+    Long id();                   // 用户编号：接入方用户表的主键（编号都是 BIGINT，0007 第 1 节第 9 条）
+    Set<Long> departments();     // 所在部门：要让上级部门的待办也能被认领，就把上级部门一起返回
+    Set<Long> roles();           // 拥有的角色
+    default Set<Long> groups(String kind) { return Set.of(); }   // 接入方扩展的候选种类（岗位、项目组……）的归属
 }
 FlowEngine<U extends Actor> engine;     // U 是接入方自己的用户类型，扩展点里拿到的就是 U，不用强转
 ```
 
 ```ts
 // TS
-interface Actor { id: string; departments: readonly string[]; roles: readonly string[]; groups?(kind: string): readonly string[] }
+interface Actor { id: number; departments: readonly number[]; roles: readonly number[]; groups?(kind: string): readonly number[] }
 const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 ```
 

@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.model.form;
 
 import org.dpdns.zerodep.flow.model.Values;
+import org.dpdns.zerodep.flow.model.definition.OrgId;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -75,7 +76,7 @@ public final class FieldValues {
             }
             case "people" -> {
                 if (!(value instanceof List<?> people) || people.stream().anyMatch(p -> !(p instanceof Map<?, ?> m)
-                    || !(m.get("id") instanceof String) || !(m.get("type") instanceof String))) return type();
+                    || !OrgId.isValid(m.get("id")) || !(m.get("type") instanceof String))) return type();
                 if (a.get("types") instanceof List<?> types && people.stream().anyMatch(p -> !types.contains(((Map<?, ?>) p).get("type")))) {
                     errors.add(new ValueError("", "peopleType"));
                 }

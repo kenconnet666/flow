@@ -12,7 +12,7 @@ import java.util.Set;
  * @param departments 所在部门
  * @param roles       角色
  */
-public record TestUser(String id, String name, Set<String> departments, Set<String> roles) implements Actor {
+public record TestUser(Long id, String name, Set<Long> departments, Set<Long> roles) implements Actor {
     /** 只有编号与角色 */
-    public static TestUser of(String id, String name, String... roles) { return new TestUser(id, name, Set.of(), Set.of(roles)); }
+    public static TestUser of(Long id, String name, Long... roles) { return new TestUser(id, name, Set.of(), Set.of(roles)); }
 }
