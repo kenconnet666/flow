@@ -1,11 +1,11 @@
 # 0006 引擎对外的接口
 
-- 状态：讨论中（2026-10-26 起草），逐节定稿
+- 状态：已定（用户 2026-10-26：主键只做雪花与大雪花，其余按推荐定稿）
 - 相关：方向见 [0001](0001-engine-direction.md)（第 5 条扩展点在这里展开），能力见 [0002](0002-capabilities.md)，定义见 [0005](0005-definition.md)，表单见 [0004](0004-forms.md)
 - 起点：vue-tsx-pro 提交 `f7bfdc2e` 的 `packages/ui/src/workflow/runtime.ts`（实例、待办、流转记录的类型）
 - 原则：**标准行为都能替换**（0001 的定位）。每一块都写明标准行为，以及怎样换成自己的
 
-## 1. 总体
+## 1. 总体（已定，用户 2026-10-26）
 
 | 项 | 做法 |
 | --- | --- |
@@ -17,7 +17,7 @@
 | 幂等 | 每个命令可以带 `requestId`；同一个 `requestId` 第二次来，直接返回第一次的结果（0002 §5） |
 | 结果 | 命令返回这次改了什么：实例的新状态、新生成与结束的待办、流转记录；前端据此刷新，不用再查一次 |
 
-## 2. 操作人与泛型
+## 2. 操作人与泛型（已定，用户 2026-10-26）
 
 ```java
 // Java：操作人由接入方定义，引擎只要求实现这个接口
@@ -39,7 +39,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 - 解析器、守卫、动作、计算值、表单后端代码的上下文里都带着 `U`：接入方的部门、上级、租户这些信息直接可用。
 - 其余的类型不用泛型：编号、业务编号是字符串，表单的值与流程变量是 JSON（Java 给 `FormValues`，可按字段取，也可 `as(MyForm.class)` 转成自己的类型；TS 的命令带泛型参数 `complete<MyForm>(...)`）。
 
-## 3. 命令
+## 3. 命令（已定，用户 2026-10-26）
 
 所有命令都可带 `requestId`、`actor`（不带时取当前操作人）。
 
@@ -90,7 +90,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 
 `saveDraft`、`validate`、`publish`、`disable` / `enable`、`copy`、`importJson` / `exportJson`、`diff`，流程定义与表单各一组（`engine.definitions.*`、`engine.forms.*`）。发布由后端给版本号，校验用模型包的规则（0005 第 7 节）。
 
-## 4. 查询
+## 4. 查询（已定，用户 2026-10-26）
 
 列表类的查询都收 query 的表格请求（`TableRequest`：分页、排序、筛选、条件树，query 的 0016、0017），返回 `{ rows, total }`，前端的 `QueryTable` + `useTableQuery` 直接接上。
 
@@ -111,7 +111,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 - 待办的**业务摘要列**：默认是实例上的 `summary`（0005 第 2 节）；要连接入方自己的表时，实现 `TodoQueryCustomizer`，拿到 query 的查询构造器自己 join（6 节）。
 - 返回的待办、实例形状沿用旧契约 `runtime.ts` 的 `WorkItem`、`ProcessInstance`（`variables` 换成按权限过滤的 `form`，加上 `summary`），定稿后放进模型包。
 
-## 5. 事件
+## 5. 事件（已定，用户 2026-10-26）
 
 | 事件 | 时机 |
 | --- | --- |
@@ -124,7 +124,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 - 监听分两种：**事务内**（`@FlowListener(phase = IN_TRANSACTION)` / `on(event, fn, { phase: 'inTransaction' })`）可以拒绝（抛错整个回滚）、可以同事务写业务表；**提交后**（`AFTER_COMMIT`）发通知、发消息队列，失败不影响流转。
 - 监听按流程 `key`、节点、事件种类过滤；节点上的 `meta`（0005）随事件给出。
 
-## 6. 扩展点与可替换的部分
+## 6. 扩展点与可替换的部分（已定，用户 2026-10-26）
 
 两种用法：**注册**（按名字加一个：解析器、动作……）和**替换**（整个换掉一种标准行为）。Java 里每个接口都有一个默认实现，标 `@ConditionalOnMissingBean`，接入方声明自己的 Bean 就替换；TS 在 `createFlowEngine` 的选项里传。
 
@@ -142,7 +142,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | | `EdgeSelector`、`ConditionEvaluator`、`TitleRenderer` | 0005 的规则 | 替换 |
 | 时间 | `Clock` | 系统时钟，UTC | 替换（测试里用固定时钟） |
 | | `WorkCalendar`、`DurationCalculator` | `flow_calendar_day` 表 | 替换 |
-| 编号 | `IdStrategy` | 雪花（BIGINT）；另带数据库自增、大雪花两种（6.1） | 选一种，或实现接口自定义 |
+| 编号 | `IdStrategy` | 雪花（BIGINT）；另带大雪花（6.1） | 二选一，或实现接口自定义 |
 | 存储 | `DefinitionStore`、`InstanceStore`、`WorkItemStore`、`EventStore`、`JobStore`、`FormStore`、`FormDataStore` | 用 query 读写 `flow_*` 表；表名前缀可配 | 每个单独替换（例如流转记录存到别处） |
 | 作业 | `JobRunner` | 本进程里定时轮询 `flow_job`，普通读加带条件 UPDATE 抢占（0001 第 4 条） | 替换（例如交给接入方已有的调度平台调 `engine.jobs.runDue()`） |
 | | `JobHandler` | 超时、提醒、无人认领、定时节点、异步动作 | 注册新的作业种类 |
@@ -154,44 +154,39 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | 序列化 | `JsonCodec` | Java 用 query 的 `wire`（不依赖 Jackson），TS 用内置 JSON | 替换（例如用接入方的 Jackson 配置） |
 | 集群 | `FormChangeBroadcaster`（0004 的 1.5，0005 也用来刷新定义缓存） | 不发 | 实现 |
 
-### 6.1 主键策略（用户 2026-10-26 定）
+### 6.1 主键策略（已定，用户 2026-10-26）
 
-| 策略 | 列类型 | 编号什么时候有 | 说明 |
-| --- | --- | --- | --- |
-| **雪花（默认）** | `BIGINT` | 插入前由应用生成 | 经典布局：毫秒时间 41 位、机器号 10 位、序号 12 位；机器号的分配见 0001 待讨论第 4 条 |
-| 数据库自增 | `BIGINT AUTO_INCREMENT` | 插入时由数据库给 | 插入后取回（见下）；集群里不用分配机器号 |
-| 大雪花 | `DECIMAL(p, 0)` | 插入前由应用生成 | 位数布局由接入方自由调：起始时间、时间单位（毫秒或秒）、时间位数、区域位数、机器位数、序号位数；总位数超过 64 位也行，`p` 按总位数算出来。Java 用 `BigInteger`、TS 用 `bigint` 生成 |
-| 自定义 | 由实现给出（如 `CHAR(26)` 的 ULID） | 由实现给出 | 实现 `IdStrategy` 接口 |
+内置只做两种，都是插入前由应用生成；不满意就实现 `IdStrategy` 自己定（同样由应用生成）。不做数据库自增。
 
-参考 EasyQuery（3.2.17）的做法：它把"谁生成编号"分成两种——`@Column(generatedKey = true)` 是数据库生成（自增，或 `GeneratedKeySQLColumnGenerator` 给出 `NEWID()` 这类插入时的 SQL 表达式），插入后经 JDBC 的
-`getGeneratedKeys` 回填（批量插入也按顺序回填）；`@Column(primaryKeyGenerator = X.class)` 是应用生成，`PrimaryKeyGenerator` 只有一个 `getPrimaryKey()`，外加一个可覆盖的 `setPrimaryKey(实体, 列)` 决定怎样设（比如已有值就不设）。
-生成器按类登记实例，Spring 里收集容器中的 Bean。它自己不带雪花，留给使用方实现。照这个思路，`IdStrategy` 的约定（两个后端同名同义）：
+| 策略 | 列类型 | 说明 |
+| --- | --- | --- |
+| **雪花（默认）** | `BIGINT` | 经典布局：毫秒时间 41 位、机器号 10 位、序号 12 位；机器号的分配见 0001 待讨论第 4 条 |
+| 大雪花 | `DECIMAL(p, 0)` | 位数布局由接入方自由调：起始时间、时间单位（毫秒或秒）、时间位数、区域位数、机器位数、序号位数；总位数超过 64 位也行，`p` 按总位数算出来。Java 用 `BigInteger`、TS 用 `bigint` 生成 |
+| 自定义 | 由实现给出 | 实现 `IdStrategy` |
+
+参考 EasyQuery（3.2.17）：应用生成的主键是 `@Column(primaryKeyGenerator = X.class)`，接口 `PrimaryKeyGenerator` 只有一个 `getPrimaryKey()`，外加可覆盖的 `setPrimaryKey(实体, 列)`；生成器按类登记实例，Spring 里收集容器中的 Bean；它自己不带雪花，留给使用方实现。
+（它另有数据库生成的一套：`generatedKey = true` 加 `getGeneratedKeys` 回填。我们不做数据库自增，用不上。）`IdStrategy` 的约定（两个后端同名同义）：
 
 ```java
 public interface IdStrategy {
-    /** 谁生成：APPLICATION（插入前由应用给）或 DATABASE（插入时由数据库给，插入后取回） */
-    IdSource source();
     /** 编号列的物理类型（建表与迁移用） */
     ColumnType columnType(String table);
-    /** APPLICATION：给出新编号 */
-    default String next(String table) { throw new UnsupportedOperationException(); }
-    /** DATABASE：插入语句里编号列写什么；默认不写这一列（自增），序列、NEWID() 之类在这里给出表达式 */
-    default Optional<String> insertExpression(String table) { return Optional.empty(); }
-    /** 引擎里的编号 ↔ 绑定到语句、从结果读回、从 getGeneratedKeys 取回的值 */
+    /** 给出新编号 */
+    String next(String table);
+    /** 引擎里的编号 ↔ 绑定到语句、从结果读回的值 */
     Object toDatabase(String id);
     String fromDatabase(Object value);
 }
 ```
 
-- **引擎里编号一律是字符串**（接口、JSON、扩展点的参数都是），不管背后是 `BIGINT`、`DECIMAL` 还是别的；换策略不改任何接口。EasyQuery 用实体字段自己的类型，那是 ORM 的需要；引擎要让两个后端和前端看到的都一样，所以统一成字符串。
-- **可以按表换策略**：默认整个引擎一种；`flow.ids.tables.flow_event = database` 这样给个别表换（流转记录量大、只追加，用自增也合适）。所以 `columnType`、`next` 都带表名。
-- 数据库生成时，引擎要用到编号的行，照 EasyQuery 的做法用 JDBC 批量插入后按顺序取回（TS 一侧逐行插入取 `insertId`）；不用多行 `VALUES` 一次插入（MySQL 交错锁模式下自增值不保证连续）。
+- **引擎里编号一律是字符串**（接口、JSON、扩展点的参数都是），不管背后是 `BIGINT` 还是 `DECIMAL`；换策略不改任何接口。EasyQuery 用实体字段自己的类型，那是 ORM 的需要；引擎要让两个后端和前端看到的都一样，所以统一成字符串。
+- **可以按表换策略**：默认整个引擎一种，个别表可以单独换（例如流转记录用大雪花），所以方法都带表名。
 - 登记方式同其他扩展点：Spring 里声明一个 `IdStrategy` Bean 就替换默认的雪花；TS 在选项里传。
 - 雪花、大雪花在时钟回拨时的处理可配：等到时钟追上（默认）、报错、借用序号。
 - 策略在**建表时**定下：表建好以后换策略要迁移数据，引擎启动时发现配置与表的列类型不一致就报错。
-- 需要 query 补一项能力：表声明里的列类型能在建数据库对象时按配置决定（id 列按策略取 `BIGINT`、`DECIMAL(p,0)` 或别的），见 0001 的"对 query 的要求"。
+- query 配合补一项能力并发版：表声明里的列类型能在建数据库对象时按配置决定（id 列按策略取 `BIGINT` 或 `DECIMAL(p,0)`），见 0001 的"对 query 的要求"。
 
-## 7. 两个后端的形态
+## 7. 两个后端的形态（已定，用户 2026-10-26）
 
 ### 7.1 Java
 
@@ -211,7 +206,7 @@ public interface IdStrategy {
 - JSON 约定同 0001：编号、大整数、小数按字符串，时间是带 `Z` 的 ISO 8601。
 - 登录与权限由接入方的框架处理（Spring Security、Nuxt 的中间件），引擎只从 `ActorProvider` 取当前操作人。
 
-## 8. 错误
+## 8. 错误（已定，用户 2026-10-26）
 
 错误带代号，两个后端相同；HTTP 接口按代号映射状态码：
 
@@ -230,14 +225,3 @@ public interface IdStrategy {
 | `extension-failed` | 扩展（解析器、动作、表单后端代码）抛错，带原始错误 | 500 |
 
 - Java 是 `FlowException`（带 `code()` 与参数），TS 是 `FlowError`（带 `code` 与参数）；接入方的扩展抛的错包在 `extension-failed` 里，原样保留。
-
-## 9. 待讨论
-
-1. 第 1 节：命令管道、事务的加入方式、幂等、命令返回这次的改动。
-2. 第 2 节：操作人接口与泛型 `U`；`FormValues` 的类型化取法。
-3. 第 3 节：命令清单（有没有漏的、名字）。
-4. 第 4 节：查询清单；列表都走 query 的表格请求。
-5. 第 5 节：事件清单与两种监听。
-6. 第 6 节：扩展点与可替换的部分；`PermissionPolicy` 默认全放行、`OrgDirectory` 没有默认实现。
-7. 第 7 节：两个后端的形态与可选的 HTTP 接口。
-8. 第 8 节：错误代号。
