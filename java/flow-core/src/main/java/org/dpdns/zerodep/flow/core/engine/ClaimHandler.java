@@ -36,7 +36,7 @@ public final class ClaimHandler {
             requireActive(instance);
             claim(actor, item);
 
-            Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance).graph(), instance,
+            Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance,
                 FormValues.empty(), instance.rev());
             run.addEvent(FlowEvent.WORK_ITEM_CLAIMED, run.graph().node(item.node()), null, null, item.id(), null);
             context.stores().events().append(run.events);

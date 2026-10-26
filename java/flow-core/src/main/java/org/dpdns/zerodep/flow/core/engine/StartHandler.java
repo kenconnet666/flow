@@ -56,7 +56,7 @@ public final class StartHandler {
                 List.of(), initialVariables(model, command.variables()), RunState.INITIAL, actor.id(), actor.name(), now, null, 0);
             // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
             InstanceRecord instance = context.stores().instances().insert(draft);
-            Execution run = new Execution(context, actor, now, definition.graph(), instance, FormValues.empty(), instance.rev());
+            Execution run = new Execution(context, actor, now, definition, instance, FormValues.empty(), instance.rev());
 
             // 3. 表单：只收开始节点上能改的字段，存第一份
             ProcessNode.Start start = definition.graph().start();

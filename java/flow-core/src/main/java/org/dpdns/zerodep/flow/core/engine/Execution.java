@@ -5,6 +5,7 @@ import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
+import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
@@ -33,13 +34,16 @@ import java.util.Map;
  *                         enter(下一个节点)
  *                           ├─ 人工节点：轮次加一，解析处理人，生成待办 ──► 停下，等人处理
  *                           ├─ 排他网关：leave(网关) ──► 接着走
+ *                           ├─ 并行、包容的分叉：选出的每条线都走，记下配对的汇合要等几条
+ *                           ├─ 并行、包容的汇合：到了一条，还没等齐 ──► 这条分支停下；等齐了 ──► 接着走
  *                           └─ 结束节点：finish（取消还开着的待办）──► 停下
  *     │
  *     ▼
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>这一版走通最小链路：开始、结束、人工节点（不含会签）、排他网关。其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
+ * <p>现在有：开始、结束、人工节点（不含会签）、排他网关、并行与包容网关（结构化配对，0005 的 4.4）。
+ * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
  */
 final class Execution {
     /** 一次推进最多经过多少个节点：网关绕成圈、条件永远成立时停下来报错，而不是一直走 */
@@ -50,6 +54,7 @@ final class Execution {
     private final Actor actor;
     private final Instant now;
     private final ProcessGraph graph;
+    private final GatewayPairs pairs;
     private final int rev;
     private InstanceRecord instance;
     private FormValues form;
@@ -64,17 +69,18 @@ final class Execution {
 
     /**
      * @param actor    这次的操作人；记进流转记录
-     * @param graph    实例按的那个版本的图
+     * @param definition 实例按的那个版本（图与网关配对）
      * @param instance 实例当前的样子
      * @param form     实例当前的表单值
      * @param rev      实例锁住后的版本：这一步的流转记录都带它，同一实例的记录按它排出准确的先后
      */
-    Execution(EngineContext context, Actor actor, Instant now, ProcessGraph graph, InstanceRecord instance, FormValues form, int rev) {
+    Execution(EngineContext context, Actor actor, Instant now, LoadedDefinition definition, InstanceRecord instance, FormValues form, int rev) {
         this.context = context;
         this.assignees = new AssigneeResolver(context.stores().workItems());
         this.actor = actor;
         this.now = now;
-        this.graph = graph;
+        this.graph = definition.graph();
+        this.pairs = definition.pairs();
         this.instance = instance;
         this.form = form;
         this.rev = rev;
@@ -100,7 +106,8 @@ final class Execution {
     // ───────── 推进 ─────────
 
     /**
-     * 离开一个节点：按结果与条件选出一条线，应用线上的副作用，进入下一个节点。
+     * 离开一个节点：按结果与条件选出线（Routing.selectEdges），每条线应用副作用、进入下一个节点。
+     * 并行、包容的分叉会选出几条线：先记下配对的汇合要等几条分支，再逐条往下走。
      *
      * @param outcome 节点的处理结果；网关、开始节点传 null
      */
@@ -111,17 +118,20 @@ final class Execution {
             throw new FlowException(FlowErrorCode.DEFINITION_INVALID, "no edge leaves " + nodeId + " for outcome " + outcome,
                 List.of(ErrorDetail.node(nodeId, "no-edge-selected")));
         }
-        if (edges.size() > 1) {
-            throw new UnsupportedOperationException("leaving " + nodeId + " on several edges (parallel branches) is not supported yet");
-        }
-        ProcessEdge edge = edges.get(0);
-        addEvent(FlowEvent.NODE_LEFT, graph.node(nodeId), edge.id(), outcome, null, null);
-        if (!edge.effects().isEmpty()) {
-            Map<String, Object> changed = Routing.applyEffects(edge.effects(), instance.variables().asMap(), this::read);
-            instance = instance.withVariables(Variables.of(changed));
-        }
+        String join = pairs.joinOf(nodeId);
+        if (join != null) instance = instance.withState(instance.state().fork(join, edges.size()));
+        else if (edges.size() > 1) throw new IllegalStateException("node " + nodeId + " leaves on several edges but has no paired join");
         // 从开始节点出来的待办是"发起"来的，其余是"流转"来的（待办的 arrival）
-        enter(edge.to(), graph.start().id().equals(nodeId) ? "start" : "forward");
+        String arrival = graph.start().id().equals(nodeId) ? "start" : "forward";
+        for (ProcessEdge edge : edges) {
+            if (!ProcessInstance.ACTIVE.equals(instance.status())) return;   // 前一条分支走到了终止的结束节点
+            addEvent(FlowEvent.NODE_LEFT, graph.node(nodeId), edge.id(), outcome, null, null);
+            if (!edge.effects().isEmpty()) {
+                Map<String, Object> changed = Routing.applyEffects(edge.effects(), instance.variables().asMap(), this::read);
+                instance = instance.withVariables(Variables.of(changed));
+            }
+            enter(edge.to(), arrival);
+        }
     }
 
     /** 进入一个节点，按节点类型做它该做的事 */
@@ -131,13 +141,26 @@ final class Execution {
         addEvent(FlowEvent.NODE_ENTERED, node, null, null, null, null);
         if (node instanceof ProcessNode.Task task) {
             arriveAtTask(task, arrival);
-        } else if (node instanceof ProcessNode.Gateway && "exclusive".equals(node.type())) {
-            leave(nodeId, null);
+        } else if (node instanceof ProcessNode.Gateway) {
+            arriveAtGateway(nodeId);
         } else if (node instanceof ProcessNode.End end) {
             finish(ProcessInstance.COMPLETED, end.result(), FlowEvent.INSTANCE_FINISHED, null);
         } else {
             throw new UnsupportedOperationException("node type '" + node.type() + "' (" + nodeId + ") is not supported yet");
         }
+    }
+
+    /**
+     * 到达网关：排他网关与分叉直接往下走；汇合（配对的分叉记下了要等几条）到了一条就少等一条，等齐了才往下走，
+     * 没等齐时这条分支就停在这里。
+     */
+    private void arriveAtGateway(String nodeId) {
+        if (pairs.forkOf(nodeId) != null) {
+            boolean last = instance.state().waitingAt(nodeId) <= 1;
+            instance = instance.withState(instance.state().arrive(nodeId));
+            if (!last) return;
+        }
+        leave(nodeId, null);
     }
 
     /**

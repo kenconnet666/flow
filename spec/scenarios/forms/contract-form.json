@@ -1,0 +1,17 @@
+{
+  "key": "contract-form",
+  "name": "合同审批单",
+  "manifest": {
+    "title": {
+      "label": "合同名称",
+      "type": "text",
+      "required": true
+    },
+    "amount": {
+      "label": "合同金额",
+      "type": "decimal",
+      "scale": 2,
+      "required": true
+    }
+  }
+}

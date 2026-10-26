@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.model.Conditions;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.Due;
 import org.dpdns.zerodep.flow.model.definition.FieldAccess;
+import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.Lane;
 import org.dpdns.zerodep.flow.model.definition.MultiInstance;
 import org.dpdns.zerodep.flow.model.definition.OrgId;
@@ -50,8 +51,6 @@ public final class ProcessValidator {
     private static final Set<String> SYSTEM_NAMES = Set.of("initiator", "startedAt", "instanceId", "businessKey");
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([^{}]+)\\}");
-
-    private static final String EXIT = "\u0000exit";
 
     private final ProcessDefinition definition;
     private final ValidationContext context;
@@ -267,91 +266,9 @@ public final class ProcessValidator {
             .filter(e -> !e.isBackward() && graph.node(e.from()) != null && graph.node(e.to()) != null).toList();
     }
 
-    /** 直接支配节点（Cooper–Harvey–Kennedy 的迭代算法）；root 映射到自己，走不到的节点不在结果里 */
-    private static Map<String, String> immediateDominators(String root, Function<String, List<String>> successors,
-                                                           Function<String, List<String>> predecessors) {
-        List<String> order = new ArrayList<>();
-        Set<String> visited = new HashSet<>();
-        postOrder(root, successors, visited, order);
-        List<String> rpo = new ArrayList<>(order);
-        java.util.Collections.reverse(rpo);
-        Map<String, Integer> index = new HashMap<>();
-        for (int i = 0; i < rpo.size(); i++) index.put(rpo.get(i), i);
-        Map<String, String> idom = new HashMap<>();
-        idom.put(root, root);
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (String id : rpo) {
-                if (id.equals(root)) continue;
-                List<String> preds = predecessors.apply(id).stream().filter(idom::containsKey).toList();
-                if (preds.isEmpty()) continue;
-                String next = preds.get(0);
-                for (String p : preds.subList(1, preds.size())) next = intersect(next, p, idom, index);
-                if (!next.equals(idom.get(id))) {
-                    idom.put(id, next);
-                    changed = true;
-                }
-            }
-        }
-        return idom;
-    }
-
-    private static void postOrder(String id, Function<String, List<String>> successors, Set<String> visited, List<String> order) {
-        visited.add(id);
-        for (String next : successors.apply(id)) if (!visited.contains(next)) postOrder(next, successors, visited, order);
-        order.add(id);
-    }
-
-    private static String intersect(String a, String b, Map<String, String> idom, Map<String, Integer> index) {
-        String x = a;
-        String y = b;
-        while (!x.equals(y)) {
-            while (index.get(x) > index.get(y)) x = idom.get(x);
-            while (index.get(y) > index.get(x)) y = idom.get(y);
-        }
-        return x;
-    }
-
+    /** 并行、包容的分叉与汇合要配对（算法在 GatewayPairs，引擎推进时用同一份） */
     private void checkGateways() {
-        ProcessNode.Start start = graph.start();
-        if (start == null) return;
-        Map<String, List<String>> succ = new HashMap<>();
-        Map<String, List<String>> pred = new HashMap<>();
-        for (ProcessEdge e : forwardEdges()) {
-            succ.computeIfAbsent(e.from(), k -> new ArrayList<>()).add(e.to());
-            pred.computeIfAbsent(e.to(), k -> new ArrayList<>()).add(e.from());
-        }
-        for (ProcessNode node : definition.nodes()) {
-            if (node.type().equals("end")) {
-                succ.computeIfAbsent(node.id(), k -> new ArrayList<>()).add(EXIT);
-                pred.computeIfAbsent(EXIT, k -> new ArrayList<>()).add(node.id());
-            }
-        }
-        Function<String, List<String>> successors = id -> succ.getOrDefault(id, List.of());
-        Function<String, List<String>> predecessors = id -> pred.getOrDefault(id, List.of());
-        Map<String, String> idom = immediateDominators(start.id(), successors, predecessors);
-        Map<String, String> ipdom = immediateDominators(EXIT, predecessors, successors);
-        for (ProcessNode node : definition.nodes()) {
-            if (!node.type().equals("parallel") && !node.type().equals("inclusive")) continue;
-            if (!idom.containsKey(node.id()) || !ipdom.containsKey(node.id())) continue;
-            boolean isFork = succ.getOrDefault(node.id(), List.of()).size() > 1;
-            boolean isJoin = pred.getOrDefault(node.id(), List.of()).size() > 1;
-            if (isFork && !paired(node.id(), ipdom.get(node.id()), idom, pred)) atNode("gateway-unpaired", node.id());
-            if (isJoin) {
-                String fork = idom.get(node.id());
-                if (fork == null || !paired(fork, node.id(), idom, pred) || !node.id().equals(ipdom.get(fork))) atNode("gateway-unpaired", node.id());
-            }
-        }
-    }
-
-    /** fork 与 join 配对：同类型、join 有不止一条入边、join 的直接支配节点就是 fork */
-    private boolean paired(String fork, String join, Map<String, String> idom, Map<String, List<String>> pred) {
-        if (join == null || join.equals(EXIT)) return false;
-        ProcessNode a = graph.node(fork);
-        ProcessNode b = graph.node(join);
-        return a != null && b != null && a.type().equals(b.type())
-            && pred.getOrDefault(join, List.of()).size() > 1 && fork.equals(idom.get(join));
+        for (String id : GatewayPairs.of(definition).unpaired()) atNode("gateway-unpaired", id);
     }
 
     // ---------- 退回与提级 ----------

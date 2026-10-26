@@ -41,7 +41,7 @@ public final class WithdrawHandler {
                 throw FlowErrors.forbidden("instance", instance.id(), "withdraw-" + rule);
             }
 
-            Execution run = new Execution(context, actor, context.clock().instant(), definition.graph(), instance, FormValues.empty(), rev);
+            Execution run = new Execution(context, actor, context.clock().instant(), definition, instance, FormValues.empty(), rev);
             run.finish(ProcessInstance.WITHDRAWN, ProcessInstance.WITHDRAWN, FlowEvent.INSTANCE_WITHDRAWN, command.reason());
             run.flush(instance.title());
             return new CommandResult(run.instance().view(), run.created, run.closed, run.events);

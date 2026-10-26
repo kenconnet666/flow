@@ -1,0 +1,119 @@
+{
+  "name": "合同会审（包容网关）：法务总要审，金额大的财务也审；汇合只等实际走了的分支",
+  "forms": [
+    "forms/contract-form.json"
+  ],
+  "processes": [
+    "processes/contract-inclusive.json"
+  ],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": {
+      "id": 1001,
+      "name": "林小满"
+    },
+    "bob": {
+      "id": 1002,
+      "name": "周启航",
+      "roles": [
+        1
+      ]
+    },
+    "dave": {
+      "id": 1005,
+      "name": "韩笑",
+      "roles": [
+        3
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "small",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "contract-inclusive",
+        "form": {
+          "title": "打印机维保",
+          "amount": "8000.00"
+        }
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "legal"
+          }
+        ]
+      }
+    },
+    {
+      "as": "dave",
+      "command": "complete",
+      "args": {
+        "workItem": "$small.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        }
+      }
+    },
+    {
+      "id": "large",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "contract-inclusive",
+        "form": {
+          "title": "办公楼租赁",
+          "amount": "300000.00"
+        }
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "legal"
+          },
+          {
+            "node": "finance"
+          }
+        ]
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$large.workItems[1]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "instance": {
+          "status": "active",
+          "current": [
+            {
+              "node": "legal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as": "dave",
+      "command": "complete",
+      "args": {
+        "workItem": "$large.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "instance": {
+          "status": "completed",
+          "result": "approved"
+        }
+      }
+    }
+  ]
+}

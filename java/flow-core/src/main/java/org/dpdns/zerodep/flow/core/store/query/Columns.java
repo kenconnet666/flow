@@ -48,15 +48,22 @@ public final class Columns {
 
     /** 运行状态：{ "rounds": { 节点: 轮次 } } */
     public static final class RunStateJson implements Converter<RunState, String> {
-        @Override public String toDatabase(RunState value) { return value == null ? null : Json.write(Map.of("rounds", value.rounds())); }
+        @Override
+        public String toDatabase(RunState value) {
+            return value == null ? null : Json.write(Map.of("rounds", value.rounds(), "waiting", value.waiting()));
+        }
 
         @Override
         public RunState fromDatabase(String value) {
-            Map<String, Integer> rounds = new LinkedHashMap<>();
-            if (object(value).get("rounds") instanceof Map<?, ?> stored) {
-                stored.forEach((node, round) -> rounds.put((String) node, ((Number) round).intValue()));
-            }
-            return new RunState(rounds);
+            Map<String, Object> json = object(value);
+            return new RunState(counts(json.get("rounds")), counts(json.get("waiting")));
+        }
+
+        /** 节点 → 次数 */
+        private static Map<String, Integer> counts(Object stored) {
+            Map<String, Integer> out = new LinkedHashMap<>();
+            if (stored instanceof Map<?, ?> map) map.forEach((node, n) -> out.put((String) node, ((Number) n).intValue()));
+            return out;
         }
     }
 

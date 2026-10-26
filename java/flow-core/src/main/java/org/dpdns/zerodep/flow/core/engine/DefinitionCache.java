@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.model.definition.Definitions;
+import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.form.FormManifest;
 import org.dpdns.zerodep.wire.Json;
@@ -36,9 +37,10 @@ public final class DefinitionCache {
 
     private LoadedDefinition load(StoredDefinition stored) {
         ProcessGraph graph = ProcessGraph.of(Definitions.parse(stored.model()));
-        if (stored.formKey() == null) return new LoadedDefinition(stored, graph, null, null);
+        GatewayPairs pairs = GatewayPairs.of(graph.definition());
+        if (stored.formKey() == null) return new LoadedDefinition(stored, graph, null, null, pairs);
         StoredForm form = context.stores().forms().version(stored.formKey(), stored.formVersion())
             .orElseThrow(() -> FlowErrors.notFound("form", stored.formKey() + "@" + stored.formVersion()));
-        return new LoadedDefinition(stored, graph, form, FormManifest.parse(Json.read(form.manifest())));
+        return new LoadedDefinition(stored, graph, form, FormManifest.parse(Json.read(form.manifest())), pairs);
     }
 }

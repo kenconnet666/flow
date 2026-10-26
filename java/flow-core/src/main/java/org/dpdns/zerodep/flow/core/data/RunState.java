@@ -4,18 +4,19 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 实例的运行状态（0007 的 1 节第 5 条，存在实例的 {@code state} 列）：引擎内部用，不给前端。不可变，改了返回新的。
- * 现在只有各人工节点到过几轮（{@code sys.round.节点}）；并行的令牌、汇合计数、依次会签的名单随并行网关与会签补上。
+ * 实例的运行状态（0007 的 {@code flow_instance.state}，引擎内部用，不给前端）。不可变：推进时换出新的一份。
  *
- * @param rounds 节点 → 第几轮
+ * @param rounds  节点 → 到过几轮（{@code sys.round.节点}、待办的轮次）
+ * @param waiting 并行、包容的汇合 → 还有几条分支没到（分叉时记下走了几条，每到一条减一，减到 0 汇合才往下走）
  */
-public record RunState(Map<String, Integer> rounds) {
+public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting) {
     /** 刚发起 */
-    public static final RunState INITIAL = new RunState(Map.of());
+    public static final RunState INITIAL = new RunState(Map.of(), Map.of());
 
     /** 复制并冻结 */
     public RunState {
         rounds = rounds == null ? Map.of() : Map.copyOf(rounds);
+        waiting = waiting == null ? Map.of() : Map.copyOf(waiting);
     }
 
     /** 节点到过几轮；没到过是 0 */
@@ -25,6 +26,33 @@ public record RunState(Map<String, Integer> rounds) {
     public RunState enter(String node) {
         Map<String, Integer> next = new LinkedHashMap<>(rounds);
         next.merge(node, 1, Integer::sum);
-        return new RunState(next);
+        return new RunState(next, waiting);
+    }
+
+    /** 分叉走了 branches 条：汇合 join 要等这么多条 */
+    public RunState fork(String join, int branches) {
+        Map<String, Integer> next = new LinkedHashMap<>(waiting);
+        next.put(join, branches);
+        return new RunState(rounds, next);
+    }
+
+    /** 汇合 join 还要等几条；没有在等时是 0 */
+    public int waitingAt(String join) { return waiting.getOrDefault(join, 0); }
+
+    /** 一条分支到了汇合 join：少等一条，等齐了就不再记它 */
+    public RunState arrive(String join) {
+        Map<String, Integer> next = new LinkedHashMap<>(waiting);
+        int remaining = next.getOrDefault(join, 1) - 1;
+        if (remaining > 0) next.put(join, remaining);
+        else next.remove(join);
+        return new RunState(rounds, next);
+    }
+
+    /** 不再等汇合 join（区域里的分支都取消了：退回跳出了区域） */
+    public RunState forget(String join) {
+        if (!waiting.containsKey(join)) return this;
+        Map<String, Integer> next = new LinkedHashMap<>(waiting);
+        next.remove(join);
+        return new RunState(rounds, next);
     }
 }

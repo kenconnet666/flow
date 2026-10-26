@@ -1,0 +1,97 @@
+{
+  "key": "contract-parallel",
+  "name": "合同会审（并行）",
+  "form": {
+    "key": "contract-form"
+  },
+  "title": "合同：{form.title}",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "提交"
+    },
+    {
+      "id": "fork",
+      "type": "parallel",
+      "name": "分头会审"
+    },
+    {
+      "id": "legal",
+      "type": "task",
+      "name": "法务审核",
+      "assignees": [
+        {
+          "role": 3
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "pass",
+          "label": "通过"
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "type": "task",
+      "name": "财务审核",
+      "assignees": [
+        {
+          "role": 1
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "pass",
+          "label": "通过"
+        }
+      ]
+    },
+    {
+      "id": "join",
+      "type": "parallel",
+      "name": "会审汇合"
+    },
+    {
+      "id": "done",
+      "type": "end",
+      "name": "通过",
+      "result": "approved"
+    }
+  ],
+  "edges": [
+    {
+      "id": "submit",
+      "from": "start",
+      "to": "fork"
+    },
+    {
+      "id": "toLegal",
+      "from": "fork",
+      "to": "legal"
+    },
+    {
+      "id": "toFinance",
+      "from": "fork",
+      "to": "finance"
+    },
+    {
+      "id": "legalDone",
+      "from": "legal",
+      "to": "join",
+      "outcome": "pass"
+    },
+    {
+      "id": "financeDone",
+      "from": "finance",
+      "to": "join",
+      "outcome": "pass"
+    },
+    {
+      "id": "finish",
+      "from": "join",
+      "to": "done"
+    }
+  ]
+}

@@ -65,7 +65,7 @@ public final class CompleteHandler {
             // 4. 表单
             Instant now = context.clock().instant();
             FormValues stored = context.stores().formData().read(instance.id()).map(StoredFormData::values).orElse(FormValues.empty());
-            Execution run = new Execution(context, actor, now, definition.graph(), instance, stored, rev);
+            Execution run = new Execution(context, actor, now, definition, instance, stored, rev);
             if (definition.hasForm()) {
                 run.form(FormSubmission.merge(definition.manifest(), task.form(), false, stored, command.form(), run::read));
                 context.stores().formData().update(instance.id(), run.form());

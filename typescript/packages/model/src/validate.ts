@@ -20,6 +20,7 @@ import {
   type ProcessNode,
   type TaskNode,
 } from './definition.js';
+import { gatewayPairs } from './gateway-pairs.js';
 import { processGraph, type ProcessGraph } from './graph.js';
 import { manifestField, type FormManifest } from './manifest.js';
 
@@ -80,7 +81,7 @@ export function validateProcess(definition: ProcessDefinition, context: Validati
   checkEdges(definition, graph, report);
   for (const node of definition.nodes) checkNode(node, graph, context, report);
   checkReachability(definition, graph, report);
-  checkGateways(definition, graph, report);
+  checkGateways(definition, report);
   checkReturnsAndEscalations(definition, graph, report);
   checkReferences(definition, graph, context, report);
   checkOrgIds(definition, report);
@@ -262,80 +263,9 @@ function forwardEdges(definition: ProcessDefinition, graph: ProcessGraph): Proce
 }
 
 /** 直接支配节点（Cooper–Harvey–Kennedy 的迭代算法）；root 自己映射到自己，走不到的节点不在结果里 */
-function immediateDominators(root: string, successors: (id: string) => readonly string[], predecessors: (id: string) => readonly string[]): Map<string, string> {
-  const order: string[] = [];
-  const visited = new Set<string>();
-  const visit = (id: string): void => {
-    visited.add(id);
-    for (const next of successors(id)) if (!visited.has(next)) visit(next);
-    order.push(id);
-  };
-  visit(root);
-  const rpo = order.reverse();
-  const index = new Map(rpo.map((id, i) => [id, i]));
-  const idom = new Map<string, string>([[root, root]]);
-  const intersect = (a: string, b: string): string => {
-    let x = a;
-    let y = b;
-    while (x !== y) {
-      while (index.get(x)! > index.get(y)!) x = idom.get(x)!;
-      while (index.get(y)! > index.get(x)!) y = idom.get(y)!;
-    }
-    return x;
-  };
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const id of rpo) {
-      if (id === root) continue;
-      const preds = predecessors(id).filter((p) => idom.has(p));
-      if (preds.length === 0) continue;
-      const next = preds.slice(1).reduce(intersect, preds[0]!);
-      if (idom.get(id) !== next) {
-        idom.set(id, next);
-        changed = true;
-      }
-    }
-  }
-  return idom;
-}
-
-const EXIT = '\u0000exit';
-
-function checkGateways(definition: ProcessDefinition, graph: ProcessGraph, report: Report): void {
-  const start = graph.start;
-  if (!start) return;
-  const edges = forwardEdges(definition, graph);
-  const succ = new Map<string, string[]>();
-  const pred = new Map<string, string[]>();
-  const link = (map: Map<string, string[]>, from: string, to: string) => (map.get(from) ?? map.set(from, []).get(from)!).push(to);
-  for (const e of edges) {
-    link(succ, e.from, e.to);
-    link(pred, e.to, e.from);
-  }
-  for (const node of definition.nodes) {
-    if (node.type === 'end') {
-      link(succ, node.id, EXIT);
-      link(pred, EXIT, node.id);
-    }
-  }
-  const of = (map: Map<string, string[]>) => (id: string) => map.get(id) ?? [];
-  const idom = immediateDominators(start.id, of(succ), of(pred));
-  const ipdom = immediateDominators(EXIT, of(pred), of(succ));
-  const type = (id: string | undefined) => (id === undefined ? undefined : graph.node(id)?.type);
-  const paired = (fork: string, join: string | undefined) =>
-    join !== undefined && join !== EXIT && type(join) === type(fork) && (pred.get(join)?.length ?? 0) > 1 && idom.get(join) === fork;
-
-  for (const node of definition.nodes) {
-    if (node.type !== 'parallel' && node.type !== 'inclusive') continue;
-    if (!idom.has(node.id) || !ipdom.has(node.id)) continue;
-    const isFork = (succ.get(node.id)?.length ?? 0) > 1;
-    const isJoin = (pred.get(node.id)?.length ?? 0) > 1;
-    if (isFork && !paired(node.id, ipdom.get(node.id))) report('gateway-unpaired', { node: node.id });
-    if (isJoin) {
-      const fork = idom.get(node.id);
-      if (fork === undefined || !paired(fork, node.id) || ipdom.get(fork) !== node.id) report('gateway-unpaired', { node: node.id });
-    }
-  }
+/** 并行、包容的分叉与汇合要配对（算法在 gateway-pairs.ts，引擎推进时用同一份） */
+function checkGateways(definition: ProcessDefinition, report: Report): void {
+  for (const id of gatewayPairs(definition).unpaired) report('gateway-unpaired', { node: id });
 }
 
 // ---------- 退回与提级 ----------
