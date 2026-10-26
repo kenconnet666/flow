@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.spring.http;
 
 import org.dpdns.zerodep.flow.core.command.CommandResult;
-import org.dpdns.zerodep.flow.core.command.InstanceDetail;
+import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
@@ -46,6 +46,9 @@ final class ResponseBody {
     static Object of(FormStore.StoredForm form) {
         return Map.of("id", form.id(), "key", form.formKey(), "version", form.version());
     }
+
+    /** 查询的结果本身（发起列表、发起页、待办详情）：记录按属性名写成对象 */
+    static Object view(Object value) { return Wire.encode(value); }
 
     /** 实例详情：{@code { instance, form, workItems, timeline }} */
     static Object of(InstanceDetail detail) {

@@ -193,7 +193,10 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
   | `POST {前缀}/commands/withdraw` | `{ instanceId, reason }` | 同上 |
   | `POST {前缀}/definitions/publish?note=` | 定义的 JSON 本身 | `{ id, key, version }` |
   | `POST {前缀}/forms/publish` | `{ key, name, category, manifest, clientSource, …, note }` | `{ id, key, version }` |
+  | `GET {前缀}/queries/startable` | — | `[{ key, name, category, version }]`：我能发起的流程 |
+  | `GET {前缀}/queries/start/{key}` | — | `{ process, form }`：发起页，`form` 是开始节点上的表单（清单、前端代码、节点权限、值） |
   | `GET {前缀}/queries/todo?page=&pageSize=` | — | `{ rows, total, page, size, totalPages }` |
+  | `GET {前缀}/queries/work-items/{id}` | — | `{ workItem, instance, form, outcomes, claimable, completable }`：待办详情 |
   | `GET {前缀}/queries/instances/{id}` | — | `{ instance, form, workItems, timeline }` |
 
   请求体用 query wire 的 `Json.read` 读（小数不丢精度，不依赖应用的 Jackson 版本）；data 是 typed JSON（编号、小数、时间是文字，根上带 `$types`）。

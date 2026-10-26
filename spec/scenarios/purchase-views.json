@@ -1,0 +1,45 @@
+{
+  "name": "采购：发起列表与发起页、待办详情（节点上的表单权限、处理结果、能不能认领与处理）",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "carol": { "id": 1003, "name": "沈若水" }
+  },
+  "steps": [
+    { "as": "alice", "command": "startable",
+      "expect": { "processes": [{ "key": "purchase", "name": "采购申请", "version": 1 }] } },
+    { "as": "alice", "command": "startView", "args": { "key": "purchase" },
+      "expect": {
+        "process": { "key": "purchase", "name": "采购申请" },
+        "form": { "key": "purchase-form", "version": 1, "start": true,
+          "access": { "default": "editable", "fields": { "note": "hidden" } },
+          "manifest": { "title": { "label": "标题", "type": "text", "required": true } },
+          "values": {} }
+      } },
+    { "as": "alice", "command": "startView", "args": { "key": "nowhere" }, "expect": { "error": { "code": "flow.not-found" } } },
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00" } } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": {
+        "workItem": { "node": "review", "assignment": "pool" },
+        "instance": { "title": "采购申请：办公桌" },
+        "form": { "start": false, "access": { "default": "readonly", "fields": { "note": "editable" } },
+          "values": { "title": "办公桌", "amount": "12000.00" } },
+        "outcomes": [
+          { "key": "pass", "label": "通过", "kind": "approve", "comment": "none", "confirm": false },
+          { "key": "reject", "label": "否决", "kind": "reject", "comment": "required", "confirm": false }
+        ],
+        "claimable": true, "completable": true
+      } },
+    { "as": "carol", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "claimable": false, "completable": false } },
+    { "as": "bob", "command": "claim", "args": { "workItem": "$start.workItems[0]" } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "workItem": { "assignment": "claimed", "assigneeId": "1002" }, "claimable": false, "completable": true } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "预算内" } } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "workItem": { "state": "done", "outcome": "pass" }, "claimable": false, "completable": false } }
+  ]
+}

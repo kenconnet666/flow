@@ -23,7 +23,10 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/claim      { workItemId }
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
+ * GET  {前缀}/queries/startable
+ * GET  {前缀}/queries/start/{key}
  * GET  {前缀}/queries/todo?page=1&amp;pageSize=20
+ * GET  {前缀}/queries/work-items/{id}
  * GET  {前缀}/queries/instances/{id}
  * </pre>
  * HTTP 一律 200，成败看响应体的 {@code code}（0008）：{@code ok}，或 {@code flow.}、{@code query.} 的业务错误码；
@@ -72,6 +75,18 @@ public class FlowHttpController {
         return respond(() -> ResponseBody.of(engine.publishForm(RequestBody.parse(body).formPublication())));
     }
 
+    /** 我能发起的流程 */
+    @GetMapping("/queries/startable")
+    public ResponseEntity<String> startable() {
+        return respond(() -> ResponseBody.view(engine.startable()));
+    }
+
+    /** 发起页：流程与开始节点上的表单 */
+    @GetMapping("/queries/start/{key}")
+    public ResponseEntity<String> startView(@PathVariable("key") String key) {
+        return respond(() -> ResponseBody.view(engine.startView(key)));
+    }
+
     /** 我的待办；参数名同 vue-tsx-pro 的表格请求（page、pageSize） */
     @GetMapping("/queries/todo")
     public ResponseEntity<String> todo(@RequestParam(name = "page", defaultValue = "1") int page,
@@ -79,6 +94,13 @@ public class FlowHttpController {
         return respond(() -> ResponseBody.of(engine.todo(page, pageSize)));
     }
 
+    /** 待办详情：表单、处理结果、我能不能认领与处理 */
+    @GetMapping("/queries/work-items/{id}")
+    public ResponseEntity<String> workItem(@PathVariable("id") Long id) {
+        return respond(() -> ResponseBody.view(engine.workItem(id)));
+    }
+
+    /** 实例详情 */
     @GetMapping("/queries/instances/{id}")
     public ResponseEntity<String> instance(@PathVariable("id") Long id) {
         return respond(() -> ResponseBody.of(engine.instance(id)));

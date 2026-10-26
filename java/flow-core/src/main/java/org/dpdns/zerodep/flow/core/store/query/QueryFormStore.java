@@ -76,4 +76,9 @@ final class QueryFormStore implements FormStore {
     public Optional<StoredForm> byId(Long formVersionId) {
         return db.optional(from(FormVersion.class).where(r -> r.id().eq(formVersionId)).selectAs(StoredForm.class));
     }
+
+    @Override
+    public Optional<FormClient> client(Long formVersionId) {
+        return db.optional(from(FormVersion.class).where(r -> r.id().eq(formVersionId)).selectAs(FormClient.class));
+    }
 }

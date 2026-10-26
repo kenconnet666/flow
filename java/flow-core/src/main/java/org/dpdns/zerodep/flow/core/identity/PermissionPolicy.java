@@ -13,7 +13,7 @@ public interface PermissionPolicy<U extends Actor> {
     /**
      * 能不能做。
      *
-     * @param operation 命令或查询的名字：{@code start}、{@code claim}、{@code complete}、{@code withdraw}、{@code todo}、{@code instance}、
+     * @param operation 命令或查询的名字：{@code start}、{@code claim}、{@code complete}、{@code withdraw}、{@code startable}、{@code startView}、{@code todo}、{@code workItem}、{@code instance}、
      *                  {@code definitions.publish}、{@code forms.publish}
      * @param target    操作的对象：流程标识、待办编号或实例编号
      */

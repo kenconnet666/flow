@@ -5,7 +5,7 @@ import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
-import org.dpdns.zerodep.flow.core.command.InstanceDetail;
+import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
@@ -87,7 +87,10 @@ final class ScenarioRunner {
                 case "complete" -> commandResult(engine.complete(actor, new CompleteCommand(args.id("workItem"), args.text("outcome"),
                     args.text("comment"), FormValues.of(args.map("form")))));
                 case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.id("instance"), args.text("reason"))));
+                case "startable" -> wire(Map.of("processes", engine.startable(actor)));
+                case "startView" -> view(engine.startView(actor, args.text("key")));
                 case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("size", 20)));
+                case "workItem" -> view(engine.workItem(actor, args.id("workItem")));
                 case "instance" -> detail(engine.instance(actor, args.id("instance")));
                 case "publishDefinition" -> {
                     engine.publishDefinition(actor, Json.write(args.raw("definition")), null);
@@ -137,6 +140,14 @@ final class ScenarioRunner {
         out.put("workItems", d.workItems());
         out.put("timeline", d.timeline());
         return wire(out);
+    }
+
+    /** 查询结果本身（发起页、待办详情）：记录按属性名写成对象 */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> view(Object value) {
+        Map<String, Object> tree = new LinkedHashMap<>((Map<String, Object>) Wire.encode(value));
+        tree.remove(Wire.TYPES);
+        return tree;
     }
 
     /** 记录、时间、小数写成 JSON 树（同 HTTP 接口发给前端的），去掉根上给前端还原用的 $types */

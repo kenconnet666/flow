@@ -19,6 +19,9 @@ public interface FormStore {
     /** 按编号取一个版本 */
     Optional<StoredForm> byId(Long formVersionId);
 
+    /** 一个版本的前端部分（源码与编译结果，可能很大，只在前端要渲染表单时读） */
+    Optional<FormClient> client(Long formVersionId);
+
     /**
      * 发布一个版本要的东西（0004 的 1.1、1.5）：字段清单是 JSON 文字；前端源码与编译结果、后端源码原样存。
      *
@@ -27,6 +30,15 @@ public interface FormStore {
     record Publication(String formKey, String name, String category, String manifest, String clientSource, String clientCompiled,
                        String compilerVersion, String serverLanguage, String serverSource, String note, Long publishedBy,
                        String publishedByName, Instant at) { }
+
+    /**
+     * 一个版本的前端部分（0004 的 5.2、5.4）。
+     *
+     * @param clientSource    前端源码
+     * @param clientCompiled  编译结果
+     * @param compilerVersion 编译它的编译器版本
+     */
+    record FormClient(String clientSource, String clientCompiled, String compilerVersion) { }
 
     /** 发布的一个版本：引擎用到的是字段清单 */
     record StoredForm(Long id, String formKey, int version, String manifest) { }

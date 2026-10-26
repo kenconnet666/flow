@@ -4,7 +4,6 @@ import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
-import org.dpdns.zerodep.flow.core.command.InstanceDetail;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.engine.ClaimHandler;
@@ -30,6 +29,10 @@ import org.dpdns.zerodep.flow.core.store.Stores;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
 import org.dpdns.zerodep.flow.core.store.query.QueryStores;
+import org.dpdns.zerodep.flow.core.view.InstanceDetail;
+import org.dpdns.zerodep.flow.core.view.StartView;
+import org.dpdns.zerodep.flow.core.view.StartableProcess;
+import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.flow.model.runtime.TodoItem;
@@ -39,6 +42,7 @@ import org.dpdns.zerodep.query.exec.Page;
 
 import javax.sql.DataSource;
 import java.time.Clock;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -79,7 +83,7 @@ public final class FlowEngine<U extends Actor> {
         this.completions = new CompleteHandler(context, definitions, claims);
         this.withdrawals = new WithdrawHandler(context, definitions);
         this.publishing = new Publishing(context);
-        this.queries = new Queries(context);
+        this.queries = new Queries(context, definitions);
     }
 
     /** 开始组装：引擎在这个数据源上建自己的数据库实例（方言由连接决定；不在事务里时每条语句借一个连接） */
@@ -147,6 +151,33 @@ public final class FlowEngine<U extends Actor> {
     }
 
     // ───────── 查询 ─────────
+
+    /** 我能发起的流程（当前操作人） */
+    public List<StartableProcess> startable() { return startable(actors.current()); }
+
+    /** 我能发起的流程：启用着、发起人名单里有我，按分类、名称排 */
+    public List<StartableProcess> startable(U actor) {
+        allow(actor, "startable", null);
+        return queries.startable(actor);
+    }
+
+    /** 发起页（当前操作人） */
+    public StartView startView(String key) { return startView(actors.current(), key); }
+
+    /** 发起页：流程与开始节点上的表单 */
+    public StartView startView(U actor, String key) {
+        allow(actor, "startView", key);
+        return queries.startView(actor, key);
+    }
+
+    /** 待办详情（当前操作人） */
+    public WorkItemView workItem(Long workItemId) { return workItem(actors.current(), workItemId); }
+
+    /** 待办详情：待办与实例、这个节点上的表单、能选的处理结果、我能不能认领与处理 */
+    public WorkItemView workItem(U actor, Long workItemId) {
+        allow(actor, "workItem", String.valueOf(workItemId));
+        return queries.workItem(actor, workItemId);
+    }
 
     /** 我的待办（当前操作人） */
     public Page<TodoItem> todo(int page, int size) { return todo(actors.current(), page, size); }

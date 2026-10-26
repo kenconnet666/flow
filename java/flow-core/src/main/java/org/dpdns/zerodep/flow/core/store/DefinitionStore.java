@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.store;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -17,6 +18,9 @@ public interface DefinitionStore {
     /** 流程本身；还没发布过时为空 */
     Optional<StoredProcess> process(String processKey);
 
+    /** 全部流程，按分类、名称排（发起列表用；停用的也在，由调用方筛） */
+    List<StoredProcess> processes();
+
     /** 最新发布的版本 */
     Optional<StoredDefinition> latest(String processKey);
 
@@ -28,7 +32,7 @@ public interface DefinitionStore {
                        String note, Long publishedBy, String publishedByName, Instant at) { }
 
     /** 流程本身：启用停用与最新版本 */
-    record StoredProcess(String processKey, String name, String status, int latestVersion) {
+    record StoredProcess(String processKey, String name, String category, String status, int latestVersion) {
         /** 能发起 */
         public static final String ACTIVE = "active";
     }

@@ -1,4 +1,4 @@
-package org.dpdns.zerodep.flow.core.command;
+package org.dpdns.zerodep.flow.core.view;
 
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.model.runtime.FlowEvent;

@@ -94,33 +94,8 @@ final class Execution {
 
     // ───────── 取值：{ ref } ─────────
 
-    /**
-     * 按引用的名字取值（0005 的 {@code { ref }}）。连线条件、处理人、标题模板、字段的显示条件都经过这里取值：
-     * <pre>
-     *   form.amount        表单字段
-     *   sys.initiator      引擎给的：发起人、发起时间、实例编号、业务编号
-     *   sys.round.review   某个节点到过几轮
-     *   negotiationRound   其余是流程变量
-     * </pre>
-     */
-    Object read(String name) {
-        if (name.startsWith("form.")) return form.get(name.substring("form.".length()));
-        if (name.startsWith("sys.round.")) return instance.state().round(name.substring("sys.round.".length()));
-        if (name.startsWith("sys.")) return system(name.substring("sys.".length()));
-        if (name.startsWith("fn.")) throw new UnsupportedOperationException("computed values (" + name + ") are not supported yet");
-        return instance.variables().get(name);
-    }
-
-    /** {@code sys.} 下引擎给的只读值 */
-    private Object system(String name) {
-        return switch (name) {
-            case "initiator" -> instance.startedBy();
-            case "startedAt" -> instance.startedAt() == null ? null : instance.startedAt().toString();
-            case "instanceId" -> instance.id();
-            case "businessKey" -> instance.businessKey();
-            default -> null;
-        };
-    }
+    /** 按引用的名字取值（规则见 {@link References}）：用推进到此刻的表单与实例 */
+    Object read(String name) { return References.read(name, instance, form); }
 
     // ───────── 推进 ─────────
 

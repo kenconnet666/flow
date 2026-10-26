@@ -6,10 +6,12 @@ import org.dpdns.zerodep.flow.core.store.query.FlowTables.Process;
 import org.dpdns.zerodep.query.exec.Database;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.dpdns.zerodep.query.Sql.from;
 import static org.dpdns.zerodep.query.Sql.insertInto;
+import static org.dpdns.zerodep.query.Sql.orders;
 import static org.dpdns.zerodep.query.Sql.update;
 import static org.dpdns.zerodep.query.Sql.val;
 
@@ -56,6 +58,11 @@ final class QueryDefinitionStore implements DefinitionStore {
     @Override
     public Optional<StoredProcess> process(String processKey) {
         return db.optional(from(Process.class).where(r -> r.processKey().eq(processKey)).selectAs(StoredProcess.class));
+    }
+
+    @Override
+    public List<StoredProcess> processes() {
+        return db.list(from(Process.class).orderBy(r -> orders(r.category(), r.name())).selectAs(StoredProcess.class));
     }
 
     @Override

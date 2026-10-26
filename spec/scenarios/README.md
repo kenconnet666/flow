@@ -31,7 +31,10 @@
 | `claim` | `workItem` | 同上 |
 | `complete` | `workItem`、`outcome`、`comment`、`form` | 同上 |
 | `withdraw` | `instance`、`reason` | 同上 |
+| `startable` | — | `processes`（每项 `{ key, name, category, version }`） |
+| `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null） |
 | `todo` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary }`） |
+| `workItem` | `workItem` | `workItem`、`instance`、`form`、`outcomes`、`claimable`、`completable` |
 | `instance` | `instance` | `instance`、`form`、`workItems`（全部待办）、`timeline` |
 | `publishDefinition` | `definition`（内联的定义） | — |
 
