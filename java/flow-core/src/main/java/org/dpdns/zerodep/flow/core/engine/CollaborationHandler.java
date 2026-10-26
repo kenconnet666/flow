@@ -1,9 +1,11 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
+import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
@@ -23,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 处理之外的协作（0006 的 3.1–3.3）：转办、委派、加签与减签、退回收件箱、催办、留言。
+ * 处理之外的协作（0006 的 3.1–3.3）：转办、委派、加签与减签、退回收件箱、催办、留言、抄送与读抄送。
  * <p>动待办的命令（转办、委派、加签、减签、退回收件箱）同处理一样：锁住实例，重读待办，只有它的处理人能做
  * （还在收件箱里时候选人先认领），节点上 {@code allow} 关掉的动作不能做；最后重算正在处理的节点、写流转记录。
  * <p>委派、加签生成的待办挂在原来的待办下面（{@code parentItemId}、{@code addMode}），它们办完之后怎样回到原来的待办
@@ -165,6 +167,25 @@ public final class CollaborationHandler {
             context.stores().events().append(run.events);
             return run.result();
         });
+    }
+
+    /** 抄送（知会）：每人一条抄送、记一条流转记录；实例结束后也能抄送。不改实例，所以不锁 */
+    public CommandResult cc(Actor actor, CcCommand command) {
+        if (command.users().isEmpty()) throw FlowErrors.invalid("users", "required");
+        return context.db().transaction(() -> {
+            InstanceRecord instance = context.stores().instances().find(command.instanceId())
+                .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
+            Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
+                instance.rev());
+            run.copyTo(null, command.users(), command.message());
+            context.stores().events().append(run.events);
+            return run.result();
+        });
+    }
+
+    /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
+    public int readCc(Actor actor, ReadCcCommand command) {
+        return context.stores().ccs().markRead(command.instanceId(), actor.id(), context.clock().instant());
     }
 
     // ───────── 共用的步骤 ─────────

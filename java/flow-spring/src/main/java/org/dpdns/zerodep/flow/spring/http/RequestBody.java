@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.spring.http;
 
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
@@ -8,6 +9,7 @@ import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
+import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
@@ -104,6 +106,12 @@ final class RequestBody {
 
     /** {@code { workItemId, userId, reason }} */
     ReassignCommand reassign() { return new ReassignCommand(id("workItemId"), id("userId"), text("reason")); }
+
+    /** {@code { instanceId, users, message }} */
+    CcCommand cc() { return new CcCommand(id("instanceId"), ids("users"), text("message")); }
+
+    /** {@code { instanceId }} */
+    ReadCcCommand readCc() { return new ReadCcCommand(id("instanceId")); }
 
     /** {@code { key, name, category, manifest, clientSource, clientCompiled, compilerVersion, serverLanguage, serverSource, note }}；manifest 是对象 */
     FormPublication formPublication() {

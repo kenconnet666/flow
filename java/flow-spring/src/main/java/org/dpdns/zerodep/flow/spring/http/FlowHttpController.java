@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -23,11 +24,11 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/claim      { workItemId }
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
- * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment
+ * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc
  * POST {前缀}/admin/terminate、suspend、resume、jump、reassign
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
- * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started
+ * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started、cc
  * GET  {前缀}/queries/work-items/{id}
  * GET  {前缀}/queries/instances/{id}
  * </pre>
@@ -163,6 +164,25 @@ public class FlowHttpController {
     public ResponseEntity<String> done(@RequestParam(name = "page", defaultValue = "1") int page,
                                        @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
         return respond(() -> ResponseBody.of(engine.done(page, pageSize)));
+    }
+
+    /** 抄送我的 */
+    @GetMapping("/queries/cc")
+    public ResponseEntity<String> ccList(@RequestParam(name = "page", defaultValue = "1") int page,
+                                         @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.page(engine.ccList(page, pageSize)));
+    }
+
+    /** 抄送：{@code { instanceId, users, message }} */
+    @PostMapping("/commands/cc")
+    public ResponseEntity<String> cc(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.cc(RequestBody.parse(body).cc())));
+    }
+
+    /** 读了抄送：{@code { instanceId }}，返回 {@code { read: 标了几条 }} */
+    @PostMapping("/commands/read-cc")
+    public ResponseEntity<String> readCc(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.view(Map.of("read", engine.readCc(RequestBody.parse(body).readCc()))));
     }
 
     /** 我发起的 */

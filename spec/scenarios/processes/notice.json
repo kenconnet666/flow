@@ -1,0 +1,17 @@
+{
+  "key": "notice",
+  "name": "发文审批",
+  "title": "发文审批",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "拟稿" },
+    { "id": "approve", "type": "task", "name": "签发", "assignees": [{ "user": 1004 }],
+      "outcomes": [{ "key": "sign", "label": "签发" }] },
+    { "id": "notify", "type": "cc", "name": "分发", "to": [{ "initiator": true }, { "role": 3 }], "message": "已签发" },
+    { "id": "done", "type": "end", "name": "结束", "result": "signed" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "approve" },
+    { "id": "signed", "from": "approve", "to": "notify", "outcome": "sign" },
+    { "id": "sent", "from": "notify", "to": "done" }
+  ]
+}

@@ -131,6 +131,7 @@
 
 | ③e（已完成，2026-10-27，Java 先做） | 引擎能力：并行与包容网关（结构化配对）、退回 / 提级 / 重新提交后直接回去、会签（全部、依次、或签、比例、票数，一票否决与兜底）、协作（转办、委派、加签减签、退回收件箱、催办、留言）、管理员（终止、暂停恢复、跳转、改派）；查询我已办、我发起的，实例详情的表单按流程级 `formView` 只读给出、带"能不能撤回 / 催办"；待办详情带"能转办 / 委派 / 加签 / 退回收件箱"。前端 flow-ui 补了这些的客户端方法、协作按钮与对话框、我已办与我发起的列表、流程详情 | 场景见 `spec/scenarios`（contract-*、countersign、purchase-collaboration、purchase-views 等） |
 | ③f（已完成，2026-10-27） | 定时与作业：`flow_job`（V2 脚本）、`JobStore`、`JobRunner`（普通读加带条件的更新抢占，跨租户、做每个作业时切到它的租户）、内置作业 timer / overdue / remind / unclaimed、`JobHandler` 注册新种类、`WorkCalendar`（默认周一到周五）；定时节点；待办的截止时间。Spring 默认每 10 秒做一次到期的作业（`flow.jobs.*`、`flow.calendar.zone`）；场景用 `runJobs` 拨时钟 | 场景 timer-and-overdue、overdue-mark-reminders；示例里发布一个一分钟的定时流程在浏览器里看过超时与自动提醒 |
+| ③g（已完成，2026-10-27） | 抄送：`flow_cc`（V3 脚本）、`CcStore`；抄送节点（`to` 的来源展开成人，角色、部门要接入方实现 `OrgDirectory.members`）、命令 `cc`（知会）与 `readCc`、查询"抄送我的"（未读在前）；前端 `FlowCcList`、流程详情上的"抄送" | 场景 cc |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 
@@ -152,4 +153,4 @@
 12. **作业**：工作日默认周一到周五、按 UTC 的日期（Spring 用 `flow.calendar.zone` 改时区，节假日要接入方实现 `WorkCalendar`，`flow_calendar` 表还没建）；`until` 只写日期时算那天结束；待办办完了不去删它的作业，作业到点看到待办不再打开就跳过（实例结束时才统一删）；实例暂停时作业往后推一小时；失败重试 3 次，间隔 1、4、9 分钟；超时默认只记一条"超时"（`mark`）。
 13. **转办、委派、加签的待办沿用原来那一份的截止时间**，不重新计时。
 
-下面是还没做的、按优先级：抄送节点与抄送查询 → 服务节点（同步、异步）、子流程、接收与信号 → 无人认领转负责人指定的"待指定"列表与指定命令（现在只标 needs_designation 并记一条流转记录）→ 处理人来源的 resolver / group / pick、`emptyAssignee: admin` → 幂等（`flow_request`）、监听与拦截器 → ④ TS 引擎。
+下面是还没做的、按优先级：服务节点（同步、异步）、子流程、接收与信号 → 无人认领转负责人指定的"待指定"列表与指定命令（现在只标 needs_designation 并记一条流转记录）→ 处理人来源的 resolver / group / pick、`emptyAssignee: admin` → 幂等（`flow_request`）、监听与拦截器 → ④ TS 引擎。

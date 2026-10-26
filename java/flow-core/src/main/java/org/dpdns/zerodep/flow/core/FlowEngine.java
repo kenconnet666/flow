@@ -5,6 +5,7 @@ import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
+import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
@@ -12,6 +13,7 @@ import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
+import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
@@ -37,6 +39,7 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.store.CcStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
 import org.dpdns.zerodep.flow.core.store.EventStore;
@@ -55,6 +58,7 @@ import org.dpdns.zerodep.flow.core.view.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
+import org.dpdns.zerodep.flow.model.runtime.CcItem;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.TodoItem;
 import org.dpdns.zerodep.query.exec.ConnectionProvider;
@@ -247,6 +251,24 @@ public final class FlowEngine<U extends Actor> {
         return collaboration.comment(actor, command);
     }
 
+    /** 抄送（当前操作人） */
+    public CommandResult cc(CcCommand command) { return cc(actors.current(), command); }
+
+    /** 抄送（知会）：每人一条抄送，记进流转记录 */
+    public CommandResult cc(U actor, CcCommand command) {
+        allow(actor, "cc", String.valueOf(command.instanceId()));
+        return collaboration.cc(actor, command);
+    }
+
+    /** 读了抄送（当前操作人） */
+    public int readCc(ReadCcCommand command) { return readCc(actors.current(), command); }
+
+    /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
+    public int readCc(U actor, ReadCcCommand command) {
+        allow(actor, "readCc", String.valueOf(command.instanceId()));
+        return collaboration.readCc(actor, command);
+    }
+
     /** 终止（管理员）（当前操作人） */
     public CommandResult terminate(TerminateCommand command) { return terminate(actors.current(), command); }
 
@@ -347,6 +369,15 @@ public final class FlowEngine<U extends Actor> {
         return queries.done(actor, page, size);
     }
 
+    /** 抄送我的（当前操作人） */
+    public Page<CcItem> ccList(int page, int size) { return ccList(actors.current(), page, size); }
+
+    /** 抄送我的：未读在前 */
+    public Page<CcItem> ccList(U actor, int page, int size) {
+        allow(actor, "cc.list", String.valueOf(actor.id()));
+        return queries.ccList(actor, page, size);
+    }
+
     /** 我发起的（当前操作人） */
     public Page<ProcessInstance> started(int page, int size) { return started(actors.current(), page, size); }
 
@@ -391,6 +422,7 @@ public final class FlowEngine<U extends Actor> {
         private WorkItemStore workItemStore;
         private EventStore eventStore;
         private JobStore jobStore;
+        private CcStore ccStore;
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
 
@@ -429,6 +461,9 @@ public final class FlowEngine<U extends Actor> {
         /** 换掉流转记录的存储 */
         public Builder<U> eventStore(EventStore store) { this.eventStore = store; return this; }
 
+        /** 换掉抄送的存储 */
+        public Builder<U> ccStore(CcStore store) { this.ccStore = store; return this; }
+
         /** 换掉作业的存储 */
         public Builder<U> jobStore(JobStore store) { this.jobStore = store; return this; }
 
@@ -451,7 +486,8 @@ public final class FlowEngine<U extends Actor> {
                 instanceStore != null ? instanceStore : defaults.instances(),
                 workItemStore != null ? workItemStore : defaults.workItems(),
                 eventStore != null ? eventStore : defaults.events(),
-                jobStore != null ? jobStore : defaults.jobs());
+                jobStore != null ? jobStore : defaults.jobs(),
+                ccStore != null ? ccStore : defaults.ccs());
             return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar), actors, permissions, List.copyOf(jobHandlers));
         }
     }

@@ -133,3 +133,30 @@ export interface TodoItem {
   /** 处理结果的名字；还没处理时为 null */
   readonly outcomeLabel: string | null;
 }
+
+/** 一条抄送：抄送节点或处理人手动抄送给一个人 */
+export interface Cc {
+  readonly id: Id;
+  readonly instanceId: Id;
+  /** 抄送节点；手动抄送时是抄送人当时所在的节点，可以为 null */
+  readonly node: string | null;
+  readonly nodeName: string | null;
+  readonly recipientId: Id;
+  readonly recipientName: string | null;
+  /** 谁抄送的；抄送节点时为 null */
+  readonly fromUserId: Id | null;
+  readonly fromUserName: string | null;
+  /** 附言 */
+  readonly message: string | null;
+  readonly createdAt: string;
+  /** 读的时间；没读时为 null */
+  readonly readAt: string | null;
+}
+
+/** "抄送我的"的一行：抄送加实例的标题、摘要列与状态 */
+export interface CcItem {
+  readonly cc: Cc;
+  readonly title: string | null;
+  readonly summary: Readonly<Record<string, unknown>>;
+  readonly status: string | null;
+}

@@ -26,7 +26,7 @@ public class SpringTestApp {
 
     @Bean
     OrgDirectory orgDirectory() {
-        return new TestOrg(Map.of(1001L, "林小满", 1002L, "周启航", 1004L, "总经理"));
+        return new TestOrg(USERS.values());
     }
 
     @Bean

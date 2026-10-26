@@ -63,6 +63,8 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String WORK_ITEM_OVERDUE = "workItem.overdue";
     /** 进了收件箱很久没人认领，转收件箱的负责人指定（unclaimed 的 assignByManager） */
     public static final String WORK_ITEM_UNCLAIMED = "workItem.unclaimed";
+    /** 抄送（抄送节点或手动抄送）：data 里是收到的人 users 与名字 userNames，comment 是附言；手动抄送的操作人是抄送人 */
+    public static final String INSTANCE_CC = "instance.cc";
     /** 留言 */
     public static final String INSTANCE_COMMENTED = "instance.commented";
     /** 暂停 */

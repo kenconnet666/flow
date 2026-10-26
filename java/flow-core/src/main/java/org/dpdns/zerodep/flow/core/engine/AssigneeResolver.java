@@ -50,12 +50,21 @@ final class AssigneeResolver {
      * 同一个人只算一次（先出现的为准），保持先后。
      */
     List<Participant> participants(ProcessNode.Task task, InstanceRecord instance, Function<String, Object> read) {
-        Map<Long, Participant> out = new LinkedHashMap<>();
         if (task.multi().participants() instanceof Ref ref) {
+            Map<Long, Participant> out = new LinkedHashMap<>();
             for (Long id : OrgIds.all(read.apply(ref.ref()))) out.putIfAbsent(id, new Participant(id, 1));
             return List.copyOf(out.values());
         }
-        for (AssigneeSource source : task.multi().participantSources()) {
+        return people(task.multi().participantSources(), instance, read);
+    }
+
+    /**
+     * 几个来源下的人：指定的人、角色与部门下的人（{@link OrgDirectory#members} 展开）、发起人、某节点的处理人；
+     * 同一个人只算一次（先出现的为准），保持先后。会签的参与人、抄送节点的收件人都按它展开。
+     */
+    List<Participant> people(List<AssigneeSource> sources, InstanceRecord instance, Function<String, Object> read) {
+        Map<Long, Participant> out = new LinkedHashMap<>();
+        for (AssigneeSource source : sources) {
             if (source instanceof AssigneeSource.User user) {
                 int weight = user.weight() == null ? 1 : user.weight();
                 for (Long id : OrgIds.all(valueOf(user.user(), read))) out.putIfAbsent(id, new Participant(id, weight));
@@ -68,7 +77,7 @@ final class AssigneeResolver {
             } else if (source instanceof AssigneeSource.SameAs same) {
                 workItems.lastCompletedBy(instance.id(), same.node()).ifPresent(id -> out.putIfAbsent(id, new Participant(id, 1)));
             } else {
-                throw new UnsupportedOperationException("countersign participant source " + source.getClass().getSimpleName() + " is not supported yet");
+                throw new UnsupportedOperationException("assignee source " + source.getClass().getSimpleName() + " cannot be expanded into people yet");
             }
         }
         return List.copyOf(out.values());

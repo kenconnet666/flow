@@ -43,6 +43,9 @@
 | `release` | `workItem`、`reason` | 同 `start` |
 | `remind` | `instance`、`workItem`（不写时催实例上全部打开着的）、`message` | 同 `start` |
 | `comment` | `instance`、`text` | 同 `start` |
+| `cc` | `instance`、`users`、`message` | 同 `start` |
+| `readCc` | `instance` | `read`（标了几条） |
+| `ccList` | `page`、`size` | `total`、`rows`（每行 `{ cc, title, summary, status }`） |
 | `terminate`、`suspend` | `instance`、`reason` | 同 `start` |
 | `resume` | `instance` | 同 `start` |
 | `jump` | `instance`、`node`、`reason` | 同 `start` |

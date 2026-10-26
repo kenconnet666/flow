@@ -2,11 +2,13 @@ package org.dpdns.zerodep.flow.it.scenario;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
+import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
@@ -62,10 +64,8 @@ final class ScenarioRunner {
         this.scenario = scenario;
         LiveMysql.recreateTables();
         this.clock = new MovableClock(scenario.clock());
-        Map<Long, String> names = new HashMap<>();
-        scenario.actors().values().forEach(user -> names.put(user.id(), user.name()));
         this.engine = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
-            .orgDirectory(new TestOrg(names))
+            .orgDirectory(new TestOrg(scenario.actors().values()))
             .clock(clock)
             .build();
     }
@@ -120,6 +120,9 @@ final class ScenarioRunner {
                 case "release" -> commandResult(engine.release(actor, new ReleaseCommand(args.id("workItem"), args.text("reason"))));
                 case "remind" -> commandResult(engine.remind(actor, new RemindCommand(args.id("instance"), args.id("workItem"), args.text("message"))));
                 case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"))));
+                case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
+                case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));
+                case "ccList" -> page(engine.ccList(actor, args.number("page", 1), args.number("size", 20)));
                 case "terminate" -> commandResult(engine.terminate(actor, new TerminateCommand(args.id("instance"), args.text("reason"))));
                 case "suspend" -> commandResult(engine.suspend(actor, new SuspendCommand(args.id("instance"), args.text("reason"))));
                 case "resume" -> commandResult(engine.resume(actor, new ResumeCommand(args.id("instance"))));

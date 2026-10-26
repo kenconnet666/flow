@@ -21,6 +21,8 @@ import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.form.FormAccess;
 import org.dpdns.zerodep.flow.model.form.FormAccess.FieldState;
+import org.dpdns.zerodep.flow.model.runtime.Cc;
+import org.dpdns.zerodep.flow.model.runtime.CcItem;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.TodoItem;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
@@ -84,15 +86,18 @@ public final class Queries {
 
     /** 待办列表的每一行带上实例的标题、摘要列与状态（0006 第 4 节"待办的业务摘要列"），处理过的再带上结果的名字 */
     private Page<TodoItem> withInstances(Page<WorkItem> items) {
-        Set<Long> instanceIds = items.rows().stream().map(WorkItem::instanceId).collect(Collectors.toSet());
-        Map<Long, InstanceRecord> instances = context.stores().instances().findAll(instanceIds).stream()
-            .collect(Collectors.toMap(InstanceRecord::id, Function.identity()));
+        Map<Long, InstanceRecord> instances = instancesOf(items.rows().stream().map(WorkItem::instanceId).collect(Collectors.toSet()));
         List<TodoItem> rows = items.rows().stream().map(item -> {
             InstanceRecord instance = instances.get(item.instanceId());
             if (instance == null) return new TodoItem(item, null, Map.of(), null, null);
             return new TodoItem(item, instance.title(), instance.summary(), instance.status(), outcomeLabel(instance, item));
         }).toList();
         return new Page<>(rows, items.total(), items.page(), items.size());
+    }
+
+    /** 一批实例，按编号 */
+    private Map<Long, InstanceRecord> instancesOf(Set<Long> ids) {
+        return context.stores().instances().findAll(ids).stream().collect(Collectors.toMap(InstanceRecord::id, Function.identity()));
     }
 
     /** 处理结果的名字：按实例的定义版本找节点上的 outcome；还没处理、隐式的结果（加签办完）时为 null */
@@ -105,6 +110,17 @@ public final class Queries {
     /** 我处理过的：按处理时间从新到旧，每行带实例的标题与摘要列（同收件箱的行） */
     public Page<TodoItem> done(Actor actor, int page, int size) {
         return withInstances(context.stores().workItems().done(actor.id(), page, size));
+    }
+
+    /** 抄送我的：未读在前，每行带实例的标题、摘要列与状态 */
+    public Page<CcItem> ccList(Actor actor, int page, int size) {
+        Page<Cc> ccs = context.stores().ccs().received(actor.id(), page, size);
+        Map<Long, InstanceRecord> instances = instancesOf(ccs.rows().stream().map(Cc::instanceId).collect(Collectors.toSet()));
+        List<CcItem> rows = ccs.rows().stream().map(cc -> {
+            InstanceRecord instance = instances.get(cc.instanceId());
+            return instance == null ? new CcItem(cc, null, Map.of(), null) : new CcItem(cc, instance.title(), instance.summary(), instance.status());
+        }).toList();
+        return new Page<>(rows, ccs.total(), ccs.page(), ccs.size());
     }
 
     /** 我发起的：按发起时间从新到旧 */

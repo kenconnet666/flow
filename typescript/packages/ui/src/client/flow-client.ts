@@ -8,11 +8,12 @@
  *
  * 不给时组件取 `createFlowClient(useHttp())`：用组件库配置里的请求客户端，前缀 /flow。
  */
-import type { Id, ProcessInstance, TodoItem } from '@zerodep-dev/flow-model';
+import type { CcItem, Id, ProcessInstance, TodoItem } from '@zerodep-dev/flow-model';
 import { useHttp, type HttpClient, type TablePage } from '@zerodep-dev/vue-tsx-pro-ui';
 import { inject, provide, type InjectionKey } from 'vue';
 import type {
   AddSignersCommand,
+  CcCommand,
   CommandResult,
   CommentCommand,
   CompleteCommand,
@@ -57,6 +58,8 @@ export interface FlowClient {
   done(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 我发起的：按发起时间从新到旧 */
   started(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
+  /** 抄送我的：未读在前 */
+  ccList(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<CcItem>>;
   /** 待办详情 */
   workItem(id: Id, signal?: AbortSignal): Promise<WorkItemView>;
   /** 实例详情 */
@@ -83,6 +86,10 @@ export interface FlowClient {
   remind(command: RemindCommand): Promise<CommandResult>;
   /** 留言 */
   comment(command: CommentCommand): Promise<CommandResult>;
+  /** 抄送（知会） */
+  cc(command: CcCommand): Promise<CommandResult>;
+  /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
+  readCc(instanceId: Id): Promise<{ readonly read: number }>;
   /** 终止（管理员） */
   terminate(command: InstanceCommand): Promise<CommandResult>;
   /** 暂停（管理员） */
@@ -112,6 +119,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     todo: ({ page, pageSize }, signal) => get('/queries/todo', signal, { page, pageSize }),
     done: ({ page, pageSize }, signal) => get('/queries/done', signal, { page, pageSize }),
     started: ({ page, pageSize }, signal) => get('/queries/started', signal, { page, pageSize }),
+    ccList: ({ page, pageSize }, signal) => get('/queries/cc', signal, { page, pageSize }),
     workItem: (id, signal) => get(`/queries/work-items/${id}`, signal),
     instance: (id, signal) => get(`/queries/instances/${id}`, signal),
     start: (command) => post('/commands/start', command),
@@ -125,6 +133,8 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     release: (command) => post('/commands/release', command),
     remind: (command) => post('/commands/remind', command),
     comment: (command) => post('/commands/comment', command),
+    cc: (command) => post('/commands/cc', command),
+    readCc: (instanceId) => post('/commands/read-cc', { instanceId }),
     terminate: (command) => post('/admin/terminate', command),
     suspend: (command) => post('/admin/suspend', command),
     resume: (instanceId) => post('/admin/resume', { instanceId }),

@@ -63,9 +63,21 @@ export interface FlowMessages {
   readonly addRow: (list: string) => string;
   /** 明细表：删掉第几行 */
   readonly removeRow: (row: number) => string;
-  /** 我已办、我发起的列表的标题 */
+  /** 我已办、我发起的、抄送我的列表的标题 */
   readonly doneList: string;
   readonly startedList: string;
+  readonly ccList: string;
+  /** 抄送我的：抄送人（抄送节点时是节点名）、附言、抄送时间、未读 */
+  readonly columnCcFrom: string;
+  readonly columnMessage: string;
+  readonly columnCcAt: string;
+  readonly unread: string;
+  /** 抄送的按钮与对话框 */
+  readonly cc: string;
+  readonly pickCcUsers: string;
+  readonly ccMessage: string;
+  /** 抄送之后的提示 */
+  readonly ccDone: (count: number) => string;
   /** 列表的列：截止时间、处理结果、处理时间、状态、当前环节 */
   readonly columnDue: string;
   readonly columnOutcome: string;
@@ -166,6 +178,7 @@ const zhEvents: Record<string, string> = {
   'workItem.overdue': '超时',
   'workItem.unclaimed': '无人认领',
   'instance.commented': '留言',
+  'instance.cc': '抄送',
   'instance.suspended': '暂停',
   'instance.resumed': '恢复',
   'instance.jumped': '跳转到',
@@ -191,6 +204,7 @@ const enEvents: Record<string, string> = {
   'workItem.overdue': 'Overdue at',
   'workItem.unclaimed': 'Unclaimed at',
   'instance.commented': 'Commented',
+  'instance.cc': 'Copied',
   'instance.suspended': 'Suspended',
   'instance.resumed': 'Resumed',
   'instance.jumped': 'Jumped to',
@@ -246,6 +260,15 @@ export const flowMessages: MessageTable<FlowMessages> = {
     removeRow: (row) => `删除第 ${row} 行`,
     doneList: '我已办',
     startedList: '我发起的',
+    ccList: '抄送我的',
+    columnCcFrom: '抄送人',
+    columnMessage: '附言',
+    columnCcAt: '抄送时间',
+    unread: '未读',
+    cc: '抄送',
+    pickCcUsers: '抄送给谁',
+    ccMessage: '附言',
+    ccDone: (count) => `已抄送给 ${count} 人`,
     columnDue: '截止',
     columnOutcome: '处理结果',
     columnCompletedAt: '处理时间',
@@ -283,6 +306,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
       }
       if (type === 'workItem.reminded' && data['auto']) return zhReminders[text(data['reason']) ?? ''] ?? '自动提醒';
       if (type === 'workItem.unclaimed') return '转收件箱的负责人指定';
+      if (type === 'instance.cc') return `抄送给 ${names(data['userNames']).join('、')}`;
       const to = text(data['toUserName']);
       return to ? `交给 ${to}` : null;
     },
@@ -323,6 +347,15 @@ export const flowMessages: MessageTable<FlowMessages> = {
     removeRow: (row) => `Remove row ${row}`,
     doneList: 'Done by me',
     startedList: 'Started by me',
+    ccList: 'Copied to me',
+    columnCcFrom: 'From',
+    columnMessage: 'Message',
+    columnCcAt: 'Copied at',
+    unread: 'Unread',
+    cc: 'Copy to',
+    pickCcUsers: 'People to copy',
+    ccMessage: 'Message',
+    ccDone: (count) => `Copied to ${count} people`,
     columnDue: 'Due',
     columnOutcome: 'Outcome',
     columnCompletedAt: 'Completed',
@@ -360,6 +393,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
       }
       if (type === 'workItem.reminded' && data['auto']) return enReminders[text(data['reason']) ?? ''] ?? 'Automatic reminder';
       if (type === 'workItem.unclaimed') return 'Handed to the inbox manager';
+      if (type === 'instance.cc') return `To ${names(data['userNames']).join(', ')}`;
       const to = text(data['toUserName']);
       return to ? `To ${to}` : null;
     },

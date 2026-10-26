@@ -7,6 +7,7 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.store.CcStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.EventStore;
 import org.dpdns.zerodep.flow.core.store.FormDataStore;
@@ -39,7 +40,7 @@ import java.time.ZoneId;
  *   <li>当前操作人：用了 Spring Security 且登录后的 principal 实现了 {@link Actor} 时自动取；否则声明一个 {@link ActorProvider} Bean；</li>
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
- * 其余扩展点（权限、时钟、工作日历、七个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
+ * 其余扩展点（权限、时钟、工作日历、八个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
  * 声明的 {@link JobHandler} Bean 注册成作业的处理。到期的作业默认由 {@link FlowJobPoller} 定时做（{@code flow.jobs.*}）。
  * 引擎注入成 {@code FlowEngine<自己的用户类型>} 即可。
  */
@@ -66,7 +67,7 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<DefinitionStore> definitionStore, ObjectProvider<FormStore> formStore,
                                  ObjectProvider<FormDataStore> formDataStore, ObjectProvider<InstanceStore> instanceStore,
                                  ObjectProvider<WorkItemStore> workItemStore, ObjectProvider<EventStore> eventStore,
-                                 ObjectProvider<JobStore> jobStore, ObjectProvider<WorkCalendar> calendar,
+                                 ObjectProvider<JobStore> jobStore, ObjectProvider<CcStore> ccStore, ObjectProvider<WorkCalendar> calendar,
                                  ObjectProvider<JobHandler> jobHandlers) {
         migration.ifAvailable(m -> { });
         OrgDirectory directory = org.getIfAvailable();
@@ -88,6 +89,7 @@ public class FlowAutoConfiguration {
         workItemStore.ifAvailable(builder::workItemStore);
         eventStore.ifAvailable(builder::eventStore);
         jobStore.ifAvailable(builder::jobStore);
+        ccStore.ifAvailable(builder::ccStore);
         builder.workCalendar(calendar.getIfAvailable(() -> WorkCalendar.weekdays(ZoneId.of(properties.getCalendar().getZone()))));
         jobHandlers.orderedStream().forEach(builder::jobHandler);
         return builder.build();

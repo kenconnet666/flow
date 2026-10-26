@@ -181,6 +181,13 @@ export interface RemindCommand {
   readonly message?: string;
 }
 
+/** 抄送（知会） */
+export interface CcCommand {
+  readonly instanceId: Id;
+  readonly users: readonly Id[];
+  readonly message?: string;
+}
+
 /** 留言 */
 export interface CommentCommand {
   readonly instanceId: Id;

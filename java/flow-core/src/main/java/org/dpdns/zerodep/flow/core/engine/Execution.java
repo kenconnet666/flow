@@ -6,6 +6,7 @@ import org.dpdns.zerodep.flow.core.data.JsonNumbers;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.store.CcStore.NewCc;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.JobStore.NewJob;
@@ -40,6 +41,7 @@ import java.util.Map;
  *                         enter(下一个节点)
  *                           ├─ 人工节点：轮次加一，解析处理人，生成待办（有时限的排上超时、提醒的作业）──► 停下，等人处理
  *                           ├─ 定时节点：记下到什么时候，排一个作业 ──► 停下，到时候作业让它往下走（BuiltinJobs）
+ *                           ├─ 抄送节点：抄送给写的人 ──► 接着走
  *                           ├─ 排他网关：leave(网关) ──► 接着走
  *                           ├─ 并行、包容的分叉：选出的每条线都走，记下配对的汇合要等几条
  *                           ├─ 并行、包容的汇合：到了一条，还没等齐 ──► 这条分支停下；等齐了 ──► 接着走
@@ -51,7 +53,7 @@ import java.util.Map;
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、排他网关、
+ * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、抄送节点、排他网关、
  * 并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
@@ -213,6 +215,8 @@ final class Execution {
             arriveAtGateway(nodeId);
         } else if (node instanceof ProcessNode.Timer timer) {
             arriveAtTimer(timer);
+        } else if (node instanceof ProcessNode.Cc cc) {
+            arriveAtCc(cc);
         } else if (node instanceof ProcessNode.End end) {
             finish(ProcessInstance.COMPLETED, end.result(), FlowEvent.INSTANCE_FINISHED, null);
         } else {
@@ -253,6 +257,33 @@ final class Execution {
     void timerFired(String nodeId) {
         instance = instance.withState(instance.state().timerDone(nodeId));
         leave(nodeId, null);
+    }
+
+    /** 到达抄送节点：抄送给节点上写的人（角色、部门展开成人），不停，接着往下走 */
+    private void arriveAtCc(ProcessNode.Cc cc) {
+        List<Long> users = assignees.people(cc.to(), instance, this::read).stream().map(AssigneeResolver.Participant::user).toList();
+        copyTo(cc, users, cc.message());
+        leave(cc.id(), null);
+    }
+
+    /**
+     * 抄送给这些人（同一个人只一条）：每人一条抄送（"抄送我的"里看到），记一条流转记录。
+     *
+     * @param node 抄送节点；手动抄送时为 null（抄送人记在抄送上）
+     */
+    void copyTo(ProcessNode.Cc node, List<Long> users, String message) {
+        List<Long> recipients = users.stream().distinct().toList();
+        if (recipients.isEmpty()) return;
+        Long fromId = node == null ? actor.id() : null;
+        String fromName = node == null ? actor.name() : null;
+        List<String> names = recipients.stream().map(context.org()::userName).toList();
+        List<NewCc> rows = new ArrayList<>();
+        for (int i = 0; i < recipients.size(); i++) {
+            rows.add(new NewCc(instance.id(), node == null ? null : node.id(), node == null ? null : node.name(), recipients.get(i),
+                names.get(i), fromId, fromName, message, now));
+        }
+        context.stores().ccs().insert(rows);
+        addEvent(FlowEvent.INSTANCE_CC, node, null, null, null, message, Map.of("users", recipients, "userNames", names));
     }
 
     /**

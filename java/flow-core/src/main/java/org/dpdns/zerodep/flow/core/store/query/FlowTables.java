@@ -202,6 +202,22 @@ final class FlowTables {
         @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
     }
 
+    /** 抄送：读出来就是模型包的 Cc */
+    @Table("flow_cc")
+    interface Cc extends Tenanted {
+        @Id @Generated @Column("id") ColBigint<Long> id();
+        @Column("instance_id") ColBigint<Long> instanceId();
+        @Column("node") ColText<String> node();
+        @Column("node_name") ColText<String> nodeName();
+        @Column("recipient_id") ColBigint<Long> recipientId();
+        @Column("recipient_name") ColText<String> recipientName();
+        @Column("from_user_id") ColBigint<Long> fromUserId();
+        @Column("from_user_name") ColText<String> fromUserName();
+        @Column("message") ColText<String> message();
+        @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
+        @Column(value = "read_at", converter = Columns.Utc.class) ColTimestamp<Instant> readAt();
+    }
+
     /** 流转记录，只追加：读出来就是模型包的 FlowEvent */
     @Table("flow_event")
     interface Event extends Tenanted {

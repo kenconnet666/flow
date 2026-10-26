@@ -3,6 +3,7 @@ package org.dpdns.zerodep.flow.example;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -24,5 +25,13 @@ public class ExampleOrgDirectory implements OrgDirectory {
     @Override
     public String userName(Long userId) {
         return Optional.ofNullable(USERS.get(userId)).map(ExampleUser::name).orElse(String.valueOf(userId));
+    }
+
+    /** 有这个角色、在这个部门的人：会签的参与人、抄送节点的收件人写成角色、部门时展开 */
+    @Override
+    public List<Long> members(String kind, Long id) {
+        return USERS.values().stream()
+            .filter(user -> ("role".equals(kind) ? user.roles() : "department".equals(kind) ? user.departments() : Set.<Long>of()).contains(id))
+            .map(ExampleUser::id).sorted().toList();
     }
 }

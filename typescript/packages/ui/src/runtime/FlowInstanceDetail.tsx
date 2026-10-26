@@ -1,6 +1,6 @@
 /**
  * 流程详情（发起人看进度、从我已办里打开）：实例的概要、当前在谁手里、只读的表单、流转记录，
- * 以及撤回、催办（引擎说我能做时）与留言。
+ * 以及撤回、催办（引擎说我能做时）、抄送（给了挑人的数据来源时）与留言。
  *
  *   <FlowInstanceDetail id={instanceId} people={peopleSource} onChange={(result) => …} />
  *
@@ -14,13 +14,17 @@ import {
   Button,
   Card,
   Descriptions,
+  Dialog,
+  Field,
   Flex,
+  PeoplePicker,
   Popconfirm,
   Skeleton,
   Textarea,
   useErrorMessage,
   useFormat,
   useRequest,
+  type PeopleEntry,
   type PeopleSource,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useFlowClient } from '../client/flow-client';
@@ -34,11 +38,11 @@ import { statusTone } from './status';
 export interface FlowInstanceDetailProps {
   /** 实例的编号 */
   id: Id;
-  /** 人员字段的数据来源 */
+  /** 人员字段、抄送挑人的数据来源；不给时没有"抄送" */
   people?: PeopleSource;
   /** 表单代码还能导入的模块（见 FlowForm） */
   modules?: Readonly<Record<string, unknown>>;
-  /** 撤回、催办、留言之后 */
+  /** 撤回、催办、抄送、留言之后 */
   onChange?: (result: CommandResult) => void;
 }
 
@@ -57,6 +61,9 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
   let failure = _state<string | null>(null);
   let notice = _state<string | null>(null);
   let comment = _state('');
+  let ccOpen = _state(false);
+  let ccPicked = _state<readonly PeopleEntry[]>([]);
+  let ccMessage = _state('');
 
   /** 发一个命令：成功时刷新并告诉父级 */
   async function run(key: string, action: () => Promise<CommandResult>, done?: (result: CommandResult) => void) {
@@ -78,6 +85,21 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
   const withdraw = () => run('withdraw', () => flow.withdraw({ instanceId: id }));
   // 一小时内催过的引擎不再记：按这次记下的催办条数提示
   const remind = () => run('remind', () => flow.remind({ instanceId: id }), (result) => (notice = messages.reminded(result.events.length)));
+  function openCc() {
+    ccPicked = [];
+    ccMessage = '';
+    ccOpen = true;
+  }
+
+  /** 抄送对话框的确认：返回 false 时对话框不关 */
+  async function sendCc(): Promise<boolean> {
+    if (ccPicked.length === 0) return false;
+    const users = ccPicked.map((entry) => BigInt(entry.id));
+    const message = ccMessage.trim();
+    await run('cc', () => flow.cc({ instanceId: id, users, ...(message ? { message } : {}) }), () => (notice = messages.ccDone(users.length)));
+    return failure == null;
+  }
+
   const leaveComment = () =>
     run('comment', () => flow.comment({ instanceId: id, text: comment.trim() }), () => (comment = ''));
 
@@ -109,8 +131,13 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
                   : []),
               ]}
             />
-            {(actions.withdraw || actions.remind) && (
+            {(actions.withdraw || actions.remind || people) && (
               <Flex gap="sm" wrap>
+                {people && (
+                  <Button variant="outline" disabled={busy != null} onClick={openCc}>
+                    {messages.cc}
+                  </Button>
+                )}
                 {actions.remind && (
                   <Button variant="outline" loading={busy === 'remind'} disabled={busy != null && busy !== 'remind'} onClick={remind}>
                     {messages.remind}
@@ -134,6 +161,25 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
             )}
           </Flex>
         </Card>
+        {people && (
+          <Dialog
+            _open={ccOpen}
+            title={messages.cc}
+            confirmText={messages.confirm}
+            cancelText={messages.cancel}
+            onConfirm={sendCc}
+            propsConfirm={{ disabled: ccPicked.length === 0 }}
+          >
+            <Flex direction="column" gap="md">
+              <Field label={messages.pickCcUsers} required>
+                <PeoplePicker source={people} _value={ccPicked} recentKey="flow-cc" />
+              </Field>
+              <Field label={messages.ccMessage}>
+                <Textarea _value={ccMessage} rows={2} />
+              </Field>
+            </Flex>
+          </Dialog>
+        )}
         {data.form && (
           <Card>
             <FlowForm view={data.form} mode="view" {...(people ? { people } : {})} {...(modules ? { modules } : {})} />
