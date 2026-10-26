@@ -25,13 +25,20 @@ final class ResponseBody {
     private ResponseBody() { }
 
     /** 命令的结果：{@code { instance, workItems, closed, events }} */
-    static Object of(CommandResult result) {
+    static Object of(CommandResult result) { return Wire.encode(shape(result)); }
+
+    /** 外部事件的结果：{@code { results: [每个往下走的实例的命令结果] }}，每一项同 {@link #of(CommandResult)} */
+    static Object results(List<CommandResult> results) {
+        return Wire.encode(Map.of("results", results.stream().map(ResponseBody::shape).toList()));
+    }
+
+    private static Map<String, Object> shape(CommandResult result) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("instance", result.instance());
         data.put("workItems", result.created());
         data.put("closed", result.closed());
         data.put("events", result.events());
-        return Wire.encode(data);
+        return data;
     }
 
     /** 一页待办：同 query 的表格接口 {@code { rows, total, page, size, totalPages }}，每行是 {@code { workItem, title, summary }} */
@@ -42,12 +49,12 @@ final class ResponseBody {
 
     /** 发布的流程版本：{@code { id, key, version }}（定义本身就是请求体，不再发回） */
     static Object of(DefinitionStore.StoredDefinition definition) {
-        return Map.of("id", definition.id(), "key", definition.processKey(), "version", definition.version());
+        return Wire.encode(Map.of("id", definition.id(), "key", definition.processKey(), "version", definition.version()));
     }
 
     /** 发布的表单版本：{@code { id, key, version }} */
     static Object of(FormStore.StoredForm form) {
-        return Map.of("id", form.id(), "key", form.formKey(), "version", form.version());
+        return Wire.encode(Map.of("id", form.id(), "key", form.formKey(), "version", form.version()));
     }
 
     /** 查询的结果本身（发起列表、发起页、待办详情、实例详情）：记录按属性名写成对象 */

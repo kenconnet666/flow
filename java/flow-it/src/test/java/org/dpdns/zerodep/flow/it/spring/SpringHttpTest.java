@@ -57,7 +57,8 @@ class SpringHttpTest {
         // 经接口发布：表单文件与定义文件原样作为请求体
         Map<String, Object> form = call(post("/flow/forms/publish"), "1001",
             Files.readString(scenarios.resolve("forms/purchase-form.json"), StandardCharsets.UTF_8));
-        assertEquals(Map.of("id", data(form).get("id"), "key", "purchase-form", "version", 1L), data(form));
+        // 编号同别处一样是 typed JSON：写成文字，$types 里记着 bigint
+        assertEquals(Map.of("id", data(form).get("id"), "key", "purchase-form", "version", 1L, "$types", Map.of("id", "bigint")), data(form));
         Map<String, Object> process = call(post("/flow/definitions/publish").param("note", "第一版"), "1001",
             Files.readString(scenarios.resolve("processes/purchase.json"), StandardCharsets.UTF_8));
         assertEquals(1L, ((Number) data(process).get("version")).longValue());

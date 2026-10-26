@@ -206,7 +206,7 @@ public class FlowHttpController {
     /** 外部事件：{@code { instanceId 或 businessKey, event, outcome, data }}，返回 {@code { results: [每个往下走的实例这一步的结果] }} */
     @PostMapping("/commands/signal")
     public ResponseEntity<String> signal(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
-        return command("commands/signal", () -> ResponseBody.view(Map.of("results", engine.signal(RequestBody.parse(body).signal()))));
+        return command("commands/signal", () -> ResponseBody.results(engine.signal(RequestBody.parse(body).signal())));
     }
 
     /** 管理端搜实例：{@code ?status=&processKey=&keyword=&startedBy=&page=&pageSize=} */
