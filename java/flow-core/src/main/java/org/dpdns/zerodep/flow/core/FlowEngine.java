@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.core;
 
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
@@ -317,6 +318,15 @@ public final class FlowEngine<U extends Actor> {
         return signals.signal(actor, command);
     }
 
+    /** 收件箱负责人指定承办人（当前操作人） */
+    public CommandResult assign(AssignCommand command) { return assign(actors.current(), command); }
+
+    /** 收件箱负责人指定承办人：只有等我指定的待办能指定 */
+    public CommandResult assign(U actor, AssignCommand command) {
+        allow(actor, "assign", String.valueOf(command.workItemId()));
+        return collaboration.assign(actor, command);
+    }
+
     /** 抄送（当前操作人） */
     public CommandResult cc(CcCommand command) { return cc(actors.current(), command); }
 
@@ -465,6 +475,15 @@ public final class FlowEngine<U extends Actor> {
     public Page<TodoItem> todo(U actor, int page, int size) {
         allow(actor, "todo", String.valueOf(actor.id()));
         return queries.todo(actor, page, size);
+    }
+
+    /** 等我指定承办人的待办（当前操作人） */
+    public Page<TodoItem> designations(int page, int size) { return designations(actors.current(), page, size); }
+
+    /** 等我指定承办人的待办：无人认领超时、我是收件箱负责人（{@code designations}） */
+    public Page<TodoItem> designations(U actor, int page, int size) {
+        allow(actor, "designations", String.valueOf(actor.id()));
+        return queries.designations(actor, page, size);
     }
 
     /** 我已办（当前操作人） */

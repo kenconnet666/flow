@@ -1,0 +1,17 @@
+{
+  "key": "orphan",
+  "name": "找不到人的流程",
+  "title": "找不到人的流程",
+  "variables": [{ "name": "owner", "type": "people" }],
+  "settings": { "emptyAssignee": "admin" },
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "own", "type": "task", "name": "负责人处理", "assignees": [{ "user": { "ref": "owner" } }],
+      "outcomes": [{ "key": "ok", "label": "好" }] },
+    { "id": "end", "type": "end", "name": "结束" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "own" },
+    { "id": "e2", "from": "own", "to": "end", "outcome": "ok" }
+  ]
+}

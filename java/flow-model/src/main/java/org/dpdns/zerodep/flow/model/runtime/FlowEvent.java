@@ -61,7 +61,9 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String WORK_ITEM_REMINDED = "workItem.reminded";
     /** 待办超时了（0005 的 5.3）：data 里是截止时间 dueAt；超时自动处理的随后另有一条处理的记录 */
     public static final String WORK_ITEM_OVERDUE = "workItem.overdue";
-    /** 进了收件箱很久没人认领，转收件箱的负责人指定（unclaimed 的 assignByManager） */
+    /** 收件箱负责人指定了承办人：data 同转办（toUserId、toUserName） */
+    public static final String WORK_ITEM_ASSIGNED = "workItem.assigned";
+    /** 进了收件箱很久没人认领，转收件箱的负责人指定（unclaimed 的 assignByManager）：data 里是负责人 designatorId、designatorName */
     public static final String WORK_ITEM_UNCLAIMED = "workItem.unclaimed";
     /** 抄送（抄送节点或手动抄送）：data 里是收到的人 users 与名字 userNames，comment 是附言；手动抄送的操作人是抄送人 */
     public static final String INSTANCE_CC = "instance.cc";

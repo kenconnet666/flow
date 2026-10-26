@@ -139,6 +139,12 @@ export interface FlowMessages {
   readonly delegate: string;
   readonly addSigners: string;
   readonly release: string;
+  /** 收件箱负责人指定承办人 */
+  readonly assign: string;
+  /** 等我指定承办人的列表 */
+  readonly designationList: string;
+  /** 待办详情：这一条没人认领，等我指定承办人 */
+  readonly awaitingDesignation: string;
   /** 协作对话框里的字段 */
   readonly pickUser: string;
   readonly pickUsers: string;
@@ -222,6 +228,7 @@ const zhEvents: Record<string, string> = {
   'workItem.resumed': '回到',
   'workItem.released': '退回收件箱',
   'workItem.reassigned': '改派',
+  'workItem.assigned': '指定承办人',
   'workItem.reminded': '催办',
   'workItem.overdue': '超时',
   'workItem.unclaimed': '无人认领',
@@ -252,6 +259,7 @@ const enEvents: Record<string, string> = {
   'workItem.resumed': 'Back at',
   'workItem.released': 'Released',
   'workItem.reassigned': 'Reassigned',
+  'workItem.assigned': 'Assigned',
   'workItem.reminded': 'Reminded',
   'workItem.overdue': 'Overdue at',
   'workItem.unclaimed': 'Unclaimed at',
@@ -424,6 +432,9 @@ export const flowMessages: MessageTable<FlowMessages> = {
     delegate: '委派',
     addSigners: '加签',
     release: '退回收件箱',
+    assign: '指定承办人',
+    designationList: '待我指定',
+    awaitingDesignation: '这个待办很久没人认领，请你指定承办人',
     pickUser: '交给谁',
     pickUsers: '加哪些人',
     addMode: '方式',
@@ -450,7 +461,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
         return who && `处理人 ${who}`;
       }
       if (type === 'workItem.reminded' && data['auto']) return zhReminders[text(data['reason']) ?? ''] ?? '自动提醒';
-      if (type === 'workItem.unclaimed') return '转收件箱的负责人指定';
+      if (type === 'workItem.unclaimed') return `转收件箱的负责人指定${text(data['designatorName']) ? `：${text(data['designatorName'])}` : ''}`;
       if (type === 'instance.cc') return `抄送给 ${names(data['userNames']).join('、')}`;
       if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);
       if (type === 'job.failed') return text(data['error']);
@@ -551,6 +562,9 @@ export const flowMessages: MessageTable<FlowMessages> = {
     delegate: 'Delegate',
     addSigners: 'Add signers',
     release: 'Release',
+    assign: 'Assign',
+    designationList: 'Awaiting my assignment',
+    awaitingDesignation: 'Nobody has claimed this task; please assign someone',
     pickUser: 'Hand to',
     pickUsers: 'People to add',
     addMode: 'Mode',

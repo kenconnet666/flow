@@ -61,6 +61,8 @@ export interface FlowClient {
   startView(key: string, signal?: AbortSignal): Promise<StartView>;
   /** 我的待办 */
   todo(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
+  /** 等我指定承办人的（没人认领、我是收件箱负责人） */
+  designations(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 我已办：按处理时间从新到旧 */
   done(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 我发起的：按发起时间从新到旧 */
@@ -111,6 +113,8 @@ export interface FlowClient {
   comment(command: CommentCommand): Promise<CommandResult>;
   /** 抄送（知会） */
   cc(command: CcCommand): Promise<CommandResult>;
+  /** 收件箱负责人指定承办人 */
+  assign(workItemId: Id, userId: Id): Promise<CommandResult>;
   /** 外部事件（业务系统一般从后端直接调引擎；这里给前端的调试、演示用）：返回每个往下走的实例这一步的结果 */
   signal(command: SignalCommand): Promise<{ readonly results: readonly CommandResult[] }>;
   /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
@@ -145,6 +149,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     startView: (key, signal) => get(`/queries/start/${encodeURIComponent(key)}`, signal),
     todo: ({ page, pageSize }, signal) => get('/queries/todo', signal, { page, pageSize }),
     done: ({ page, pageSize }, signal) => get('/queries/done', signal, { page, pageSize }),
+    designations: ({ page, pageSize }, signal) => get('/queries/designations', signal, { page, pageSize }),
     started: ({ page, pageSize }, signal) => get('/queries/started', signal, { page, pageSize }),
     ccList: ({ page, pageSize }, signal) => get('/queries/cc', signal, { page, pageSize }),
     instances: ({ page, pageSize, ...search }, signal) => {
@@ -176,6 +181,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     remind: (command) => post('/commands/remind', command),
     comment: (command) => post('/commands/comment', command),
     cc: (command) => post('/commands/cc', command),
+    assign: (workItemId, userId) => post('/commands/assign', { workItemId, userId }),
     signal: (command) => post('/commands/signal', command),
     readCc: (instanceId) => post('/commands/read-cc', { instanceId }),
     terminate: (command) => post('/admin/terminate', command),

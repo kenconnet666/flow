@@ -106,6 +106,8 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
         return run(c.kind, () => flow.addSigners({ workItemId: id, users: c.users, mode: c.mode, ...reason }));
       case 'release':
         return run(c.kind, () => flow.release({ workItemId: id, ...reason }));
+      case 'assign':
+        return run(c.kind, () => flow.assign(id, c.userId));
     }
   }
 
@@ -137,7 +139,8 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
         {failure && <Alert tone="danger" onClose={() => (failure = null)}>{failure}</Alert>}
         {workItem.state === 'waiting' && <Alert tone="info">{messages.waiting}</Alert>}
         {!open && workItem.state !== 'waiting' && <Alert tone="info">{messages.notOpen}</Alert>}
-        {open && !data.completable && <Alert tone="info">{messages.viewOnly}</Alert>}
+        {open && data.actions.assign && <Alert tone="warning">{messages.awaitingDesignation}</Alert>}
+        {open && !data.completable && !data.actions.assign && <Alert tone="info">{messages.viewOnly}</Alert>}
         <Card
           header={instance.title ?? instance.processKey}
           extra={<Badge tone={statusTone(instance.status)}>{messages.status[instance.status] ?? instance.status}</Badge>}

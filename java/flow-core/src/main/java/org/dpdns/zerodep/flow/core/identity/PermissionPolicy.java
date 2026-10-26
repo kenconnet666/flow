@@ -16,7 +16,7 @@ public interface PermissionPolicy<U extends Actor> {
      * @param operation 命令或查询的名字：{@code start}、{@code claim}、{@code complete}、{@code withdraw}、{@code startable}、{@code startView}、{@code todo}、{@code done}、{@code started}、{@code cc.list}、{@code instances.search}、{@code processes.list}、{@code jobs.failed}、{@code workItem}、{@code instance}、
      *                  {@code definitions.publish}、{@code definitions.validate}、{@code definitions.status}、{@code definitions.versions}、
      *                  {@code definitions.read}、{@code forms.publish}；
-     *                  协作：{@code transfer}、{@code delegate}、{@code addSigners}、{@code removeSigners}、{@code release}、{@code remind}、{@code comment}、{@code cc}、{@code readCc}、{@code signal}；
+     *                  协作：{@code transfer}、{@code delegate}、{@code addSigners}、{@code removeSigners}、{@code release}、{@code remind}、{@code comment}、{@code cc}、{@code readCc}、{@code signal}、{@code assign}、{@code designations}；
      *                  管理员：{@code terminate}、{@code suspend}、{@code resume}、{@code jump}、{@code reassign}、{@code retryJob}
      * @param target    操作的对象：流程标识、待办编号或实例编号
      */

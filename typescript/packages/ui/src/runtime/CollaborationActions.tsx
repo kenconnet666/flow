@@ -1,5 +1,5 @@
 /**
- * 待办上处理之外的协作：转办、委派、加签、退回收件箱（0006 的 3.1–3.2）。显示哪几个由引擎说（待办详情的 actions）；
+ * 待办上处理之外的协作：转办、委派、加签、退回收件箱、收件箱负责人指定承办人（0006 的 3.1–3.2）。显示哪几个由引擎说（待办详情的 actions）；
  * 转办、委派、加签在对话框里挑人（组件库的 PeoplePicker），退回收件箱先确认。
  *
  *   <CollaborationActions actions={view.actions} people={peopleSource} busy={busy} onRun={(c) => run(c)} />
@@ -26,7 +26,7 @@ import { useFlowMessages } from '../lang/messages';
 
 /** 一次协作：交给谁、加哪些人、怎么加、说明 */
 export type Collaboration =
-  | { readonly kind: 'transfer' | 'delegate'; readonly userId: Id; readonly reason?: string }
+  | { readonly kind: 'transfer' | 'delegate' | 'assign'; readonly userId: Id; readonly reason?: string }
   | { readonly kind: 'addSigners'; readonly users: readonly Id[]; readonly mode: AddSignMode; readonly reason?: string }
   | { readonly kind: 'release'; readonly reason?: string };
 
@@ -43,7 +43,7 @@ export interface CollaborationActionsProps {
 }
 
 /** 要挑人的几种 */
-type Picking = 'transfer' | 'delegate' | 'addSigners';
+type Picking = 'transfer' | 'delegate' | 'addSigners' | 'assign';
 
 /** 选择器里的人 → 引擎的编号（组织表的自增主键） */
 const idOf = (entry: PeopleEntry): Id => BigInt(entry.id);
@@ -79,6 +79,7 @@ export const CollaborationActions = _component(({ actions, people, busy = null, 
     transfer: messages.transfer,
     delegate: messages.delegate,
     addSigners: messages.addSigners,
+    assign: messages.assign,
   });
 
   const button = (kind: Picking) => (
@@ -88,7 +89,7 @@ export const CollaborationActions = _component(({ actions, people, busy = null, 
   );
 
   return () => {
-    const shown = (['transfer', 'delegate', 'addSigners'] as const).filter((kind) => people && actions[kind]);
+    const shown = (['assign', 'transfer', 'delegate', 'addSigners'] as const).filter((kind) => people && actions[kind]);
     if (shown.length === 0 && !actions.release) return null;
     return (
       <Flex gap="sm" wrap>

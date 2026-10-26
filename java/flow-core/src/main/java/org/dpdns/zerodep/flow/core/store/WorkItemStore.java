@@ -51,8 +51,17 @@ public interface WorkItemStore {
     /** 记一次催办：次数加一、记下时间；上一次催办在 notBefore 之后时不记（频率限制）；返回记了没有 */
     boolean remind(Long workItemId, Instant at, Instant notBefore);
 
-    /** 无人认领超时，标成等收件箱的负责人指定（0007 的 needs_designation）；返回是否改到 */
-    boolean needDesignation(Long workItemId);
+    /** 无人认领超时，标成等收件箱的负责人指定（0007 的 needs_designation、designator_id）；不知道负责人时 designatorId 为 null；返回是否改到 */
+    boolean needDesignation(Long workItemId, Long designatorId);
+
+    /** 这个待办在等这个人指定承办人 */
+    boolean awaitsDesignation(Long workItemId, Long designatorId);
+
+    /** 等我指定承办人的待办，到达时间从新到旧 */
+    Page<WorkItem> awaitingDesignation(Long designatorId, int page, int size);
+
+    /** 指定了承办人：直接落到这个人、不再等指定，删掉候选；返回是否改到 */
+    boolean designate(Long workItemId, Long designatorId, Long userId, String userName);
 
     /** 委派、加签从这个待办生成的待办，按生成的先后 */
     List<WorkItem> children(Long parentItemId);

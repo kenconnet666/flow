@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.it.scenario;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
@@ -140,6 +141,8 @@ final class ScenarioRunner {
                 case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"))));
                 case "signal" -> Map.of("results", engine.signal(actor, new SignalCommand(args.id("instance"), args.text("businessKey"),
                     args.text("event"), args.text("outcome"), args.map("data"))).stream().map(ScenarioRunner::commandResult).toList());
+                case "assign" -> commandResult(engine.assign(actor, new AssignCommand(args.id("workItem"), args.id("user"))));
+                case "designations" -> page(engine.designations(actor, args.number("page", 1), args.number("size", 20)));
                 case "retryJob" -> Map.of("revived", engine.retryJob(actor, new RetryJobCommand(args.id("job"))));
                 case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
                 case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));

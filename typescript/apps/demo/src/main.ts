@@ -9,6 +9,7 @@ import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import { App } from './App';
 import { CcPage } from './pages/CcPage';
+import { DesignationsPage } from './pages/DesignationsPage';
 import { DonePage } from './pages/DonePage';
 import { InboxPage } from './pages/InboxPage';
 import { InstancePage } from './pages/InstancePage';
@@ -29,6 +30,7 @@ const router = createRouter({
     { path: '/inbox', component: InboxPage },
     { path: '/work-items/:id', component: WorkItemPage },
     { path: '/done', component: DonePage },
+    { path: '/designations', component: DesignationsPage },
     { path: '/started', component: StartedPage },
     { path: '/cc', component: CcPage },
     { path: '/admin', component: MonitorPage },

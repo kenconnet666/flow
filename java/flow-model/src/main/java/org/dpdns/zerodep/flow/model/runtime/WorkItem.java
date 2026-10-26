@@ -56,4 +56,6 @@ public record WorkItem(Long id, Long instanceId, String processKey, int priority
     public static final String CLAIMED = "claimed";
     /** 直接落到人 */
     public static final String DIRECT = "direct";
+    /** 收件箱负责人指定的承办人（无人认领超时后） */
+    public static final String DESIGNATED = "designated";
 }

@@ -27,6 +27,14 @@ public class ExampleOrgDirectory implements OrgDirectory {
         return Optional.ofNullable(USERS.get(userId)).map(ExampleUser::name).orElse(String.valueOf(userId));
     }
 
+    /** 流程管理员：总经理（处理人为空、写了 emptyAssignee: admin 时转给他） */
+    @Override
+    public List<Long> administrators() { return List.of(1004L); }
+
+    /** 收件箱的负责人：示例里都是总经理（没人认领超时、写了 assignByManager 时由他指定） */
+    @Override
+    public Optional<Long> inboxManager(String kind, Long id) { return Optional.of(1004L); }
+
     /** 有这个角色、在这个部门的人：会签的参与人、抄送节点的收件人写成角色、部门时展开 */
     @Override
     public List<Long> members(String kind, Long id) {

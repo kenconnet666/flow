@@ -568,13 +568,22 @@ final class Execution {
     }
 
     /**
-     * 处理人解析为空（0005 的 2.1 {@code emptyAssignee}）：{@code autoPass} 按第一个"同意"的结果自动通过；
-     * {@code admin}（转给管理员）要接入方的管理员名单，随组织扩展点补上，现在与 {@code error} 一样报错。
+     * 处理人解析为空（0005 的 2.1 {@code emptyAssignee}，节点上写的盖过流程级的）：{@code autoPass} 按第一个"同意"的结果自动通过；
+     * {@code admin} 转给流程管理员（{@link org.dpdns.zerodep.flow.core.identity.OrgDirectory#administrators}，几个人时进收件箱）；
+     * 其余（{@code error}，默认）报 {@code assignee-empty}，整个命令回滚。
      */
     private void handleEmptyAssignee(ProcessNode.Task task) {
-        if ("autoPass".equals(graph.definition().settings().emptyAssignee())) {
+        String rule = task.info().emptyAssignee() != null ? task.info().emptyAssignee() : graph.definition().settings().emptyAssignee();
+        if ("autoPass".equals(rule)) {
             String outcome = task.outcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::key).findFirst().orElse(null);
             leave(task.id(), outcome);
+            return;
+        }
+        List<Long> admins = "admin".equals(rule) ? context.org().administrators() : List.of();
+        if (!admins.isEmpty()) {
+            Assignees who = Assignees.empty();
+            who.users().addAll(admins);
+            createWorkItem(task, "emptyAssignee", who, null, null);
             return;
         }
         throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "nobody can handle node " + task.id(),

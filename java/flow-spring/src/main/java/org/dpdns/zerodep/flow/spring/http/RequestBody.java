@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.spring.http;
 
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
@@ -122,6 +123,9 @@ final class RequestBody {
         if (key == null || key.isBlank()) throw invalid("key", "required");
         return key;
     }
+
+    /** {@code { workItemId, userId }} */
+    AssignCommand assign() { return new AssignCommand(id("workItemId"), id("userId")); }
 
     /** {@code { jobId }} */
     RetryJobCommand retryJob() { return new RetryJobCommand(id("jobId")); }

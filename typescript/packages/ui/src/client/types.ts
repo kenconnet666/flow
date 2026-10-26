@@ -100,6 +100,8 @@ export interface WorkItemActions {
   readonly addSigners: boolean;
   /** 退回收件箱（我从收件箱里认领的） */
   readonly release: boolean;
+  /** 指定承办人（没人认领、在等我这个收件箱负责人指定） */
+  readonly assign: boolean;
 }
 
 /** 实例详情（发起人看进度、历史里打开） */

@@ -25,10 +25,11 @@ public record WorkItemView(WorkItem workItem, ProcessInstance instance, FormView
      * @param delegate   委派
      * @param addSigners 加签
      * @param release    退回收件箱（我从收件箱里认领的）
+     * @param assign     指定承办人（没人认领、在等我这个收件箱负责人指定）
      */
-    public record Actions(boolean transfer, boolean delegate, boolean addSigners, boolean release) {
+    public record Actions(boolean transfer, boolean delegate, boolean addSigners, boolean release, boolean assign) {
         /** 什么都不能做 */
-        public static final Actions NONE = new Actions(false, false, false, false);
+        public static final Actions NONE = new Actions(false, false, false, false, false);
     }
 
     /**

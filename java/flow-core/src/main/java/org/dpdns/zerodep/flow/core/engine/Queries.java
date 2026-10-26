@@ -161,6 +161,11 @@ public final class Queries {
         return context.stores().jobs().failed(page, size);
     }
 
+    /** 等我指定承办人的待办（无人认领超时、我是收件箱负责人），每行带实例的标题与摘要列 */
+    public Page<TodoItem> designations(Actor actor, int page, int size) {
+        return withInstances(context.stores().workItems().awaitingDesignation(actor.id(), page, size));
+    }
+
     /** 我发起的：按发起时间从新到旧 */
     public Page<ProcessInstance> started(Actor actor, int page, int size) {
         Page<InstanceRecord> rows = context.stores().instances().startedBy(actor.id(), page, size);
@@ -191,10 +196,11 @@ public final class Queries {
         Function<String, Object> read = name -> References.read(name, instance, stored);
         List<OutcomeView> outcomes = task.outcomes().stream()
             .map(o -> outcomeView(o, completable ? preview.after(task.id(), o.key(), read) : List.of())).toList();
+        boolean assign = open && context.stores().workItems().awaitsDesignation(item.id(), actor.id());
         WorkItemView.Actions actions = completable
             ? new WorkItemView.Actions(task.allow().transfer(), task.allow().delegate(), task.allow().addSign(),
-                mine && WorkItem.CLAIMED.equals(item.assignment()))
-            : WorkItemView.Actions.NONE;
+                mine && WorkItem.CLAIMED.equals(item.assignment()), assign)
+            : new WorkItemView.Actions(false, false, false, false, assign);
         return new WorkItemView(item, instance.view(), form, outcomes, open && candidate, completable, actions);
     }
 

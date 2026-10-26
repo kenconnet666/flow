@@ -141,6 +141,7 @@
 | ③n（已完成，2026-10-27） | 管理端：查询 `instances`（按状态、流程、标题、发起人）、`processes`、`failedJobs`，实例详情带跳转能去的节点；前端 `FlowInstanceMonitor`（流程监控）与流程详情的管理员操作（暂停、恢复、终止、跳转、改派，`InstanceAdminActions`）；示例前端加"流程监控" | 场景 admin-queries；浏览器里走过筛选、暂停恢复、跳转 |
 | ③o（已完成，2026-10-27） | 流程图（只读，⑤ 的第一步）：实例详情带 `diagram`（节点走过、正停着、没到，连线走过没有，位置取定义的 `layout`）；前端 `FlowDiagram`（组件库的 Diagram，没画布局时按步数自动分列），接进流程详情与待办详情 | 场景 purchase-large-amount 的 diagram；diagram-layout 单元测试；浏览器里看过 |
 | ③p（已完成，2026-10-27） | 流程管理：校验定义不发布（错误与警告，`validateDefinition`）、停用与启用、版本列表、取某个版本的原文；前端子路径 `@zerodep-dev/flow-ui/admin`（`FlowProcessList`、`FlowDefinitionEditor` 用代码编辑器改 JSON、校验、发布，问题代号有中文说明，`FlowInstanceMonitor` 也搬到这里）；示例前端加"流程管理" | 场景 process-manage；浏览器里走过停用、校验出错、发布被拒、改好发布 |
+| ③q（已完成，2026-10-27） | 处理人为空转管理员（`emptyAssignee: admin`，节点上的盖过流程级的，`OrgDirectory.administrators`）；无人认领转收件箱负责人指定（`OrgDirectory.inboxManager`、记下 designator、查询"待我指定"、命令 `assign`）；前端待办详情"指定承办人"、FlowInbox 的 designations | 场景 designation；浏览器里走过一分钟没人认领后负责人指定 |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 
@@ -163,4 +164,4 @@
 13. **转办、委派、加签的待办沿用原来那一份的截止时间**，不重新计时。
 14. **子流程**：子实例的发起人是父实例的发起人（出现在他的"我发起的"里），流转记录上的操作人是触发调用的人；父实例暂停时子实例结束不推进父实例（恢复后要管理员跳转）——以后可以改成恢复时补上。
 
-下面是还没做的、按优先级： 无人认领转负责人指定的"待指定"列表与指定命令（现在只标 needs_designation 并记一条流转记录）→ `emptyAssignee: admin` → 自动节点的 `onFailure: manual`（给管理员的异常处理待办）与失败作业的查询 → 命令拦截器 → 幂等记录的定期清理 → ④ TS 引擎。
+下面是还没做的、按优先级：自动节点的 `onFailure: manual`（给管理员的异常处理待办；失败作业的查询已有）→ 处理人撤回刚处理的一步（`withdrawStep`，要回滚快照）与退回时选节点（`returnTarget: "choose"`）→ 命令拦截器 → 幂等记录的定期清理 → 表单的管理与编辑页（同流程管理）→ ④ TS 引擎与 Nuxt → ⑤ 可视化设计器 → ⑥ 表单设计器。

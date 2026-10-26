@@ -27,11 +27,11 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/claim      { workItemId }
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
- * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal
+ * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal、assign
  * POST {前缀}/admin/terminate、suspend、resume、jump、reassign、retry-job
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
- * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started、cc
+ * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started、cc、designations
  * GET  {前缀}/queries/work-items/{id}
  * GET  {前缀}/queries/instances/{id}
  * GET  {前缀}/queries/instances?status=&amp;processKey=&amp;keyword=、processes、failed-jobs（管理端）
@@ -229,6 +229,19 @@ public class FlowHttpController {
     public ResponseEntity<String> failedJobs(@RequestParam(name = "page", defaultValue = "1") int page,
                                              @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
         return respond(() -> ResponseBody.page(engine.failedJobs(page, pageSize)));
+    }
+
+    /** 收件箱负责人指定承办人：{@code { workItemId, userId }} */
+    @PostMapping("/commands/assign")
+    public ResponseEntity<String> assign(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/assign", () -> ResponseBody.of(engine.assign(RequestBody.parse(body).assign())));
+    }
+
+    /** 等我指定承办人的待办 */
+    @GetMapping("/queries/designations")
+    public ResponseEntity<String> designations(@RequestParam(name = "page", defaultValue = "1") int page,
+                                               @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.of(engine.designations(page, pageSize)));
     }
 
     /** 抄送我的 */

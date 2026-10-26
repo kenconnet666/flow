@@ -1,0 +1,16 @@
+{
+  "key": "assign-demo",
+  "name": "报修",
+  "title": "报修",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "报修" },
+    { "id": "fix", "type": "task", "name": "维修", "assignees": [{ "role": 1 }],
+      "unclaimed": { "after": { "hours": 1 }, "action": "assignByManager" },
+      "outcomes": [{ "key": "done", "label": "修好了" }] },
+    { "id": "end", "type": "end", "name": "结束", "result": "fixed" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "fix" },
+    { "id": "e2", "from": "fix", "to": "end", "outcome": "done" }
+  ]
+}

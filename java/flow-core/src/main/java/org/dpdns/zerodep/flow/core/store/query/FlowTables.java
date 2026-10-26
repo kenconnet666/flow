@@ -168,6 +168,7 @@ final class FlowTables {
         @Column("remind_count") ColInteger<Integer> remindCount();
         @Column(value = "last_reminded_at", converter = Columns.Utc.class) ColTimestamp<Instant> lastRemindedAt();
         @Column("needs_designation") ColBoolean<Boolean> needsDesignation();
+        @Column("designator_id") ColBigint<Long> designatorId();
         @Column("outcome") ColText<String> outcome();
         @Column("comment") ColClob<String> comment();
         @Column("completed_by") ColBigint<Long> completedBy();

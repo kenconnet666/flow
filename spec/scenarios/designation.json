@@ -1,0 +1,33 @@
+{
+  "name": "没人认领转收件箱负责人指定：负责人的待指定列表、只有他能指定、指定后落到那个人；处理人为空时转给流程管理员",
+  "forms": [],
+  "processes": ["processes/assign-demo.json", "processes/orphan.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "admin": { "id": 1000, "name": "管理员" },
+    "alice": { "id": 1001, "name": "林小满" },
+    "carol": { "id": 1003, "name": "沈若水", "roles": [1] },
+    "boss": { "id": 1004, "name": "总经理", "roles": [9] }
+  },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "assign-demo" },
+      "expect": { "workItems": [{ "node": "fix", "assignment": "pool" }] } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T09:00:00Z" }, "expect": { "ran": 1 } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": { "timeline": ["instance.started", "node.left", "node.entered", "workItem.created",
+        { "type": "workItem.unclaimed", "data": { "designatorName": "总经理" } }] } },
+    { "as": "boss", "command": "designations", "expect": { "total": 1, "rows": [{ "workItem": { "node": "fix" }, "title": "报修" }] } },
+    { "as": "boss", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "completable": false, "actions": { "assign": true } } },
+    { "as": "carol", "command": "assign", "args": { "workItem": "$start.workItems[0]", "user": 1003 },
+      "expect": { "error": { "code": "flow.forbidden" } } },
+    { "as": "boss", "command": "assign", "args": { "workItem": "$start.workItems[0]", "user": 1003 },
+      "expect": { "events": [{ "type": "workItem.assigned", "data": { "toUserName": "沈若水" } }] } },
+    { "as": "carol", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "workItem": { "assignment": "designated", "assigneeId": "1003" }, "completable": true } },
+    { "as": "boss", "command": "designations", "expect": { "total": 0 } },
+
+    { "as": "alice", "command": "start", "args": { "key": "orphan" },
+      "expect": { "workItems": [{ "node": "own", "assignment": "direct", "assigneeId": "1000", "arrival": "emptyAssignee" }] } }
+  ]
+}

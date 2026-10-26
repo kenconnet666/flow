@@ -32,15 +32,15 @@
           { "key": "reject", "label": "否决", "kind": "reject", "comment": "required", "confirm": false }
         ],
         "claimable": true, "completable": true,
-        "actions": { "transfer": true, "delegate": true, "addSigners": true, "release": false }
+        "actions": { "transfer": true, "delegate": true, "addSigners": true, "release": false, "assign": false }
       } },
     { "as": "carol", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
       "expect": { "claimable": false, "completable": false,
-        "actions": { "transfer": false, "delegate": false, "addSigners": false, "release": false } } },
+        "actions": { "transfer": false, "delegate": false, "addSigners": false, "release": false, "assign": false } } },
     { "as": "bob", "command": "claim", "args": { "workItem": "$start.workItems[0]" } },
     { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
       "expect": { "workItem": { "assignment": "claimed", "assigneeId": "1002" }, "claimable": false, "completable": true,
-        "actions": { "transfer": true, "delegate": true, "addSigners": true, "release": true } } },
+        "actions": { "transfer": true, "delegate": true, "addSigners": true, "release": true, "assign": false } } },
     { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "预算内" } },
       "expect": { "events": [
         { "type": "workItem.completed", "outcome": "pass", "data": { "outcomeLabel": "通过" } },

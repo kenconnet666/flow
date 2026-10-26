@@ -13,6 +13,7 @@ import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -170,8 +171,14 @@ public final class BuiltinJobs {
         return onOpenItem(job, now, (run, item, task) -> {
             if (item.assigneeId() != null || task.unclaimed() == null) return null;   // 已经有人认领了
             if ("assignByManager".equals(task.unclaimed().action())) {
-                context.stores().workItems().needDesignation(item.id());
-                run.addEvent(FlowEvent.WORK_ITEM_UNCLAIMED, task, null, null, item.id(), null);
+                Long manager = item.inboxKind() == null ? null : context.org().inboxManager(item.inboxKind(), item.inboxId()).orElse(null);
+                context.stores().workItems().needDesignation(item.id(), manager);
+                Map<String, Object> data = new LinkedHashMap<>();
+                if (manager != null) {
+                    data.put("designatorId", manager);
+                    data.put("designatorName", context.org().userName(manager));
+                }
+                run.addEvent(FlowEvent.WORK_ITEM_UNCLAIMED, task, null, null, item.id(), null, data);
             } else {
                 remindEvent(run, task, item, "unclaimed");
             }

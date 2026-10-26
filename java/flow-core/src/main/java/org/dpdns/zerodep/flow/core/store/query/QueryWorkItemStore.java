@@ -162,10 +162,38 @@ final class QueryWorkItemStore implements WorkItemStore {
     }
 
     @Override
-    public boolean needDesignation(Long workItemId) {
+    public boolean needDesignation(Long workItemId, Long designatorId) {
         return db.execute(update(FlowTables.WorkItem.class)
-            .set(r -> { r.needsDesignation().to(true); r.rev().to(r.rev().plus(val(1))); })
+            .set(r -> { r.needsDesignation().to(true); r.designatorId().to(designatorId); r.rev().to(r.rev().plus(val(1))); })
             .where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); r.assigneeId().isNull(); })) == 1;
+    }
+
+    @Override
+    public boolean awaitsDesignation(Long workItemId, Long designatorId) {
+        return db.optional(from(FlowTables.WorkItem.class)
+            .where(r -> { r.id().eq(workItemId); r.designatorId().eq(designatorId); r.needsDesignation().eq(true); r.state().eq(WorkItem.OPEN); })
+            .select(r -> r.id())).isPresent();
+    }
+
+    /** 走（租户, 指定人, 等指定）的索引 */
+    @Override
+    public Page<WorkItem> awaitingDesignation(Long designatorId, int page, int size) {
+        return db.page(from(FlowTables.WorkItem.class)
+            .where(r -> { r.designatorId().eq(designatorId); r.needsDesignation().eq(true); r.state().eq(WorkItem.OPEN); })
+            .orderBy(r -> orders(r.createdAt().desc(), r.id().desc())).selectAs(WorkItem.class), page, size);
+    }
+
+    @Override
+    public boolean designate(Long workItemId, Long designatorId, Long userId, String userName) {
+        boolean changed = db.execute(update(FlowTables.WorkItem.class).set(r -> {
+            r.assigneeId().to(userId);
+            r.assigneeName().to(userName);
+            r.assignment().to(WorkItem.DESIGNATED);
+            r.needsDesignation().to(false);
+            r.rev().to(r.rev().plus(val(1)));
+        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); r.needsDesignation().eq(true); r.designatorId().eq(designatorId); })) == 1;
+        if (changed) db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().eq(workItemId)));
+        return changed;
     }
 
     @Override

@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
@@ -165,6 +166,23 @@ public final class CollaborationHandler {
                 instance.rev());
             run.addEvent(FlowEvent.INSTANCE_COMMENTED, null, null, null, null, command.text());
             run.publish();
+            return run.result();
+        });
+    }
+
+    /** 收件箱负责人指定承办人：只有等我指定的待办能指定；锁住实例，改成直接落到那个人，记一条流转记录 */
+    public CommandResult assign(Actor actor, AssignCommand command) {
+        if (command.userId() == null) throw FlowErrors.invalid("userId", "required");
+        return context.transaction(() -> {
+            Locked locked = lock(command.workItemId());
+            WorkItem item = locked.item();
+            Execution run = locked.execution(actor);
+            String name = context.org().userName(command.userId());
+            if (!context.stores().workItems().designate(item.id(), actor.id(), command.userId(), name)) {
+                throw FlowErrors.forbidden("workItem", item.id(), "not-awaiting-your-designation");
+            }
+            run.addEvent(FlowEvent.WORK_ITEM_ASSIGNED, run.graph().node(item.node()), null, null, item.id(), null, to(command.userId()));
+            run.flush(null);
             return run.result();
         });
     }

@@ -18,8 +18,8 @@ import { statusTone } from './status';
 
 /** FlowInbox 的属性 */
 export interface FlowInboxProps {
-  /** todo 我的待办（默认），done 我已办 */
-  list?: 'todo' | 'done';
+  /** todo 我的待办（默认），done 我已办，designations 等我指定承办人的 */
+  list?: 'todo' | 'done' | 'designations';
   /** 点了某一行的标题 */
   onOpen: (item: TodoItem) => void;
   /** 加在默认列之后的列（业务摘要：金额、供应商……） */
@@ -118,7 +118,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
       query={query}
       columns={[...(list === 'done' ? doneColumns() : todoColumns()), ...columns]}
       getKey={(item) => String(item.workItem.id)}
-      title={title ?? (list === 'done' ? messages.doneList : messages.inbox)}
+      title={title ?? (list === 'done' ? messages.doneList : list === 'designations' ? messages.designationList : messages.inbox)}
     />
   );
 });
