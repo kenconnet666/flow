@@ -16,6 +16,7 @@
   - [0004 表单](docs/decisions/0004-forms.md)：讨论中，逐节定稿。形态已定：代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
     第 1 节（文件约定、字段清单、字段类型、后端代码在线编辑并启动时加载、集群刷新由接入方接消息队列）已定；
     设计器的子集、字段权限、存储与安全待确认。
+- **思路记录**（不采用，只留档）：[Spring 里嵌 GraalJS、引擎核心只写一份 TS](docs/notes/graaljs-in-spring.md)。用户 2026-10-26 定路线不变：Java（Spring Boot）与 Nuxt 两个后端。
 - **依赖的两个库由用户手动发布**（2026-10-26 查 npm）：
   - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0（原名 `@vue-tsx-pro/*`），仓库里已推进到 0.2.0-dev；
   - query（ORM）TS 已发 npm `@zerodep-dev/query-*` 2.0.0；Java 的 Maven 中央仓库当时还搜不到 `org.dpdns.zerodep`，根 POM 仍是 `2.0.0-SNAPSHOT`。
