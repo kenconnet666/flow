@@ -63,6 +63,9 @@ public interface WorkItemStore {
     /** 收件箱：落到我的，加上我能认领的（候选里有我、我的角色或部门，且我没被排除），按到达时间从新到旧 */
     Page<WorkItem> todo(Member member, int page, int size);
 
+    /** 我处理过的：按处理时间从新到旧（委派、加签里办的也算） */
+    Page<WorkItem> done(Long userId, int page, int size);
+
     /**
      * 一行候选。
      *

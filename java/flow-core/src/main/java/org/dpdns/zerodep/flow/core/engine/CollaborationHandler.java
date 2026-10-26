@@ -81,6 +81,8 @@ public final class CollaborationHandler {
             if ("before".equals(mode)) context.stores().workItems().changeState(item.id(), WorkItem.OPEN, WorkItem.WAITING);
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("users", users);
+            // 名字存快照：流转记录上显示"加签：张三、李四"，不用再查组织
+            data.put("userNames", users.stream().map(context.org()::userName).toList());
             data.put("mode", mode);
             run.addEvent(FlowEvent.SIGNERS_ADDED, task, null, null, item.id(), command.reason(), data);
             String state = "after".equals(mode) ? WorkItem.WAITING : WorkItem.OPEN;
@@ -101,7 +103,10 @@ public final class CollaborationHandler {
                 if (!pending || !command.users().contains(child.assigneeId())) continue;
                 context.stores().workItems().cancel(child.id(), run.now());
                 run.closed.add(child);
-                run.addEvent(FlowEvent.SIGNERS_REMOVED, task, null, null, child.id(), null);
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("userId", child.assigneeId());
+                data.put("userName", child.assigneeName());
+                run.addEvent(FlowEvent.SIGNERS_REMOVED, task, null, null, child.id(), null, data);
             }
             SubItems.resumeIfSettled(context, run, item);
             run.flush(null);

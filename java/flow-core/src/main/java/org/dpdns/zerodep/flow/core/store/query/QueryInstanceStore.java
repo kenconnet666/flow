@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.core.store.InstanceStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowTables.Instance;
 import org.dpdns.zerodep.query.Sql;
 import org.dpdns.zerodep.query.exec.Database;
+import org.dpdns.zerodep.query.exec.Page;
 
 import java.util.Collection;
 import java.util.List;
@@ -41,6 +42,13 @@ final class QueryInstanceStore implements InstanceStore {
     public List<InstanceRecord> findAll(Collection<Long> instanceIds) {
         if (instanceIds.isEmpty()) return List.of();
         return db.list(from(Instance.class).where(r -> r.id().in(instanceIds)).selectAs(InstanceRecord.class));
+    }
+
+    /** 走（租户, 发起人, 发起时间）的索引 */
+    @Override
+    public Page<InstanceRecord> startedBy(Long userId, int page, int size) {
+        return db.page(from(Instance.class).where(r -> r.startedBy().eq(userId))
+            .orderBy(r -> Sql.orders(r.startedAt().desc(), r.id().desc())).selectAs(InstanceRecord.class), page, size);
     }
 
     /** 按编号整行写回（调用前已锁住这一行；版本列照记录里的写，不再加一） */

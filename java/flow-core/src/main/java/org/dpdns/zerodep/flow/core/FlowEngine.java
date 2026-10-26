@@ -49,6 +49,7 @@ import org.dpdns.zerodep.flow.core.view.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
+import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.TodoItem;
 import org.dpdns.zerodep.query.exec.ConnectionProvider;
 import org.dpdns.zerodep.query.exec.Database;
@@ -316,13 +317,31 @@ public final class FlowEngine<U extends Actor> {
         return queries.todo(actor, page, size);
     }
 
+    /** 我已办（当前操作人） */
+    public Page<TodoItem> done(int page, int size) { return done(actors.current(), page, size); }
+
+    /** 我处理过的待办，按处理时间从新到旧 */
+    public Page<TodoItem> done(U actor, int page, int size) {
+        allow(actor, "done", String.valueOf(actor.id()));
+        return queries.done(actor, page, size);
+    }
+
+    /** 我发起的（当前操作人） */
+    public Page<ProcessInstance> started(int page, int size) { return started(actors.current(), page, size); }
+
+    /** 我发起的实例，按发起时间从新到旧 */
+    public Page<ProcessInstance> started(U actor, int page, int size) {
+        allow(actor, "started", String.valueOf(actor.id()));
+        return queries.started(actor, page, size);
+    }
+
     /** 实例详情（当前操作人） */
     public InstanceDetail instance(Long instanceId) { return instance(actors.current(), instanceId); }
 
-    /** 实例详情：实例、表单的值、全部待办、流转记录 */
+    /** 实例详情：实例、表单（按流程级的 formView 只读）、全部待办、流转记录、我能不能撤回与催办 */
     public InstanceDetail instance(U actor, Long instanceId) {
         allow(actor, "instance", String.valueOf(instanceId));
-        return queries.instance(instanceId);
+        return queries.instance(actor, instanceId);
     }
 
     private void allow(U actor, String operation, String target) {

@@ -17,7 +17,9 @@ public class ExampleOrgDirectory implements OrgDirectory {
     static final Map<Long, ExampleUser> USERS = Map.of(
         1001L, new ExampleUser(1001L, "林小满", Set.of(10L), Set.of()),
         1002L, new ExampleUser(1002L, "周启航", Set.of(20L), Set.of(1L)),
-        1004L, new ExampleUser(1004L, "总经理", Set.of(30L), Set.of(2L)));
+        1003L, new ExampleUser(1003L, "沈若水", Set.of(20L), Set.of(1L)),
+        1004L, new ExampleUser(1004L, "总经理", Set.of(30L), Set.of(2L)),
+        1005L, new ExampleUser(1005L, "许知远", Set.of(30L), Set.of()));
 
     @Override
     public String userName(Long userId) {

@@ -310,7 +310,9 @@ final class Execution {
             null, null, null, null, null, null, null);   // 认领时间、截止时间、处理结果、意见、处理人、处理人名字、处理时间：都还没有
         WorkItem item = context.stores().workItems().insert(draft, assigneeId != null ? List.of() : who.candidates());
         created.add(item);
-        addEvent(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null);
+        // 直接落到人的记下名字快照：流转记录上显示"到达 某节点 · 处理人 张三"；在收件箱里的没有
+        addEvent(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null,
+            assigneeName == null ? Map.of() : Map.of("assigneeName", assigneeName));
         return item;
     }
 

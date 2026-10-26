@@ -4,6 +4,8 @@ import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 
+import org.dpdns.zerodep.query.exec.Page;
+
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -26,6 +28,9 @@ public interface InstanceStore {
 
     /** 按编号读几行（收件箱带上实例的标题与摘要用） */
     List<InstanceRecord> findAll(Collection<Long> instanceIds);
+
+    /** 某人发起的，按发起时间从新到旧 */
+    Page<InstanceRecord> startedBy(Long userId, int page, int size);
 
     /** 整行写回：标题、摘要、状态、结果、当前节点、流程变量、运行状态、结束时间（调用前已 {@link #lock}） */
     void update(InstanceRecord instance);

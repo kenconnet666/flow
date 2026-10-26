@@ -4,7 +4,7 @@
   "form": { "key": "purchase-form" },
   "summary": ["form.title", "form.amount"],
   "title": "采购申请：{form.title}",
-  "settings": { "withdraw": "beforeAction" },
+  "settings": { "withdraw": "beforeAction", "formView": { "quantity": "hidden" } },
   "nodes": [
     { "id": "start", "type": "start", "name": "提交", "form": { "default": "editable", "fields": { "note": "hidden" } } },
     { "id": "review", "type": "task", "name": "财务复核", "assignees": [{ "role": 1 }],

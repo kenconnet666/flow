@@ -36,8 +36,8 @@ public final class WithdrawHandler {
             if (!actor.id().equals(instance.startedBy())) throw FlowErrors.forbidden("instance", instance.id(), "not-the-initiator");
 
             LoadedDefinition definition = definitions.of(instance);
-            String rule = Objects.requireNonNullElse(definition.model().settings().withdraw(), "beforeAction");
-            if (!allowed(rule, context.stores().workItems().ofInstance(instance.id()))) {
+            if (!allowed(definition, context.stores().workItems().ofInstance(instance.id()))) {
+                String rule = Objects.requireNonNullElse(definition.model().settings().withdraw(), "beforeAction");
                 throw FlowErrors.forbidden("instance", instance.id(), "withdraw-" + rule);
             }
 
@@ -46,6 +46,11 @@ public final class WithdrawHandler {
             run.flush(instance.title());
             return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
         });
+    }
+
+    /** 发起人现在还能不能撤回（实例详情上的"撤回"按钮）：不看是不是发起人 */
+    static boolean allowed(LoadedDefinition definition, List<WorkItem> items) {
+        return allowed(Objects.requireNonNullElse(definition.model().settings().withdraw(), "beforeAction"), items);
     }
 
     /** 按规则看现在还能不能撤回 */

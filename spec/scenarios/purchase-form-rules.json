@@ -9,10 +9,10 @@
       "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "title", "code": "required" }] } } },
     { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "100.00", "note": "偷偷写的" } } },
     { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
-      "expect": { "form": { "title": "椅子", "amount": "100.00", "note": null } } },
+      "expect": { "form": { "access": { "default": "readonly" }, "values": { "title": "椅子", "amount": "100.00", "note": null } } } },
     { "as": "bob", "command": "complete",
       "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "title": "改了标题", "note": "预算内" } } },
     { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
-      "expect": { "instance": { "title": "采购申请：椅子" }, "form": { "title": "椅子", "amount": "100.00", "note": "预算内" } } }
+      "expect": { "instance": { "title": "采购申请：椅子" }, "form": { "values": { "title": "椅子", "amount": "100.00", "note": "预算内" } } } }
   ]
 }

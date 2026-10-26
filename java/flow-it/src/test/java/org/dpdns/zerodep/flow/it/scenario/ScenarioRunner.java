@@ -103,7 +103,9 @@ final class ScenarioRunner {
                 case "startView" -> view(engine.startView(actor, args.text("key")));
                 case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("size", 20)));
                 case "workItem" -> view(engine.workItem(actor, args.id("workItem")));
-                case "instance" -> detail(engine.instance(actor, args.id("instance")));
+                case "done" -> page(engine.done(actor, args.number("page", 1), args.number("size", 20)));
+                case "started" -> page(engine.started(actor, args.number("page", 1), args.number("size", 20)));
+                case "instance" -> view(engine.instance(actor, args.id("instance")));
                 case "transfer" -> commandResult(engine.transfer(actor, new TransferCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
                 case "delegate" -> commandResult(engine.delegate(actor, new DelegateCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
                 case "addSigners" -> commandResult(engine.addSigners(actor,
@@ -152,22 +154,13 @@ final class ScenarioRunner {
     }
 
     /** 一页列表：同 query 的表格接口（{@link Page#toWire}），total 是数字 */
-    private static Map<String, Object> page(Page<TodoItem> page) {
+    private static Map<String, Object> page(Page<?> page) {
         Map<String, Object> tree = new LinkedHashMap<>(page.toWire());
         tree.remove(Wire.TYPES);
         return tree;
     }
 
-    private static Map<String, Object> detail(InstanceDetail d) {
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("instance", d.instance());
-        out.put("form", d.form().asMap());
-        out.put("workItems", d.workItems());
-        out.put("timeline", d.timeline());
-        return wire(out);
-    }
-
-    /** 查询结果本身（发起页、待办详情）：记录按属性名写成对象 */
+    /** 查询结果本身（发起页、待办详情、实例详情）：记录按属性名写成对象 */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> view(Object value) {
         Map<String, Object> tree = new LinkedHashMap<>((Map<String, Object>) Wire.encode(value));

@@ -27,7 +27,7 @@ import java.util.function.Supplier;
  * POST {前缀}/admin/terminate、suspend、resume、jump、reassign
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
- * GET  {前缀}/queries/todo?page=1&amp;pageSize=20
+ * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started
  * GET  {前缀}/queries/work-items/{id}
  * GET  {前缀}/queries/instances/{id}
  * </pre>
@@ -158,6 +158,20 @@ public class FlowHttpController {
         return respond(() -> ResponseBody.of(engine.todo(page, pageSize)));
     }
 
+    /** 我已办 */
+    @GetMapping("/queries/done")
+    public ResponseEntity<String> done(@RequestParam(name = "page", defaultValue = "1") int page,
+                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.of(engine.done(page, pageSize)));
+    }
+
+    /** 我发起的 */
+    @GetMapping("/queries/started")
+    public ResponseEntity<String> started(@RequestParam(name = "page", defaultValue = "1") int page,
+                                          @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.page(engine.started(page, pageSize)));
+    }
+
     /** 待办详情：表单、处理结果、我能不能认领与处理 */
     @GetMapping("/queries/work-items/{id}")
     public ResponseEntity<String> workItem(@PathVariable("id") Long id) {
@@ -167,7 +181,7 @@ public class FlowHttpController {
     /** 实例详情 */
     @GetMapping("/queries/instances/{id}")
     public ResponseEntity<String> instance(@PathVariable("id") Long id) {
-        return respond(() -> ResponseBody.of(engine.instance(id)));
+        return respond(() -> ResponseBody.view(engine.instance(id)));
     }
 
     /** 执行并写成响应体：成功是 {@code ok} 加数据，出错按业务错误码写；HTTP 都是 200 */

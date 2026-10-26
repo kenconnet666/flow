@@ -15,6 +15,7 @@ import org.dpdns.zerodep.flow.core.view.StartView;
 import org.dpdns.zerodep.flow.core.view.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.core.view.WorkItemView.OutcomeView;
+import org.dpdns.zerodep.flow.model.definition.FieldAccess;
 import org.dpdns.zerodep.flow.model.definition.NodeFormAccess;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
@@ -78,16 +79,38 @@ public final class Queries {
         memberships.put(Candidate.USER, Set.of(actor.id()));
         memberships.put(Candidate.ROLE, actor.roles());
         memberships.put(Candidate.DEPARTMENT, actor.departments());
-        Page<WorkItem> items = context.stores().workItems().todo(new Member(actor.id(), memberships), page, size);
+        return withInstances(context.stores().workItems().todo(new Member(actor.id(), memberships), page, size));
+    }
 
+    /** 待办列表的每一行带上实例的标题、摘要列与状态（0006 第 4 节"待办的业务摘要列"），处理过的再带上结果的名字 */
+    private Page<TodoItem> withInstances(Page<WorkItem> items) {
         Set<Long> instanceIds = items.rows().stream().map(WorkItem::instanceId).collect(Collectors.toSet());
         Map<Long, InstanceRecord> instances = context.stores().instances().findAll(instanceIds).stream()
             .collect(Collectors.toMap(InstanceRecord::id, Function.identity()));
         List<TodoItem> rows = items.rows().stream().map(item -> {
             InstanceRecord instance = instances.get(item.instanceId());
-            return new TodoItem(item, instance == null ? null : instance.title(), instance == null ? Map.of() : instance.summary());
+            if (instance == null) return new TodoItem(item, null, Map.of(), null, null);
+            return new TodoItem(item, instance.title(), instance.summary(), instance.status(), outcomeLabel(instance, item));
         }).toList();
         return new Page<>(rows, items.total(), items.page(), items.size());
+    }
+
+    /** 处理结果的名字：按实例的定义版本找节点上的 outcome；还没处理、隐式的结果（加签办完）时为 null */
+    private String outcomeLabel(InstanceRecord instance, WorkItem item) {
+        if (item.outcome() == null) return null;
+        if (!(definitions.of(instance).graph().node(item.node()) instanceof ProcessNode.Task task)) return null;
+        return task.outcomes().stream().filter(o -> o.key().equals(item.outcome())).map(Outcome::label).findFirst().orElse(null);
+    }
+
+    /** 我处理过的：按处理时间从新到旧，每行带实例的标题与摘要列（同收件箱的行） */
+    public Page<TodoItem> done(Actor actor, int page, int size) {
+        return withInstances(context.stores().workItems().done(actor.id(), page, size));
+    }
+
+    /** 我发起的：按发起时间从新到旧 */
+    public Page<ProcessInstance> started(Actor actor, int page, int size) {
+        Page<InstanceRecord> rows = context.stores().instances().startedBy(actor.id(), page, size);
+        return new Page<>(rows.rows().stream().map(InstanceRecord::view).toList(), rows.total(), rows.page(), rows.size());
     }
 
     /**
@@ -110,18 +133,32 @@ public final class Queries {
             ? formView(definition, task.form(), false, stored, name -> References.read(name, instance, stored))
             : null;
         List<OutcomeView> outcomes = task.outcomes().stream().map(Queries::outcomeView).toList();
-        return new WorkItemView(item, instance.view(), form, outcomes, open && candidate, open && (mine || candidate));
+        boolean completable = open && (mine || candidate);
+        WorkItemView.Actions actions = completable
+            ? new WorkItemView.Actions(task.allow().transfer(), task.allow().delegate(), task.allow().addSign(),
+                mine && WorkItem.CLAIMED.equals(item.assignment()))
+            : WorkItemView.Actions.NONE;
+        return new WorkItemView(item, instance.view(), form, outcomes, open && candidate, completable, actions);
     }
 
     /**
-     * 实例详情：实例、表单的值、全部待办、流转记录。
-     * 表单按查看人的字段权限过滤（0004 的 4.5、0005 的 {@code formView}）随表单组件一起补上，现在给全部字段。
+     * 实例详情：实例、表单、全部待办、流转记录，以及我能不能撤回、催办。
+     * 表单都只读，按流程级的 {@code formView} 去掉隐藏的字段（0004 的 4.3、0005 的 2.1）：在待办里看的人走待办详情。
      */
-    public InstanceDetail instance(Long instanceId) {
+    public InstanceDetail instance(Actor actor, Long instanceId) {
         InstanceRecord instance = context.stores().instances().find(instanceId).orElseThrow(() -> FlowErrors.notFound("instance", instanceId));
-        FormValues form = context.stores().formData().read(instanceId).map(StoredFormData::values).orElse(FormValues.empty());
-        return new InstanceDetail(instance.view(), form, context.stores().workItems().ofInstance(instanceId),
-            context.stores().events().timeline(instanceId));
+        LoadedDefinition definition = definitions.of(instance);
+        FormValues stored = context.stores().formData().read(instanceId).map(StoredFormData::values).orElse(FormValues.empty());
+        FormView form = definition.hasForm()
+            ? formView(definition, new NodeFormAccess(FieldAccess.READONLY, definition.model().settings().formView()), false, stored,
+                name -> References.read(name, instance, stored))
+            : null;
+        List<WorkItem> items = context.stores().workItems().ofInstance(instanceId);
+        boolean starterOfActive = actor.id().equals(instance.startedBy()) && ProcessInstance.ACTIVE.equals(instance.status());
+        InstanceDetail.Actions actions = new InstanceDetail.Actions(
+            starterOfActive && WithdrawHandler.allowed(definition, items),
+            starterOfActive && items.stream().anyMatch(w -> WorkItem.OPEN.equals(w.state())));
+        return new InstanceDetail(instance.view(), form, items, context.stores().events().timeline(instanceId), actions);
     }
 
     /** 流程最新发布的版本（解析好的） */

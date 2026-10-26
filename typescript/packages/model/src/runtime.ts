@@ -123,9 +123,13 @@ export interface FlowEvent {
   readonly data: Readonly<Record<string, unknown>> | null;
 }
 
-/** 收件箱的一行：待办加实例的标题与摘要列 */
+/** 待办列表（我的待办、我已办）的一行：待办加实例的标题、摘要列与状态 */
 export interface TodoItem {
   readonly workItem: WorkItem;
   readonly title: string | null;
   readonly summary: Readonly<Record<string, unknown>>;
+  /** 实例的状态 */
+  readonly status: string | null;
+  /** 处理结果的名字；还没处理时为 null */
+  readonly outcomeLabel: string | null;
 }

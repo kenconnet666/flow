@@ -89,7 +89,8 @@ class SpringHttpTest {
         assertEquals("completed", ((Map<?, ?>) data(approved).get("instance")).get("status"));
 
         Map<String, Object> detail = call(get("/flow/queries/instances/" + instance), "1001", null);
-        assertEquals("预算内", ((Map<?, ?>) data(detail).get("form")).get("note"));
+        Map<?, ?> form = (Map<?, ?>) data(detail).get("form");
+        assertEquals("预算内", ((Map<?, ?>) form.get("values")).get("note"));
     }
 
     /** 发一个请求：断言 HTTP 是 200，返回响应体 */

@@ -14,9 +14,23 @@ import java.util.List;
  * @param outcomes  能选的处理结果，按定义里的先后
  * @param claimable 我能认领（在收件箱里、我是候选）
  * @param completable 我能处理（落到我的；或在收件箱里、我是候选——处理时顺带认领）
+ * @param actions   处理之外我现在能做的协作（审批页上的"转办""委派"……按钮）
  */
 public record WorkItemView(WorkItem workItem, ProcessInstance instance, FormView form, List<OutcomeView> outcomes,
-                           boolean claimable, boolean completable) {
+                           boolean claimable, boolean completable, Actions actions) {
+    /**
+     * 处理之外我现在能做的协作：能处理、节点上的 {@code allow} 没关掉时才能做（0005 人工节点的 allow、0006 的 3.1）。
+     *
+     * @param transfer   转办
+     * @param delegate   委派
+     * @param addSigners 加签
+     * @param release    退回收件箱（我从收件箱里认领的）
+     */
+    public record Actions(boolean transfer, boolean delegate, boolean addSigners, boolean release) {
+        /** 什么都不能做 */
+        public static final Actions NONE = new Actions(false, false, false, false);
+    }
+
     /**
      * 一个处理结果（0005 的人工节点 {@code outcomes}）：审批面板上的一个按钮。
      *

@@ -180,6 +180,15 @@ final class QueryWorkItemStore implements WorkItemStore {
             .orderBy(r -> orders(r.completedAt().desc(), r.id().desc())).limit(1).select(r -> r.completedBy()));
     }
 
+    /** 走（租户, 处理人, 处理时间）的索引 */
+    @Override
+    public Page<WorkItem> done(Long userId, int page, int size) {
+        return db.page(from(FlowTables.WorkItem.class)
+            .where(r -> { r.completedBy().eq(userId); r.state().eq(WorkItem.DONE); })
+            .orderBy(r -> orders(r.completedAt().desc(), r.id().desc()))
+            .selectAs(WorkItem.class), page, size);
+    }
+
     /**
      * 收件箱分两段查（0007 第 4 节），各取前"偏移 + 页长"条再合并：
      * <ol>

@@ -1,5 +1,5 @@
 {
-  "name": "采购：发起列表与发起页、待办详情（节点上的表单权限、处理结果、能不能认领与处理；数字字段来回一趟仍是数）",
+  "name": "采购：发起列表与发起页、待办详情（节点上的表单权限、处理结果、能不能认领与处理；我已办与我发起的；数字字段来回一趟仍是数）",
   "forms": ["forms/purchase-form.json"],
   "processes": ["processes/purchase.json"],
   "clock": "2026-10-26T08:00:00Z",
@@ -31,19 +31,37 @@
           { "key": "pass", "label": "通过", "kind": "approve", "comment": "none", "confirm": false },
           { "key": "reject", "label": "否决", "kind": "reject", "comment": "required", "confirm": false }
         ],
-        "claimable": true, "completable": true
+        "claimable": true, "completable": true,
+        "actions": { "transfer": true, "delegate": true, "addSigners": true, "release": false }
       } },
     { "as": "carol", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
-      "expect": { "claimable": false, "completable": false } },
+      "expect": { "claimable": false, "completable": false,
+        "actions": { "transfer": false, "delegate": false, "addSigners": false, "release": false } } },
     { "as": "bob", "command": "claim", "args": { "workItem": "$start.workItems[0]" } },
     { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
-      "expect": { "workItem": { "assignment": "claimed", "assigneeId": "1002" }, "claimable": false, "completable": true } },
+      "expect": { "workItem": { "assignment": "claimed", "assigneeId": "1002" }, "claimable": false, "completable": true,
+        "actions": { "transfer": true, "delegate": true, "addSigners": true, "release": true } } },
     { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "预算内" } },
       "expect": { "events": [
         { "type": "workItem.completed", "outcome": "pass", "data": { "outcomeLabel": "通过" } },
         "node.left", "node.entered", "node.left", "node.entered", "workItem.created"
       ] } },
     { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
-      "expect": { "workItem": { "state": "done", "outcome": "pass" }, "claimable": false, "completable": false } }
+      "expect": { "workItem": { "state": "done", "outcome": "pass" }, "claimable": false, "completable": false } },
+    { "as": "bob", "command": "done",
+      "expect": { "total": 1, "rows": [{ "workItem": { "node": "review", "outcome": "pass", "completedByName": "周启航" }, "title": "采购申请：办公桌",
+        "status": "active", "outcomeLabel": "通过" }] } },
+    { "as": "alice", "command": "done", "expect": { "total": 0, "rows": [] } },
+    { "as": "alice", "command": "started",
+      "expect": { "total": 1, "rows": [{ "processKey": "purchase", "title": "采购申请：办公桌", "startedByName": "林小满" }] } },
+    { "as": "bob", "command": "started", "expect": { "total": 0, "rows": [] } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": {
+        "form": { "access": { "default": "readonly", "fields": { "quantity": "hidden" } },
+          "values": { "title": "办公桌", "amount": "12000.00", "quantity": null } },
+        "actions": { "withdraw": false, "remind": true }
+      } },
+    { "as": "carol", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": { "actions": { "withdraw": false, "remind": false } } }
   ]
 }

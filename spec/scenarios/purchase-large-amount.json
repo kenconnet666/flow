@@ -34,7 +34,7 @@
       "expect": { "instance": { "status": "completed", "result": "approved", "current": [] }, "workItems": [] } },
     { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
       "expect": {
-        "form": { "title": "办公桌", "amount": "12000.00", "note": "预算内" },
+        "form": { "values": { "title": "办公桌", "amount": "12000.00", "note": "预算内" } },
         "workItems": [
           { "node": "review", "state": "done", "outcome": "pass", "comment": "同意", "completedBy": "1002", "completedByName": "周启航" },
           { "node": "approve", "state": "done", "outcome": "pass", "completedBy": "1004" }

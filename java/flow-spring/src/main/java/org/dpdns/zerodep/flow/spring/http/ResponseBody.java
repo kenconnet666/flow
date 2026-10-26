@@ -37,6 +37,9 @@ final class ResponseBody {
     /** 一页待办：同 query 的表格接口 {@code { rows, total, page, size, totalPages }}，每行是 {@code { workItem, title, summary }} */
     static Object of(Page<TodoItem> page) { return page.toWire(); }
 
+    /** 一页别的行（实例……）：同 query 的表格接口 */
+    static Object page(Page<?> page) { return page.toWire(); }
+
     /** 发布的流程版本：{@code { id, key, version }}（定义本身就是请求体，不再发回） */
     static Object of(DefinitionStore.StoredDefinition definition) {
         return Map.of("id", definition.id(), "key", definition.processKey(), "version", definition.version());
@@ -47,18 +50,8 @@ final class ResponseBody {
         return Map.of("id", form.id(), "key", form.formKey(), "version", form.version());
     }
 
-    /** 查询的结果本身（发起列表、发起页、待办详情）：记录按属性名写成对象 */
+    /** 查询的结果本身（发起列表、发起页、待办详情、实例详情）：记录按属性名写成对象 */
     static Object view(Object value) { return Wire.encode(value); }
-
-    /** 实例详情：{@code { instance, form, workItems, timeline }} */
-    static Object of(InstanceDetail detail) {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("instance", detail.instance());
-        data.put("form", detail.form().asMap());
-        data.put("workItems", detail.workItems());
-        data.put("timeline", detail.timeline());
-        return Wire.encode(data);
-    }
 
     /** 整个响应体写成 JSON 文字；没有的部分省掉 */
     static String write(ApiResult<?> result) {
