@@ -1,0 +1,75 @@
+{
+  "name": "完整的采购流程：没有问题",
+  "form": {
+    "title": { "label": "标题", "type": "text", "required": true },
+    "amount": { "label": "金额", "type": "decimal", "scale": 2 },
+    "buyer": { "label": "经办人", "type": "people", "types": ["user"], "max": 1 },
+    "suppliers": { "label": "供应商", "type": "select", "multiple": true, "options": { "source": "supplier" } },
+    "deadline": { "label": "截止日", "type": "date" },
+    "lines": { "label": "明细", "type": "list", "fields": { "item": { "label": "物品", "type": "text" }, "price": { "label": "单价", "type": "decimal" } } }
+  },
+  "definition": {
+    "key": "purchase",
+    "name": "采购申请",
+    "form": { "key": "purchase" },
+    "variables": [
+      { "name": "negotiationRound", "type": "number", "default": 0 },
+      { "name": "team", "type": "people" }
+    ],
+    "summary": ["form.title", "form.amount"],
+    "title": "采购申请：{form.title}",
+    "starters": [{ "department": "d-stores" }],
+    "settings": { "calendar": "default", "withdraw": "beforeAction" },
+    "lanes": [
+      { "id": "store", "name": "门店" },
+      { "id": "finance", "name": "财务部", "inbox": { "role": "finance-review" } },
+      { "id": "purchasing", "name": "采购部", "inbox": { "role": "buyer", "manager": [{ "resolver": "deptLeader" }] } }
+    ],
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交", "lane": "store", "form": { "default": "editable" } },
+      { "id": "route", "type": "exclusive", "name": "金额大不大" },
+      { "id": "review", "type": "task", "name": "财务复核", "lane": "finance",
+        "outcomes": [
+          { "key": "pass", "label": "通过" },
+          { "key": "back", "label": "退回修改", "kind": "return", "comment": "required" },
+          { "key": "reject", "label": "否决", "kind": "terminate", "result": "rejected" }
+        ],
+        "due": { "until": { "ref": "form.deadline" } },
+        "overdue": { "action": "complete", "outcome": "pass" },
+        "form": { "default": "readonly", "fields": { "amount": "required", "lines.price": "editable" } } },
+      { "id": "fix", "type": "task", "name": "修改", "lane": "store", "assignees": [{ "initiator": true }],
+        "outcomes": [{ "key": "resubmit", "label": "重新提交" }] },
+      { "id": "merge", "type": "exclusive", "name": "汇到询价" },
+      { "id": "fork", "type": "parallel", "name": "分头询价" },
+      { "id": "quote", "type": "call", "name": "供应商报价", "process": "supplier-quote", "mode": "sync",
+        "forEach": { "ref": "form.suppliers" }, "as": "supplier", "input": { "form.supplier": { "ref": "supplier" } } },
+      { "id": "negotiate", "type": "task", "name": "议价", "lane": "purchasing",
+        "outcomes": [{ "key": "agreed", "label": "谈妥" }, { "key": "again", "label": "再谈一轮" }],
+        "multi": { "participants": { "ref": "team" }, "complete": "ratio", "ratio": 0.6, "fallback": "again" } },
+      { "id": "join", "type": "parallel", "name": "汇合" },
+      { "id": "notify", "type": "service", "name": "通知门店", "action": "notifyStore", "args": { "buyer": { "ref": "form.buyer" } } },
+      { "id": "copy", "type": "cc", "name": "抄送店长", "to": [{ "user": { "ref": "form.buyer" } }] },
+      { "id": "end", "type": "end", "name": "完成", "result": "approved" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "route" },
+      { "id": "e2", "from": "route", "to": "review", "when": { "field": "form.amount", "op": "gt", "value": "10000" } },
+      { "id": "e3", "from": "route", "to": "merge", "default": true },
+      { "id": "e4", "from": "review", "to": "merge", "outcome": "pass" },
+      { "id": "e5", "from": "review", "to": "fix", "outcome": "back" },
+      { "id": "e6", "from": "fix", "to": "review", "outcome": "resubmit", "kind": "return" },
+      { "id": "e7", "from": "fork", "to": "quote" },
+      { "id": "e8", "from": "fork", "to": "negotiate" },
+      { "id": "e9", "from": "quote", "to": "join" },
+      { "id": "e10", "from": "negotiate", "to": "join", "outcome": "agreed" },
+      { "id": "e11", "from": "negotiate", "to": "negotiate", "outcome": "again", "kind": "return", "effects": [{ "increment": "negotiationRound" }],
+        "when": { "field": "sys.round.negotiate", "op": "lt", "value": 3 } },
+      { "id": "e12", "from": "join", "to": "notify" },
+      { "id": "e13", "from": "notify", "to": "copy" },
+      { "id": "e14", "from": "copy", "to": "end" },
+      { "id": "e15", "from": "merge", "to": "fork" }
+    ]
+  },
+  "context": { "registered": { "resolver": ["deptLeader"], "action": ["notifyStore"] }, "processes": ["supplier-quote"], "calls": { "supplier-quote": [] }, "calendars": ["default"] },
+  "expect": []
+}

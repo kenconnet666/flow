@@ -1,0 +1,44 @@
+{
+  "name": "引用与表单：没声明的变量、表单里没有的字段、fn. 用在条件以外、不存在的节点轮次、类型用不上、副作用改没声明的变量、没写完的条件、节点权限与必填",
+  "form": {
+    "title": { "label": "标题", "type": "text", "required": true },
+    "amount": { "label": "金额", "type": "decimal" },
+    "note": { "label": "备注", "type": "text" }
+  },
+  "definition": {
+    "key": "refs",
+    "name": "引用",
+    "form": { "key": "refs-form" },
+    "variables": [{ "name": "round", "type": "number" }],
+    "summary": ["form.title", "form.price"],
+    "title": "{form.title}-{owner}",
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交", "form": { "default": "editable", "fields": { "title": "readonly", "ghost": "hidden" } } },
+      { "id": "check", "type": "task", "name": "审核", "assignees": [{ "user": { "ref": "form.amount" } }, { "role": { "ref": "fn.pickRole" } }],
+        "due": { "until": { "ref": "form.note" } },
+        "outcomes": [{ "key": "ok", "label": "好" }], "form": { "fields": { "lines.price": "editable" } } },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "check" },
+      { "id": "e2", "from": "check", "to": "end",
+        "when": { "all": [{ "field": "sys.round.nowhere", "op": "gt", "value": 1 }, { "field": "round", "op": "gt" }, { "field": "fn.budgetLeft", "op": "lt", "value": "100" }] },
+        "effects": [{ "increment": "count" }, { "set": "round", "value": { "ref": "sys.initiator" } }] }
+    ]
+  },
+  "context": { "registered": { "computed": [] } },
+  "expect": [
+    { "code": "condition-incomplete", "severity": "error", "edge": "e2" },
+    { "code": "ref-unknown", "severity": "error", "params": {"ref": "form.price"} },
+    { "code": "ref-unknown", "severity": "error", "params": {"ref": "owner"} },
+    { "code": "ref-type-mismatch", "severity": "error", "node": "check", "params": {"ref": "form.amount", "type": "decimal"} },
+    { "code": "ref-unknown", "severity": "error", "node": "check", "params": {"ref": "fn.pickRole"} },
+    { "code": "ref-type-mismatch", "severity": "error", "node": "check", "params": {"ref": "form.note", "type": "text"} },
+    { "code": "ref-unknown", "severity": "error", "edge": "e2", "params": {"ref": "sys.round.nowhere"} },
+    { "code": "extension-unknown", "severity": "error", "edge": "e2", "params": {"kind": "computed", "name": "budgetLeft"} },
+    { "code": "ref-unknown", "severity": "error", "edge": "e2", "params": {"ref": "count"} },
+    { "code": "form-field-unknown", "severity": "error", "node": "start", "params": {"field": "ghost"} },
+    { "code": "form-field-unknown", "severity": "error", "node": "check", "params": {"field": "lines.price"} },
+    { "code": "form-required-unfillable", "severity": "warning", "node": "start", "params": {"field": "title"} }
+  ]
+}

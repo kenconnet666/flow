@@ -4,3 +4,7 @@
  */
 export * from './values.js';
 export * from './condition.js';
+export * from './definition.js';
+export * from './graph.js';
+export * from './manifest.js';
+export * from './validate.js';

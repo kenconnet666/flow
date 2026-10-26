@@ -1,0 +1,31 @@
+{
+  "name": "网关：排他分出去的分支进了并行汇合、只有一进一出的并行、并行出边写了条件",
+  "definition": {
+    "key": "gateways",
+    "name": "网关",
+    "variables": [{ "name": "x", "type": "number" }],
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "choose", "type": "exclusive", "name": "选一条" },
+      { "id": "a", "type": "task", "name": "甲", "assignees": [{ "user": "u1" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "b", "type": "task", "name": "乙", "assignees": [{ "user": "u2" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "join", "type": "parallel", "name": "汇合" },
+      { "id": "pass", "type": "parallel", "name": "白走一下" },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "choose" },
+      { "id": "e2", "from": "choose", "to": "a", "when": { "field": "x", "op": "eq", "value": 1 } },
+      { "id": "e3", "from": "choose", "to": "b", "default": true },
+      { "id": "e4", "from": "a", "to": "join" },
+      { "id": "e5", "from": "b", "to": "join" },
+      { "id": "e6", "from": "join", "to": "pass", "when": { "field": "x", "op": "exists" } },
+      { "id": "e7", "from": "pass", "to": "end" }
+    ]
+  },
+  "expect": [
+    { "code": "parallel-edge-condition", "severity": "warning", "edge": "e6" },
+    { "code": "parallel-useless", "severity": "warning", "node": "pass" },
+    { "code": "gateway-unpaired", "severity": "error", "node": "join" }
+  ]
+}

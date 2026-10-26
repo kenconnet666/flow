@@ -1,0 +1,31 @@
+{
+  "name": "结构错误：标识重复、泳道与节点不存在、开始有入边、没有结束、节点类型不认识",
+  "definition": {
+    "key": "broken",
+    "name": "坏掉的流程",
+    "lanes": [{ "id": "a", "name": "甲" }, { "id": "a", "name": "甲又一个" }],
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "check", "type": "task", "name": "审核", "lane": "nowhere", "assignees": [{ "user": "u1" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "check", "type": "task", "name": "审核又一个", "assignees": [{ "user": "u1" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "odd", "type": "approval", "name": "写错的类型" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "check" },
+      { "id": "e1", "from": "check", "to": "start" },
+      { "id": "e2", "from": "check", "to": "ghost" },
+      { "id": "e3", "from": "odd", "to": "check" }
+    ]
+  },
+  "expect": [
+    { "code": "node-duplicate", "severity": "error", "node": "check" },
+    { "code": "edge-duplicate", "severity": "error", "edge": "e1" },
+    { "code": "lane-duplicate", "severity": "error", "lane": "a" },
+    { "code": "lane-unknown", "severity": "error", "node": "check", "params": {"lane": "nowhere"} },
+    { "code": "node-type-unknown", "severity": "error", "node": "odd", "params": {"type": "approval"} },
+    { "code": "start-incoming", "severity": "error", "node": "start" },
+    { "code": "end-missing", "severity": "error" },
+    { "code": "edge-unknown-node", "severity": "error", "edge": "e2", "params": {"side": "to", "node": "ghost"} },
+    { "code": "node-unreachable", "severity": "warning", "node": "odd" }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "处理结果与连线：没出边的结果、不存在的结果、网关上的问题、超时结果、处理人",
+  "definition": {
+    "key": "outcomes",
+    "name": "处理结果",
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "check", "type": "task", "name": "审核", "assignees": [{ "sameAs": "nobody" }],
+        "outcomes": [{ "key": "pass", "label": "通过" }, { "key": "back", "label": "退回" }, { "key": "pass", "label": "又一个通过" }],
+        "overdue": { "action": "complete", "outcome": "later" } },
+      { "id": "empty", "type": "task", "name": "没有按钮", "outcomes": [] },
+      { "id": "route", "type": "exclusive", "name": "分支" },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "check", "default": true },
+      { "id": "e2", "from": "check", "to": "route", "outcome": "pass" },
+      { "id": "e3", "from": "check", "to": "end", "outcome": "skip" },
+      { "id": "e4", "from": "route", "to": "empty", "outcome": "x", "default": true },
+      { "id": "e5", "from": "route", "to": "end", "default": true },
+      { "id": "e6", "from": "route", "to": "end" },
+      { "id": "e7", "from": "empty", "to": "end" }
+    ]
+  },
+  "expect": [
+    { "code": "edge-default-not-gateway", "severity": "warning", "edge": "e1" },
+    { "code": "edge-unknown-outcome", "severity": "error", "edge": "e3", "params": {"outcome": "skip"} },
+    { "code": "edge-outcome-not-branching", "severity": "error", "edge": "e4", "params": {"outcome": "x"} },
+    { "code": "outcome-duplicate", "severity": "error", "node": "check", "params": {"outcome": "pass"} },
+    { "code": "outcome-unrouted", "severity": "error", "node": "check", "params": {"outcome": "back"} },
+    { "code": "overdue-unknown-outcome", "severity": "error", "node": "check", "params": {"outcome": "later"} },
+    { "code": "assignee-unknown-node", "severity": "error", "node": "check", "params": {"sameAs": "nobody"} },
+    { "code": "task-no-outcome", "severity": "error", "node": "empty" },
+    { "code": "assignee-missing", "severity": "error", "node": "empty" },
+    { "code": "gateway-multiple-default", "severity": "error", "node": "route" },
+    { "code": "gateway-edge-unconditional", "severity": "warning", "edge": "e6" }
+  ]
+}

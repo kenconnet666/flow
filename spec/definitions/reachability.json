@@ -1,0 +1,34 @@
+{
+  "name": "走不到、走不出：孤立的节点是警告，走不到结束的是错误；退回目标不在上游；提级目标没有收件箱",
+  "definition": {
+    "key": "reach",
+    "name": "走得通",
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "a", "type": "task", "name": "甲", "assignees": [{ "user": "u1" }],
+        "outcomes": [{ "key": "ok", "label": "好" }, { "key": "up", "label": "提级", "kind": "escalate" }, { "key": "loop", "label": "转圈" }] },
+      { "id": "b", "type": "task", "name": "乙", "assignees": [{ "user": "u2" }], "outcomes": [{ "key": "ok", "label": "好" }, { "key": "back", "label": "退回", "kind": "return" }] },
+      { "id": "spin", "type": "task", "name": "出不去", "assignees": [{ "user": "u3" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "lonely", "type": "task", "name": "旁支", "assignees": [{ "user": "u4" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "orphan", "type": "task", "name": "孤立", "assignees": [{ "user": "u5" }], "outcomes": [{ "key": "ok", "label": "好" }] },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "a" },
+      { "id": "e2", "from": "a", "to": "end", "outcome": "ok" },
+      { "id": "e3", "from": "a", "to": "b", "outcome": "up", "kind": "escalate" },
+      { "id": "e4", "from": "a", "to": "spin", "outcome": "loop" },
+      { "id": "e5", "from": "spin", "to": "spin" },
+      { "id": "e6", "from": "b", "to": "end", "outcome": "ok" },
+      { "id": "e7", "from": "b", "to": "lonely", "outcome": "back", "kind": "return" },
+      { "id": "e8", "from": "lonely", "to": "end" },
+      { "id": "e9", "from": "orphan", "to": "end" }
+    ]
+  },
+  "expect": [
+    { "code": "node-unreachable", "severity": "warning", "node": "orphan" },
+    { "code": "node-dead-end", "severity": "error", "node": "spin" },
+    { "code": "escalate-no-inbox", "severity": "error", "edge": "e3" },
+    { "code": "return-not-upstream", "severity": "error", "edge": "e7" }
+  ]
+}

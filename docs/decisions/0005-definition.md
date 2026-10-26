@@ -119,7 +119,7 @@
 
 | `type` | 是什么 | 自己的字段 | 出边按什么分 |
 | --- | --- | --- | --- |
-| `start` | 开始，唯一 | — | 一条出边 |
+| `start` | 开始，唯一 | `form`（发起时的字段权限，0004 第 4 节；随实现补） | 一条出边 |
 | `end` | 结束 | `result`（通过、否决、搁置……业务据此判断怎么结束的）、`terminate`（到这里取消并行的其他分支） | 没有出边 |
 | `task` | 人工节点 | 第 5 节 | 处理结果（`outcome`），再看条件 |
 | `exclusive` | 排他网关 | — | 条件，按先后取第一条成立的，都不成立走 `default` |
@@ -128,7 +128,7 @@
 | `service` | 自动节点 | `action`（接入方注册的动作名）、`args`（JSON）、`mode`（`"async"` 默认、`"sync"`，见 4.1）、`retry`（`{ "times": 3, "backoff": { "minutes": 1 } }`）、`onFailure`（`"manual"` 转人工处理、`"error"` 实例标成出错） | 动作返回的结果（`outcome`），或一条出边 |
 | `call` | 调用流程（子流程） | `process`（流程 key）、`mode`（`"sync"` 等子流程结束、`"async"` 发起后不等）、`input`（`{ "子流程变量或 form.字段": 值 }`）、`output`（同步时把子流程的值写回） | 同步时按子流程结束的 `result`（`outcome`） |
 | `timer` | 定时等待 | `wait`：`{ "workdays": 2 }`、`{ "days": 1 }`、`{ "hours": 4 }`，或 `{ "until": { "ref": "form.signDate" } }` | 一条出边 |
-| `receive` | 等待外部事件 | `event`（事件名）、`outcomes`（事件可能带回的结果列表）、`due`（等多久，超时按第 5.3 节） | 事件带回的结果（`outcome`） |
+| `receive` | 等待外部事件 | `event`（事件名）、`outcomes`（事件可能带回的结果列表）、`due`（等多久）、`overdue`（超时怎么办，同 5.3）、`output` | 事件带回的结果（`outcome`） |
 | `cc` | 抄送节点 | `to`（同 3.2 的来源）、`message` | 一条出边，不阻塞 |
 
 - "出边按什么分"里的 `outcome` 是同一个概念：人工节点的处理结果、自动节点与子流程返回的结果、外部事件带回的结果。出边都用 `outcome` 选，都可以再加条件。
@@ -311,6 +311,7 @@
 | `end-missing` | 错误 | 没有结束节点 | — |
 | `end-outgoing` | 错误 | 结束节点有出边 | — |
 | `node-duplicate` / `edge-duplicate` / `lane-duplicate` | 错误 | 标识重复 | — |
+| `node-type-unknown` | 错误 | 节点类型既不是内置的、也不以 `x-` 开头（多半写错了） | 随实现补 |
 | `lane-unknown` | 错误 | 节点的泳道不存在 | — |
 | `edge-unknown-node` | 错误 | 连线的起点或终点不存在 | — |
 | `node-no-outgoing` | 错误 | 除结束以外的节点没有出边 | — |

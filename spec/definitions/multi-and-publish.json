@@ -1,0 +1,44 @@
+{
+  "name": "会签没写 fallback、fallback 不存在；发布时才查的：扩展没注册、调用的流程不存在、调用成环、工作日历不存在",
+  "definition": {
+    "key": "parent",
+    "name": "父流程",
+    "variables": [{ "name": "team", "type": "people" }],
+    "settings": { "calendar": "cn-2026" },
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "vote", "type": "task", "name": "投票", "assignees": [{ "resolver": "deptLeader" }],
+        "multi": { "participants": { "ref": "team" }, "complete": "votes", "votes": 3 },
+        "outcomes": [{ "key": "yes", "label": "同意", "guards": ["budget"] }, { "key": "no", "label": "不同意" }] },
+      { "id": "vote2", "type": "task", "name": "再投", "assignees": [{ "user": "u1" }],
+        "multi": { "participants": [{ "user": "u1" }, { "user": "u2" }], "complete": "ratio", "ratio": 0.5, "fallback": "maybe" },
+        "outcomes": [{ "key": "yes", "label": "同意" }] },
+      { "id": "child", "type": "call", "name": "子流程", "process": "child", "mode": "sync" },
+      { "id": "missing", "type": "call", "name": "不存在的", "process": "ghost", "mode": "async" },
+      { "id": "act", "type": "service", "name": "动作", "action": "sendMail" },
+      { "id": "custom", "type": "x-sign", "name": "电子签" },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "vote" },
+      { "id": "e2", "from": "vote", "to": "vote2" },
+      { "id": "e3", "from": "vote2", "to": "child" },
+      { "id": "e4", "from": "child", "to": "missing" },
+      { "id": "e5", "from": "missing", "to": "act" },
+      { "id": "e6", "from": "act", "to": "custom" },
+      { "id": "e7", "from": "custom", "to": "end" }
+    ]
+  },
+  "context": { "registered": { "resolver": [], "action": [], "guard": [], "node": [] }, "processes": ["child", "parent"], "calls": { "child": ["parent"] }, "calendars": ["default"] },
+  "expect": [
+    { "code": "multi-no-fallback", "severity": "error", "node": "vote" },
+    { "code": "multi-no-fallback", "severity": "error", "node": "vote2", "params": {"fallback": "maybe"} },
+    { "code": "extension-unknown", "severity": "error", "node": "vote", "params": {"kind": "guard", "name": "budget"} },
+    { "code": "extension-unknown", "severity": "error", "node": "vote", "params": {"kind": "resolver", "name": "deptLeader"} },
+    { "code": "extension-unknown", "severity": "error", "node": "act", "params": {"kind": "action", "name": "sendMail"} },
+    { "code": "extension-unknown", "severity": "error", "node": "custom", "params": {"kind": "node", "name": "x-sign"} },
+    { "code": "call-unknown-process", "severity": "error", "node": "missing", "params": {"process": "ghost"} },
+    { "code": "call-cycle", "severity": "error", "params": {"process": "parent"} },
+    { "code": "due-unknown-calendar", "severity": "error", "params": {"calendar": "cn-2026"} }
+  ]
+}
