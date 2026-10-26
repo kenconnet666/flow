@@ -8,9 +8,10 @@
 - **代码**（2026-10-26 起按 0004 "已定"的顺序做，现在在第 ② 步：模型包）：
   - 目录按 0001 的"模块划分"：根 `pom.xml` 聚合 `java/flow-model`；`typescript/` 是 pnpm 工作区（`packages/model`、`test`）；`spec/` 放两边共用的样例。
   - 模型包已有：条件求值（`spec/conditions`）、定义的类型与校验（`spec/definitions`，0005 第 7 节的全部问题代号）、选边与连线副作用（`spec/routing`）、
+    字段清单自身的校验（`spec/manifests`）、提交值的类型校验（`spec/values`）、两个版本的差别（`spec/diff`）、
     字段权限的合算与提交的合并（`spec/access`）。Java 在 `org.dpdns.zerodep.flow.model.*`，TS 是 `@zerodep-dev/flow-model`。
   - 本地跑：`./mvnw -q test`（Java）；`cd typescript && pnpm install && pnpm test`（TS）。新加一份共用样例只加 JSON 文件，两边的测试都会跑到。
-  - 还没做的模型包内容：字段清单自身的校验（字段名、明细表嵌套、表单条件里不能用 `fn.`）、提交值的类型校验（长度、范围、选项）、两个版本的差异。
+  - 模型包的内容已齐（2026-10-26）。
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：已定（2026-10-26）。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
     主键默认雪花 BIGINT（另带大雪花，也可实现接口自定义，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；

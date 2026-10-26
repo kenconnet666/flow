@@ -12,3 +12,4 @@ export * from './routing.js';
 export * from './access.js';
 export * from './field-values.js';
 export * from './validate-manifest.js';
+export * from './diff.js';

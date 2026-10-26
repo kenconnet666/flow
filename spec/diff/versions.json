@@ -1,0 +1,58 @@
+{
+  "description": "两个版本的差别：before、after 是两份定义，expect 是差别；layout 为 true 时连布局一起比。",
+  "cases": [
+    {
+      "name": "节点、连线、泳道加删改；对象键顺序与数字写法不算差别；布局与版本号默认不比",
+      "before": {
+        "key": "p", "name": "采购", "version": 1, "category": "采购",
+        "lanes": [{ "id": "store", "name": "门店" }, { "id": "old", "name": "旧泳道" }],
+        "nodes": [
+          { "id": "start", "type": "start", "name": "提交" },
+          { "id": "review", "type": "task", "name": "复核", "assignees": [{ "role": "finance" }], "outcomes": [{ "key": "pass", "label": "通过" }], "due": { "workdays": 2 } },
+          { "id": "gone", "type": "task", "name": "删掉的", "outcomes": [{ "key": "ok", "label": "好" }] },
+          { "id": "end", "type": "end", "name": "完成" }
+        ],
+        "edges": [
+          { "id": "e1", "from": "start", "to": "review" },
+          { "id": "e2", "from": "review", "to": "end", "outcome": "pass" }
+        ],
+        "layout": { "nodes": { "review": { "x": 100, "y": 50 } } }
+      },
+      "after": {
+        "version": 2, "name": "采购申请", "key": "p", "category": "采购", "title": "{form.title}",
+        "lanes": [{ "name": "门店", "id": "store" }, { "id": "finance", "name": "财务部" }],
+        "nodes": [
+          { "id": "start", "type": "start", "name": "提交" },
+          { "id": "review", "type": "task", "name": "财务复核", "assignees": [{ "role": "finance" }], "outcomes": [{ "key": "pass", "label": "通过" }, { "key": "back", "label": "退回" }], "due": { "workdays": 2.0 } },
+          { "id": "audit", "type": "task", "name": "审计", "outcomes": [{ "key": "ok", "label": "好" }] },
+          { "id": "end", "type": "end", "name": "完成", "result": "approved" }
+        ],
+        "edges": [
+          { "to": "review", "from": "start", "id": "e1" },
+          { "id": "e2", "from": "review", "to": "audit", "outcome": "pass" },
+          { "id": "e3", "from": "audit", "to": "end" }
+        ],
+        "layout": { "nodes": { "review": { "x": 300, "y": 50 } } }
+      },
+      "expect": {
+        "process": ["name", "title"],
+        "lanes": { "added": ["finance"], "removed": ["old"], "changed": [] },
+        "nodes": { "added": ["audit"], "removed": ["gone"], "changed": [{ "id": "review", "keys": ["name", "outcomes"] }, { "id": "end", "keys": ["result"] }] },
+        "edges": { "added": ["e3"], "removed": [], "changed": [{ "id": "e2", "keys": ["to"] }] }
+      }
+    },
+    {
+      "name": "要比布局时：位置变了的节点、拐点变了的连线",
+      "layout": true,
+      "before": { "key": "p", "name": "p", "nodes": [], "edges": [], "layout": { "nodes": { "a": { "x": 1, "y": 2 }, "b": { "x": 0, "y": 0 } }, "edges": { "e1": { "points": [[1, 1]] } } } },
+      "after": { "key": "p", "name": "p", "nodes": [], "edges": [], "layout": { "nodes": { "a": { "y": 2, "x": 1 }, "b": { "x": 5, "y": 0 }, "c": { "x": 0, "y": 0 } } } },
+      "expect": {
+        "process": [],
+        "lanes": { "added": [], "removed": [], "changed": [] },
+        "nodes": { "added": [], "removed": [], "changed": [] },
+        "edges": { "added": [], "removed": [], "changed": [] },
+        "layout": { "nodes": ["b", "c"], "edges": ["e1"] }
+      }
+    }
+  ]
+}
