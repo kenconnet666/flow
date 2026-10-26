@@ -52,3 +52,12 @@ export type PermissionPolicy<U extends Actor> = (actor: U, operation: string, ta
 
 /** 全部放行 */
 export const allowAll = (): boolean => true;
+
+/** 引擎自己推进（作业：定时、超时、自动节点）时的操作人：流转记录、处理记录上没有操作人（编号与名字都是 null） */
+export const SYSTEM_ACTOR: Actor = Object.freeze({ id: 0n, departments: new Set<Id>(), roles: new Set<Id>() });
+
+/** 记进流转记录的操作人编号：引擎自己推进时为 null */
+export const actorIdOf = (actor: Actor): Id | null => (actor === SYSTEM_ACTOR ? null : actor.id);
+
+/** 记进流转记录的操作人名字：引擎自己推进时为 null */
+export const actorNameOf = (actor: Actor): string | null => (actor === SYSTEM_ACTOR ? null : actorName(actor));

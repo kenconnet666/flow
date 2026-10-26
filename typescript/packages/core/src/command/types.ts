@@ -72,3 +72,90 @@ export interface FormPublication {
   readonly serverSource?: string | null;
   readonly note?: string | null;
 }
+
+// ───────── 协作（0006 的 3.1–3.3） ─────────
+
+/** 转办、委派：交给这个人 */
+export interface HandOverCommand {
+  readonly workItemId: Id;
+  readonly userId: Id;
+  readonly reason?: string | null;
+}
+
+/** 加签：before 前加签、after 后加签、parallel 并加 */
+export interface AddSignersCommand {
+  readonly workItemId: Id;
+  readonly users: readonly Id[];
+  readonly mode: 'before' | 'after' | 'parallel';
+  readonly reason?: string | null;
+}
+
+/** 减签：取消自己加的、还没办的人 */
+export interface RemoveSignersCommand {
+  readonly workItemId: Id;
+  readonly users: readonly Id[];
+}
+
+/** 退回收件箱 */
+export interface ReleaseCommand {
+  readonly workItemId: Id;
+  readonly reason?: string | null;
+}
+
+/** 催办：不给待办时催实例上全部打开着的 */
+export interface RemindCommand {
+  readonly instanceId: Id;
+  readonly workItemId?: Id | null;
+  readonly message?: string | null;
+}
+
+/** 留言 */
+export interface CommentCommand {
+  readonly instanceId: Id;
+  readonly text: string;
+}
+
+/** 收件箱负责人指定承办人 */
+export interface AssignCommand {
+  readonly workItemId: Id;
+  readonly userId: Id;
+}
+
+/** 抄送（知会） */
+export interface CcCommand {
+  readonly instanceId: Id;
+  readonly users: readonly Id[];
+  readonly message?: string | null;
+}
+
+/** 读了抄送：一个实例抄送给我的都标成已读 */
+export interface ReadCcCommand {
+  readonly instanceId: Id;
+}
+
+// ───────── 管理员（0006 的 3.4） ─────────
+
+/** 终止、暂停、撤回这类只对实例的命令 */
+export interface InstanceCommand {
+  readonly instanceId: Id;
+  readonly reason?: string | null;
+}
+
+/** 跳转：原来的待办取消，从这个节点重新走 */
+export interface JumpCommand {
+  readonly instanceId: Id;
+  readonly node: string;
+  readonly reason?: string | null;
+}
+
+/** 失败的作业重新来过 */
+export interface RetryJobCommand {
+  readonly jobId: Id;
+}
+
+/** 跳过失败的作业：自动节点不再做动作，按这个结果往下走 */
+export interface SkipJobCommand {
+  readonly jobId: Id;
+  readonly outcome?: string | null;
+  readonly reason?: string | null;
+}

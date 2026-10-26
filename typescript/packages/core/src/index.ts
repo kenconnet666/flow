@@ -3,7 +3,9 @@
  * 入口是 {@link createFlowEngine}；表的脚本在本包的 sql/mysql。
  */
 export { weekdays, type WorkCalendar } from './calendar.js';
-export type { ClaimCommand, CommandResult, CompleteCommand, FormPublication, Picks, StartCommand, WithdrawCommand } from './command/types.js';
+export type * from './command/types.js';
+export type { JobHandler, Next } from './engine/jobs.js';
+export type { SignalCommand } from './engine/signals.js';
 export type { FlowListener, FlowNotice } from './engine/context.js';
 export type { WithdrawStepCommand } from './engine/step-withdrawal.js';
 export {
@@ -17,9 +19,9 @@ export {
   type ServiceActionResult,
 } from './extensions.js';
 export { createFlowEngine, FlowEngine, type CommandInterceptor, type FlowEngineOptions } from './flow-engine.js';
-export { actorName, allowAll, type Actor, type ActorProvider, type OrgDirectory, type PermissionPolicy } from './identity.js';
+export { actorName, allowAll, SYSTEM_ACTOR, type Actor, type ActorProvider, type OrgDirectory, type PermissionPolicy } from './identity.js';
 export { RunState } from './run-state.js';
-export { flowDatabase, TENANT_FILTER } from './store/query/database.js';
+export { flowDatabase, TENANT_FILTER, tenantScope } from './store/query/database.js';
 export { queryStores } from './store/query/stores.js';
 export type * from './store/types.js';
 export { instantOf, systemClock, type Clock, type Instant } from './time.js';

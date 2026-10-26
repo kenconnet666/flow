@@ -310,6 +310,8 @@ export interface EventStore {
 /** 一个作业 */
 export interface Job {
   readonly id: Id;
+  /** 作业的租户（领取时跨租户读出，做的时候切到它） */
+  readonly tenantId?: bigint;
   readonly kind: string;
   readonly instanceId: Id;
   readonly workItemId: Id | null;
@@ -392,6 +394,45 @@ export interface StepStore {
   remove(instanceId: Id): Promise<void>;
 }
 
+/** 一行等待：实例停在等待节点（receive）上 */
+export interface Wait {
+  readonly id: Id;
+  readonly instanceId: Id;
+  readonly node: string;
+  readonly event: string;
+  /** 实例的业务单据编号；没有时为 null */
+  readonly businessKey: string | null;
+  readonly createdAt: Instant;
+}
+
+/** 等外部事件 */
+export interface WaitStore {
+  insert(wait: Omit<Wait, 'id'>): Promise<void>;
+  ofInstance(instanceId: Id, event: string): Promise<Wait[]>;
+  ofBusinessKey(businessKey: string, event: string): Promise<Wait[]>;
+  /** 不再等：带条件地删掉，删到了返回 true（并发送来的同一个事件只有一个删得到） */
+  remove(waitId: Id): Promise<boolean>;
+  removeForInstance(instanceId: Id): Promise<void>;
+}
+
+/** 记下的一次请求（幂等） */
+export interface StoredRequest {
+  readonly requestId: string;
+  readonly command: string;
+  readonly actorId: Id | null;
+  readonly response: string;
+  readonly createdAt: Instant;
+}
+
+/** 命令的幂等记录：带请求编号的命令做成后记下响应，同一个编号再来时直接返回它 */
+export interface RequestStore {
+  find(requestId: string): Promise<StoredRequest | null>;
+  /** 记下；同一个编号并发写第二次时违反唯一约束，那个命令整个回滚 */
+  save(request: StoredRequest): Promise<void>;
+  /** 删掉这个时刻之前的记录（全部租户），返回删了几条 */
+  deleteBefore(cutoff: Instant): Promise<number>;
+}
+
 /** 引擎用到的存储 */
 export interface Stores {
   readonly definitions: DefinitionStore;
@@ -403,4 +444,6 @@ export interface Stores {
   readonly jobs: JobStore;
   readonly ccs: CcStore;
   readonly steps: StepStore;
+  readonly waits: WaitStore;
+  readonly requests: RequestStore;
 }

@@ -4,6 +4,7 @@
  *   - 租户：带租户列的表（Tenanted）在查询、更新、删除里自动加 `tenant_id = 当前租户`，插入时自动填；
  *   - 修改时间：带修改时间的表（Touched）在插入、更新时自动填当前时刻。
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { database, filter, onInsert, onUpdate, type Database, type Driver } from '@zerodep-dev/query-core';
 import { instantOf, type Clock } from '../../time.js';
 import { Tenanted, Touched, type At } from './tables.js';
@@ -11,8 +12,12 @@ import { Tenanted, Touched, type At } from './tables.js';
 /** 租户过滤器的名字：跨租户的读写（作业的领取、过期记录的清理）用 `unfiltered(TENANT_FILTER)` 关掉它 */
 export const TENANT_FILTER = 'flow-tenant';
 
+/** 作业替所有租户做：做每个作业时切到它的租户（同 Java 的 TenantScope），其余时候是接入方给的当前租户 */
+export const tenantScope = new AsyncLocalStorage<bigint>();
+
 /** 在这个驱动上建引擎用的数据库实例；tenant 给出当前租户，不用多租户时是 `() => 0n` */
-export function flowDatabase(driver: Driver, tenant: () => bigint, clock: Clock): Database {
+export function flowDatabase(driver: Driver, given: () => bigint, clock: Clock): Database {
+  const tenant = () => tenantScope.getStore() ?? given();
   return database(driver, {
     filters: [filter(TENANT_FILTER, Tenanted, (t) => t.tenantId.eq(tenant()))],
     fills: [

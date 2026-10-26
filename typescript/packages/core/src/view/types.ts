@@ -141,3 +141,43 @@ export interface DefinitionProblem {
   readonly field: string | null;
   readonly params: Readonly<Record<string, string>>;
 }
+
+/** 异常（管理端）：重试用完的作业 */
+export interface IncidentView {
+  readonly jobId: Id;
+  readonly kind: string;
+  readonly instanceId: Id;
+  readonly instanceTitle: string | null;
+  readonly processKey: string | null;
+  readonly node: string | null;
+  readonly nodeName: string | null;
+  readonly attempts: number;
+  readonly error: string | null;
+  /** 最后一次尝试的时间 */
+  readonly failedAt: string;
+  /** 能跳过、按结果往下走：自动节点的动作，实例还停在那个节点的那一轮上 */
+  readonly skippable: boolean;
+  /** 跳过时能选的结果；只有一条没写结果的出边时是空的 */
+  readonly outcomes: readonly string[];
+}
+
+/** 管理端的表单列表的一行 */
+export interface FormSummary {
+  readonly key: string;
+  readonly name: string;
+  readonly category: string | null;
+  readonly status: string;
+  readonly latestVersion: number;
+}
+
+/** 表单的一个版本的全部内容（编辑时载入） */
+export interface FormDocument {
+  readonly key: string;
+  readonly name: string;
+  readonly category: string | null;
+  readonly version: number;
+  readonly manifest: string;
+  readonly clientSource: string | null;
+  readonly serverLanguage: string | null;
+  readonly serverSource: string | null;
+}

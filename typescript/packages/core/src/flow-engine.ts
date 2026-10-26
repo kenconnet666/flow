@@ -14,20 +14,55 @@
 import { FlowError, type CcItem, type Id, type ProcessInstance, type TodoItem } from '@zerodep-dev/flow-model';
 import type { Driver, Page } from '@zerodep-dev/query-core';
 import { weekdays, type WorkCalendar } from './calendar.js';
-import type { ClaimCommand, CommandResult, CompleteCommand, FormPublication, StartCommand, WithdrawCommand } from './command/types.js';
+import type {
+  AddSignersCommand,
+  AssignCommand,
+  CcCommand,
+  ClaimCommand,
+  CommandResult,
+  CommentCommand,
+  CompleteCommand,
+  FormPublication,
+  HandOverCommand,
+  InstanceCommand,
+  JumpCommand,
+  ReadCcCommand,
+  ReleaseCommand,
+  RemindCommand,
+  RemoveSignersCommand,
+  RetryJobCommand,
+  SkipJobCommand,
+  StartCommand,
+  WithdrawCommand,
+} from './command/types.js';
+import { jump, reassign, resume, retryJob, skipJob, suspend, terminate } from './engine/admin.js';
+import { addSigners, assign, cc, comment, delegate, readCc, release, remind, removeSigners, transfer } from './engine/collaboration.js';
+import { builtinJobs, JobRunner, type JobHandler } from './engine/jobs.js';
+import { signal, type SignalCommand } from './engine/signals.js';
+import { invalid } from './engine/errors.js';
 import { EventDispatcher, inTransaction, type EngineContext, type FlowListener } from './engine/context.js';
 import { DefinitionCache } from './engine/definitions.js';
 import { claim, complete, start, withdraw } from './engine/handlers.js';
-import { publishDefinition, publishForm, setProcessStatus, validateDefinition } from './engine/publishing.js';
+import { publishDefinition, publishForm, setFormStatus, setProcessStatus, validateDefinition } from './engine/publishing.js';
 import { Queries } from './engine/queries.js';
 import { withdrawStep, type WithdrawStepCommand } from './engine/step-withdrawal.js';
 import { Extensions, type OutcomeGuard, type PeopleResolver, type ServiceAction } from './extensions.js';
 import { allowAll, type Actor, type OrgDirectory, type PermissionPolicy } from './identity.js';
 import { flowDatabase } from './store/query/database.js';
 import { queryStores } from './store/query/stores.js';
-import type { InstanceSearch, StoredDefinition, StoredForm, Stores, VersionInfo } from './store/types.js';
-import { systemClock, type Clock } from './time.js';
-import type { DefinitionProblem, InstanceDetail, ProcessSummary, StartableProcess, StartView, WorkItemView } from './view/types.js';
+import type { FormVersionInfo, InstanceSearch, StoredDefinition, StoredForm, Stores, VersionInfo } from './store/types.js';
+import { instantOf, plusSeconds, systemClock, type Clock } from './time.js';
+import type {
+  DefinitionProblem,
+  FormDocument,
+  FormSummary,
+  IncidentView,
+  InstanceDetail,
+  ProcessSummary,
+  StartableProcess,
+  StartView,
+  WorkItemView,
+} from './view/types.js';
 
 /**
  * 命令拦截器（0006 第 6 节"管道"）：每个命令在权限检查之后经过它，和命令的标准处理在同一个事务里——审计、业务校验、改参数，
@@ -66,6 +101,8 @@ export interface FlowEngineOptions<U extends Actor> {
   readonly resolvers?: readonly PeopleResolver[];
   readonly guards?: readonly OutcomeGuard[];
   readonly actions?: readonly ServiceAction[];
+  /** 新的作业种类，或换掉内置的 timer、overdue、remind、unclaimed、action、receiveTimeout */
+  readonly jobHandlers?: readonly JobHandler[];
   /** 换掉默认存储里的几个 */
   readonly stores?: Partial<Stores>;
 }
@@ -81,6 +118,7 @@ export class FlowEngine<U extends Actor> {
   readonly #queries: Queries;
   readonly #permissions: PermissionPolicy<U>;
   readonly #interceptors: readonly CommandInterceptor<U>[];
+  readonly #jobs: JobRunner;
 
   constructor(options: FlowEngineOptions<U>) {
     const clock = options.clock ?? systemClock;
@@ -99,6 +137,8 @@ export class FlowEngine<U extends Actor> {
     this.#queries = new Queries(this.#context);
     this.#permissions = options.permissionPolicy ?? allowAll;
     this.#interceptors = options.interceptors ?? [];
+    // 内置的作业在前，接入方注册的在后：同一种时接入方的换掉内置的
+    this.#jobs = new JobRunner(this.#context, [...builtinJobs(this.#context), ...(options.jobHandlers ?? [])]);
   }
 
   // ───────── 发布 ─────────
@@ -131,6 +171,30 @@ export class FlowEngine<U extends Actor> {
   definitionJson(actor: U, processKey: string, version: number | null = null): Promise<string> {
     this.#allow(actor, 'definitions.read', processKey);
     return this.#queries.definitionJson(processKey, version);
+  }
+
+  /** 管理端的表单列表：停用的也在，按分类、名称排 */
+  forms(actor: U): Promise<FormSummary[]> {
+    this.#allow(actor, 'forms.list', null);
+    return this.#queries.forms();
+  }
+
+  /** 表单的全部版本，新的在前 */
+  formVersions(actor: U, formKey: string): Promise<FormVersionInfo[]> {
+    this.#allow(actor, 'forms.versions', formKey);
+    return this.#queries.formVersions(formKey);
+  }
+
+  /** 表单某个版本的源码与字段清单（编辑时载入）；version 为 null 时取最新的 */
+  formDocument(actor: U, formKey: string, version: number | null = null): Promise<FormDocument> {
+    this.#allow(actor, 'forms.read', formKey);
+    return this.#queries.formDocument(formKey, version);
+  }
+
+  /** 停用或启用表单：停用后新发布的流程不能再选它，已经引用它的照常用 */
+  setFormActive(actor: U, formKey: string, active: boolean): Promise<FormSummary> {
+    this.#allow(actor, 'forms.status', formKey);
+    return setFormStatus(this.#context, formKey, active);
   }
 
   /** 发布表单：字段清单校验不通过时报 `flow.validation-failed` */
@@ -166,7 +230,139 @@ export class FlowEngine<U extends Actor> {
     return this.#execute(actor, 'withdrawStep', String(command.workItemId), command, (a, c) => withdrawStep(this.#context, a, c));
   }
 
+  // ───────── 协作与管理员命令（0006 的 3.1–3.4） ─────────
+
+  /** 转办：交给别人，自己不再参与 */
+  transfer(actor: U, command: HandOverCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'transfer', String(command.workItemId), command, (a, c) => transfer(this.#context, a, c));
+  }
+
+  /** 委派：请别人先办，办完回到自己手里 */
+  delegate(actor: U, command: HandOverCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'delegate', String(command.workItemId), command, (a, c) => delegate(this.#context, a, c));
+  }
+
+  /** 加签：前加签、后加签、并加 */
+  addSigners(actor: U, command: AddSignersCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'addSigners', String(command.workItemId), command, (a, c) => addSigners(this.#context, a, c));
+  }
+
+  /** 减签：取消自己加的、还没办的人 */
+  removeSigners(actor: U, command: RemoveSignersCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'removeSigners', String(command.workItemId), command, (a, c) => removeSigners(this.#context, a, c));
+  }
+
+  /** 退回收件箱：自己以后不能再认领这一条 */
+  release(actor: U, command: ReleaseCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'release', String(command.workItemId), command, (a, c) => release(this.#context, a, c));
+  }
+
+  /** 催办：同一个待办一小时内只记一次 */
+  remind(actor: U, command: RemindCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'remind', String(command.instanceId), command, (a, c) => remind(this.#context, a, c));
+  }
+
+  /** 留言：记进流转记录 */
+  comment(actor: U, command: CommentCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'comment', String(command.instanceId), command, (a, c) => comment(this.#context, a, c));
+  }
+
+  /** 收件箱负责人指定承办人 */
+  assign(actor: U, command: AssignCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'assign', String(command.workItemId), command, (a, c) => assign(this.#context, a, c));
+  }
+
+  /** 抄送（知会）：每人一条抄送，记进流转记录 */
+  cc(actor: U, command: CcCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'cc', String(command.instanceId), command, (a, c) => cc(this.#context, a, c));
+  }
+
+  /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
+  readCc(actor: U, command: ReadCcCommand): Promise<number> {
+    return this.#execute(actor, 'readCc', String(command.instanceId), command, (a, c) => readCc(this.#context, a, c));
+  }
+
+  /** 外部事件：在等它的实例往下走，返回每个实例这一步的结果 */
+  signal(actor: U, command: SignalCommand): Promise<CommandResult[]> {
+    const target = command.instanceId != null ? String(command.instanceId) : (command.businessKey ?? null);
+    return this.#execute(actor, 'signal', target, command, (a, c) => signal(this.#context, a, c));
+  }
+
+  /** 终止（管理员）：打开着的待办都取消，实例结束 */
+  terminate(actor: U, command: InstanceCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'terminate', String(command.instanceId), command, (a, c) => terminate(this.#context, a, c));
+  }
+
+  /** 暂停（管理员）：待办都不能处理，直到恢复 */
+  suspend(actor: U, command: InstanceCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'suspend', String(command.instanceId), command, (a, c) => suspend(this.#context, a, c));
+  }
+
+  /** 恢复（管理员） */
+  resume(actor: U, command: InstanceCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'resume', String(command.instanceId), command, (a, c) => resume(this.#context, a, c));
+  }
+
+  /** 跳转（管理员）：原来的待办取消，从指定的节点重新走 */
+  jump(actor: U, command: JumpCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'jump', String(command.instanceId), command, (a, c) => jump(this.#context, a, c));
+  }
+
+  /** 改派（管理员、收件箱负责人）：待办直接落到这个人 */
+  reassign(actor: U, command: HandOverCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'reassign', String(command.workItemId), command, (a, c) => reassign(this.#context, a, c));
+  }
+
+  /** 失败的作业重新来过（管理员）：修好外部系统后让异步的自动节点再做一次 */
+  retryJob(actor: U, command: RetryJobCommand): Promise<boolean> {
+    return this.#execute(actor, 'retryJob', String(command.jobId), command, (a, c) => retryJob(this.#context, a, c));
+  }
+
+  /** 跳过失败的作业（管理员）：异步的自动节点不再做动作，按指定的结果往下走 */
+  skipJob(actor: U, command: SkipJobCommand): Promise<CommandResult> {
+    return this.#execute(actor, 'skipJob', String(command.jobId), command, (a, c) => skipJob(this.#context, a, c));
+  }
+
+  // ───────── 作业、幂等 ─────────
+
+  /**
+   * 做一批到期的作业（定时节点到点、待办超时、提醒、无人认领、异步的自动节点），返回做了几个。Nuxt 里由插件定时调；
+   * 几个进程同时调不会重复做。
+   */
+  runDueJobs(): Promise<number> {
+    return this.#jobs.runDue();
+  }
+
+  /** 删掉过期的幂等记录（全部租户）：早于 olderSeconds 秒之前的请求编号不再认，返回删了几条 */
+  purgeRequests(olderSeconds: number): Promise<number> {
+    const cutoff = plusSeconds(instantOf(this.#context.clock.now()), -olderSeconds);
+    return inTransaction(this.#context, () => this.#context.stores.requests.deleteBefore(cutoff));
+  }
+
+  /**
+   * 幂等地做一个命令（0006 第 1 节 requestId，HTTP 的 Idempotency-Key）：这个请求编号没做过时做 work，把它给出的响应与命令在同一个事务里记下；
+   * 做过时直接返回第一次的响应。同一个编号用在别的命令上、换了人时报 `flow.validation-failed`（requestId: reused）。
+   */
+  idempotent(actor: U, requestId: string, command: string, work: () => Promise<string>): Promise<string> {
+    return inTransaction(this.#context, async () => {
+      const done = await this.#context.stores.requests.find(requestId);
+      if (done) {
+        if (done.command !== command || done.actorId !== actor.id) throw invalid('requestId', 'reused');
+        return done.response;
+      }
+      const response = await work();
+      await this.#context.stores.requests.save({ requestId, command, actorId: actor.id, response, createdAt: instantOf(this.#context.clock.now()) });
+      return response;
+    });
+  }
+
   // ───────── 查询 ─────────
+
+  /** 异常：重试用完的作业，新的在前；instanceId 不为 null 时只看这个实例的 */
+  incidents(actor: U, instanceId: Id | null = null, page = 1, size = 20): Promise<Page<IncidentView>> {
+    this.#allow(actor, 'incidents', instanceId === null ? null : String(instanceId));
+    return this.#queries.incidents(instanceId, page, size);
+  }
 
   /** 我能发起的流程 */
   startable(actor: U): Promise<StartableProcess[]> {

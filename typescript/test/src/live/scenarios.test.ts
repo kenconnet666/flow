@@ -84,6 +84,46 @@ const COMMANDS: Record<string, Run> = {
     await e.publishDefinition(a, JSON.stringify(x.raw('definition')));
     return {};
   },
+  transfer: async (e, a, x) => commandResult(await e.transfer(a, { workItemId: x.id('workItem')!, userId: x.id('user')!, reason: x.text('reason') })),
+  delegate: async (e, a, x) => commandResult(await e.delegate(a, { workItemId: x.id('workItem')!, userId: x.id('user')!, reason: x.text('reason') })),
+  addSigners: async (e, a, x) =>
+    commandResult(await e.addSigners(a, { workItemId: x.id('workItem')!, users: x.ids('users'), mode: x.text('mode') as 'before', reason: x.text('reason') })),
+  removeSigners: async (e, a, x) => commandResult(await e.removeSigners(a, { workItemId: x.id('workItem')!, users: x.ids('users') })),
+  release: async (e, a, x) => commandResult(await e.release(a, { workItemId: x.id('workItem')!, reason: x.text('reason') })),
+  remind: async (e, a, x) => commandResult(await e.remind(a, { instanceId: x.id('instance')!, workItemId: x.id('workItem'), message: x.text('message') })),
+  comment: async (e, a, x) => commandResult(await e.comment(a, { instanceId: x.id('instance')!, text: x.text('text')! })),
+  signal: async (e, a, x) => ({
+    results: (
+      await e.signal(a, { instanceId: x.id('instance'), businessKey: x.text('businessKey'), event: x.text('event')!, outcome: x.text('outcome'), data: x.map('data') })
+    ).map(commandResult),
+  }),
+  assign: async (e, a, x) => commandResult(await e.assign(a, { workItemId: x.id('workItem')!, userId: x.id('user')! })),
+  retryJob: async (e, a, x) => ({ revived: await e.retryJob(a, { jobId: x.id('job')! }) }),
+  skipJob: async (e, a, x) => commandResult(await e.skipJob(a, { jobId: x.id('job')!, outcome: x.text('outcome'), reason: x.text('reason') })),
+  cc: async (e, a, x) => commandResult(await e.cc(a, { instanceId: x.id('instance')!, users: x.ids('users'), message: x.text('message') })),
+  readCc: async (e, a, x) => ({ read: await e.readCc(a, { instanceId: x.id('instance')! }) }),
+  terminate: async (e, a, x) => commandResult(await e.terminate(a, { instanceId: x.id('instance')!, reason: x.text('reason') })),
+  suspend: async (e, a, x) => commandResult(await e.suspend(a, { instanceId: x.id('instance')!, reason: x.text('reason') })),
+  resume: async (e, a, x) => commandResult(await e.resume(a, { instanceId: x.id('instance')! })),
+  jump: async (e, a, x) => commandResult(await e.jump(a, { instanceId: x.id('instance')!, node: x.text('node')!, reason: x.text('reason') })),
+  reassign: async (e, a, x) => commandResult(await e.reassign(a, { workItemId: x.id('workItem')!, userId: x.id('user')!, reason: x.text('reason') })),
+  incidents: (e, a, x) => e.incidents(a, x.id('instance'), x.number('page', 1), x.number('size', 20)),
+  forms: async (e, a) => ({ forms: await e.forms(a) }),
+  formVersions: async (e, a, x) => ({ versions: await e.formVersions(a, x.text('key')!) }),
+  formDocument: (e, a, x) => e.formDocument(a, x.text('key')!, x.raw('version') == null ? null : x.number('version', 0)),
+  disableForm: (e, a, x) => e.setFormActive(a, x.text('key')!, false),
+  enableForm: (e, a, x) => e.setFormActive(a, x.text('key')!, true),
+  publishForm: async (e, a, x) => {
+    const form = await e.publishForm(a, {
+      key: x.text('key')!,
+      name: x.text('name')!,
+      category: x.text('category'),
+      manifest: JSON.stringify(x.raw('manifest')),
+      clientSource: x.text('clientSource'),
+      note: x.text('note'),
+    });
+    return { id: form.id, key: form.formKey, version: form.version }; // 同 HTTP 接口的响应
+  },
 };
 
 /** 命令的结果写成场景里的形状 */
@@ -114,6 +154,11 @@ class Args {
 
   raw(name: string): unknown {
     return this.values[name];
+  }
+
+  /** 一串编号 */
+  ids(name: string): Id[] {
+    return ((this.values[name] as (string | number)[] | undefined) ?? []).map((v) => BigInt(v));
   }
 
   /** 下一步选的处理人：{ 节点: [用户编号…] } */
@@ -188,7 +233,6 @@ describe('场景用例（spec/scenarios）', { skip: pool === null ? 'FLOW_MYSQL
   for (const file of readdirSync(DIR).filter((f) => f.endsWith('.json')).sort()) {
     const scenario = JSON.parse(readFileSync(join(DIR, file), 'utf8')) as Scenario;
     const missing = [...new Set(scenario.steps.map((s) => s.command))].filter((c) => c !== 'runJobs' && !(c in COMMANDS));
-    if (scenario.steps.some((s) => s.command === 'runJobs')) missing.push('runJobs');
     const skip = missing.length > 0 ? `TS 引擎还没有：${missing.join('、')}` : false;
     it(`${file}：${scenario.name}`, { skip }, async () => run(scenario));
   }
@@ -222,6 +266,15 @@ async function run(scenario: Scenario) {
   let previous: unknown = {};
   for (const [i, step] of scenario.steps.entries()) {
     const where = `step ${i + 1} (${step.as} ${step.command})`;
+    // 拨时钟、做到期的作业：引擎自己做的事，没有操作人
+    if (step.command === 'runJobs') {
+      clock.moveTo((step.args ?? {})['at'] as string);
+      const result = { ran: await engine.runDueJobs() };
+      check(where, step.expect ?? {}, result);
+      if (step.id) named.set(step.id, result);
+      previous = result;
+      continue;
+    }
     const actor = actors.get(step.as ?? '');
     if (!actor) throw new Error(`${where}: unknown actor ${step.as}`);
     const args = new Args(resolve(step.args ?? {}, named, previous));

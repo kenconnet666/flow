@@ -17,7 +17,7 @@ import {
   type WorkItem,
 } from '@zerodep-dev/flow-model';
 import type { ClaimCommand, CommandResult, CompleteCommand, StartCommand, WithdrawCommand } from '../command/types.js';
-import { actorName, type Actor } from '../identity.js';
+import { actorIdOf, actorName, actorNameOf, type Actor } from '../identity.js';
 import { RunState } from '../run-state.js';
 import { instanceView, STATUS, type InstanceRecord, type JsonRecord } from '../store/types.js';
 import { instantOf } from '../time.js';
@@ -78,21 +78,45 @@ export async function latestActive(context: EngineContext, key: string): Promise
   return context.definitions.of(latest);
 }
 
-/** 发起时给的东西 */
-interface Launch {
-  readonly starterId: Id;
-  readonly starterName: string;
+/**
+ * 发起时给的东西。
+ *
+ * @param fullForm 表单的值原样存（子流程按 input 给的值），否则只收开始节点上能改的字段
+ * @param parent   子实例记下的父实例；不是子流程时不给
+ */
+export interface Launch {
+  readonly starterId: Id | null;
+  readonly starterName: string | null;
   readonly businessKey: string | null;
   readonly priority: number;
   readonly variables: JsonRecord;
   readonly form: JsonRecord;
   readonly picks: ReadonlyMap<string, readonly Id[]>;
+  readonly fullForm?: boolean;
+  readonly parent?: ChildOf;
 }
 
-/** 写实例、存表单、记"实例发起"、从开始节点往前走；返回还没写回的推进（调用方 flush） */
-async function launch(context: EngineContext, definition: LoadedDefinition, actor: Actor, launch: Launch): Promise<Execution> {
+/**
+ * 子实例记下的父实例。
+ *
+ * @param node   父实例里调用它的节点
+ * @param round  那个节点是第几轮
+ * @param root   最外层的实例
+ * @param caller 这个命令里调用它的父实例的推进：子实例马上就结束时直接回到它
+ */
+export interface ChildOf {
+  readonly instanceId: Id;
+  readonly node: string;
+  readonly round: number;
+  readonly root: Id;
+  readonly caller: Execution;
+}
+
+/** 写实例、存表单、记"实例发起"、从开始节点往前走；返回还没写回的推进（调用方 flush）。at 给出时用它作这一步的时刻 */
+export async function launch(context: EngineContext, definition: LoadedDefinition, actor: Actor, launch: Launch, at?: string): Promise<Execution> {
   const model = definition.model;
-  const now = instantOf(context.clock.now());
+  const now = at ?? instantOf(context.clock.now());
+  const parent = launch.parent;
   const variables: Record<string, unknown> = {};
   for (const v of model.variables ?? []) if (v.default !== undefined) variables[v.name] = v.default;
   // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
@@ -113,20 +137,21 @@ async function launch(context: EngineContext, definition: LoadedDefinition, acto
     startedByName: launch.starterName,
     startedAt: now,
     endedAt: null,
-    parentInstanceId: null,
-    parentNode: null,
-    parentRound: null,
-    rootInstanceId: null,
+    parentInstanceId: parent?.instanceId ?? null,
+    parentNode: parent?.node ?? null,
+    parentRound: parent?.round ?? null,
+    rootInstanceId: parent?.root ?? null,
     rev: 0,
   });
   const run = new Execution(context, actor, now, definition, instance, {}, instance.rev);
+  if (parent) run.caller = parent.caller;
   run.picks = launch.picks;
   const start = definition.graph.start!;
   if (definition.manifest) {
-    run.form = mergeForm(definition.manifest, start.form, true, {}, launch.form, run.read);
+    run.form = launch.fullForm ? { ...launch.form } : mergeForm(definition.manifest, start.form, true, {}, launch.form, run.read);
     await context.stores.formData.insert(instance.id, definition.form!.id, run.form);
   }
-  run.addEvent(FLOW_EVENT.INSTANCE_STARTED, start);
+  run.addEvent(FLOW_EVENT.INSTANCE_STARTED, start, { data: parent ? { parentInstanceId: parent.instanceId, parentNode: parent.node } : {} });
   await run.leave(start.id, null);
   return run;
 }
@@ -238,7 +263,7 @@ export async function finishItem(
   outcome: Outcome | null,
   comment: string | null,
 ): Promise<void> {
-  const completion = { outcome: outcomeKey, comment, completedBy: run.actor.id, completedByName: actorName(run.actor), completedAt: run.now };
+  const completion = { outcome: outcomeKey, comment, completedBy: actorIdOf(run.actor), completedByName: actorNameOf(run.actor), completedAt: run.now };
   if (!(await context.stores.workItems.complete(item.id, completion))) throw notOpen(item.id);
   run.closed.push(item);
   // 结果的名字存快照：流转记录上显示"通过"而不是 pass，以后改了定义也不变

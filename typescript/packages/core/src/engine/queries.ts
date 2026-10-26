@@ -22,10 +22,13 @@ import {
 } from '@zerodep-dev/flow-model';
 import type { Page } from '@zerodep-dev/query-core';
 import type { Actor } from '../identity.js';
-import { CANDIDATE, instanceView, STATUS, type InstanceRecord, type InstanceSearch, type JsonRecord } from '../store/types.js';
+import { CANDIDATE, instanceView, STATUS, type InstanceRecord, type InstanceSearch, type Job, type JsonRecord } from '../store/types.js';
 import type {
   DiagramNode,
+  FormDocument,
+  FormSummary,
   FormView,
+  IncidentView,
   InstanceDetail,
   OutcomeView,
   PickView,
@@ -36,11 +39,13 @@ import type {
   StartView,
   WorkItemView,
 } from '../view/types.js';
+import { skipOutcomes } from './admin.js';
 import { isCandidate, isStarter } from './assignees.js';
 import type { EngineContext } from './context.js';
 import type { LoadedDefinition } from './definitions.js';
 import { forbidden, notFound } from './errors.js';
 import { withdrawAllowed } from './handlers.js';
+import { JOB, nodeOf, stillWaiting } from './jobs.js';
 import { returnTargets } from './return-targets.js';
 import { canWithdrawStep } from './step-withdrawal.js';
 import { orgIds, readReference } from './values.js';
@@ -128,6 +133,63 @@ export class Queries {
       status: p.status,
       latestVersion: p.latestVersion,
     }));
+  }
+
+  /** 异常：重试用完的作业，新的在前；instanceId 不为 null 时只看这个实例的 */
+  async incidents(instanceId: Id | null, page: number, size: number): Promise<Page<IncidentView>> {
+    const jobs = await this.context.stores.jobs.failed(instanceId, page, size);
+    const instances = await this.#instancesOf(jobs.rows.map((j) => j.instanceId));
+    const rows: IncidentView[] = [];
+    for (const job of jobs.rows) rows.push(await this.#incident(job, instances.get(job.instanceId)));
+    return { ...jobs, rows };
+  }
+
+  /** 一个异常：按实例的定义版本找节点的名称、跳过时能选的结果 */
+  async #incident(job: Job, instance: InstanceRecord | undefined): Promise<IncidentView> {
+    let node = nodeOf(job);
+    if (node === null && job.workItemId !== null) node = (await this.context.stores.workItems.find(job.workItemId))?.node ?? null;
+    const base = { jobId: job.id, kind: job.kind, instanceId: job.instanceId, node, attempts: job.attempts, error: job.lastError, failedAt: job.dueAt };
+    if (!instance) return { ...base, instanceTitle: null, processKey: null, nodeName: null, skippable: false, outcomes: [] };
+    const graph = (await this.context.definitions.ofInstance(instance)).graph;
+    const skippable = job.kind === JOB.ACTION && instance.endedAt === null && stillWaiting(job, instance.state);
+    return {
+      ...base,
+      instanceTitle: instance.title,
+      processKey: instance.processKey,
+      nodeName: node === null ? null : (graph.node(node)?.name ?? null),
+      skippable,
+      outcomes: node === null ? [] : skipOutcomes(graph, node),
+    };
+  }
+
+  /** 管理端的表单列表：停用的也在，按分类、名称排 */
+  async forms(): Promise<FormSummary[]> {
+    return (await this.context.stores.forms.forms()).map((f) => ({ key: f.formKey, name: f.name, category: f.category, status: f.status, latestVersion: f.latestVersion }));
+  }
+
+  /** 表单的全部版本，新的在前 */
+  async formVersions(formKey: string) {
+    if (!(await this.context.stores.forms.form(formKey))) throw notFound('form', formKey);
+    return this.context.stores.forms.versions(formKey);
+  }
+
+  /** 表单某个版本的全部内容（编辑时载入）；version 为 null 时取最新的 */
+  async formDocument(formKey: string, version: number | null): Promise<FormDocument> {
+    const form = await this.context.stores.forms.form(formKey);
+    if (!form) throw notFound('form', formKey);
+    const wanted = version ?? form.latestVersion;
+    const source = await this.context.stores.forms.source(formKey, wanted);
+    if (!source) throw notFound('form', `${formKey}@${wanted}`);
+    return {
+      key: form.formKey,
+      name: form.name,
+      category: form.category,
+      version: source.version,
+      manifest: source.manifest,
+      clientSource: source.clientSource,
+      serverLanguage: source.serverLanguage,
+      serverSource: source.serverSource,
+    };
   }
 
   /** 流程的全部版本，新的在前 */

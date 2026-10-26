@@ -21,22 +21,25 @@ import {
   FLOW_EVENT,
   FlowError,
   selectEdges,
+  type CallNode,
   type CcNode,
   type FlowEvent,
   type GatewayPairs,
   type Id,
   type ProcessGraph,
   type ProcessNode,
+  type ReceiveNode,
   type ServiceNode,
   type TaskNode,
   type TimerNode,
   type WorkItem,
 } from '@zerodep-dev/flow-model';
-import { actorName, type Actor } from '../identity.js';
+import { actorIdOf, actorName, actorNameOf, type Actor } from '../identity.js';
 import { RunState } from '../run-state.js';
 import { instanceView, type InstanceRecord, type JsonRecord, type NewCc } from '../store/types.js';
 import { isAfter, millisOf, type Instant } from '../time.js';
 import { AssigneeResolver, Assignees } from './assignees.js';
+import { callProcess, childEnded, terminateChildren } from './call-activities.js';
 import type { EngineContext } from './context.js';
 import { Deadlines } from './deadlines.js';
 import type { LoadedDefinition } from './definitions.js';
@@ -83,6 +86,11 @@ export class Execution {
   readonly closed: WorkItem[] = [];
   /** 这次写下的流转记录（带数据库给的编号） */
   readonly events: FlowEvent[] = [];
+
+  /** 子实例：这个命令里调用它的父实例的推进（子实例马上就结束时直接回到它）；不是这样发起的为 null */
+  caller: Execution | null = null;
+  /** 子实例被父实例连带终止：结束时不再回到父实例 */
+  quiet = false;
 
   /**
    * @param actor      这次的操作人；记进流转记录
@@ -211,10 +219,15 @@ export class Execution {
         return this.#arriveAtCc(node);
       case 'service':
         return this.#arriveAtService(node);
+      case 'receive':
+        return this.#arriveAtReceive(node);
+      case 'call':
+        this.#state((s) => s.enter(node.id));
+        return callProcess(this, node);
       case 'end':
         return this.finish('completed', node.result ?? null, FLOW_EVENT.INSTANCE_FINISHED, null);
       default:
-        throw new Error(`node type '${node.type}' (${nodeId}) is not supported by the TypeScript engine yet`);
+        throw new Error(`node type '${node.type}' (${nodeId}) is not supported yet`);
     }
   }
 
@@ -282,6 +295,64 @@ export class Execution {
     }
     this.#state((s) => s.waitDone(service.id));
     await this.leave(service.id, result.outcome ?? null);
+  }
+
+  /** 管理员跳过失败的动作（skipJob）：记一条，不再等，按指定的结果往下走 */
+  async skipAction(service: ServiceNode, jobId: Id, outcome: string | null, reason: string | null): Promise<void> {
+    this.addEvent(FLOW_EVENT.JOB_SKIPPED, service, { outcome, comment: reason, data: { jobId } });
+    this.#state((s) => s.waitDone(service.id));
+    await this.leave(service.id, outcome);
+  }
+
+  /** 到达等待节点：轮次加一，停在这里等外部事件（flow_wait 一行）；写了 due 时排一个超时作业。事件到了由 signal 调 received */
+  async #arriveAtReceive(receive: ReceiveNode) {
+    this.#state((s) => s.enter(receive.id).waitUntil(receive.id, this.now));
+    await this.context.stores.waits.insert({
+      instanceId: this.instance.id,
+      node: receive.id,
+      event: receive.event,
+      businessKey: this.instance.businessKey,
+      createdAt: this.now,
+    });
+    const due = receive.due ? this.deadlines.of(receive.due, this.now, this.read) : null;
+    if (due === null) return;
+    await this.#schedule(JOB.RECEIVE_TIMEOUT, null, due, { node: receive.id, round: this.instance.state.round(receive.id) }, MAX_ATTEMPTS);
+  }
+
+  /** 外部事件到了（或等超时、按 overdue 的结果）：不再等；output 把事件数据里的值写进表单（form. 开头）或流程变量，按结果往下走 */
+  async received(receive: ReceiveNode, outcome: string | null, data: JsonRecord): Promise<void> {
+    const formChanges: Record<string, unknown> = {};
+    const variableChanges: Record<string, unknown> = {};
+    for (const [target, key] of Object.entries(receive.output ?? {})) {
+      if (target.startsWith('form.')) formChanges[target.slice('form.'.length)] = data[key] ?? null;
+      else variableChanges[target] = data[key] ?? null;
+    }
+    if (Object.keys(formChanges).length > 0) {
+      this.form = { ...this.form, ...formChanges };
+      await this.context.stores.formData.update(this.instance.id, this.form);
+    }
+    if (Object.keys(variableChanges).length > 0) this.instance = { ...this.instance, variables: { ...this.instance.variables, ...variableChanges } };
+    this.#state((s) => s.waitDone(receive.id));
+    await this.leave(receive.id, outcome);
+  }
+
+  /** 同步调用流程：停在调用节点上，等 count 个子实例结束（等的个数记在汇合的计数里，键是调用节点） */
+  waitForChildren(node: string, count: number): void {
+    this.#state((s) => s.fork(node, count).waitUntil(node, this.now));
+  }
+
+  /** 一个子实例结束了：少等一个，返回是不是最后一个 */
+  childArrived(node: string): boolean {
+    const last = this.instance.state.waitingAt(node) <= 1;
+    this.#state((s) => s.arrive(node));
+    return last;
+  }
+
+  /** 子实例都结束了：output 收进流程变量，按结果往下走 */
+  async callReturned(call: CallNode, outcome: string | null, variables: JsonRecord): Promise<void> {
+    if (Object.keys(variables).length > 0) this.instance = { ...this.instance, variables: { ...this.instance.variables, ...variables } };
+    this.#state((s) => s.waitDone(call.id));
+    await this.leave(call.id, outcome);
   }
 
   /** 到达抄送节点：抄送给节点上写的人（角色、部门展开成人），不停，接着往下走 */
@@ -495,8 +566,12 @@ export class Execution {
     }
     this.instance = { ...this.instance, status, result, endedAt: this.now, current: [] };
     await this.context.stores.jobs.cancelForInstance(this.instance.id);
+    await this.context.stores.waits.removeForInstance(this.instance.id);
     await this.context.stores.steps.remove(this.instance.id);
     this.addEvent(eventType, null, { outcome: result, comment });
+    // 调用流程：终止、撤回时子实例一起终止；子实例结束了回到父实例（0005 的 4.2）
+    if (status === 'terminated' || status === 'withdrawn') await terminateChildren(this, comment);
+    if (this.instance.parentInstanceId !== null && !this.quiet) await childEnded(this);
   }
 
   /** 记下一条流转记录（先放着，flush 时一起写库）；同一步的记录共用实例的版本 */
@@ -514,8 +589,8 @@ export class Execution {
       edge: extra.edge ?? null,
       outcome: extra.outcome ?? null,
       instanceRev: this.rev,
-      actorId: this.actor.id,
-      actorName: actorName(this.actor),
+      actorId: actorIdOf(this.actor),
+      actorName: actorNameOf(this.actor),
       at: this.now,
       comment: extra.comment ?? null,
       // 附加数据是用户的 JSON：编号写成数（同存进库再读出来的样子，这一步返回的与以后查到的一致）

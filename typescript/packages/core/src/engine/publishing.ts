@@ -15,7 +15,7 @@ import type { FormPublication } from '../command/types.js';
 import { actorName, type Actor } from '../identity.js';
 import { STATUS, type StoredDefinition, type StoredForm } from '../store/types.js';
 import { instantOf } from '../time.js';
-import type { DefinitionProblem, ProcessSummary } from '../view/types.js';
+import type { DefinitionProblem, FormSummary, ProcessSummary } from '../view/types.js';
 import { inTransaction, type EngineContext } from './context.js';
 import { notFound } from './errors.js';
 
@@ -79,6 +79,13 @@ export async function setProcessStatus(context: EngineContext, processKey: strin
   if (!(await context.stores.definitions.setStatus(processKey, active ? STATUS.ACTIVE : STATUS.DISABLED))) throw notFound('process', processKey);
   const p = (await context.stores.definitions.process(processKey))!;
   return { key: p.processKey, name: p.name, category: p.category, status: p.status, latestVersion: p.latestVersion };
+}
+
+/** 停用、启用表单：停用后新发布的流程不能再选它，已经引用它的流程照常用 */
+export async function setFormStatus(context: EngineContext, formKey: string, active: boolean): Promise<FormSummary> {
+  if (!(await context.stores.forms.setStatus(formKey, active ? STATUS.ACTIVE : STATUS.DISABLED))) throw notFound('form', formKey);
+  const f = (await context.stores.forms.form(formKey))!;
+  return { key: f.formKey, name: f.name, category: f.category, status: f.status, latestVersion: f.latestVersion };
 }
 
 /** 发布一张表单：先校验字段清单本身（0004 的 1.2），有错误时报 `flow.validation-failed` */

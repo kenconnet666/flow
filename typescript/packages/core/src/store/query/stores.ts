@@ -29,7 +29,11 @@ import {
   type NewCc,
   type NewJob,
   type StepSnapshot,
+  type RequestStore,
   type StepStore,
+  type StoredRequest,
+  type Wait,
+  type WaitStore,
   type StoredDefinition,
   type StoredForm,
   type Stores,
@@ -47,7 +51,9 @@ import {
   InstanceRow,
   JobRow,
   ProcessRow,
+  RequestRow,
   StepRow,
+  WaitRow,
   WorkItemRow,
 } from './tables.js';
 
@@ -63,6 +69,8 @@ export function queryStores(db: Database): Stores {
     jobs: new QueryJobStore(db),
     ccs: new QueryCcStore(db),
     steps: new QueryStepStore(db),
+    waits: new QueryWaitStore(db),
+    requests: new QueryRequestStore(db),
   };
 }
 
@@ -1168,5 +1176,71 @@ class QueryStepStore implements StepStore {
 
   async remove(instanceId: Id) {
     await this.db.execute(deleteFrom(StepRow).where((r) => r.instanceId.eq(instanceId)));
+  }
+}
+
+const waitColumns = (r: Ref<WaitRow>) => ({ id: r.id, instanceId: r.instanceId, node: r.node, event: r.event, businessKey: r.businessKey, createdAt: r.createdAt });
+
+/** 等外部事件：按（租户, 事件名, 业务单据编号）找 */
+class QueryWaitStore implements WaitStore {
+  constructor(private readonly db: Database) {}
+
+  async insert(wait: Omit<Wait, 'id'>) {
+    await this.db.execute(insertInto(WaitRow).values({ ...wait }));
+  }
+
+  ofInstance(instanceId: Id, event: string) {
+    return this.db.list(
+      from(WaitRow)
+        .where((r) => {
+          r.instanceId.eq(instanceId);
+          r.event.eq(event);
+        })
+        .orderBy((r) => r.id)
+        .select(waitColumns),
+    );
+  }
+
+  ofBusinessKey(businessKey: string, event: string) {
+    return this.db.list(
+      from(WaitRow)
+        .where((r) => {
+          r.event.eq(event);
+          r.businessKey.eq(businessKey);
+        })
+        .orderBy((r) => r.id)
+        .select(waitColumns),
+    );
+  }
+
+  async remove(waitId: Id) {
+    return (await this.db.execute(deleteFrom(WaitRow).where((r) => r.id.eq(waitId)))) === 1;
+  }
+
+  async removeForInstance(instanceId: Id) {
+    await this.db.execute(deleteFrom(WaitRow).where((r) => r.instanceId.eq(instanceId)));
+  }
+}
+
+/** 幂等记录：按（租户, 请求编号）唯一 */
+class QueryRequestStore implements RequestStore {
+  constructor(private readonly db: Database) {}
+
+  async find(requestId: string) {
+    const row = await this.db.optional(
+      from(RequestRow)
+        .where((r) => r.requestId.eq(requestId))
+        .select((r) => ({ requestId: r.requestId, command: r.command, actorId: r.actorId, response: r.response, createdAt: r.createdAt })),
+    );
+    return row ?? null;
+  }
+
+  async save(request: StoredRequest) {
+    await this.db.execute(insertInto(RequestRow).values({ ...request }));
+  }
+
+  /** 走 created_at 的索引；跨租户（定时清理不在哪个租户里） */
+  deleteBefore(cutoff: Instant) {
+    return this.db.execute(deleteFrom(RequestRow).unfiltered(TENANT_FILTER).where((r) => r.createdAt.lt(cutoff)));
   }
 }

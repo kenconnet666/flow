@@ -234,3 +234,25 @@ export class EventRow extends Tenanted {
   @column('comment') comment!: string | null;
   @column('data', objectJson) data!: Record<string, unknown> | null;
 }
+
+/** 等外部事件 */
+@table('flow_wait')
+export class WaitRow extends Tenanted {
+  @id @generated @column('id', bigint) id!: bigint;
+  @column('instance_id', bigint) instanceId!: bigint;
+  @column('node') node!: string;
+  @column('event') event!: string;
+  @column('business_key') businessKey!: string | null;
+  @column('created_at', utc) createdAt!: At;
+}
+
+/** 命令的幂等记录 */
+@table('flow_request')
+export class RequestRow extends Tenanted {
+  @id @generated @column('id', bigint) id!: bigint;
+  @column('request_id') requestId!: string;
+  @column('command') command!: string;
+  @column('actor_id', bigint) actorId!: bigint | null;
+  @column('response') response!: string;
+  @column('created_at', utc) createdAt!: At;
+}
