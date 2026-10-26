@@ -5,4 +5,4 @@ package org.dpdns.zerodep.flow.core.command;
  *
  * @param jobId 作业（流转记录 {@code job.failed} 的 data 里有）
  */
-public record RetryJobCommand(Long jobId) { }
+public record RetryJobCommand(Long jobId) implements FlowCommand { }

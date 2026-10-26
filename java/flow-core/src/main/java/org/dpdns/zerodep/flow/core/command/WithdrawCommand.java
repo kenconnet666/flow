@@ -6,4 +6,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param instanceId 实例
  * @param reason     原因，记进流转记录
  */
-public record WithdrawCommand(Long instanceId, String reason) { }
+public record WithdrawCommand(Long instanceId, String reason) implements FlowCommand { }

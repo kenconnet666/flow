@@ -5,4 +5,4 @@ package org.dpdns.zerodep.flow.core.command;
  *
  * @param instanceId 实例
  */
-public record ResumeCommand(Long instanceId) { }
+public record ResumeCommand(Long instanceId) implements FlowCommand { }

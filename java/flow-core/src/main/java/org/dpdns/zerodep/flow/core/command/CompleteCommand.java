@@ -15,7 +15,7 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
  * @param returnTarget 退回到哪个节点：结果是 {@code { "kind": "return", "target": "choose" }} 时必填，是待办详情里那个结果的 targets 之一
  */
 public record CompleteCommand(Long workItemId, String outcome, String comment, FormValues form, Map<String, List<Long>> picks,
-                              String returnTarget) {
+                              String returnTarget) implements FlowCommand {
     /** 补上空的表单与选人 */
     public CompleteCommand {
         form = form == null ? FormValues.empty() : form;

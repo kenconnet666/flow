@@ -1,10 +1,18 @@
 package org.dpdns.zerodep.flow.it.support;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
+import org.dpdns.zerodep.flow.core.command.CommentCommand;
+import org.dpdns.zerodep.flow.core.command.CompleteCommand;
+import org.dpdns.zerodep.flow.core.command.FlowCommand;
+import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
 import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.model.error.ErrorDetail;
+import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
+import org.dpdns.zerodep.flow.model.error.FlowException;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -19,7 +27,9 @@ import java.util.function.Function;
  *   <li>守卫 {@code budget}：表单的金额超过 100000 时不通过，原因"超出预算"；</li>
  *   <li>动作 {@code classify}：按参数 amount 分大小，≥ 10000 走 {@code big}，否则 {@code small}，并记流程变量 level；</li>
  *   <li>动作 {@code archive}：同一个去重键的前 {@code failures} 次失败（演示重试），之后成功；</li>
- *   <li>动作 {@code explode}：总是失败（演示同步回滚与异步重试用完）。</li>
+ *   <li>动作 {@code explode}：总是失败（演示同步回滚与异步重试用完）；</li>
+ *   <li>命令拦截器：意见是"拦下"的处理拦下（{@code comment: blocked}）；留言里的"敏感词"换成"***"（改参数）；
+ *       业务编号是 {@code rollback-after} 的发起做完之后再拦（{@code businessKey: rolled-back}），整个回滚。</li>
  * </ul>
  * 每个场景一份（失败的次数按场景计）。
  */
@@ -48,7 +58,23 @@ public final class TestExtensions {
             }))
             .action(action("explode", context -> {
                 throw new IllegalStateException("ERP 不可用");
-            }));
+            }))
+            .interceptor(new CommandInterceptor<U>() {
+                @Override
+                public <R> R intercept(U actor, String operation, FlowCommand command, Chain<R> chain) {
+                    if (command instanceof CompleteCommand complete && "拦下".equals(complete.comment())) throw invalid("comment", "blocked");
+                    if (command instanceof CommentCommand comment && comment.text() != null) {
+                        return chain.proceed(new CommentCommand(comment.instanceId(), comment.text().replace("敏感词", "***")));
+                    }
+                    R result = chain.proceed(command);
+                    if (command instanceof StartCommand start && "rollback-after".equals(start.businessKey())) throw invalid("businessKey", "rolled-back");
+                    return result;
+                }
+            });
+    }
+
+    private static FlowException invalid(String field, String code) {
+        return new FlowException(FlowErrorCode.VALIDATION_FAILED, field + ": " + code, List.of(ErrorDetail.field(field, code)));
     }
 
     private static PeopleResolver resolver(String name, Function<PeopleResolver.Context, List<Long>> fn) {

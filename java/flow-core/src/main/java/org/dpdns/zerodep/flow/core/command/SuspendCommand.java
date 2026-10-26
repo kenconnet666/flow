@@ -6,4 +6,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param instanceId 实例
  * @param reason     原因
  */
-public record SuspendCommand(Long instanceId, String reason) { }
+public record SuspendCommand(Long instanceId, String reason) implements FlowCommand { }

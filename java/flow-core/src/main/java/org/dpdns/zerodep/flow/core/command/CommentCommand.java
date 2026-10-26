@@ -6,4 +6,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param instanceId 实例
  * @param text       内容
  */
-public record CommentCommand(Long instanceId, String text) { }
+public record CommentCommand(Long instanceId, String text) implements FlowCommand { }

@@ -7,4 +7,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param userId     请谁办
  * @param reason     说明，记进流转记录
  */
-public record DelegateCommand(Long workItemId, Long userId, String reason) { }
+public record DelegateCommand(Long workItemId, Long userId, String reason) implements FlowCommand { }

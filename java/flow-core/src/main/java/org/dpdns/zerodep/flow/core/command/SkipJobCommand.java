@@ -7,4 +7,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param outcome 走哪个结果的出边；节点只有一条没写结果的出边时不填
  * @param reason  原因（写进流转记录）
  */
-public record SkipJobCommand(Long jobId, String outcome, String reason) { }
+public record SkipJobCommand(Long jobId, String outcome, String reason) implements FlowCommand { }

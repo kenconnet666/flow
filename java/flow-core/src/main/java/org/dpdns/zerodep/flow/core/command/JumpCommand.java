@@ -7,4 +7,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param node       移到哪个节点
  * @param reason     原因
  */
-public record JumpCommand(Long instanceId, String node, String reason) { }
+public record JumpCommand(Long instanceId, String node, String reason) implements FlowCommand { }

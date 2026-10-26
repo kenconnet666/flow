@@ -7,4 +7,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param userId     改给谁
  * @param reason     原因
  */
-public record ReassignCommand(Long workItemId, Long userId, String reason) { }
+public record ReassignCommand(Long workItemId, Long userId, String reason) implements FlowCommand { }

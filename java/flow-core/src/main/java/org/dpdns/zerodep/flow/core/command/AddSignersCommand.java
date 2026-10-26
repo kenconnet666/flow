@@ -16,6 +16,6 @@ import java.util.List;
  * @param mode       {@code before}、{@code after}、{@code parallel}
  * @param reason     说明，记进流转记录
  */
-public record AddSignersCommand(Long workItemId, List<Long> users, String mode, String reason) {
+public record AddSignersCommand(Long workItemId, List<Long> users, String mode, String reason) implements FlowCommand {
     public AddSignersCommand { users = users == null ? List.of() : List.copyOf(users); }
 }

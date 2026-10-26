@@ -6,4 +6,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param workItemId 待办
  * @param userId     承办人
  */
-public record AssignCommand(Long workItemId, Long userId) { }
+public record AssignCommand(Long workItemId, Long userId) implements FlowCommand { }

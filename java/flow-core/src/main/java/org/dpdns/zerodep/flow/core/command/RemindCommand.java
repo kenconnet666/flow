@@ -8,4 +8,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param workItemId 待办；不给时是实例上全部打开着的
  * @param message    附言
  */
-public record RemindCommand(Long instanceId, Long workItemId, String message) { }
+public record RemindCommand(Long instanceId, Long workItemId, String message) implements FlowCommand { }

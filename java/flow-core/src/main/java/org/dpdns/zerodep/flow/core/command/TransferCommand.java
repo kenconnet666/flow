@@ -7,4 +7,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param userId     交给谁
  * @param reason     原因，记进流转记录
  */
-public record TransferCommand(Long workItemId, Long userId, String reason) { }
+public record TransferCommand(Long workItemId, Long userId, String reason) implements FlowCommand { }

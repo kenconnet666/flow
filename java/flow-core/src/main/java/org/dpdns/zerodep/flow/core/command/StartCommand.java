@@ -18,7 +18,7 @@ import java.util.Map;
  * @param picks       第一步要发起人选处理人的节点（0005 的 5.6 {@code pick}）→ 选的人
  */
 public record StartCommand(String key, FormValues form, Variables variables, String businessKey, String title, int priority,
-                           Map<String, List<Long>> picks) {
+                           Map<String, List<Long>> picks) implements FlowCommand {
     /** 补上空的表单、变量与选人 */
     public StartCommand {
         form = form == null ? FormValues.empty() : form;

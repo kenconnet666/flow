@@ -1,0 +1,22 @@
+{
+  "name": "命令拦截器（场景的扩展里注册的）：处理前拦下不做；改参数（留言里的敏感词换掉）；做完之后再拦，整个命令回滚",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] }
+  },
+  "steps": [
+    { "as": "alice", "command": "start", "args": { "key": "purchase", "businessKey": "rollback-after", "form": { "title": "办公桌", "amount": "800.00" } },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "businessKey", "code": "rolled-back" }] } } },
+    { "as": "alice", "command": "started", "expect": { "total": 0 } },
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "800.00" } },
+      "expect": { "workItems": [{ "node": "review" }] } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "comment": "拦下" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "comment", "code": "blocked" }] } } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" }, "expect": { "workItem": { "state": "open" } } },
+    { "as": "alice", "command": "comment", "args": { "instance": "$start.instance", "text": "这里有敏感词" },
+      "expect": { "events": [{ "type": "instance.commented", "comment": "这里有***" }] } }
+  ]
+}

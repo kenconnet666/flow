@@ -6,4 +6,4 @@ package org.dpdns.zerodep.flow.core.command;
  * @param workItemId 刚处理的待办
  * @param reason     原因，记进流转记录
  */
-public record WithdrawStepCommand(Long workItemId, String reason) { }
+public record WithdrawStepCommand(Long workItemId, String reason) implements FlowCommand { }

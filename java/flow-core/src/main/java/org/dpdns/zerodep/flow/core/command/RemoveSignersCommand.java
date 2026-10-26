@@ -8,6 +8,6 @@ import java.util.List;
  * @param workItemId 自己的待办
  * @param users      减谁
  */
-public record RemoveSignersCommand(Long workItemId, List<Long> users) {
+public record RemoveSignersCommand(Long workItemId, List<Long> users) implements FlowCommand {
     public RemoveSignersCommand { users = users == null ? List.of() : List.copyOf(users); }
 }

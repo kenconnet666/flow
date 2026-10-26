@@ -10,6 +10,6 @@ import java.util.List;
  * @param users      抄送给谁
  * @param message    附言，记进流转记录
  */
-public record CcCommand(Long instanceId, List<Long> users, String message) {
+public record CcCommand(Long instanceId, List<Long> users, String message) implements FlowCommand {
     public CcCommand { users = users == null ? List.of() : List.copyOf(users); }
 }

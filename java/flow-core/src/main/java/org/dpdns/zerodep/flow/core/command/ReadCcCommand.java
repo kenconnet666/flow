@@ -5,4 +5,4 @@ package org.dpdns.zerodep.flow.core.command;
  *
  * @param instanceId 实例
  */
-public record ReadCcCommand(Long instanceId) { }
+public record ReadCcCommand(Long instanceId) implements FlowCommand { }

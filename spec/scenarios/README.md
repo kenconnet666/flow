@@ -75,6 +75,7 @@
 | 动作 | `classify` | 参数 `amount` ≥ 10000 走结果 `big`，否则 `small`；记流程变量 `level` |
 | 动作 | `archive` | 同一个去重键的前 `failures`（参数）次失败，之后成功 |
 | 动作 | `explode` | 总是失败 |
+| 命令拦截器 | — | 意见是"拦下"的处理拦下（`comment: blocked`）；留言里的"敏感词"换成"***"；业务编号 `rollback-after` 的发起做完再拦（`businessKey: rolled-back`），整个回滚 |
 
 ## 引用前面的结果
 

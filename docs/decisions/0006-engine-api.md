@@ -149,8 +149,8 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | 通知 | `NotificationChannel` | 无（接入方注册站内信、邮件……） | 注册 |
 | | `RecipientCalculator`、`NotificationFilter` | 0005 第 8 节的默认收件人与 `notify` | 替换 |
 | 查询 | `TodoQueryCustomizer` | 只用实例上的 `summary` | 实现它 join 自己的表、加条件 |
-| 管道 | `CommandInterceptor` | 无 | 注册：审计、业务校验、改参数 |
-| | `CommandHandler<C>` | 每个命令的标准实现 | **按命令替换**：哪个命令的标准行为不合适，就换掉那一个 |
+| 管道 | `CommandInterceptor` | 无 | 注册：审计、业务校验、改参数；和标准处理在同一个事务里，先注册的在外层（Java 已实现：`FlowCommand` 标记命令，拦截器是环绕式的 `intercept(actor, operation, command, chain)`） |
+| | 按命令替换 | 每个命令的标准实现 | **按命令替换**：哪个命令的标准行为不合适，就换掉那一个——用拦截器做：认出那个命令后不调 `chain.proceed`，自己做（不另设 `CommandHandler<C>`，少一套注册） |
 | 序列化 | `JsonCodec` | Java 用 query 的 `wire`（不依赖 Jackson），TS 用内置 JSON | 替换（例如用接入方的 Jackson 配置） |
 | 集群 | `FormChangeBroadcaster`（0004 的 1.5，0005 也用来刷新定义缓存） | 不发 | 实现 |
 

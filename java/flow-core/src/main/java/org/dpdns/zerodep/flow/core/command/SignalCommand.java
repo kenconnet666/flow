@@ -12,6 +12,6 @@ import java.util.Map;
  * @param outcome     带回的结果（等待节点写了 {@code outcomes} 时必须是其中一个）
  * @param data        事件带的数据：节点的 {@code output} 把其中的值写进表单或流程变量
  */
-public record SignalCommand(Long instanceId, String businessKey, String event, String outcome, Map<String, Object> data) {
+public record SignalCommand(Long instanceId, String businessKey, String event, String outcome, Map<String, Object> data) implements FlowCommand {
     public SignalCommand { data = data == null ? Map.of() : data; }
 }

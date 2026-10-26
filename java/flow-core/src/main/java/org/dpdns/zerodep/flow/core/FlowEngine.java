@@ -5,10 +5,12 @@ import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
+import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
+import org.dpdns.zerodep.flow.core.command.FlowCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
@@ -95,6 +97,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
@@ -111,7 +114,8 @@ import java.util.function.Supplier;
  *   <li>表由接入方建：执行 flow-core 里的 {@code db/flow/mysql/*.sql}，推荐交给 Flyway（docs/decisions/0007 第 9 节）；</li>
  *   <li>每个命令在一个事务里执行（外面已有同一个数据源的事务时加入），处理的步骤见各处理类（{@code engine} 包）；</li>
  *   <li>出错时抛带业务错误码的 {@link FlowException}（0008），HTTP 接口写成响应体；</li>
- *   <li>不带操作人的方法取 {@link ActorProvider} 的当前操作人，带 {@code actor} 的给后台任务、系统操作用；每个操作先问 {@link PermissionPolicy}。</li>
+ *   <li>不带操作人的方法取 {@link ActorProvider} 的当前操作人，带 {@code actor} 的给后台任务、系统操作用；每个操作先问 {@link PermissionPolicy}；</li>
+ *   <li>命令过了权限再过 {@link CommandInterceptor}（审计、业务校验、改参数），和标准处理在同一个事务里。</li>
  * </ul>
  */
 public final class FlowEngine<U extends Actor> {
@@ -129,11 +133,14 @@ public final class FlowEngine<U extends Actor> {
     private final Queries queries;
     private final JobRunner jobs;
     private final EngineContext context;
+    private final List<CommandInterceptor<U>> interceptors;
 
-    private FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, List<JobHandler> jobHandlers) {
+    private FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, List<CommandInterceptor<U>> interceptors,
+                       List<JobHandler> jobHandlers) {
         this.context = context;
         this.actors = actors;
         this.permissions = permissions;
+        this.interceptors = interceptors;
         this.starts = new StartHandler(context);
         this.claims = new ClaimHandler(context);
         this.completions = new CompleteHandler(context, claims);
@@ -219,8 +226,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 发起：按最新发布的版本走（步骤见 {@link StartHandler}） */
     public CommandResult start(U actor, StartCommand command) {
-        allow(actor, "start", command.key());
-        return starts.handle(actor, command);
+        return execute(actor, "start", command.key(), command, starts::handle);
     }
 
     /** 认领（当前操作人） */
@@ -228,8 +234,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 认领收件箱里的待办：先到先得（见 {@link ClaimHandler}） */
     public CommandResult claim(U actor, ClaimCommand command) {
-        allow(actor, "claim", String.valueOf(command.workItemId()));
-        return claims.handle(actor, command);
+        return execute(actor, "claim", String.valueOf(command.workItemId()), command, claims::handle);
     }
 
     /** 处理（当前操作人） */
@@ -237,8 +242,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 处理一个待办（步骤见 {@link CompleteHandler}） */
     public CommandResult complete(U actor, CompleteCommand command) {
-        allow(actor, "complete", String.valueOf(command.workItemId()));
-        return completions.handle(actor, command);
+        return execute(actor, "complete", String.valueOf(command.workItemId()), command, completions::handle);
     }
 
     /** 撤回（当前操作人） */
@@ -246,8 +250,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 发起人撤回整个实例（规则见 {@link WithdrawHandler}） */
     public CommandResult withdraw(U actor, WithdrawCommand command) {
-        allow(actor, "withdraw", String.valueOf(command.instanceId()));
-        return withdrawals.handle(actor, command);
+        return execute(actor, "withdraw", String.valueOf(command.instanceId()), command, withdrawals::handle);
     }
 
     // ───────── 协作与管理员命令（0006 的 3.1–3.4） ─────────
@@ -257,8 +260,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 转办：交给别人，自己不再参与 */
     public CommandResult transfer(U actor, TransferCommand command) {
-        allow(actor, "transfer", String.valueOf(command.workItemId()));
-        return collaboration.transfer(actor, command);
+        return execute(actor, "transfer", String.valueOf(command.workItemId()), command, collaboration::transfer);
     }
 
     /** 委派（当前操作人） */
@@ -266,8 +268,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 委派：请别人先办，办完回到自己手里 */
     public CommandResult delegate(U actor, DelegateCommand command) {
-        allow(actor, "delegate", String.valueOf(command.workItemId()));
-        return collaboration.delegate(actor, command);
+        return execute(actor, "delegate", String.valueOf(command.workItemId()), command, collaboration::delegate);
     }
 
     /** 加签（当前操作人） */
@@ -275,8 +276,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 加签：前加签、后加签、并加 */
     public CommandResult addSigners(U actor, AddSignersCommand command) {
-        allow(actor, "addSigners", String.valueOf(command.workItemId()));
-        return collaboration.addSigners(actor, command);
+        return execute(actor, "addSigners", String.valueOf(command.workItemId()), command, collaboration::addSigners);
     }
 
     /** 减签（当前操作人） */
@@ -284,8 +284,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 减签：取消自己加的、还没办的人 */
     public CommandResult removeSigners(U actor, RemoveSignersCommand command) {
-        allow(actor, "removeSigners", String.valueOf(command.workItemId()));
-        return collaboration.removeSigners(actor, command);
+        return execute(actor, "removeSigners", String.valueOf(command.workItemId()), command, collaboration::removeSigners);
     }
 
     /** 退回收件箱（当前操作人） */
@@ -293,8 +292,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 退回收件箱：自己以后不能再认领这一条 */
     public CommandResult release(U actor, ReleaseCommand command) {
-        allow(actor, "release", String.valueOf(command.workItemId()));
-        return collaboration.release(actor, command);
+        return execute(actor, "release", String.valueOf(command.workItemId()), command, collaboration::release);
     }
 
     /** 催办（当前操作人） */
@@ -302,8 +300,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 催办：同一个待办一小时内只记一次 */
     public CommandResult remind(U actor, RemindCommand command) {
-        allow(actor, "remind", String.valueOf(command.instanceId()));
-        return collaboration.remind(actor, command);
+        return execute(actor, "remind", String.valueOf(command.instanceId()), command, collaboration::remind);
     }
 
     /** 留言（当前操作人） */
@@ -311,8 +308,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 留言：记进流转记录 */
     public CommandResult comment(U actor, CommentCommand command) {
-        allow(actor, "comment", String.valueOf(command.instanceId()));
-        return collaboration.comment(actor, command);
+        return execute(actor, "comment", String.valueOf(command.instanceId()), command, collaboration::comment);
     }
 
     /** 撤回刚处理的一步（当前操作人） */
@@ -320,8 +316,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 处理人撤回刚处理的一步：下一步还没人动时，待办回到自己手里（条件见 {@link StepWithdrawal}） */
     public CommandResult withdrawStep(U actor, WithdrawStepCommand command) {
-        allow(actor, "withdrawStep", String.valueOf(command.workItemId()));
-        return stepWithdrawals.withdraw(actor, command);
+        return execute(actor, "withdrawStep", String.valueOf(command.workItemId()), command, stepWithdrawals::withdraw);
     }
 
     /** 外部事件（当前操作人） */
@@ -329,8 +324,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 外部事件：在等它的实例往下走，返回每个实例这一步的结果；实例不在等时只记一笔（见 {@link SignalHandler}） */
     public List<CommandResult> signal(U actor, SignalCommand command) {
-        allow(actor, "signal", command.instanceId() != null ? String.valueOf(command.instanceId()) : command.businessKey());
-        return signals.signal(actor, command);
+        return execute(actor, "signal", command.instanceId() != null ? String.valueOf(command.instanceId()) : command.businessKey(), command, signals::signal);
     }
 
     /** 收件箱负责人指定承办人（当前操作人） */
@@ -338,8 +332,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 收件箱负责人指定承办人：只有等我指定的待办能指定 */
     public CommandResult assign(U actor, AssignCommand command) {
-        allow(actor, "assign", String.valueOf(command.workItemId()));
-        return collaboration.assign(actor, command);
+        return execute(actor, "assign", String.valueOf(command.workItemId()), command, collaboration::assign);
     }
 
     /** 抄送（当前操作人） */
@@ -347,8 +340,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 抄送（知会）：每人一条抄送，记进流转记录 */
     public CommandResult cc(U actor, CcCommand command) {
-        allow(actor, "cc", String.valueOf(command.instanceId()));
-        return collaboration.cc(actor, command);
+        return execute(actor, "cc", String.valueOf(command.instanceId()), command, collaboration::cc);
     }
 
     /** 读了抄送（当前操作人） */
@@ -356,8 +348,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
     public int readCc(U actor, ReadCcCommand command) {
-        allow(actor, "readCc", String.valueOf(command.instanceId()));
-        return collaboration.readCc(actor, command);
+        return execute(actor, "readCc", String.valueOf(command.instanceId()), command, collaboration::readCc);
     }
 
     /** 终止（管理员）（当前操作人） */
@@ -365,8 +356,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 终止（管理员）：打开着的待办都取消，实例结束 */
     public CommandResult terminate(U actor, TerminateCommand command) {
-        allow(actor, "terminate", String.valueOf(command.instanceId()));
-        return admin.terminate(actor, command);
+        return execute(actor, "terminate", String.valueOf(command.instanceId()), command, admin::terminate);
     }
 
     /** 暂停（管理员）（当前操作人） */
@@ -374,8 +364,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 暂停（管理员）：待办都不能处理，直到恢复 */
     public CommandResult suspend(U actor, SuspendCommand command) {
-        allow(actor, "suspend", String.valueOf(command.instanceId()));
-        return admin.suspend(actor, command);
+        return execute(actor, "suspend", String.valueOf(command.instanceId()), command, admin::suspend);
     }
 
     /** 恢复（管理员）（当前操作人） */
@@ -383,8 +372,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 恢复（管理员） */
     public CommandResult resume(U actor, ResumeCommand command) {
-        allow(actor, "resume", String.valueOf(command.instanceId()));
-        return admin.resume(actor, command);
+        return execute(actor, "resume", String.valueOf(command.instanceId()), command, admin::resume);
     }
 
     /** 跳转（管理员）（当前操作人） */
@@ -392,8 +380,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 跳转（管理员）：原来的待办取消，从指定的节点重新走 */
     public CommandResult jump(U actor, JumpCommand command) {
-        allow(actor, "jump", String.valueOf(command.instanceId()));
-        return admin.jump(actor, command);
+        return execute(actor, "jump", String.valueOf(command.instanceId()), command, admin::jump);
     }
 
     /** 改派（管理员、收件箱负责人）（当前操作人） */
@@ -401,8 +388,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 改派（管理员、收件箱负责人）：待办直接落到这个人 */
     public CommandResult reassign(U actor, ReassignCommand command) {
-        allow(actor, "reassign", String.valueOf(command.workItemId()));
-        return admin.reassign(actor, command);
+        return execute(actor, "reassign", String.valueOf(command.workItemId()), command, admin::reassign);
     }
 
     /** 失败的作业重新来过（管理员）（当前操作人） */
@@ -410,8 +396,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 失败的作业重新来过（管理员）：修好外部系统后让异步的自动节点再做一次 */
     public boolean retryJob(U actor, RetryJobCommand command) {
-        allow(actor, "retryJob", String.valueOf(command.jobId()));
-        return admin.retryJob(actor, command);
+        return execute(actor, "retryJob", String.valueOf(command.jobId()), command, admin::retryJob);
     }
 
     /** 跳过失败的作业（管理员）（当前操作人） */
@@ -419,8 +404,7 @@ public final class FlowEngine<U extends Actor> {
 
     /** 跳过失败的作业（管理员）：异步的自动节点不再做动作，按指定的结果往下走 */
     public CommandResult skipJob(U actor, SkipJobCommand command) {
-        allow(actor, "skipJob", String.valueOf(command.jobId()));
-        return admin.skipJob(actor, command);
+        return execute(actor, "skipJob", String.valueOf(command.jobId()), command, admin::skipJob);
     }
 
     // ───────── 幂等 ─────────
@@ -576,6 +560,34 @@ public final class FlowEngine<U extends Actor> {
         return queries.instance(actor, instanceId);
     }
 
+    /**
+     * 命令的管道（0006 第 1 节）：权限 → 在一个事务里依次过拦截器（先注册的在外层）、做标准处理 → 提交 → 提交后的通知。
+     * 拦截器换过的命令要和原来的同类型。
+     */
+    private <C extends FlowCommand, R> R execute(U actor, String operation, String target, C command, BiFunction<U, C, R> handler) {
+        allow(actor, operation, target);
+        if (interceptors.isEmpty()) return handler.apply(actor, command);
+        @SuppressWarnings("unchecked")
+        Class<C> type = (Class<C>) command.getClass();   // 命令都是记录（final），类型就是 C
+        return context.transaction(() -> chain(0, actor, operation, type, handler).proceed(command));
+    }
+
+    /** 从第 index 个拦截器往下的那一段；拦截器都过完是标准处理 */
+    private <C extends FlowCommand, R> CommandInterceptor.Chain<R> chain(int index, U actor, String operation, Class<C> type,
+                                                                     BiFunction<U, C, R> handler) {
+        if (index == interceptors.size()) {
+            return command -> {
+                if (!type.isInstance(command)) {
+                    throw new IllegalArgumentException("a CommandInterceptor must proceed with a " + type.getSimpleName() + " for " + operation);
+                }
+                return handler.apply(actor, type.cast(command));
+            };
+        }
+        CommandInterceptor<U> interceptor = interceptors.get(index);
+        CommandInterceptor.Chain<R> rest = chain(index + 1, actor, operation, type, handler);
+        return command -> interceptor.intercept(actor, operation, command, rest);
+    }
+
     private void allow(U actor, String operation, String target) {
         if (!permissions.allows(actor, operation, target)) {
             throw new FlowException(FlowErrorCode.FORBIDDEN, Map.of("operation", operation, "target", String.valueOf(target)));
@@ -609,6 +621,7 @@ public final class FlowEngine<U extends Actor> {
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
         private final List<FlowListener> listeners = new ArrayList<>();
+        private final List<CommandInterceptor<U>> interceptors = new ArrayList<>();
         private AfterCommit afterCommit = AfterCommit.immediately();
         private final List<PeopleResolver> resolvers = new ArrayList<>();
         private final List<OutcomeGuard> guards = new ArrayList<>();
@@ -676,6 +689,9 @@ public final class FlowEngine<U extends Actor> {
         /** 注册一个自动节点的动作（{@code service} 节点的 {@code action}） */
         public Builder<U> action(ServiceAction action) { this.actions.add(action); return this; }
 
+        /** 注册一个命令拦截器：审计、业务校验、改参数、换掉某个命令的标准行为（{@link CommandInterceptor}）；先注册的在外层 */
+        public Builder<U> interceptor(CommandInterceptor<U> interceptor) { this.interceptors.add(interceptor); return this; }
+
         /** 注册一个监听：发通知、同步业务表、审计（{@link FlowListener}） */
         public Builder<U> listener(FlowListener listener) { this.listeners.add(listener); return this; }
 
@@ -704,7 +720,8 @@ public final class FlowEngine<U extends Actor> {
                 requestStore != null ? requestStore : defaults.requests(),
                 stepStore != null ? stepStore : defaults.steps());
             return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
-                new Extensions(resolvers, guards, actions), new DefinitionCache(stores)), actors, permissions, List.copyOf(jobHandlers));
+                new Extensions(resolvers, guards, actions), new DefinitionCache(stores)), actors, permissions, List.copyOf(interceptors),
+                List.copyOf(jobHandlers));
         }
     }
 }
