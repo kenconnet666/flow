@@ -93,6 +93,24 @@ class SpringHttpTest {
         assertEquals("预算内", ((Map<?, ?>) form.get("values")).get("note"));
     }
 
+    @Test
+    void 带同一个IdempotencyKey的命令只做一次_再来返回第一次的响应() throws Exception {
+        Map<String, Object> started = call(post("/flow/commands/start"), "1001",
+            "{\"key\":\"purchase\",\"form\":{\"title\":\"椅子\",\"amount\":\"100.00\"}}");
+        String review = (String) first(data(started).get("workItems")).get("id");
+        String body = "{\"workItemId\":\"" + review + "\",\"outcome\":\"pass\"}";
+
+        Map<String, Object> once = call(post("/flow/commands/complete").header("Idempotency-Key", "k-1"), "1002", body);
+        assertEquals("ok", once.get("code"));
+        // 不带键再做一次就真的再做：金额小，复核完实例已经结束了
+        assertEquals("flow.instance-not-active", call(post("/flow/commands/complete"), "1002", body).get("code"));
+        // 带同一个键：返回第一次的响应，不再做
+        assertEquals(once, call(post("/flow/commands/complete").header("Idempotency-Key", "k-1"), "1002", body));
+        // 同一个键用在别的命令上
+        Map<String, Object> reused = call(post("/flow/commands/claim").header("Idempotency-Key", "k-1"), "1002", body);
+        assertEquals("flow.validation-failed", reused.get("code"));
+    }
+
     /** 发一个请求：断言 HTTP 是 200，返回响应体 */
     @SuppressWarnings("unchecked")
     private Map<String, Object> call(MockHttpServletRequestBuilder request, String user, String body) throws Exception {

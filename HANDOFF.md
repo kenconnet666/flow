@@ -137,6 +137,7 @@
 | ③j（已完成，2026-10-27） | 等外部事件：`flow_wait`（V4 脚本）、`WaitStore`；`receive` 节点（`due` 超时记 `node.overdue`，`overdue.complete` 按结果往下走）；命令 `signal`（按实例或业务单号，结果要是写过的，`output` 写进表单或流程变量，不在等的只记 `signal.ignored`）；HTTP `/commands/signal` | 场景 receive-signal |
 | ③k（已完成，2026-10-27） | 调用流程（`call`）：`forEach` / `as`（`as.字段` 也能引用）、`input` 写进子实例的表单或变量、同步等这一轮的子实例都结束（结果一样才按它）、`output` 收进父实例的变量（`forEach` 收成列表）、异步不等；父实例终止、撤回时子实例一起终止；子实例马上结束时直接回到同一个命令里的父实例；V5 脚本加 `parent_round`；`DefinitionCache` 并进 `EngineContext` | 场景 call-process |
 | ③l（已完成，2026-10-27） | 上一步选下一步的处理人（0005 的 5.6 `pick`）：`start` / `complete` 带 `picks`，核对 from 与 max；发起页、待办详情按结果算出要选人的下一步与能选的人（`PickPreview` 穿过网关与抄送）；前端 `PickDialog` 接进审批面板与发起页 | 场景 pick；浏览器里走过发起选人、审批后选人 |
+| ③m（已完成，2026-10-27） | 命令的幂等：`flow_request`（V6 脚本）、`RequestStore`、`FlowEngine.idempotent`（与命令同一个事务记下响应，同一个编号再来返回第一次的，用在别的命令或换了人报 `requestId: reused`）；HTTP 的命令带 `Idempotency-Key` 头时走它 | `SpringHttpTest`；过期记录的清理还没做 |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 
@@ -159,4 +160,4 @@
 13. **转办、委派、加签的待办沿用原来那一份的截止时间**，不重新计时。
 14. **子流程**：子实例的发起人是父实例的发起人（出现在他的"我发起的"里），流转记录上的操作人是触发调用的人；父实例暂停时子实例结束不推进父实例（恢复后要管理员跳转）——以后可以改成恢复时补上。
 
-下面是还没做的、按优先级： 无人认领转负责人指定的"待指定"列表与指定命令（现在只标 needs_designation 并记一条流转记录）→ `emptyAssignee: admin` → 自动节点的 `onFailure: manual`（给管理员的异常处理待办）与失败作业的查询 → 幂等（`flow_request`）、命令拦截器 → ④ TS 引擎。
+下面是还没做的、按优先级： 无人认领转负责人指定的"待指定"列表与指定命令（现在只标 needs_designation 并记一条流转记录）→ `emptyAssignee: admin` → 自动节点的 `onFailure: manual`（给管理员的异常处理待办）与失败作业的查询 → 命令拦截器 → 幂等记录的定期清理 → ④ TS 引擎。

@@ -233,6 +233,17 @@ final class FlowTables {
         @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
     }
 
+    /** 命令的幂等记录：读出来就是 RequestStore.StoredRequest */
+    @Table("flow_request")
+    interface Request extends Tenanted {
+        @Id @Generated @Column("id") ColBigint<Long> id();
+        @Column("request_id") ColText<String> requestId();
+        @Column("command") ColText<String> command();
+        @Column("actor_id") ColBigint<Long> actorId();
+        @Column("response") ColClob<String> response();
+        @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
+    }
+
     /** 流转记录，只追加：读出来就是模型包的 FlowEvent */
     @Table("flow_event")
     interface Event extends Tenanted {

@@ -53,6 +53,12 @@
             <optional>true</optional>
         </dependency>
         <dependency>
+            <!-- 接口读请求头（Idempotency-Key）；应用用 Spring MVC 时本来就有 -->
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-core</artifactId>
             <optional>true</optional>

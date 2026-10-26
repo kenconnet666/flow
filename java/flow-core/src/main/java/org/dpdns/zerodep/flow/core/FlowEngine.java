@@ -58,6 +58,7 @@ import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
 import org.dpdns.zerodep.flow.core.store.JobStore;
+import org.dpdns.zerodep.flow.core.store.RequestStore;
 import org.dpdns.zerodep.flow.core.store.Stores;
 import org.dpdns.zerodep.flow.core.store.WaitStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
@@ -69,6 +70,7 @@ import org.dpdns.zerodep.flow.core.view.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
+import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.runtime.CcItem;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.TodoItem;
@@ -115,8 +117,10 @@ public final class FlowEngine<U extends Actor> {
     private final Publishing publishing;
     private final Queries queries;
     private final JobRunner jobs;
+    private final EngineContext context;
 
     private FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, List<JobHandler> jobHandlers) {
+        this.context = context;
         this.actors = actors;
         this.permissions = permissions;
         this.starts = new StartHandler(context);
@@ -344,6 +348,38 @@ public final class FlowEngine<U extends Actor> {
         return admin.retryJob(actor, command);
     }
 
+    // ───────── 幂等 ─────────
+
+    /** 幂等地做一个命令（当前操作人），见 {@link #idempotent(Actor, String, String, Supplier)} */
+    public String idempotent(String requestId, String command, Supplier<String> work) {
+        return idempotent(actors.current(), requestId, command, work);
+    }
+
+    /**
+     * 幂等地做一个命令（0006 第 1 节 {@code requestId}，HTTP 的 {@code Idempotency-Key}）：这个请求编号没做过时做 work，
+     * 把它给出的响应与命令在同一个事务里记下；做过时直接返回第一次的响应。同一个编号用在别的命令上、换了人时报
+     * {@code flow.validation-failed}（{@code requestId: reused}）。work 失败时什么也不记，再来一次照常做。
+     *
+     * @param command 命令的名字（{@code complete}……）
+     * @param work    做命令，返回要记下与返回的响应（HTTP 接口里是整个响应体）
+     */
+    public String idempotent(U actor, String requestId, String command, Supplier<String> work) {
+        if (requestId == null || requestId.isBlank()) return work.get();
+        return context.transaction(() -> {
+            var done = context.stores().requests().find(requestId);
+            if (done.isPresent()) {
+                if (!done.get().command().equals(command) || !Objects.equals(done.get().actorId(), actor.id())) {
+                    throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "request id " + requestId + " was used for another command",
+                        List.of(new ErrorDetail("reused", "requestId", null, null, null, Map.of())));
+                }
+                return done.get().response();
+            }
+            String response = work.get();
+            context.stores().requests().save(new RequestStore.NewRequest(requestId, command, actor.id(), response, context.clock().instant()));
+            return response;
+        });
+    }
+
     // ───────── 作业 ─────────
 
     /**
@@ -454,6 +490,7 @@ public final class FlowEngine<U extends Actor> {
         private JobStore jobStore;
         private CcStore ccStore;
         private WaitStore waitStore;
+        private RequestStore requestStore;
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
         private final List<FlowListener> listeners = new ArrayList<>();
@@ -496,6 +533,9 @@ public final class FlowEngine<U extends Actor> {
 
         /** 换掉流转记录的存储 */
         public Builder<U> eventStore(EventStore store) { this.eventStore = store; return this; }
+
+        /** 换掉幂等记录的存储 */
+        public Builder<U> requestStore(RequestStore store) { this.requestStore = store; return this; }
 
         /** 换掉等外部事件的存储 */
         public Builder<U> waitStore(WaitStore store) { this.waitStore = store; return this; }
@@ -542,7 +582,8 @@ public final class FlowEngine<U extends Actor> {
                 eventStore != null ? eventStore : defaults.events(),
                 jobStore != null ? jobStore : defaults.jobs(),
                 ccStore != null ? ccStore : defaults.ccs(),
-                waitStore != null ? waitStore : defaults.waits());
+                waitStore != null ? waitStore : defaults.waits(),
+                requestStore != null ? requestStore : defaults.requests());
             return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
                 new Extensions(resolvers, guards, actions), new DefinitionCache(stores)), actors, permissions, List.copyOf(jobHandlers));
         }
