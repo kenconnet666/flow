@@ -19,6 +19,7 @@ import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
+import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
@@ -34,6 +35,7 @@ import org.dpdns.zerodep.flow.core.engine.JobHandler;
 import org.dpdns.zerodep.flow.core.engine.JobRunner;
 import org.dpdns.zerodep.flow.core.engine.Publishing;
 import org.dpdns.zerodep.flow.core.engine.Queries;
+import org.dpdns.zerodep.flow.core.engine.SignalHandler;
 import org.dpdns.zerodep.flow.core.engine.StartHandler;
 import org.dpdns.zerodep.flow.core.engine.TenantScope;
 import org.dpdns.zerodep.flow.core.engine.WithdrawHandler;
@@ -57,6 +59,7 @@ import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
 import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.Stores;
+import org.dpdns.zerodep.flow.core.store.WaitStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
 import org.dpdns.zerodep.flow.core.store.query.QueryStores;
@@ -108,6 +111,7 @@ public final class FlowEngine<U extends Actor> {
     private final WithdrawHandler withdrawals;
     private final CollaborationHandler collaboration;
     private final AdminHandler admin;
+    private final SignalHandler signals;
     private final Publishing publishing;
     private final Queries queries;
     private final JobRunner jobs;
@@ -122,6 +126,7 @@ public final class FlowEngine<U extends Actor> {
         this.withdrawals = new WithdrawHandler(context, definitions);
         this.collaboration = new CollaborationHandler(context, definitions, claims);
         this.admin = new AdminHandler(context, definitions);
+        this.signals = new SignalHandler(context, definitions);
         this.publishing = new Publishing(context);
         this.queries = new Queries(context, definitions);
         // 内置的作业在前，接入方注册的在后：同一种时接入方的换掉内置的
@@ -257,6 +262,15 @@ public final class FlowEngine<U extends Actor> {
     public CommandResult comment(U actor, CommentCommand command) {
         allow(actor, "comment", String.valueOf(command.instanceId()));
         return collaboration.comment(actor, command);
+    }
+
+    /** 外部事件（当前操作人） */
+    public List<CommandResult> signal(SignalCommand command) { return signal(actors.current(), command); }
+
+    /** 外部事件：在等它的实例往下走，返回每个实例这一步的结果；实例不在等时只记一笔（见 {@link SignalHandler}） */
+    public List<CommandResult> signal(U actor, SignalCommand command) {
+        allow(actor, "signal", command.instanceId() != null ? String.valueOf(command.instanceId()) : command.businessKey());
+        return signals.signal(actor, command);
     }
 
     /** 抄送（当前操作人） */
@@ -440,6 +454,7 @@ public final class FlowEngine<U extends Actor> {
         private EventStore eventStore;
         private JobStore jobStore;
         private CcStore ccStore;
+        private WaitStore waitStore;
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
         private final List<FlowListener> listeners = new ArrayList<>();
@@ -483,6 +498,9 @@ public final class FlowEngine<U extends Actor> {
         /** 换掉流转记录的存储 */
         public Builder<U> eventStore(EventStore store) { this.eventStore = store; return this; }
 
+        /** 换掉等外部事件的存储 */
+        public Builder<U> waitStore(WaitStore store) { this.waitStore = store; return this; }
+
         /** 换掉抄送的存储 */
         public Builder<U> ccStore(CcStore store) { this.ccStore = store; return this; }
 
@@ -524,7 +542,8 @@ public final class FlowEngine<U extends Actor> {
                 workItemStore != null ? workItemStore : defaults.workItems(),
                 eventStore != null ? eventStore : defaults.events(),
                 jobStore != null ? jobStore : defaults.jobs(),
-                ccStore != null ? ccStore : defaults.ccs());
+                ccStore != null ? ccStore : defaults.ccs(),
+                waitStore != null ? waitStore : defaults.waits());
             return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
                 new Extensions(resolvers, guards, actions)), actors, permissions, List.copyOf(jobHandlers));
         }

@@ -27,7 +27,9 @@ import {
   UserRoundCog,
   UserRoundMinus,
   UserRoundPlus,
+  TriangleAlert,
   X,
+  Zap,
 } from '@lucide/icons';
 import { useFlowMessages } from '../lang/messages';
 
@@ -59,6 +61,10 @@ const LOOKS: Readonly<Record<string, { icon: TimelineItem['icon']; tone?: Status
   'workItem.unclaimed': { icon: Inbox, tone: 'warning' },
   'instance.commented': { icon: MessageSquare },
   'instance.cc': { icon: Mail },
+  'signal.received': { icon: Zap },
+  'signal.ignored': { icon: Zap },
+  'node.overdue': { icon: AlarmClock, tone: 'warning' },
+  'job.failed': { icon: TriangleAlert, tone: 'danger' },
   'instance.suspended': { icon: Pause, tone: 'warning' },
   'instance.resumed': { icon: Play },
   'instance.jumped': { icon: Redo2, tone: 'warning' },

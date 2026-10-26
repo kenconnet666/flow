@@ -15,6 +15,7 @@ import type {
   AddSignersCommand,
   CcCommand,
   CommandResult,
+  SignalCommand,
   CommentCommand,
   CompleteCommand,
   HandOverCommand,
@@ -88,6 +89,8 @@ export interface FlowClient {
   comment(command: CommentCommand): Promise<CommandResult>;
   /** 抄送（知会） */
   cc(command: CcCommand): Promise<CommandResult>;
+  /** 外部事件（业务系统一般从后端直接调引擎；这里给前端的调试、演示用）：返回每个往下走的实例这一步的结果 */
+  signal(command: SignalCommand): Promise<{ readonly results: readonly CommandResult[] }>;
   /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
   readCc(instanceId: Id): Promise<{ readonly read: number }>;
   /** 终止（管理员） */
@@ -100,6 +103,8 @@ export interface FlowClient {
   jump(command: JumpCommand): Promise<CommandResult>;
   /** 改派（管理员、收件箱负责人） */
   reassign(command: HandOverCommand): Promise<CommandResult>;
+  /** 失败的作业重新来过（管理员）：异步的自动节点重试用完后 */
+  retryJob(jobId: Id): Promise<{ readonly revived: boolean }>;
 }
 
 /** createFlowClient 的选项 */
@@ -134,12 +139,14 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     remind: (command) => post('/commands/remind', command),
     comment: (command) => post('/commands/comment', command),
     cc: (command) => post('/commands/cc', command),
+    signal: (command) => post('/commands/signal', command),
     readCc: (instanceId) => post('/commands/read-cc', { instanceId }),
     terminate: (command) => post('/admin/terminate', command),
     suspend: (command) => post('/admin/suspend', command),
     resume: (instanceId) => post('/admin/resume', { instanceId }),
     jump: (command) => post('/admin/jump', command),
     reassign: (command) => post('/admin/reassign', command),
+    retryJob: (jobId) => post('/admin/retry-job', { jobId }),
   };
 }
 

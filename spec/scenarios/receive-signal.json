@@ -1,0 +1,45 @@
+{
+  "name": "等外部事件：按业务单号送事件，结果要是写过的、数据按 output 写进表单与流程变量；不在等的只记一笔；等超时按 overdue 的结果往下走",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/contract-sign.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "erp": { "id": 1000, "name": "管理员" }
+  },
+  "steps": [
+    { "id": "one", "as": "alice", "command": "start",
+      "args": { "key": "contract-sign", "businessKey": "HT-001", "form": { "title": "办公楼租赁", "amount": "100.00" } },
+      "expect": { "instance": { "status": "active", "current": [{ "node": "wait", "name": "等对方盖章" }] }, "workItems": [] } },
+    { "as": "erp", "command": "signal", "args": { "businessKey": "HT-001", "event": "contract.signed", "outcome": "maybe" },
+      "expect": { "error": { "code": "flow.validation-failed" } } },
+    { "as": "erp", "command": "signal", "args": { "businessKey": "HT-001", "event": "invoice.paid", "outcome": "signed" },
+      "expect": { "results": [] } },
+    { "as": "erp", "command": "signal",
+      "args": { "businessKey": "HT-001", "event": "contract.signed", "outcome": "signed", "data": { "remark": "已盖章", "signer": "张律师" } },
+      "expect": { "results": [{
+        "instance": { "status": "completed", "result": "signed" },
+        "events": [
+          { "type": "signal.received", "node": "wait", "outcome": "signed", "data": { "event": "contract.signed", "data": { "signer": "张律师" } } },
+          "node.left", "node.entered", "instance.finished"
+        ] }] } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$one.instance" },
+      "expect": { "form": { "values": { "title": "办公楼租赁", "note": "已盖章" } } } },
+    { "as": "erp", "command": "signal", "args": { "instance": "$one.instance", "event": "contract.signed", "outcome": "signed" },
+      "expect": { "results": [{ "events": [{ "type": "signal.ignored", "outcome": "signed", "data": { "event": "contract.signed" } }] }] } },
+
+    { "id": "two", "as": "alice", "command": "start",
+      "args": { "key": "contract-sign", "businessKey": "HT-002", "form": { "title": "仓库租赁", "amount": "200.00" } } },
+    { "command": "runJobs", "args": { "at": "2026-10-29T07:59:59Z" }, "expect": { "ran": 0 } },
+    { "command": "runJobs", "args": { "at": "2026-10-29T08:00:00Z" }, "expect": { "ran": 1 } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$two.instance" },
+      "expect": {
+        "instance": { "status": "completed", "result": "refused" },
+        "timeline": ["instance.started", "node.left", "node.entered",
+          { "type": "node.overdue", "node": "wait", "data": { "dueAt": "2026-10-29T08:00:00Z" } },
+          "node.left", "node.entered", "instance.finished"]
+      } },
+    { "as": "erp", "command": "signal", "args": { "businessKey": "HT-002", "event": "contract.signed", "outcome": "signed" },
+      "expect": { "results": [] } }
+  ]
+}

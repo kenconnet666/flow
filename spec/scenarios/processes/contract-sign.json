@@ -1,0 +1,19 @@
+{
+  "key": "contract-sign",
+  "name": "合同签署",
+  "form": { "key": "purchase-form" },
+  "title": "合同签署：{form.title}",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "wait", "type": "receive", "name": "等对方盖章", "event": "contract.signed", "outcomes": ["signed", "refused"],
+      "due": { "days": 3 }, "overdue": { "action": "complete", "outcome": "refused" },
+      "output": { "form.note": "remark", "signer": "signer" } },
+    { "id": "done", "type": "end", "name": "已签署", "result": "signed" },
+    { "id": "refused", "type": "end", "name": "未签署", "result": "refused" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "wait" },
+    { "id": "signed", "from": "wait", "to": "done", "outcome": "signed" },
+    { "id": "not-signed", "from": "wait", "to": "refused", "outcome": "refused" }
+  ]
+}

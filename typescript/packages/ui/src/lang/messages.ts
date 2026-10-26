@@ -179,6 +179,10 @@ const zhEvents: Record<string, string> = {
   'workItem.unclaimed': '无人认领',
   'instance.commented': '留言',
   'instance.cc': '抄送',
+  'signal.received': '收到事件',
+  'signal.ignored': '收到不在等的事件',
+  'node.overdue': '等待超时',
+  'job.failed': '自动处理失败',
   'instance.suspended': '暂停',
   'instance.resumed': '恢复',
   'instance.jumped': '跳转到',
@@ -205,10 +209,17 @@ const enEvents: Record<string, string> = {
   'workItem.unclaimed': 'Unclaimed at',
   'instance.commented': 'Commented',
   'instance.cc': 'Copied',
+  'signal.received': 'Event received at',
+  'signal.ignored': 'Event ignored',
+  'node.overdue': 'Timed out at',
+  'job.failed': 'Automatic step failed at',
   'instance.suspended': 'Suspended',
   'instance.resumed': 'Resumed',
   'instance.jumped': 'Jumped to',
 };
+
+/** 标题后面接节点名的实例级事件（"跳转到 财务复核""收到事件 等对方盖章"） */
+const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'job.failed']);
 
 /** 引擎自动提醒的原因（流转记录里 workItem.reminded 的 data.reason） */
 const zhReminders: Record<string, string> = { dueSoon: '即将到期，自动提醒', overdue: '已超时，自动提醒', unclaimed: '很久没人认领，自动提醒' };
@@ -250,7 +261,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     event: (type, node, outcome) => {
       const what = zhEvents[type] ?? type;
       if (type === 'workItem.completed') return `${node ?? ''}：${outcome ?? what}`;
-      return node && (type.startsWith('workItem.') || type === 'instance.jumped') ? `${what} ${node}` : what;
+      return node && (type.startsWith('workItem.') || NODE_EVENTS.has(type)) ? `${what} ${node}` : what;
     },
     valueProblem: (code) => zhProblems[code] ?? '不合要求',
     formFailed: '表单加载失败',
@@ -307,6 +318,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
       if (type === 'workItem.reminded' && data['auto']) return zhReminders[text(data['reason']) ?? ''] ?? '自动提醒';
       if (type === 'workItem.unclaimed') return '转收件箱的负责人指定';
       if (type === 'instance.cc') return `抄送给 ${names(data['userNames']).join('、')}`;
+      if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);
+      if (type === 'job.failed') return text(data['error']);
       const to = text(data['toUserName']);
       return to ? `交给 ${to}` : null;
     },
@@ -337,7 +350,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     event: (type, node, outcome) => {
       const what = enEvents[type] ?? type;
       if (type === 'workItem.completed') return `${node ?? ''}: ${outcome ?? what}`;
-      return node && (type.startsWith('workItem.') || type === 'instance.jumped') ? `${what} ${node}` : what;
+      return node && (type.startsWith('workItem.') || NODE_EVENTS.has(type)) ? `${what} ${node}` : what;
     },
     valueProblem: (code) => enProblems[code] ?? 'Invalid',
     formFailed: 'The form could not be loaded',
@@ -394,6 +407,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
       if (type === 'workItem.reminded' && data['auto']) return enReminders[text(data['reason']) ?? ''] ?? 'Automatic reminder';
       if (type === 'workItem.unclaimed') return 'Handed to the inbox manager';
       if (type === 'instance.cc') return `To ${names(data['userNames']).join(', ')}`;
+      if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);
+      if (type === 'job.failed') return text(data['error']);
       const to = text(data['toUserName']);
       return to ? `To ${to}` : null;
     },

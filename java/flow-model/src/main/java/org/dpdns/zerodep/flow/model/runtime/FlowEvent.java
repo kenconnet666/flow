@@ -67,6 +67,12 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String INSTANCE_CC = "instance.cc";
     /** 作业重试用完（异步的自动节点做不成）：data 里是作业 jobId、种类 kind 与原因 error；实例停在那个节点，管理员 retryJob 或跳转 */
     public static final String JOB_FAILED = "job.failed";
+    /** 外部事件到了（0005 的 4.3）：data 里是事件名 event 与送来的数据 data，outcome 是带回的结果 */
+    public static final String SIGNAL_RECEIVED = "signal.received";
+    /** 外部事件到了但实例不在等它：只记一笔，不报错（业务系统可以放心重发） */
+    public static final String SIGNAL_IGNORED = "signal.ignored";
+    /** 等待节点等超时了：data 里是 dueAt；超时按结果往下走的随后另有记录 */
+    public static final String NODE_OVERDUE = "node.overdue";
     /** 留言 */
     public static final String INSTANCE_COMMENTED = "instance.commented";
     /** 暂停 */

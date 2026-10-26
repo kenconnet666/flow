@@ -181,6 +181,15 @@ export interface RemindCommand {
   readonly message?: string;
 }
 
+/** 外部事件：按实例编号或业务单据编号找在等它的实例 */
+export interface SignalCommand {
+  readonly instanceId?: Id;
+  readonly businessKey?: string;
+  readonly event: string;
+  readonly outcome?: string;
+  readonly data?: Readonly<Record<string, unknown>>;
+}
+
 /** 抄送（知会） */
 export interface CcCommand {
   readonly instanceId: Id;

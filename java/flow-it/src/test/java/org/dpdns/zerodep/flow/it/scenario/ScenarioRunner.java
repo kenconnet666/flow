@@ -21,6 +21,7 @@ import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
+import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
@@ -128,6 +129,8 @@ final class ScenarioRunner {
                 case "release" -> commandResult(engine.release(actor, new ReleaseCommand(args.id("workItem"), args.text("reason"))));
                 case "remind" -> commandResult(engine.remind(actor, new RemindCommand(args.id("instance"), args.id("workItem"), args.text("message"))));
                 case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"))));
+                case "signal" -> Map.of("results", engine.signal(actor, new SignalCommand(args.id("instance"), args.text("businessKey"),
+                    args.text("event"), args.text("outcome"), args.map("data"))).stream().map(ScenarioRunner::commandResult).toList());
                 case "retryJob" -> Map.of("revived", engine.retryJob(actor, new RetryJobCommand(args.id("job"))));
                 case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
                 case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));

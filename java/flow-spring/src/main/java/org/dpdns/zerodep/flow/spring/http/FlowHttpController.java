@@ -24,7 +24,7 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/claim      { workItemId }
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
- * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc
+ * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal
  * POST {前缀}/admin/terminate、suspend、resume、jump、reassign、retry-job
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
@@ -164,6 +164,12 @@ public class FlowHttpController {
     public ResponseEntity<String> done(@RequestParam(name = "page", defaultValue = "1") int page,
                                        @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
         return respond(() -> ResponseBody.of(engine.done(page, pageSize)));
+    }
+
+    /** 外部事件：{@code { instanceId 或 businessKey, event, outcome, data }}，返回 {@code { results: [每个往下走的实例这一步的结果] }} */
+    @PostMapping("/commands/signal")
+    public ResponseEntity<String> signal(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.view(Map.of("results", engine.signal(RequestBody.parse(body).signal()))));
     }
 
     /** 抄送我的 */

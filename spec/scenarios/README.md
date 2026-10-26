@@ -49,6 +49,7 @@
 | `terminate`、`suspend` | `instance`、`reason` | 同 `start` |
 | `resume` | `instance` | 同 `start` |
 | `jump` | `instance`、`node`、`reason` | 同 `start` |
+| `signal` | `instance` 或 `businessKey`、`event`、`outcome`、`data` | `results`（每个往下走或记了一笔的实例这一步的结果，同 `start`） |
 | `retryJob` | `job`（作业编号，`job.failed` 的 data 里有） | `revived` |
 | `runJobs` | `at`：把时钟拨到这一刻（不能往回拨），做到期的作业；这一步不写 `as` | `ran`（做了几个作业） |
 | `publishDefinition` | `definition`（内联的定义） | — |

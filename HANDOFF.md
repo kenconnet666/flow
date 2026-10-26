@@ -134,6 +134,7 @@
 | ③g（已完成，2026-10-27） | 抄送：`flow_cc`（V3 脚本）、`CcStore`；抄送节点（`to` 的来源展开成人，角色、部门要接入方实现 `OrgDirectory.members`）、命令 `cc`（知会）与 `readCc`、查询"抄送我的"（未读在前）；前端 `FlowCcList`、流程详情上的"抄送" | 场景 cc |
 | ③h（已完成，2026-10-27） | 监听（0006 第 5 节）：`FlowListener`（事务内的抛错回滚、提交后的发通知，按事件种类与流程过滤，带节点的 meta）、`AfterCommit`（Spring 里等外面的事务提交）；引擎的事务边界统一在 `EngineContext.transaction`，流转记录统一经 `Execution.publish` 写下；示例的 `ExampleNotifications` 打日志演示通知 | `ListenerTest` |
 | ③i（已完成，2026-10-27） | 扩展与自动节点：`PeopleResolver`（`{ resolver }` 来源，人工、会签、抄送都能用）、`OutcomeGuard`（处理结果的 `guards`，不通过报 `flow.guard-rejected` 带原因）、`ServiceAction`（`service` 节点：同步在流转的事务里做、失败回滚；异步排 `action` 作业、按 `retry` 重试、用完记 `job.failed`，管理员 `retryJob`）；`{ group }` 来源（扩展的候选种类，`Actor.groups()`）；发布时查扩展名有没有注册 | 场景 extensions-and-service（场景里注册的扩展见 spec/scenarios 的 README） |
+| ③j（已完成，2026-10-27） | 等外部事件：`flow_wait`（V4 脚本）、`WaitStore`；`receive` 节点（`due` 超时记 `node.overdue`，`overdue.complete` 按结果往下走）；命令 `signal`（按实例或业务单号，结果要是写过的，`output` 写进表单或流程变量，不在等的只记 `signal.ignored`）；HTTP `/commands/signal` | 场景 receive-signal |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 
@@ -155,4 +156,4 @@
 12. **作业**：工作日默认周一到周五、按 UTC 的日期（Spring 用 `flow.calendar.zone` 改时区，节假日要接入方实现 `WorkCalendar`，`flow_calendar` 表还没建）；`until` 只写日期时算那天结束；待办办完了不去删它的作业，作业到点看到待办不再打开就跳过（实例结束时才统一删）；实例暂停时作业往后推一小时；失败重试 3 次，间隔 1、4、9 分钟；超时默认只记一条"超时"（`mark`）。
 13. **转办、委派、加签的待办沿用原来那一份的截止时间**，不重新计时。
 
-下面是还没做的、按优先级：子流程、接收与信号 → 无人认领转负责人指定的"待指定"列表与指定命令（现在只标 needs_designation 并记一条流转记录）→ 处理人来源的 pick、`emptyAssignee: admin` → 自动节点的 `onFailure: manual`（给管理员的异常处理待办）与失败作业的查询 → 幂等（`flow_request`）、命令拦截器 → ④ TS 引擎。
+下面是还没做的、按优先级：子流程（call）→ 无人认领转负责人指定的"待指定"列表与指定命令（现在只标 needs_designation 并记一条流转记录）→ 处理人来源的 pick、`emptyAssignee: admin` → 自动节点的 `onFailure: manual`（给管理员的异常处理待办）与失败作业的查询 → 幂等（`flow_request`）、命令拦截器 → ④ TS 引擎。

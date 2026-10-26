@@ -19,6 +19,7 @@ import org.dpdns.zerodep.flow.core.store.FormDataStore;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
 import org.dpdns.zerodep.flow.core.store.JobStore;
+import org.dpdns.zerodep.flow.core.store.WaitStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.spring.http.FlowHttpController;
 import org.dpdns.zerodep.query.spring.SpringConnections;
@@ -45,7 +46,7 @@ import java.time.ZoneId;
  *   <li>当前操作人：用了 Spring Security 且登录后的 principal 实现了 {@link Actor} 时自动取；否则声明一个 {@link ActorProvider} Bean；</li>
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
- * 其余扩展点（权限、时钟、工作日历、八个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
+ * 其余扩展点（权限、时钟、工作日历、九个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
  * 声明的 {@link PeopleResolver}、{@link OutcomeGuard}、{@link ServiceAction} Bean 按名字注册成解析器、守卫、动作，
  * {@link JobHandler} Bean 注册成作业的处理，{@link FlowListener} Bean 注册成监听（提交后的等 Spring 的事务提交了再调）。到期的作业默认由 {@link FlowJobPoller} 定时做（{@code flow.jobs.*}）。
  * 引擎注入成 {@code FlowEngine<自己的用户类型>} 即可。
@@ -73,7 +74,7 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<DefinitionStore> definitionStore, ObjectProvider<FormStore> formStore,
                                  ObjectProvider<FormDataStore> formDataStore, ObjectProvider<InstanceStore> instanceStore,
                                  ObjectProvider<WorkItemStore> workItemStore, ObjectProvider<EventStore> eventStore,
-                                 ObjectProvider<JobStore> jobStore, ObjectProvider<CcStore> ccStore, ObjectProvider<WorkCalendar> calendar,
+                                 ObjectProvider<JobStore> jobStore, ObjectProvider<CcStore> ccStore, ObjectProvider<WaitStore> waitStore, ObjectProvider<WorkCalendar> calendar,
                                  ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners,
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
                                  ObjectProvider<OutcomeGuard> guards, ObjectProvider<ServiceAction> actions) {
@@ -98,6 +99,7 @@ public class FlowAutoConfiguration {
         eventStore.ifAvailable(builder::eventStore);
         jobStore.ifAvailable(builder::jobStore);
         ccStore.ifAvailable(builder::ccStore);
+        waitStore.ifAvailable(builder::waitStore);
         builder.workCalendar(calendar.getIfAvailable(() -> WorkCalendar.weekdays(ZoneId.of(properties.getCalendar().getZone()))));
         jobHandlers.orderedStream().forEach(builder::jobHandler);
         listeners.orderedStream().forEach(builder::listener);

@@ -26,7 +26,8 @@ import java.util.function.BiFunction;
  *       {@code complete} 按指定的结果自动处理、{@code escalate} 按提级的结果走；</li>
  *   <li>{@code remind}：提醒处理人（记一条催办，通知由接入方监听流转记录去发）；超时后每隔一段时间的提醒排下一次；</li>
  *   <li>{@code unclaimed}：进收件箱很久没人认领，提醒，或转收件箱的负责人指定；</li>
- *   <li>{@code action}：异步的自动节点做动作，失败按节点的 retry 重试，重试用完在实例上记一条 {@code job.failed}。</li>
+ *   <li>{@code action}：异步的自动节点做动作，失败按节点的 retry 重试，重试用完在实例上记一条 {@code job.failed}；</li>
+ *   <li>{@code receiveTimeout}：等待节点等超时，记一条 {@code node.overdue}，节点的 overdue 写了 complete 时按那个结果往下走。</li>
  * </ul>
  * 都先锁住实例再做，操作人是 {@link SystemActor}。待办已经办完（不再打开）、实例已经结束的作业直接跳过；实例暂停时往后推一小时。
  */
@@ -36,6 +37,7 @@ public final class BuiltinJobs {
     static final String REMIND = "remind";
     static final String UNCLAIMED = "unclaimed";
     static final String ACTION = "action";
+    static final String RECEIVE_TIMEOUT = "receiveTimeout";
 
     /** 作业数据里的键：定时节点、它的轮次、第几个提醒、提醒过几次 */
     static final String NODE = "node";
@@ -63,7 +65,7 @@ public final class BuiltinJobs {
     /** 内置作业的处理 */
     public List<JobHandler> handlers() {
         return List.of(handler(TIMER, this::timer), handler(OVERDUE, this::overdue), handler(REMIND, this::remind),
-            handler(UNCLAIMED, this::unclaimed), new ActionJob());
+            handler(UNCLAIMED, this::unclaimed), new ActionJob(), handler(RECEIVE_TIMEOUT, this::receiveTimeout));
     }
 
     /** 异步的自动节点：实例还停在这个节点的这一轮上时做动作、往下走；按节点的 retry.backoff 重试，重试用完记一笔 */
@@ -127,6 +129,26 @@ public final class BuiltinJobs {
             case "escalate" -> task.outcomes().stream().filter(o -> "escalate".equals(o.kindOrDefault())).findFirst();
             default -> Optional.empty();
         };
+    }
+
+    /** 等待节点等超时：还在等这一轮时记一条，overdue 写了 complete 就当作事件按那个结果到了，否则接着等 */
+    private JobHandler.Next receiveTimeout(Job job, Instant now) {
+        String node = (String) job.payload().get(NODE);
+        int round = ((Number) job.payload().get(ROUND)).intValue();
+        return onInstance(job, now, run -> {
+            RunState state = run.instance().state();
+            if (!state.waits().containsKey(node) || state.round(node) != round) return null;
+            ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(node);
+            run.addEvent(FlowEvent.NODE_OVERDUE, receive, null, null, null, null, Map.of("dueAt", job.dueAt().toString()));
+            TaskRules.Overdue rule = receive.overdue();
+            if (rule != null && "complete".equals(rule.action())) {
+                for (var wait : context.stores().waits().ofInstance(job.instanceId(), receive.event())) {
+                    if (wait.node().equals(node)) context.stores().waits().remove(wait.id());
+                }
+                run.received(receive, rule.outcome(), Map.of());
+            }
+            return null;
+        });
     }
 
     /** 提醒：记一条催办；超时后每隔一段时间的，次数没用完时排下一次 */

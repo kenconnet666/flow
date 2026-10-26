@@ -218,6 +218,17 @@ final class FlowTables {
         @Column(value = "read_at", converter = Columns.Utc.class) ColTimestamp<Instant> readAt();
     }
 
+    /** 等外部事件：读出来就是 WaitStore.Wait */
+    @Table("flow_wait")
+    interface Wait extends Tenanted {
+        @Id @Generated @Column("id") ColBigint<Long> id();
+        @Column("instance_id") ColBigint<Long> instanceId();
+        @Column("node") ColText<String> node();
+        @Column("event") ColText<String> event();
+        @Column("business_key") ColText<String> businessKey();
+        @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
+    }
+
     /** 流转记录，只追加：读出来就是模型包的 FlowEvent */
     @Table("flow_event")
     interface Event extends Tenanted {

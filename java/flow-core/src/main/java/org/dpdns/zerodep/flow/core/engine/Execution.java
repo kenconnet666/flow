@@ -11,6 +11,7 @@ import org.dpdns.zerodep.flow.core.store.CcStore.NewCc;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.JobStore.NewJob;
+import org.dpdns.zerodep.flow.core.store.WaitStore.NewWait;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
@@ -45,6 +46,7 @@ import java.util.Map;
  *                           ├─ 定时节点：记下到什么时候，排一个作业 ──► 停下，到时候作业让它往下走（BuiltinJobs）
  *                           ├─ 抄送节点：抄送给写的人 ──► 接着走
  *                           ├─ 自动节点：同步的马上做动作、按结果接着走；异步的排一个作业 ──► 停下，作业做完再走
+ *                           ├─ 等待节点：记下在等什么事件 ──► 停下，事件到了（signal）再走
  *                           ├─ 排他网关：leave(网关) ──► 接着走
  *                           ├─ 并行、包容的分叉：选出的每条线都走，记下配对的汇合要等几条
  *                           ├─ 并行、包容的汇合：到了一条，还没等齐 ──► 这条分支停下；等齐了 ──► 接着走
@@ -56,7 +58,7 @@ import java.util.Map;
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、抄送节点、自动节点（同步、异步）、排他网关、
+ * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、抄送节点、自动节点（同步、异步）、等待外部事件、排他网关、
  * 并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
@@ -222,6 +224,8 @@ final class Execution {
             arriveAtCc(cc);
         } else if (node instanceof ProcessNode.Service service) {
             arriveAtService(service);
+        } else if (node instanceof ProcessNode.Receive receive) {
+            arriveAtReceive(receive);
         } else if (node instanceof ProcessNode.End end) {
             finish(ProcessInstance.COMPLETED, end.result(), FlowEvent.INSTANCE_FINISHED, null);
         } else {
@@ -306,6 +310,41 @@ final class Execution {
         if (!result.variables().isEmpty()) instance = instance.withVariables(instance.variables().with(result.variables()));
         instance = instance.withState(instance.state().waitDone(service.id()));
         leave(service.id(), result.outcome());
+    }
+
+    /**
+     * 到达等待节点（0005 的 4.3）：轮次加一，停在这里等外部事件（{@code flow_wait} 一行，按事件名加实例或业务编号找到）；
+     * 写了 {@code due} 时排一个超时作业。事件到了由 {@code SignalHandler} 调 {@link #received}。
+     */
+    private void arriveAtReceive(ProcessNode.Receive receive) {
+        instance = instance.withState(instance.state().enter(receive.id()).waitUntil(receive.id(), now));
+        context.stores().waits().insert(new NewWait(instance.id(), receive.id(), receive.event(), instance.businessKey(), now));
+        Instant due = receive.due() == null ? null : deadlines.of(receive.due(), now, this::read);
+        if (due == null) return;
+        Map<String, Object> payload = Map.of(BuiltinJobs.NODE, receive.id(), BuiltinJobs.ROUND, instance.state().round(receive.id()));
+        context.stores().jobs().schedule(new NewJob(BuiltinJobs.RECEIVE_TIMEOUT, instance.id(), null, due, payload, BuiltinJobs.MAX_ATTEMPTS, now));
+    }
+
+    /**
+     * 外部事件到了（或等超时、按 overdue 的结果）：不再等；{@code output} 把事件数据里的值写进表单（{@code form.} 开头）
+     * 或流程变量，按结果往下走。
+     */
+    void received(ProcessNode.Receive receive, String outcome, Map<String, Object> data) {
+        Map<String, Object> formChanges = new LinkedHashMap<>();
+        Map<String, Object> variableChanges = new LinkedHashMap<>();
+        receive.output().forEach((target, key) -> {
+            if (target.startsWith("form.")) formChanges.put(target.substring("form.".length()), data.get(key));
+            else variableChanges.put(target, data.get(key));
+        });
+        if (!formChanges.isEmpty()) {
+            Map<String, Object> merged = new LinkedHashMap<>(form.asMap());
+            merged.putAll(formChanges);
+            form = FormValues.of(merged);
+            context.stores().formData().update(instance.id(), form);
+        }
+        if (!variableChanges.isEmpty()) instance = instance.withVariables(instance.variables().with(variableChanges));
+        instance = instance.withState(instance.state().waitDone(receive.id()));
+        leave(receive.id(), outcome);
     }
 
     /** 到达抄送节点：抄送给节点上写的人（角色、部门展开成人），不停，接着往下走 */
@@ -538,6 +577,7 @@ final class Execution {
         }
         instance = instance.withEnd(status, result, now);
         context.stores().jobs().cancelForInstance(instance.id());
+        context.stores().waits().removeForInstance(instance.id());
         addEvent(eventType, null, null, result, null, comment);
     }
 
