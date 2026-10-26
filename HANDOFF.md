@@ -5,7 +5,7 @@
 
 ## 1. 现状（2026-10-26）
 
-- **代码**（2026-10-26 起按 0004 "已定"的顺序做；第 ② 步模型包已完成，第 ③a 步 Java 引擎的窄链已完成，下一步 ③b，拆分见第 6 节）：
+- **代码**（2026-10-26 起按 0004 "已定"的顺序做；第 ② 步模型包已完成，第 ③a、③b、③c 步已完成，下一步 ③d 前端，拆分见第 6 节）：
   - 目录按 0001 的"模块划分"：根 `pom.xml` 聚合 `java/flow-model`；`typescript/` 是 pnpm 工作区（`packages/model`、`test`）；`spec/` 放两边共用的样例。
   - 模型包已有：条件求值（`spec/conditions`）、定义的类型与校验（`spec/definitions`，0005 第 7 节的全部问题代号）、选边与连线副作用（`spec/routing`）、
     字段清单自身的校验（`spec/manifests`）、提交值的类型校验（`spec/values`）、两个版本的差别（`spec/diff`）、
@@ -17,6 +17,10 @@
     `engine`（每个命令一个处理类，步骤写在类注释里；推进在 `Execution`）、`id`（雪花、按顺序发号）、`store`（六个存储接口）、
     `store/query`（用 query 的默认实现、`flow_worker` 租机器号）。
     建表不用 query 的迁移器：`flow-core` 的 `resources/db/flow/mysql/V1__create_flow_tables.sql`，推荐 Flyway 单独一套执行（0007 第 9 节）。
+  - 场景用例 `spec/scenarios`（③b）：两个后端共同的验收标准，格式见那里的 README；Java 的执行器在 `flow-it` 的 `scenario` 包。
+  - Spring Boot 适配 `java/flow-spring`（③c）：自动配置（`flow.*` 配置项见 `FlowProperties`）、当前操作人默认取 Spring Security 的 principal、
+    `flow.flyway.enabled` 启动时建表、`flow.http.enabled` 打开接口（清单在 0006 的 7.3）。按 Spring Boot 3.5 编译，只用 3.5 与 4.x 共有的写法。
+    示例项目 `examples/spring-boot`（在构建里，CI 会编译它）。
   - 实库测试 `java/flow-it`：本机连 query 的开发 MySQL（WSL）里的 `flow_it` 库，变量 `FLOW_MYSQL_URL` / `_USER` / `_PASSWORD`
     （用户是 query，密码在 query 的 `infra/mysql/.env`）；没设时跳过。每个测试前用 Flyway 清库再建表。
   - 现在依赖 query 主干的 2.1.0-SNAPSHOT（要 wire 的 `Json.write`）：本机先在 query 里 `mvnw install`；CI 先检出 query 装好再测。
@@ -121,8 +125,8 @@
 | 步 | 做什么 | 顺带的基础设施 |
 | --- | --- | --- |
 | ③a（已完成） | Java `flow-core` 的窄链：建表脚本（0007 里链路用到的表）、雪花 `IdStrategy` 与 `flow_worker` 租用机器号、实例行 `rev` 加锁与待办的带条件更新、发布表单与流程、命令 `start` / `claim` / `complete` / `withdraw`、查询收件箱与实例详情、节点 start / end / task / exclusive、处理人来源（指定人、角色、部门、发起人、同某节点）、表单按节点权限合并 | 表名前缀先固定 `flow_`；大雪花要的"列类型按配置决定"推到发布前。还没做的管道部分：拦截器、按命令替换处理类、幂等（`flow_request`）、事件监听，随 ③c 补 |
-| ③b | `spec/scenarios/` 场景用例与 `flow-it` 的实库跑法（MySQL，库 `flow_it`）：场景是两个后端共用的验收标准 | — |
-| ③c | `flow-spring`：自动配置、可选的 HTTP 接口（0008 的响应体）、`examples/spring-boot` | — |
+| ③b（已完成） | `spec/scenarios/` 场景用例与 `flow-it` 的实库跑法（MySQL，库 `flow_it`）：场景是两个后端共用的验收标准 | — |
+| ③c（已完成） | `flow-spring`：自动配置、可选的 HTTP 接口（0008 的响应体）、`examples/spring-boot` | 管道里还没做的（拦截器、按命令替换处理类、幂等、事件监听）随后补 |
 | ③d | 前端：`flow-ui/form`（代码表单运行时：字段清单、运行时编译、字段权限）、最小的收件箱与审批面板，接 ③c 的示例后端走通一单审批 | 先做 vue-tsx-pro ROADMAP 9.8（浏览器编译、代码编辑器公开入口）与 9.9（人员选择器换成角色）；flow-ui 的 `flow.` 错误文案 |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐能力（并行与包容网关、会签、退回、转办委派加签、定时与作业、抄送、子流程、外部事件、管理员命令）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。

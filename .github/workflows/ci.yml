@@ -52,7 +52,7 @@ jobs:
           cache: maven
       - name: 安装 query 的 SNAPSHOT
         working-directory: query
-        run: ./mvnw --batch-mode install -DskipTests -pl java/wire,java/query-core,java/query-mysql -am
+        run: ./mvnw --batch-mode install -DskipTests -pl java/wire,java/query-core,java/query-mysql,java/query-spring -am
       - name: 编译并运行全部测试
         run: ./mvnw --batch-mode --threads 1C verify
 

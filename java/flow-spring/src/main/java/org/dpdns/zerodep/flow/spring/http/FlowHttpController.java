@@ -1,0 +1,103 @@
+package org.dpdns.zerodep.flow.spring.http;
+
+import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.model.error.ApiResult;
+import org.dpdns.zerodep.flow.model.error.FlowException;
+import org.dpdns.zerodep.query.exec.CodedException;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.function.Supplier;
+
+/**
+ * 引擎自带的 HTTP 接口（docs/decisions/0006 的 7.3，{@code flow.http.enabled=true} 时才有）。两个后端的路径、参数、返回值相同：
+ * <pre>
+ * POST {前缀}/commands/start      { key, form, variables, businessKey, title, priority }
+ * POST {前缀}/commands/claim      { workItemId }
+ * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
+ * POST {前缀}/commands/withdraw   { instanceId, reason }
+ * GET  {前缀}/queries/todo?page=1&amp;pageSize=20
+ * GET  {前缀}/queries/instances/{id}
+ * </pre>
+ * HTTP 一律 200，成败看响应体的 {@code code}（0008）：{@code ok}，或 {@code flow.}、{@code query.} 的业务错误码；
+ * 认不出的异常是 {@code flow.internal-error}，并记日志。操作人取引擎的 {@code ActorProvider}；登录与接口的保护由应用的安全框架负责。
+ */
+@RestController
+@RequestMapping("${flow.http.path:/flow}")
+public class FlowHttpController {
+    private static final System.Logger LOG = System.getLogger(FlowHttpController.class.getName());
+
+    private final FlowEngine<Actor> engine;
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public FlowHttpController(FlowEngine engine) { this.engine = engine; }
+
+    @PostMapping("/commands/start")
+    public ResponseEntity<String> start(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.start(RequestBody.parse(body).start())));
+    }
+
+    @PostMapping("/commands/claim")
+    public ResponseEntity<String> claim(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.claim(RequestBody.parse(body).claim())));
+    }
+
+    @PostMapping("/commands/complete")
+    public ResponseEntity<String> complete(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.complete(RequestBody.parse(body).complete())));
+    }
+
+    @PostMapping("/commands/withdraw")
+    public ResponseEntity<String> withdraw(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.withdraw(RequestBody.parse(body).withdraw())));
+    }
+
+    /** 发布流程定义：请求体就是 0005 的定义 JSON，发布说明放在参数 note 里 */
+    @PostMapping("/definitions/publish")
+    public ResponseEntity<String> publishDefinition(@org.springframework.web.bind.annotation.RequestBody(required = false) String body,
+                                                    @RequestParam(name = "note", required = false) String note) {
+        return respond(() -> ResponseBody.of(engine.publishDefinition(body, note)));
+    }
+
+    /** 发布表单 */
+    @PostMapping("/forms/publish")
+    public ResponseEntity<String> publishForm(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.publishForm(RequestBody.parse(body).formPublication())));
+    }
+
+    /** 我的待办；参数名同 vue-tsx-pro 的表格请求（page、pageSize） */
+    @GetMapping("/queries/todo")
+    public ResponseEntity<String> todo(@RequestParam(name = "page", defaultValue = "1") int page,
+                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.of(engine.todo(page, pageSize)));
+    }
+
+    @GetMapping("/queries/instances/{id}")
+    public ResponseEntity<String> instance(@PathVariable("id") String id) {
+        return respond(() -> ResponseBody.of(engine.instance(id)));
+    }
+
+    /** 执行并写成响应体：成功是 {@code ok} 加数据，出错按业务错误码写；HTTP 都是 200 */
+    private static ResponseEntity<String> respond(Supplier<Object> action) {
+        ApiResult<Object> result;
+        try {
+            result = ApiResult.ok(action.get());
+        } catch (RuntimeException e) {
+            result = ApiResult.fail(e, FlowHttpController::codeOf);
+            if (!(e instanceof FlowException) && !(e instanceof CodedException)) LOG.log(System.Logger.Level.ERROR, "flow request failed", e);
+        }
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(ResponseBody.write(result));
+    }
+
+    /** query 的异常带自己的业务错误码（{@code query.}），原样用（0008 第 3 节） */
+    private static String codeOf(Throwable e) {
+        return e instanceof CodedException coded ? coded.code().code() : null;
+    }
+}

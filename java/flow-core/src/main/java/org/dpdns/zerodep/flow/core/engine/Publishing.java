@@ -19,6 +19,7 @@ import org.dpdns.zerodep.flow.model.validate.ValidationContext;
 import org.dpdns.zerodep.wire.Json;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 发布流程定义与表单（0006 的 3.5）：先按模型包的规则校验，有错误时不发布，把问题列表放进错误明细；通过了交给存储定版本号。
@@ -34,7 +35,7 @@ public final class Publishing {
      * 校验有错误时报 {@code flow.definition-invalid}，警告不拦。
      */
     public StoredDefinition publishDefinition(Actor actor, String json, String note) {
-        ProcessDefinition model = Definitions.parse(json);
+        ProcessDefinition model = parseDefinition(json);
         StoredForm form = model.form() == null ? null : formOf(model.form());
         FormManifest manifest = form == null ? null : FormManifest.parse(Json.read(form.manifest()));
         List<Problem> errors = errorsOnly(ProcessValidator.validate(model, new PublishContext(manifest)));
@@ -49,7 +50,7 @@ public final class Publishing {
 
     /** 发布一张表单：先校验字段清单本身（0004 的 1.2），有错误时报 {@code flow.validation-failed} */
     public StoredForm publishForm(Actor actor, FormPublication form) {
-        FormManifest manifest = FormManifest.parse(Json.read(form.manifest()));
+        FormManifest manifest = parseManifest(form.manifest());
         List<Problem> errors = errorsOnly(ManifestValidator.validate(manifest, ManifestValidator.BUILTIN_TYPES::contains));
         if (!errors.isEmpty()) {
             throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form manifest has " + errors.size() + " error(s)",
@@ -58,6 +59,26 @@ public final class Publishing {
         return context.stores().forms().publish(new FormStore.Publication(form.key(), form.name(), form.category(), form.manifest(),
             form.clientSource(), form.clientCompiled(), form.compilerVersion(), form.serverLanguage(), form.serverSource(), form.note(),
             actor.id(), actor.name(), context.clock().instant()));
+    }
+
+    /** 读定义的 JSON；形状不对（缺键、类型不对、JSON 写错）时报 {@code flow.definition-invalid}，消息里带出错的位置 */
+    private static ProcessDefinition parseDefinition(String json) {
+        try {
+            return Definitions.parse(json);
+        } catch (IllegalArgumentException e) {
+            throw new FlowException(FlowErrorCode.DEFINITION_INVALID, e.getMessage(), List.of(new ErrorDetail("malformed", null, null, null, null,
+                Map.of("reason", String.valueOf(e.getMessage())))));
+        }
+    }
+
+    /** 读字段清单的 JSON；形状不对时报 {@code flow.validation-failed} */
+    private static FormManifest parseManifest(String json) {
+        try {
+            return FormManifest.parse(Json.read(json));
+        } catch (IllegalArgumentException e) {
+            throw new FlowException(FlowErrorCode.VALIDATION_FAILED, e.getMessage(), List.of(new ErrorDetail("malformed", "manifest", null, null,
+                null, Map.of("reason", String.valueOf(e.getMessage())))));
+        }
     }
 
     /** 定义引用的表单：写了版本取那个版本，没写取最新的 */

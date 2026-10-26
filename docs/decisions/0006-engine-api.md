@@ -207,6 +207,21 @@ public interface IdStrategy {
 - HTTP 一律 200，成功与失败都看响应体里的业务错误码（0008）。
 - JSON 约定同 0001：编号、大整数、小数按字符串，时间是带 `Z` 的 ISO 8601。
 - 登录与权限由接入方的框架处理（Spring Security、Nuxt 的中间件），引擎只从 `ActorProvider` 取当前操作人。
+- 落地（2026-10-26，Java 的 flow-spring，`flow.http.enabled=true` 时有）：
+
+  | 方法与路径 | 请求体或参数 | data |
+  | --- | --- | --- |
+  | `POST {前缀}/commands/start` | `{ key, form, variables, businessKey, title, priority }` | `{ instance, workItems, closed, events }` |
+  | `POST {前缀}/commands/claim` | `{ workItemId }` | 同上 |
+  | `POST {前缀}/commands/complete` | `{ workItemId, outcome, comment, form }` | 同上 |
+  | `POST {前缀}/commands/withdraw` | `{ instanceId, reason }` | 同上 |
+  | `POST {前缀}/definitions/publish?note=` | 定义的 JSON 本身 | `{ id, key, version }` |
+  | `POST {前缀}/forms/publish` | `{ key, name, category, manifest, clientSource, …, note }` | `{ id, key, version }` |
+  | `GET {前缀}/queries/todo?page=&pageSize=` | — | `{ rows, total, page, size, totalPages }` |
+  | `GET {前缀}/queries/instances/{id}` | — | `{ instance, form, workItems, timeline }` |
+
+  请求体用 query wire 的 `Json.read` 读（小数不丢精度，不依赖应用的 Jackson 版本）；data 是 typed JSON（编号、小数、时间是文字，根上带 `$types`）。
+  `Idempotency-Key` 随幂等记录（`flow_request`）补上。
 
 ## 8. 错误（已定，用户 2026-10-26；HTTP 部分按 0008 改）
 
