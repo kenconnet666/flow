@@ -206,25 +206,27 @@ public interface IdStrategy {
 
 - 两个后端的路径、参数、返回值**完全相同**，前端的流程组件（`flow-ui`）不用管背后是哪个后端。
 - 一个命令一个 `POST`（`/flow/commands/complete`），一个查询一个 `GET` 或 `POST`（列表收表格请求）；`requestId` 放请求头 `Idempotency-Key`。
+- HTTP 一律 200，成功与失败都看响应体里的业务错误码（0008）。
 - JSON 约定同 0001：编号、大整数、小数按字符串，时间是带 `Z` 的 ISO 8601。
 - 登录与权限由接入方的框架处理（Spring Security、Nuxt 的中间件），引擎只从 `ActorProvider` 取当前操作人。
 
-## 8. 错误（已定，用户 2026-10-26）
+## 8. 错误（已定，用户 2026-10-26；HTTP 部分按 0008 改）
 
-错误带代号，两个后端相同；HTTP 接口按代号映射状态码：
+错误带业务错误码，两个后端相同。**HTTP 一律 200**，响应体里带码（用户 2026-10-26，见 [0008](0008-error-codes.md)；原来按代号映射 404 / 409 / 422 的做法作废）：
 
-| 代号 | 说明 | HTTP |
-| --- | --- | --- |
-| `not-found` | 实例、待办、定义不存在 | 404 |
-| `forbidden` | `PermissionPolicy` 不放行 | 403 |
-| `not-candidate` | 不是这个待办的处理人或候选 | 403 |
-| `already-claimed` | 别人已认领 | 409 |
-| `work-item-not-open` | 待办已处理、已取消（重复提交） | 409 |
-| `instance-not-active` | 实例已结束、已暂停 | 409 |
-| `concurrent-modification` | 版本冲突（乐观锁） | 409 |
-| `guard-rejected` | 守卫不通过，带守卫给的原因 | 422 |
-| `validation-failed` | 表单或参数校验不通过，带按字段的错误 | 422 |
-| `definition-invalid` | 发布时校验不通过，带问题列表（0005 第 7 节） | 422 |
-| `extension-failed` | 扩展（解析器、动作、表单后端代码）抛错，带原始错误 | 500 |
+| 代号 | 说明 |
+| --- | --- |
+| `not-found` | 实例、待办、定义不存在 |
+| `forbidden` | `PermissionPolicy` 不放行 |
+| `not-candidate` | 不是这个待办的处理人或候选 |
+| `already-claimed` | 别人已认领 |
+| `work-item-not-open` | 待办已处理、已取消（重复提交） |
+| `instance-not-active` | 实例已结束、已暂停 |
+| `concurrent-modification` | 版本冲突（乐观锁） |
+| `guard-rejected` | 守卫不通过，带守卫给的原因 |
+| `validation-failed` | 表单或参数校验不通过，带按字段的错误 |
+| `definition-invalid` | 发布时校验不通过，带问题列表（0005 第 7 节） |
+| `extension-failed` | 扩展（解析器、动作、表单后端代码）抛错，带原始错误 |
 
 - Java 是 `FlowException`（带 `code()` 与参数），TS 是 `FlowError`（带 `code` 与参数）；接入方的扩展抛的错包在 `extension-failed` 里，原样保留。
+- 码的完整写法（命名空间、成功的码、响应的形状）与 query、vue-tsx-pro 的对应关系见 0008。
