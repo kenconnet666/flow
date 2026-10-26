@@ -9,10 +9,11 @@
   动手写代码之前先和用户把下面“待讨论”定下来——用户的要求是**先讨论方案，确认后才动代码**。
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：讨论中。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
-    雪花 BIGINT 主键、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
+    主键默认雪花 BIGINT（也支持自增、大雪花、自定义，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
     “初步方向”“表的草案”还待确认。
   - [0002 能力清单](docs/decisions/0002-capabilities.md)：讨论中，用户要求“需要的功能第一版都做，尽量完善”，逐项讨论后定稿。
   - [0003 模型包与前端的分工](docs/decisions/0003-model-and-frontend.md)：已采纳，前端取 B（见下）。
+  - [0006 引擎对外的接口](docs/decisions/0006-engine-api.md)：讨论中，逐节定稿（命令、查询、事件、扩展点与可替换的部分、两个后端的形态、错误代号）；主键策略（6.1）用户已定。
   - [0005 流程定义 JSON](docs/decisions/0005-definition.md)：已定（2026-10-26 逐节定稿）。图加结构校验、布局单独放、`{ ref }` 取 form. / sys. / 流程变量 / fn. 四类；处理人六种来源加"上一步选"；11 种节点；会签"一人拒绝即拒绝"；条件与组件库、query 同规则；问题代号清单；通知按事件可改。
   - [0004 表单](docs/decisions/0004-forms.md)：已定（2026-10-26 逐节定稿）。代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
     字段清单是 JSON5 字面量；后端代码在线编辑、存库、启动时加载（Spring Boot 用 Java、Nuxt 用 TS）；节点上四档字段权限；一个流程一张表单，表单的值单独存；
