@@ -1,0 +1,18 @@
+{
+  "description": "flow 的业务错误码（0008、0006 第 8 节）：TS 的 FLOW_ERROR_CODES 与 Java 的 FlowErrorCode 都要和这份清单一致，前端语言包按它给文案。",
+  "namespace": "flow",
+  "codes": [
+    { "code": "flow.not-found", "description": "实例、待办、定义不存在" },
+    { "code": "flow.forbidden", "description": "权限扩展点不放行" },
+    { "code": "flow.not-candidate", "description": "不是这个待办的处理人或候选" },
+    { "code": "flow.already-claimed", "description": "别人已认领" },
+    { "code": "flow.work-item-not-open", "description": "待办已处理、已取消（重复提交）" },
+    { "code": "flow.instance-not-active", "description": "实例已结束、已暂停" },
+    { "code": "flow.concurrent-modification", "description": "版本冲突（乐观锁）" },
+    { "code": "flow.guard-rejected", "description": "守卫不通过，带守卫给的原因" },
+    { "code": "flow.validation-failed", "description": "表单或参数校验不通过，errors 里是按字段的问题" },
+    { "code": "flow.definition-invalid", "description": "发布时校验不通过，errors 里是问题列表" },
+    { "code": "flow.extension-failed", "description": "扩展（解析器、动作、表单后端代码）抛错，带原始错误" },
+    { "code": "flow.internal-error", "description": "没认出来的异常" }
+  ]
+}
