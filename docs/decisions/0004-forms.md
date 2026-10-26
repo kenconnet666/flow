@@ -1,6 +1,6 @@
 # 0004 表单：代码表单加拖拽设计器
 
-- 状态：讨论中，逐节定稿。形态已定（用户 2026-10-26）：表单写成 TSX 代码，注册后运行时编译；拖拽设计器生成代码，代码也可以自由修改。第 1 节已定（2026-10-26），其余各节待讨论
+- 状态：讨论中，逐节定稿。形态已定（用户 2026-10-26）：表单写成 TSX 代码，注册后运行时编译；拖拽设计器生成代码，代码也可以自由修改。第 1、2 节已定（2026-10-26），其余各节待讨论
 - 相关：0001 的"灵活表单"一行（本文接替它）；0002 的校验（表单是否已注册）与第 12 节；前端方案 [frontend.md](../frontend.md)
 
 ## 背景
@@ -36,7 +36,7 @@
 
 ```tsx
 import { defineFields, defineFlowForm } from '@zerodep-dev/flow-ui/form';
-import { DecimalField, FormSection, PeoplePicker, TextField } from '@zerodep-dev/vue-tsx-pro-ui';
+import { FormSection, NumberField, PeoplePicker, TextField } from '@zerodep-dev/vue-tsx-pro-ui';
 
 /** 字段清单：只能是字面量（见 1.2） */
 export const fields = defineFields({
@@ -60,7 +60,7 @@ export default defineFlowForm(fields, ({ form, context }) => {
     <form.Form>
       <FormSection title="基本信息">
         <form.Field name="title"><TextField /></form.Field>
-        <form.Field name="amount"><DecimalField /></form.Field>
+        <form.Field name="amount"><NumberField /></form.Field>
         <form.Field name="buyer"><PeoplePicker source={context.people} /></form.Field>
       </FormSection>
     </form.Form>
@@ -68,7 +68,7 @@ export default defineFlowForm(fields, ({ form, context }) => {
 });
 ```
 
-（组件名只是示意；明细表的写法随设计器的组件清单一起定。）
+（`decimal` 字段用组件库的 `NumberField`，`form.Field` 按字段类型设好 `valueType`；明细表的写法见 2.1。）
 
 #### 1.1 三部分各管什么
 
@@ -124,7 +124,10 @@ export default defineFlowForm(fields, ({ form, context }) => {
 | `file` | `{ id, name, size }` 的数组，文件本身由接入方存 | `accept`、`maxCount`、`maxSize` | 不参与 |
 | `list` | 对象的数组（明细行） | `fields`（一层，里面不能再有 `list`）、`minItems`、`maxItems` | 不参与（以后要时加"行数""某列合计"） |
 
-- 所有字段都有：`label`（必填）、`description`、`required`、`default`（同样是字面量）。
+- 所有字段都有：`label`（必填）、`description`、`required`、`default`（同样是字面量），以及 `visibleWhen`、`requiredWhen`。
+- `visibleWhen`（显示条件）、`requiredWhen`（必填条件）的值是条件树，与组件库的 `Condition` 同形，本身是 JSON5 字面量。放在清单里而不是 JSX 上，是因为它影响数据是否有效：
+  前端按它显示或隐藏、标必填；后端用模型包的条件求值再校验一次——条件不成立时这个字段不算必填，交上来的值丢掉。
+  节点上的字段权限（第 4 节）优先：节点上隐藏的字段，条件成立也不显示。（2026-10-26 随第 2 节补入）
 - `decimal` 用字符串：金额在 JS 里用浮点会丢精度，Java 用 `BigDecimal` 读；组件库已有按文字读数字的 `isNumericText`。
 - 字段名：`^[a-z][A-Za-z0-9]*$`，最长 64，同一层里唯一。字段名会成为流程变量的键与条件里的 `field`，所以发布后改名等于删一个、加一个，校验会指出引用了旧名字的流程。
 
@@ -211,7 +214,7 @@ export default defineFormHandler({
 
 安全同前端代码（第 6 节）：不做沙箱，后端代码以应用的全部权限运行，只有"表单开发"权限的人能保存、发布，每次发布留痕。
 
-### 2. 设计器能理解的子集（待讨论）
+### 2. 设计器能理解的子集（已定，用户 2026-10-26）
 
 设计器只做常见的：拖控件、排布局、改字面量属性、改字段清单。认不出的写法不报错、不改写，当成代码块原样保留，复杂的回到代码里改。
 
@@ -223,6 +226,65 @@ export default defineFormHandler({
 | 属性是表达式（`disabled={amount.value > 100}`） | 属性面板里显示为"代码"，只能改那一小段代码 |
 | 没登记的元素、`{条件 && ...}`、`{list.map(...)}` | 一整块"代码块"：能移动、删除，内部只能在代码里改 |
 | 渲染函数以外的代码、注释、空行 | 不显示，原样保留 |
+
+#### 2.1 面板里能拖的组件
+
+全部用 vue-tsx-pro 现有的组件；面板按四类排。
+
+| 类 | 组件 | 能改的常见属性 |
+| --- | --- | --- |
+| 布局 | 分组 `FormSection`、栅格 `Grid` / `GridItem`、标签页 `Tabs`、分割线 `Separator` | 标题、说明；列数、间距、跨列；各页的标题 |
+| 展示 | 文字 `Text`、提示 `Alert` | 内容、色调 |
+| 字段 | `form.Field` 加一个输入控件，按字段类型选（下表） | 字段的属性改清单，控件的属性改 JSX（2.3） |
+| 业务 | 接入方登记的组件（2.4） | 登记时声明的 |
+
+字段类型能用的控件，第一个是默认：
+
+| 字段类型 | 控件 |
+| --- | --- |
+| `text` | `TextField`、`Textarea` |
+| `number` | `NumberField`、`Slider`、`Rating`（只限 `integer`） |
+| `decimal` | `NumberField`（值是 `Decimal`；表单容器在边界上与清单的字符串互转） |
+| `boolean` | `Switch`、`Checkbox` |
+| `date` | `DatePicker`、`DateField` |
+| `datetime` | `DatePicker`（`granularity="minute"`；控件给的是本地时间，容器按处理人的时区与清单的 UTC 互转） |
+| `select` | 单选：`Select`、`RadioGroup`、`ToggleGroup`；`multiple`：`Select`、`CheckboxGroup`、`Transfer`；字典是树形的：`TreeSelect`、`Cascader` |
+| `people` | `PeoplePicker` |
+| `file` | `Upload`、`FileDrop` |
+| `list` | 明细表 `form.List`：本仓库新做，建在 `form.array` 与组件库的表格上；列就是子字段，每列的控件同上表；增删行、排序、最少最多行数从清单来 |
+
+#### 2.2 拖拽与字段清单的联动
+
+- 从面板拖一个字段控件进画布：清单里加一项（名字先生成 `field1`，类型按控件），JSX 里插 `<form.Field name="field1">`；名字和标签随后在属性面板里改。
+- 清单里有、画布上没摆的字段，列在字段列表的"未摆放"里，可以拖进画布。后端算的、只在后端用的字段可以一直不摆。
+- 在画布上删控件只删 JSX，字段还留在清单里（转到"未摆放"）；要删字段在字段列表里删。防止误删一个已有数据的字段。
+- 换控件：同一字段类型能用的控件之间切换（`TextField` ↔ `Textarea`），名字和能保留的属性都留着。
+- 同一个字段摆了两次：问题列表里提示，不拦着。
+
+#### 2.3 属性面板
+
+- 分两组：**字段**（标签、说明、必填、长度、范围、选项、默认值）改的是清单；**控件**（占位文字、行数、步长……）改的是 JSX 上的属性。
+- 每个组件登记一份属性说明：属性名、显示名、编辑方式（文字、数字、开关、单选、图标、条件），只列常见的几项。代码里写了面板不认识的属性，显示为"代码里还设置了 n 个属性"，原样保留。
+- **常见的联动做成能点的**：字段的"显示条件"与"必填条件"，用条件构造器编辑，写进清单的 `visibleWhen`、`requiredWhen`（1.3）。更复杂的联动回到代码里写。
+
+#### 2.4 接入方登记业务组件
+
+在接入方的前端代码里登记（随模块表一起，不在线编辑），设计器的面板里就多出这些组件：
+
+```ts
+registerFormComponent({
+  name: 'SupplierPicker',
+  module: '@host/supplier', // 模块表里的名字，表单代码从这里 import
+  label: '供应商',
+  group: '业务',
+  field: ['select'], // 能当哪些类型字段的控件；不写就是展示组件
+  props: [{ name: 'scope', label: '范围', editor: { kind: 'select', options: ['active', 'all'] } }],
+  defaults: { scope: 'active' },
+});
+```
+
+- 设计器按"从哪个模块导入的哪个名字"认组件，不按标签名的文字，`import { SupplierPicker as Picker }` 也认得。
+- 业务组件当字段控件时，值仍要符合字段类型（`select` 就是选项的值），后端照清单校验。
 
 ### 3. 画布与代码的对应、写回（待讨论）
 
@@ -269,10 +331,9 @@ export default defineFormHandler({
 
 ## 待讨论
 
-1. 设计器登记哪些组件（第 2 节），接入方怎样注册自己的业务组件（名字、属性说明、能不能当字段）。
-2. 编译与编辑器挪进 vue-tsx-pro 的公开子路径（第 7 节）。
-3. 常见的"字段写进业务表的哪一列"要不要做成设计器里能点的映射（不写 `submit` 也能落库）。
-4. 顺序：建议放在流程设计器之后——表单的字段清单是模型包的一部分，先随定义 JSON 一起定；运行时（编译、加载、字段权限）先于设计器做，审批页面先能用代码表单。
+1. 编译与编辑器挪进 vue-tsx-pro 的公开子路径（第 7 节）。
+2. 常见的"字段写进业务表的哪一列"要不要做成设计器里能点的映射（不写 `submit` 也能落库）。
+3. 顺序：建议放在流程设计器之后——表单的字段清单是模型包的一部分，先随定义 JSON 一起定；运行时（编译、加载、字段权限）先于设计器做，审批页面先能用代码表单。
 
 ## 待实测
 
