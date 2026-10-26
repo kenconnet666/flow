@@ -50,6 +50,16 @@ public final class Definitions {
             optMap(map.get("layout"), "$.layout"));
     }
 
+    /** 读节点上的表单权限（{@code { "default": ..., "fields": {...} }}）；null 读成 null */
+    public static NodeFormAccess parseFormAccess(Object tree) {
+        return formAccess(tree, "$");
+    }
+
+    /** 读连线的副作用列表 */
+    public static List<ProcessEdge.Effect> parseEffects(Object tree) {
+        return list(tree, "$", Definitions::effect);
+    }
+
     // ---------- 顶层 ----------
 
     private static ProcessDefinition.Variable variable(Object tree, String path) {

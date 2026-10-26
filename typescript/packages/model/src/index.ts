@@ -8,3 +8,5 @@ export * from './definition.js';
 export * from './graph.js';
 export * from './manifest.js';
 export * from './validate.js';
+export * from './routing.js';
+export * from './access.js';

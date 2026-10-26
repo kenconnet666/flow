@@ -60,6 +60,28 @@ function compareDecimals(a: DecimalParts, b: DecimalParts): number {
   return a.negative ? -magnitude : magnitude;
 }
 
+/** 拆开的小数 → 整数尾数与小数位数（123.45 → 12345n, 2） */
+function scaled(parts: DecimalParts): { mantissa: bigint; scale: number } {
+  const digits = (parts.int + parts.frac).replace(/^0+/, '') || '0';
+  const mantissa = BigInt(digits);
+  return { mantissa: parts.negative ? -mantissa : mantissa, scale: parts.frac.length };
+}
+
+/** 两个值精确相加，写成小数文字（不带多余的零）；读不成数字的当作 0 */
+export function decimalText(a: unknown, b: unknown): string {
+  const zero: DecimalParts = { negative: false, int: '', frac: '' };
+  const x = scaled(decimalOf(a) ?? zero);
+  const y = scaled(decimalOf(b) ?? zero);
+  const scale = Math.max(x.scale, y.scale);
+  const sum = x.mantissa * 10n ** BigInt(scale - x.scale) + y.mantissa * 10n ** BigInt(scale - y.scale);
+  const negative = sum < 0n;
+  const digits = (negative ? -sum : sum).toString().padStart(scale + 1, '0');
+  const int = digits.slice(0, digits.length - scale);
+  const frac = digits.slice(digits.length - scale).replace(/0+$/, '');
+  const text = frac ? `${int}.${frac}` : int;
+  return negative && text !== '0' ? `-${text}` : text;
+}
+
 /** 值写成文字：null、undefined 是空字符串，对象写成 JSON */
 export function toText(value: unknown): string {
   if (value == null) return '';

@@ -1,0 +1,24 @@
+{
+  "description": "选出边：definitionFile 指向 spec/definitions 里的定义；每个用例给节点、结果、条件里用到的值，期望走的连线（按定义的先后）。",
+  "cases": [
+    { "name": "开始节点：唯一的出边", "definitionFile": "definitions/valid-purchase.json", "node": "start", "expect": ["e1"] },
+    { "name": "排他网关：条件成立", "definitionFile": "definitions/valid-purchase.json", "node": "route", "values": { "form.amount": "20000.00" }, "expect": ["e2"] },
+    { "name": "排他网关：都不成立走默认", "definitionFile": "definitions/valid-purchase.json", "node": "route", "values": { "form.amount": "5000" }, "expect": ["e3"] },
+    { "name": "人工节点：按处理结果", "definitionFile": "definitions/valid-purchase.json", "node": "review", "outcome": "back", "expect": ["e5"] },
+    { "name": "人工节点：终止的结果没有出边", "definitionFile": "definitions/valid-purchase.json", "node": "review", "outcome": "reject", "expect": [] },
+    { "name": "并行网关：全部出边", "definitionFile": "definitions/valid-purchase.json", "node": "fork", "expect": ["e7", "e8"] },
+    { "name": "结果的出边带条件：成立", "definitionFile": "definitions/valid-purchase.json", "node": "negotiate", "outcome": "again", "values": { "sys.round.negotiate": 2 }, "expect": ["e11"] },
+    { "name": "结果的出边带条件：不成立就没有出边", "definitionFile": "definitions/valid-purchase.json", "node": "negotiate", "outcome": "again", "values": { "sys.round.negotiate": 3 }, "expect": [] },
+    { "name": "另一个结果", "definitionFile": "definitions/valid-purchase.json", "node": "negotiate", "outcome": "agreed", "expect": ["e10"] },
+    { "name": "包容网关：条件成立的都走", "definitionFile": "definitions/nested-parallel.json", "node": "inner", "values": { "big": true }, "expect": ["e5"] },
+    { "name": "包容网关：都不成立走默认", "definitionFile": "definitions/nested-parallel.json", "node": "inner", "values": { "big": false }, "expect": ["e6"] },
+    { "name": "退回的结果走退回连线", "definitionFile": "definitions/nested-parallel.json", "node": "c", "outcome": "back", "expect": ["e11"] }
+  ],
+  "effects": [
+    { "name": "计数：没有时从 0 开始", "effects": [{ "increment": "round" }], "variables": {}, "expect": { "round": 1 } },
+    { "name": "计数：精确的小数", "effects": [{ "increment": "total", "by": 0.2 }], "variables": { "total": 0.1 }, "expect": { "total": "0.3" } },
+    { "name": "计数：不是数字的当作 0", "effects": [{ "increment": "round", "by": 2 }], "variables": { "round": "x" }, "expect": { "round": 2 } },
+    { "name": "赋值：直接写的值与引用，按先后", "effects": [{ "set": "team", "value": { "ref": "form.buyer" } }, { "set": "stage", "value": "quote" }, { "increment": "round" }],
+      "variables": { "round": 4, "keep": true }, "values": { "form.buyer": ["u1"] }, "expect": { "round": 5, "keep": true, "team": ["u1"], "stage": "quote" } }
+  ]
+}

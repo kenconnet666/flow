@@ -22,8 +22,8 @@ public final class Values {
 
     private Values() { }
 
-    /** 能读成数字的值 → 精确的小数；读不成时为 null */
-    static BigDecimal decimalOf(Object value) {
+    /** 能读成数字的值（数字、大整数、数字文字）→ 精确的小数；读不成时为 null */
+    public static BigDecimal decimalOf(Object value) {
         if (value instanceof BigDecimal d) return d;
         if (value instanceof Long || value instanceof Integer || value instanceof Short || value instanceof Byte) {
             return BigDecimal.valueOf(((Number) value).longValue());

@@ -1,0 +1,79 @@
+{
+  "description": "字段权限的合算（0004 的 4.2）与提交的合并（4.5）。states 的每一项是 [显示, 能改, 必填, 隐藏的原因]，隐藏的原因只在不显示时写（access 或 condition）。",
+  "manifest": {
+    "title": { "label": "标题", "type": "text", "required": true },
+    "amount": { "label": "金额", "type": "decimal" },
+    "reason": { "label": "超额原因", "type": "text", "visibleWhen": { "field": "form.amount", "op": "gt", "value": "10000" }, "requiredWhen": { "field": "form.amount", "op": "gt", "value": "50000" } },
+    "cost": { "label": "内部成本", "type": "decimal" },
+    "lines": { "label": "明细", "type": "list", "fields": {
+      "item": { "label": "物品", "type": "text", "required": true },
+      "price": { "label": "单价", "type": "decimal" }
+    } }
+  },
+  "cases": [
+    {
+      "name": "发起节点：没写时全部可改，清单的必填与必填条件生效",
+      "isStart": true,
+      "values": { "form.amount": "60000" },
+      "states": {
+        "title": [true, true, true], "amount": [true, true, false], "reason": [true, true, true], "cost": [true, true, false],
+        "lines": [true, true, false], "lines.item": [true, true, true], "lines.price": [true, true, false]
+      }
+    },
+    {
+      "name": "其他节点：没写时只读，只读不算必填；显示条件不成立就隐藏",
+      "values": { "form.amount": "500" },
+      "states": {
+        "title": [true, false, false], "amount": [true, false, false], "reason": [false, false, false, "condition"], "cost": [true, false, false],
+        "lines": [true, false, false], "lines.item": [true, false, false], "lines.price": [true, false, false]
+      }
+    },
+    {
+      "name": "节点上的权限优先：隐藏盖过显示条件，必填盖过清单，列可以单独设",
+      "access": { "default": "readonly", "fields": { "reason": "hidden", "amount": "required", "cost": "hidden", "lines": "editable", "lines.price": "readonly" } },
+      "values": { "form.amount": "60000" },
+      "states": {
+        "title": [true, false, false], "amount": [true, true, true], "reason": [false, false, false, "access"], "cost": [false, false, false, "access"],
+        "lines": [true, true, false], "lines.item": [true, true, true], "lines.price": [true, false, false]
+      }
+    },
+    {
+      "name": "明细表隐藏时列都隐藏",
+      "access": { "default": "editable", "fields": { "lines": "hidden", "lines.item": "required" } },
+      "values": {},
+      "states": {
+        "title": [true, true, true], "amount": [true, true, false], "reason": [false, false, false, "condition"], "cost": [true, true, false],
+        "lines": [false, false, false, "access"], "lines.item": [false, false, false, "access"], "lines.price": [false, false, false, "access"]
+      }
+    }
+  ],
+  "merges": [
+    {
+      "name": "只收能改的：只读的用存着的，节点上隐藏的照旧存着，显示条件不成立的丢掉；明细表能增删行，只读的列按行号用存着的",
+      "access": { "default": "readonly", "fields": { "amount": "editable", "cost": "hidden", "lines": "editable", "lines.price": "readonly" } },
+      "values": { "form.amount": "800" },
+      "stored": { "title": "办公用品", "amount": "12000", "reason": "超了", "cost": "9000", "lines": [{ "item": "纸", "price": "10" }] },
+      "submitted": { "title": "改了标题", "amount": "800", "reason": "还想改", "cost": "1", "lines": [{ "item": "纸张", "price": "999" }, { "item": "笔", "price": "5" }] },
+      "expectValues": { "title": "办公用品", "amount": "800", "reason": null, "cost": "9000", "lines": [{ "item": "纸张", "price": "10" }, { "item": "笔", "price": null }] },
+      "expectErrors": []
+    },
+    {
+      "name": "必填没填：顶层字段与明细表的列（带行号）",
+      "isStart": true,
+      "values": { "form.amount": "60000" },
+      "stored": {},
+      "submitted": { "title": "", "amount": "60000", "lines": [{ "item": "纸" }, { "price": "3" }] },
+      "expectValues": { "title": "", "amount": "60000", "reason": null, "cost": null, "lines": [{ "item": "纸", "price": null }, { "item": null, "price": "3" }] },
+      "expectErrors": [{ "field": "title", "code": "required" }, { "field": "reason", "code": "required" }, { "field": "lines[1].item", "code": "required" }]
+    },
+    {
+      "name": "明细表不能增删行时行数用存着的，只取能改的列",
+      "access": { "default": "readonly", "fields": { "lines.price": "editable" } },
+      "values": {},
+      "stored": { "title": "t", "lines": [{ "item": "纸", "price": "10" }] },
+      "submitted": { "lines": [{ "item": "改", "price": "12" }, { "item": "多出来的", "price": "1" }] },
+      "expectValues": { "title": "t", "amount": null, "reason": null, "cost": null, "lines": [{ "item": "纸", "price": "12" }] },
+      "expectErrors": []
+    }
+  ]
+}
