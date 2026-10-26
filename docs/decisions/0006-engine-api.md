@@ -159,27 +159,34 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | 策略 | 列类型 | 编号什么时候有 | 说明 |
 | --- | --- | --- | --- |
 | **雪花（默认）** | `BIGINT` | 插入前由应用生成 | 经典布局：毫秒时间 41 位、机器号 10 位、序号 12 位；机器号的分配见 0001 待讨论第 4 条 |
-| 数据库自增 | `BIGINT AUTO_INCREMENT` | 插入后由数据库给 | 引擎要用到编号的行逐行插入、取回自增值（多行插入在 MySQL 的交错锁模式下不保证连续）；集群里不用分配机器号 |
+| 数据库自增 | `BIGINT AUTO_INCREMENT` | 插入时由数据库给 | 插入后取回（见下）；集群里不用分配机器号 |
 | 大雪花 | `DECIMAL(p, 0)` | 插入前由应用生成 | 位数布局由接入方自由调：起始时间、时间单位（毫秒或秒）、时间位数、区域位数、机器位数、序号位数；总位数超过 64 位也行，`p` 按总位数算出来。Java 用 `BigInteger`、TS 用 `bigint` 生成 |
 | 自定义 | 由实现给出（如 `CHAR(26)` 的 ULID） | 由实现给出 | 实现 `IdStrategy` 接口 |
 
-`IdStrategy` 的约定（两个后端同名同义）：
+参考 EasyQuery（3.2.17）的做法：它把"谁生成编号"分成两种——`@Column(generatedKey = true)` 是数据库生成（自增，或 `GeneratedKeySQLColumnGenerator` 给出 `NEWID()` 这类插入时的 SQL 表达式），插入后经 JDBC 的
+`getGeneratedKeys` 回填（批量插入也按顺序回填）；`@Column(primaryKeyGenerator = X.class)` 是应用生成，`PrimaryKeyGenerator` 只有一个 `getPrimaryKey()`，外加一个可覆盖的 `setPrimaryKey(实体, 列)` 决定怎样设（比如已有值就不设）。
+生成器按类登记实例，Spring 里收集容器中的 Bean。它自己不带雪花，留给使用方实现。照这个思路，`IdStrategy` 的约定（两个后端同名同义）：
 
 ```java
 public interface IdStrategy {
+    /** 谁生成：APPLICATION（插入前由应用给）或 DATABASE（插入时由数据库给，插入后取回） */
+    IdSource source();
     /** 编号列的物理类型（建表与迁移用） */
-    ColumnType columnType();
-    /** 插入前给出新编号；数据库自增时返回 null，插入后用 fromGenerated 读回 */
-    String next(String table);
-    /** 数据库生成的值 → 引擎里的编号（只有数据库自增用） */
-    default String fromGenerated(Object value) { return String.valueOf(value); }
-    /** 引擎里的编号 ↔ 绑定到语句、从结果读回的值 */
+    ColumnType columnType(String table);
+    /** APPLICATION：给出新编号 */
+    default String next(String table) { throw new UnsupportedOperationException(); }
+    /** DATABASE：插入语句里编号列写什么；默认不写这一列（自增），序列、NEWID() 之类在这里给出表达式 */
+    default Optional<String> insertExpression(String table) { return Optional.empty(); }
+    /** 引擎里的编号 ↔ 绑定到语句、从结果读回、从 getGeneratedKeys 取回的值 */
     Object toDatabase(String id);
     String fromDatabase(Object value);
 }
 ```
 
-- **引擎里编号一律是字符串**（接口、JSON、扩展点的参数都是），不管背后是 `BIGINT`、`DECIMAL` 还是别的；换策略不改任何接口。
+- **引擎里编号一律是字符串**（接口、JSON、扩展点的参数都是），不管背后是 `BIGINT`、`DECIMAL` 还是别的；换策略不改任何接口。EasyQuery 用实体字段自己的类型，那是 ORM 的需要；引擎要让两个后端和前端看到的都一样，所以统一成字符串。
+- **可以按表换策略**：默认整个引擎一种；`flow.ids.tables.flow_event = database` 这样给个别表换（流转记录量大、只追加，用自增也合适）。所以 `columnType`、`next` 都带表名。
+- 数据库生成时，引擎要用到编号的行，照 EasyQuery 的做法用 JDBC 批量插入后按顺序取回（TS 一侧逐行插入取 `insertId`）；不用多行 `VALUES` 一次插入（MySQL 交错锁模式下自增值不保证连续）。
+- 登记方式同其他扩展点：Spring 里声明一个 `IdStrategy` Bean 就替换默认的雪花；TS 在选项里传。
 - 雪花、大雪花在时钟回拨时的处理可配：等到时钟追上（默认）、报错、借用序号。
 - 策略在**建表时**定下：表建好以后换策略要迁移数据，引擎启动时发现配置与表的列类型不一致就报错。
 - 需要 query 补一项能力：表声明里的列类型能在建数据库对象时按配置决定（id 列按策略取 `BIGINT`、`DECIMAL(p,0)` 或别的），见 0001 的"对 query 的要求"。
