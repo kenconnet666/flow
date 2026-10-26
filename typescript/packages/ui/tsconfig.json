@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.vue.json",
+  "compilerOptions": {
+    "types": ["node", "@zerodep-dev/vue-tsx-pro-tsx/runes"]
+  },
+  "include": ["src", "test", "*.config.ts"]
+}

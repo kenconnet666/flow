@@ -1,0 +1,49 @@
+{
+  "name": "@zerodep-dev/flow-ui",
+  "version": "0.1.0-dev",
+  "type": "module",
+  "description": "Front end of the approval workflow engine on vue-tsx-pro: the HTTP client, the form runtime, the inbox and the approval panel",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kenconnet666/flow.git",
+    "directory": "typescript/packages/ui"
+  },
+  "exports": {
+    ".": {
+      "@vue-tsx-pro/source": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./form": {
+      "@vue-tsx-pro/source": "./src/form/index.ts",
+      "default": "./src/form/index.ts"
+    }
+  },
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --configLoader native"
+  },
+  "peerDependencies": {
+    "@zerodep-dev/vue-tsx-pro-tsx": "*",
+    "@zerodep-dev/vue-tsx-pro-ui": "*",
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "@zerodep-dev/flow-model": "workspace:*"
+  },
+  "devDependencies": {
+    "@internationalized/date": "catalog:",
+    "@lucide/icons": "catalog:",
+    "@types/node": "catalog:",
+    "@zerodep-dev/vue-tsx-pro-tsx": "link:../../../../vue-tsx-pro/packages/tsx",
+    "@zerodep-dev/vue-tsx-pro-ui": "link:../../../../vue-tsx-pro/packages/ui",
+    "decimal.js": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "7.1.0-dev.20261023.1",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "vue": "catalog:",
+    "zod": "catalog:"
+  }
+}

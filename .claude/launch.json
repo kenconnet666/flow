@@ -4,8 +4,34 @@
     {
       "name": "vue-tsx-pro-docs",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["-C", "../vue-tsx-pro", "--filter", "@vue-tsx-pro/docs", "dev"],
+      "runtimeArgs": [
+        "-C",
+        "../vue-tsx-pro",
+        "--filter",
+        "@vue-tsx-pro/docs",
+        "dev"
+      ],
       "port": 5174
+    },
+    {
+      "name": "flow-example-backend",
+      "runtimeExecutable": "C:/Program Files/Git/bin/bash.exe",
+      "runtimeArgs": [
+        ".claude/run-example-backend.sh"
+      ],
+      "port": 8080,
+      "autoPort": false
+    },
+    {
+      "name": "flow-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "-C",
+        "typescript/apps/demo",
+        "dev"
+      ],
+      "port": 5180,
+      "autoPort": false
     }
   ]
 }

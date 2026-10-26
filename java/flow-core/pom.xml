@@ -25,6 +25,11 @@
             <groupId>org.dpdns.zerodep</groupId>
             <artifactId>query-core</artifactId>
         </dependency>
+        <!-- 第一版只支持 MySQL 8 / PolarDB MySQL（0001），建表脚本也是 MySQL 的：方言随引擎带上，接入方不用另加 -->
+        <dependency>
+            <groupId>org.dpdns.zerodep</groupId>
+            <artifactId>query-mysql</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

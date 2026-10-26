@@ -14,6 +14,7 @@ import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * 处理一个待办（0006 的 3.3）。在一个事务里，按 0007 第 5 节"推进"的顺序：
@@ -75,7 +76,9 @@ public final class CompleteHandler {
             Completion completion = new Completion(outcomeKey, command.comment(), actor.id(), actor.name(), now);
             if (!context.stores().workItems().complete(item.id(), completion)) throw FlowErrors.notOpen(item.id());
             run.closed.add(item);
-            run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), command.comment());
+            // 结果的名字存快照（同处理人的名字）：流转记录上显示"通过"而不是 pass，以后改了定义也不变
+            Map<String, Object> data = outcome == null ? Map.of() : Map.of(FlowEvent.OUTCOME_LABEL, outcome.label());
+            run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), command.comment(), data);
 
             // 6. 往下走
             String kind = outcome == null ? "approve" : outcome.kindOrDefault();

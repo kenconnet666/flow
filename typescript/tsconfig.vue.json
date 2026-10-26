@@ -1,0 +1,23 @@
+{
+  // 前端包（packages/ui、apps/*）的类型检查：TSX 按 vue-tsx-pro 的写法（符文、Vue JSX），同组件库仓库的 tsconfig.base.json
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // 组件库、模型包都按源码解析，不必先构建
+    "customConditions": ["@vue-tsx-pro/source"],
+    "allowImportingTsExtensions": true,
+    "jsx": "preserve",
+    "jsxImportSource": "@zerodep-dev/vue-tsx-pro-tsx",
+    "types": ["@zerodep-dev/vue-tsx-pro-tsx/runes"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  }
+}

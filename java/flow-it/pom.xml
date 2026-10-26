@@ -26,11 +26,6 @@
         </dependency>
         <dependency>
             <groupId>org.dpdns.zerodep</groupId>
-            <artifactId>query-mysql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.dpdns.zerodep</groupId>
             <artifactId>flow-spring</artifactId>
             <scope>test</scope>
         </dependency>

@@ -19,11 +19,14 @@ import java.util.Map;
  * @param actorName   操作人的名字（快照）
  * @param at          时间
  * @param comment     意见、原因
- * @param data        附加的数据
+ * @param data        附加的数据；处理的记录带 {@link #OUTCOME_LABEL}（结果的名字，快照）
  */
 public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, String node, String nodeName, String edge,
                         String outcome, int instanceRev, Long actorId, String actorName, Instant at, String comment,
                         Map<String, Object> data) {
+    /** data 里处理结果的名字（快照） */
+    public static final String OUTCOME_LABEL = "outcomeLabel";
+
     /** 实例发起 */
     public static final String INSTANCE_STARTED = "instance.started";
     /** 发起人撤回实例 */

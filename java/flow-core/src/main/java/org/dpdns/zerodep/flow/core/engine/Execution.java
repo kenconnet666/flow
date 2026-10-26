@@ -201,10 +201,15 @@ final class Execution {
 
     /** 记下一条流转记录（先放在 {@link #events} 里，{@link #flush} 时一起写库）；同一步的记录共用实例的版本 */
     void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment) {
+        addEvent(type, node, edge, outcome, workItemId, comment, Map.of());
+    }
+
+    /** 同上，带附加的数据（处理结果的名字这类快照） */
+    void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment, Map<String, Object> data) {
         String nodeId = node == null ? null : node.id();
         String nodeName = node == null ? null : node.name();
         events.add(new FlowEvent(null, instance.id(), workItemId, type, nodeId, nodeName, edge, outcome, rev, actor.id(), actor.name(), now,
-            comment, Map.of()));
+            comment, data));
     }
 
     // ───────── 写回 ─────────

@@ -10,7 +10,9 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b",
-    "test": "tsc -b && node --test \"test/dist/unit/**/*.test.js\""
+    "test": "tsc -b && node --test \"test/dist/unit/**/*.test.js\"",
+    "typecheck:ui": "pnpm --filter @zerodep-dev/flow-ui --filter @zerodep-dev/flow-demo typecheck",
+    "test:ui": "pnpm --filter @zerodep-dev/flow-ui test"
   },
   "devDependencies": {
     "typescript": "7.1.0-dev.20261023.1"

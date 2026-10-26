@@ -73,7 +73,22 @@ jobs:
           package_json_file: typescript/package.json
           cache: true
           cache_dependency_path: typescript/pnpm-lock.yaml
+      # 前端（packages/ui、apps/demo）按源码用组件库 vue-tsx-pro：检出到本仓库的旁边（link: 指向 ../vue-tsx-pro），
+      # 装好它的依赖、构建编译器（Vite 插件读 dist）
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: kenconnet666/vue-tsx-pro
+          path: vue-tsx-pro
+      - name: 组件库放到旁边并构建编译器
+        working-directory: .
+        run: |
+          mv vue-tsx-pro ../vue-tsx-pro
+          cd ../vue-tsx-pro
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter @zerodep-dev/vue-tsx-pro-tsx build
       - name: 安装、构建并运行全部测试
         run: |
           pnpm install --frozen-lockfile
           pnpm test
+          pnpm typecheck:ui
+          pnpm test:ui

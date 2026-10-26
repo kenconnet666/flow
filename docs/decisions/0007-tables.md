@@ -16,7 +16,7 @@
 | 7 | **租户列每张表都有**（`BIGINT`，不用租户时是 0），索引都以它开头 | 表结构一种，打不打开多租户不用改表；常量开头的列不影响索引的使用 | 打开多租户才加列：两套表结构、两套索引 |
 | 8 | **名字存快照**：处理人、发起人、操作人的名字和编号一起存 | 历史记录不依赖组织架构：人离职、改名后记录照样能看；列表不用每行去查人名 | 只存编号、显示时查：历史会变、列表慢 |
 | 9 | **主键是数据库自增的 `BIGINT`**（Java 的 `long`，0006 的 6.1，用户 2026-10-26 改定）；接入方的用户、部门、角色、租户编号也是 `BIGINT`（用户 2026-10-27：编号一般就是表的自增主键） | 引擎的编号就是数字，插入后取回；不用应用生成的雪花；接入方的组织表本来就是自增主键，存同样的类型，比较、连表不用转换 | 雪花、大雪花（原定，改掉了）；组织编号存 `VARCHAR(64)`（原定，改掉了） |
-| 10 | 不建外键；会变的行带 `rev`（乐观锁），只追加的表不带；时间是 UTC 的 `DATETIME(3)`；JSON 用 MySQL 的 `JSON` 类型 | 同 0001 的通用约定 | — |
+| 10 | 不建外键；会变的行带 `rev`（乐观锁），只追加的表不带；时间是 UTC 的 `DATETIME(3)`；JSON 用 MySQL 的 `JSON` 类型，流程定义（`model`）与字段清单（`manifest`）除外：存成 `MEDIUMTEXT` 的 JSON 文字 | 同 0001 的通用约定；定义与清单是人写的文档，要原样存，`JSON` 类型会把对象的键按长度重排，字段清单的先后就是表单上的先后（2026-10-27 在浏览器里验证时发现，无人值守时按推荐定） | — |
 | 11 | **流程与表单都是"本身 + 版本"两张表**：`flow_process` 存启用停用、最新版本，`flow_definition` 存不可变的版本 | 停用是对整个流程的，不是对某个版本；和表单的 `flow_form` / `flow_form_version`（0004 的 5.2）对称 | 原草案只有版本表，停用要改所有版本或另找地方记 |
 | 12 | 表名前缀可配（默认 `flow_`）；每组表背后是一个可替换的存储接口（0006 第 6 节） | 标准行为都能替换 | — |
 
@@ -58,7 +58,7 @@
 | --- | --- | --- |
 | `id` | ID | |
 | `process_key`、`version` | KEY、INT | |
-| `model` | JSON | 0005 的整份定义（含 `layout`） |
+| `model` | `MEDIUMTEXT`（JSON 文字） | 0005 的整份定义（含 `layout`） |
 | `form_key`、`form_version` | KEY、INT | 从 `model` 抄出来的：查"哪些流程用了这张表单的哪个版本"（0004 的 5.3） |
 | `note` | `VARCHAR(500)` | 发布说明 |
 | `published_by`、`published_by_name`、`published_at` | USER、NAME、TIME | |
@@ -89,7 +89,7 @@
 | `form_key`、`version` | KEY、INT | |
 | `client_source`、`client_compiled` | `MEDIUMTEXT` | 前端源码与编译结果 |
 | `compiler_version` | `VARCHAR(32)` | 编译它的编译器版本（0004 的 5.4） |
-| `manifest` | JSON | 字段清单 |
+| `manifest` | `MEDIUMTEXT`（JSON 文字） | 字段清单 |
 | `modules` | JSON | 用到的模块 |
 | `server_language`、`server_source` | `VARCHAR(8)`、`MEDIUMTEXT` | `java` / `ts` / 空，后端源码 |
 | `note`、`published_by`、`published_by_name`、`reviewed_by`、`published_at` | | `reviewed_by`：双人发布打开时的审阅人（0004 的 6.2） |

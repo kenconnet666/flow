@@ -38,7 +38,11 @@
     { "as": "bob", "command": "claim", "args": { "workItem": "$start.workItems[0]" } },
     { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
       "expect": { "workItem": { "assignment": "claimed", "assigneeId": "1002" }, "claimable": false, "completable": true } },
-    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "预算内" } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "预算内" } },
+      "expect": { "events": [
+        { "type": "workItem.completed", "outcome": "pass", "data": { "outcomeLabel": "通过" } },
+        "node.left", "node.entered", "node.left", "node.entered", "workItem.created"
+      ] } },
     { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
       "expect": { "workItem": { "state": "done", "outcome": "pass" }, "claimable": false, "completable": false } }
   ]

@@ -13,7 +13,8 @@
 --   - 主键是数据库自增的 BIGINT（引擎里是 Java 的 long，0006 的 6.1）；指向别的表的编号列也是 BIGINT。
 --   - 接入方的用户、部门、角色编号与租户编号也是 BIGINT（一般就是接入方那几张表的自增主键）；名字存快照（人离职、改名后记录照样能看）。
 --   - 流程标识、表单标识、节点标识、业务单据编号是人起的名字或业务上的编号，用 VARCHAR。
---   - 时间都是 UTC 的 DATETIME(3)（毫秒）；JSON 用 MySQL 的 JSON 类型。
+--   - 时间都是 UTC 的 DATETIME(3)（毫秒）；JSON 用 MySQL 的 JSON 类型。只有流程定义与字段清单例外，存成 MEDIUMTEXT 的 JSON 文字：
+--     它们是人写的文档，要按发布时的原样存，而 JSON 类型会把对象的键按长度重排（字段清单的先后就是表单上的先后）。
 --   - 每张表都有租户列 tenant_id（不用多租户时是 0），索引以它开头；不建外键。
 --   - 会变的行带 rev（乐观锁版本），只追加的表不带。
 -- ============================================================================
@@ -45,7 +46,7 @@ CREATE TABLE flow_definition (
     id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '编号：实例上的 definition_id 指向它',
     process_key       VARCHAR(64)  NOT NULL COMMENT '流程标识',
     version           INT          NOT NULL COMMENT '版本号，从 1 开始，由后端给',
-    model             JSON         NOT NULL COMMENT '整份定义（docs/decisions/0005 的 JSON，含流程图布局）',
+    model             MEDIUMTEXT   NOT NULL COMMENT '整份定义（docs/decisions/0005 的 JSON 文字，含流程图布局），按发布时的原样存',
     form_key          VARCHAR(64)  NULL COMMENT '用的表单标识（从 model 抄出来，查"哪些流程用了这张表单"用）；流程没有表单时为空',
     form_version      INT          NULL COMMENT '用的表单版本：发布时定下，之后表单再发布不影响这个流程版本',
     note              VARCHAR(500) NULL COMMENT '发布说明',
@@ -87,7 +88,7 @@ CREATE TABLE flow_form_version (
     client_source     MEDIUMTEXT   NULL COMMENT '前端源码（TSX，0004 的 1.1）',
     client_compiled   MEDIUMTEXT   NULL COMMENT '前端源码的编译结果：浏览器直接加载它',
     compiler_version  VARCHAR(32)  NULL COMMENT '编译它的编译器版本（编译器升级后按需重新编译，0004 的 5.4）',
-    manifest          JSON         NOT NULL COMMENT '字段清单：字段名、类型、必填、显示条件（引擎按它校验与合并提交的值）',
+    manifest          MEDIUMTEXT   NOT NULL COMMENT '字段清单的 JSON 文字：字段名、类型、必填、显示条件（引擎按它校验与合并提交的值；字段的先后就是表单上的先后）',
     modules           JSON         NULL COMMENT '前端源码用到的模块',
     server_language   VARCHAR(8)   NULL COMMENT '后端代码的语言：java / ts；没有后端代码时为空',
     server_source     MEDIUMTEXT   NULL COMMENT '后端源码（0004 的 1.5，启动时加载）',
