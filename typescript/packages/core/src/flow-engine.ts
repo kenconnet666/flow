@@ -7,7 +7,7 @@
  *   const started = await engine.start(user, { key: 'purchase', form: { title: '办公桌', amount: '1200.00' } });
  *   await engine.complete(user, { workItemId: started.created[0]!.id, outcome: 'approve' });
  *
- * - 表由接入方建：执行本包 sql/mysql 下的脚本（同 Java flow-core 的 db/flow/mysql）；
+ * - 表用 migrateFlowSchema 建（脚本同 Java flow-core 的 db/flow/mysql），也可以交给自己的迁移工具执行那一份脚本；
  * - 每个命令在一个事务里执行（外面已有同一个库的事务时加入）；出错时抛带业务错误码的 FlowError（0008）；
  * - 每个操作先问 permissionPolicy；命令过了权限再过 interceptors（审计、业务校验、改参数），和标准处理在同一个事务里。
  */

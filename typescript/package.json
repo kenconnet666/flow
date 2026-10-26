@@ -11,7 +11,7 @@
     "build": "tsc -b",
     "typecheck": "tsc -b",
     "test": "tsc -b && node --test \"test/dist/unit/**/*.test.js\"",
-    "typecheck:ui": "pnpm --filter @zerodep-dev/flow-ui --filter @zerodep-dev/flow-demo typecheck",
+    "typecheck:ui": "pnpm --filter @zerodep-dev/flow-ui --filter @zerodep-dev/flow-demo --filter @zerodep-dev/flow-demo-server typecheck",
     "test:ui": "pnpm --filter @zerodep-dev/flow-ui test",
     "test:live": "tsc -b && node --test --test-concurrency=1 \"test/dist/live/**/*.test.js\""
   },

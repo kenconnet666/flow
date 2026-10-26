@@ -1,5 +1,5 @@
 /**
- * 默认存储读写的表（建表脚本在 sql/mysql，同 Java flow-core 的 db/flow/mysql；列的含义见 docs/decisions/0007）。只声明引擎读写到的列。
+ * 默认存储读写的表（建表脚本同 Java flow-core 的 db/flow/mysql，见 schema/migrations.ts；列的含义见 docs/decisions/0007）。只声明引擎读写到的列。
  * 主键是数据库自增的 BIGINT（@generated，插入时不写）。时刻列经 utc 转换成 ISO 文字，JSON 列是对象，所以读出来的行直接是引擎的记录。
  * 两个基类由 flowDatabase 统一处理：Tenanted 的租户列在查询里自动加条件、插入时自动填；Touched 的修改时间在插入、更新时自动填。
  */

@@ -173,8 +173,11 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 
 ### 7.2 TS
 
-- 核心包：不依赖框架。`createFlowEngine<U>({ db, actor, org, ... })`，`db` 是 query 的数据库对象。
-- `flow-nuxt`：Nuxt 模块。在 `nuxt.config` 里打开，服务端插件里 `defineFlowEngine(...)` 注册扩展；可选的 HTTP 接口挂在 `server/api/flow/**`。
+- 核心包 `@zerodep-dev/flow-core`：不依赖框架。`createFlowEngine<U>({ driver, org, ...扩展 })`，`driver` 是 query 的驱动；
+  命令与查询的第一个参数是操作人（Node 没有线程上的"当前请求"，由调用方传，HTTP 接口里取 `actor(event)`）。建表用 `migrateFlowSchema(driver)`。
+- `@zerodep-dev/flow-nuxt`（2026-10-27 落地，不做成 Nuxt 模块，见 HANDOFF 的无人值守决定 20）：
+  `createFlowHandler({ engine, actor, prefix })` 是 7.3 的 HTTP 接口（h3 的处理函数，放在 `server/routes/flow/[...path].ts`），
+  `startFlowJobs(engine)` 定时做到期的作业（放在 Nitro 插件里）。示例见 `typescript/apps/demo-server`。
 
 ### 7.3 HTTP 接口（可选）
 
@@ -183,7 +186,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 - HTTP 一律 200，成功与失败都看响应体里的业务错误码（0008）。
 - JSON 约定同 0001：编号、大整数、小数按字符串，时间是带 `Z` 的 ISO 8601。
 - 登录与权限由接入方的框架处理（Spring Security、Nuxt 的中间件），引擎只从 `ActorProvider` 取当前操作人。
-- 落地（2026-10-26，Java 的 flow-spring，`flow.http.enabled=true` 时有）：
+- 落地（2026-10-26 Java 的 flow-spring，`flow.http.enabled=true` 时有；2026-10-27 Node 的 flow-nuxt 同一套）：
 
   | 方法与路径 | 请求体或参数 | data |
   | --- | --- | --- |

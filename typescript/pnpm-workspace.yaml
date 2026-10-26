@@ -3,6 +3,10 @@ packages:
   - apps/*
   - test
 
+allowBuilds:
+  # esbuild（Nitro 用它转 TS）的安装脚本只是检查平台包，不需要跑
+  esbuild: false
+
 # 前端（packages/ui、apps/*）共用的依赖版本，同 vue-tsx-pro 的 catalog；各包用 "catalog:" 引用
 catalog:
   # 表单工具从源码取字段清单（只用解析器），版本同 vue-tsx-pro 的编译器

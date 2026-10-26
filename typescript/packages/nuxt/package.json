@@ -1,0 +1,41 @@
+{
+  "name": "@zerodep-dev/flow-nuxt",
+  "version": "0.1.0-dev",
+  "type": "module",
+  "description": "The approval workflow engine on Nuxt / Nitro: the HTTP API (same as the Spring Boot one) as an h3 handler, and the job poller",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kenconnet666/flow.git",
+    "directory": "typescript/packages/nuxt"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@zerodep-dev/flow-core": "workspace:*",
+    "@zerodep-dev/flow-model": "workspace:*",
+    "@zerodep-dev/wire": "link:../../../../query/typescript/packages/wire"
+  },
+  "peerDependencies": {
+    "h3": "^1.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "h3": "1.15.11"
+  }
+}

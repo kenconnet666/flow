@@ -1,5 +1,5 @@
 /**
- * 流程引擎的示例前端：发起、我的待办、办理、我已办、我发起的、抄送我的、流程详情、流程监控与流程管理（管理端），接 Spring Boot 示例后端（vite.config.ts 把 /flow 转过去）。
+ * 流程引擎的示例前端：发起、我的待办、办理、我已办、我发起的、抄送我的、流程详情、流程监控与流程管理（管理端），接示例后端（Spring Boot 或 Nitro，vite.config.ts 把 /flow 转过去）。
  * 组件库的配置里给好请求客户端（带上当前用户）、路由适配、带 flow 错误码文案的语言；flow-ui 的组件取 useHttp() 拼出引擎客户端。
  */
 import { withFlowLang } from '@zerodep-dev/flow-ui';

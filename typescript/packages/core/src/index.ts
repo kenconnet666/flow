@@ -1,6 +1,6 @@
 /**
  * 审批流程引擎的 Node 版（@zerodep-dev/flow-core，同 Java 的 flow-core）：命令、查询与 query 上的默认存储。
- * 入口是 {@link createFlowEngine}；表的脚本在本包的 sql/mysql。
+ * 入口是 {@link createFlowEngine}；建表用 {@link migrateFlowSchema}。
  */
 export { weekdays, type WorkCalendar } from './calendar.js';
 export type * from './command/types.js';
@@ -21,6 +21,8 @@ export {
 export { createFlowEngine, FlowEngine, type CommandInterceptor, type FlowEngineOptions } from './flow-engine.js';
 export { actorName, allowAll, SYSTEM_ACTOR, type Actor, type ActorProvider, type OrgDirectory, type PermissionPolicy } from './identity.js';
 export { RunState } from './run-state.js';
+export { FLOW_MIGRATION_HISTORY, flowMigrations, migrateFlowSchema } from './schema/migrations.js';
+export { MYSQL_SCRIPTS } from './schema/mysql-scripts.js';
 export { flowDatabase, TENANT_FILTER, tenantScope } from './store/query/database.js';
 export { queryStores } from './store/query/stores.js';
 export type * from './store/types.js';

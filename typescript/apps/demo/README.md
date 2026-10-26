@@ -1,7 +1,7 @@
 # 流程引擎的示例前端
 
 用 `@zerodep-dev/flow-ui` 搭的最小审批应用：发起、我的待办、办理（表单、意见与处理结果、流转记录）。
-接 `examples/spring-boot` 的示例后端（Vite 把 `/flow` 转到 `http://localhost:8080`）；顶栏切换当前用户，请求头 `X-User` 带上他的编号（只为演示）。
+接示例后端（Vite 把 `/flow` 转到 `http://localhost:8080`）：Spring Boot 的 `examples/spring-boot` 或 Node 的 `apps/demo-server`，两个的接口相同，开哪个都行；顶栏切换当前用户，请求头 `X-User` 带上他的编号（只为演示）。
 
 | 用户 | 编号 | 能做的 |
 | --- | --- | --- |
@@ -11,7 +11,7 @@
 
 ## 跑起来
 
-1. 起示例后端（见 `examples/spring-boot/README.md`；本机用 `.claude/run-example-backend.sh`）。
+1. 起示例后端：Spring Boot（见 `examples/spring-boot/README.md`，本机用 `.claude/run-example-backend.sh`）或 Nitro（见 `apps/demo-server/README.md`，本机用 `.claude/run-node-backend.sh`）。
 2. 组件库 vue-tsx-pro 要在本仓库的旁边（`../vue-tsx-pro`），装好依赖、构建过编译器（`pnpm --filter @zerodep-dev/vue-tsx-pro-tsx build`）。
 3. 在 `typescript/` 下 `pnpm install`，然后：
 

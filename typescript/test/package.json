@@ -11,7 +11,9 @@
     "@zerodep-dev/query-mysql": "link:../../../query/typescript/packages/mysql",
     "mysql2": "3.24.6",
     "decimal.js": "catalog:",
-    "@internationalized/date": "catalog:"
+    "@internationalized/date": "catalog:",
+    "@zerodep-dev/flow-nuxt": "workspace:*",
+    "h3": "1.15.11"
   },
   "devDependencies": {
     "@types/node": "24.19.2"

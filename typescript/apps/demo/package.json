@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Demo app of the workflow front end: start, inbox and approval against the Spring Boot example backend",
+  "description": "Demo app of the workflow front end: start, inbox and approval against the example backend (Spring Boot or Nitro)",
   "scripts": {
     "dev": "vite --configLoader native",
     "build": "vite build --configLoader native",

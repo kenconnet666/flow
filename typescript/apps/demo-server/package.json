@@ -1,0 +1,27 @@
+{
+  "name": "@zerodep-dev/flow-demo-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Example backend on Nitro (the server engine of Nuxt): the workflow engine's HTTP API for the demo front end, same as the Spring Boot example",
+  "scripts": {
+    "dev": "nitro dev --port 8080",
+    "build": "nitro build",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@internationalized/date": "catalog:",
+    "@zerodep-dev/flow-core": "workspace:*",
+    "@zerodep-dev/flow-model": "workspace:*",
+    "@zerodep-dev/flow-nuxt": "workspace:*",
+    "@zerodep-dev/query-core": "link:../../../../query/typescript/packages/core",
+    "@zerodep-dev/query-mysql": "link:../../../../query/typescript/packages/mysql",
+    "decimal.js": "catalog:",
+    "h3": "1.15.11",
+    "mysql2": "3.24.6",
+    "nitropack": "2.13.5"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

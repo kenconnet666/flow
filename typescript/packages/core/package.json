@@ -17,8 +17,7 @@
   },
   "files": [
     "dist",
-    "src",
-    "sql"
+    "src"
   ],
   "sideEffects": false,
   "engines": {
@@ -26,9 +25,6 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "scripts": {
-    "prepack": "node scripts/copy-sql.mjs"
   },
   "dependencies": {
     "@zerodep-dev/flow-model": "workspace:*",

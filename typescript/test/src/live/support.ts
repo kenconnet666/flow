@@ -1,17 +1,13 @@
 /**
  * 实库测试的支撑（同 Java flow-it 的 LiveMysql、TestOrg、TestUser、TestExtensions、MovableClock）：
  *   - 连接变量同 Java：FLOW_MYSQL_URL（`jdbc:mysql://主机:端口/库`）、FLOW_MYSQL_USER、FLOW_MYSQL_PASSWORD；没设时跳过，设了 FLOW_REQUIRE_LIVE 时失败；
- *   - 每个场景前删掉 flow_ 开头的表，再执行建表脚本（与 Java 用同一份脚本，自增的编号从 1 开始，两个后端跑出来的编号相同）；
+ *   - 每个场景前删掉 flow_ 开头的表，再用 migrateFlowSchema 建表（与 Java 用同一份脚本，自增的编号从 1 开始，两个后端跑出来的编号相同）；
  *   - 场景里的扩展：解析器、守卫、动作、命令拦截器，同 spec/scenarios 的 README 那张表。
  */
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { FlowError, type Id } from '@zerodep-dev/flow-model';
-import type { Actor, Clock, CommandInterceptor, OrgDirectory, OutcomeGuard, PeopleResolver, ServiceAction } from '@zerodep-dev/flow-core';
+import { migrateFlowSchema, type Actor, type Clock, type CommandInterceptor, type OrgDirectory, type OutcomeGuard, type PeopleResolver, type ServiceAction } from '@zerodep-dev/flow-core';
+import { mysqlDriver } from '@zerodep-dev/query-mysql';
 import mysql from 'mysql2/promise';
-
-/** 建表脚本（Java flow-core 的资源目录，两个后端共用） */
-const SCRIPTS = join(import.meta.dirname, '..', '..', '..', '..', 'java', 'flow-core', 'src', 'main', 'resources', 'db', 'flow', 'mysql');
 
 /** 实库的连接池；没配置时为 null（调用方跳过） */
 export function livePool(): mysql.Pool | null {
@@ -27,18 +23,12 @@ export function livePool(): mysql.Pool | null {
   return mysql.createPool({ host: m[1]!, port: Number(m[2] ?? 3306), database: m[3]!, user, password, connectionLimit: 4, timezone: 'Z' });
 }
 
-/** 删掉 flow_ 的表，再按建表脚本建表 */
+/** 删掉 flow_ 的表（连同迁移的历史表），再按建表脚本建表 */
 export async function recreateTables(pool: mysql.Pool): Promise<void> {
   const [tables] = (await pool.query("SELECT table_name AS name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE 'flow\\_%'")) as unknown as [{ name: string }[]];
   for (const { name } of tables) await pool.query(`DROP TABLE \`${name}\``);
-  const files = readdirSync(SCRIPTS).filter((f) => /^V\d+__.*\.sql$/.test(f)).sort((a, b) => version(a) - version(b));
-  for (const file of files) {
-    const script = readFileSync(join(SCRIPTS, file), 'utf8').replace(/^\s*--.*$/gm, '');
-    for (const statement of script.split(/;\s*(?:\r?\n|$)/)) if (statement.trim()) await pool.query(statement);
-  }
+  await migrateFlowSchema(mysqlDriver(pool));
 }
-
-const version = (file: string) => Number(/^V(\d+)__/.exec(file)![1]);
 
 /** 测试里的操作人 */
 export interface TestUser extends Actor {
