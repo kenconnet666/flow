@@ -15,6 +15,7 @@ import {
   isRef,
   type AssigneeSource,
   type FieldAccess,
+  type Outcome,
   type ProcessDefinition,
   type ProcessEdge,
   type ProcessNode,
@@ -185,14 +186,27 @@ function checkTask(node: TaskNode, graph: ProcessGraph, context: ValidationConte
   const keys = node.outcomes.map((o) => o.key);
   if (keys.length === 0) report('task-no-outcome', { node: node.id });
   for (const key of new Set(keys.filter((k, i) => keys.indexOf(k) !== i))) report('outcome-duplicate', { node: node.id }, { outcome: key });
+  // 终止的结果、处理时选退回节点的结果不走出边
   checkUnrouted(
     node.id,
-    node.outcomes.filter((o) => o.kind !== 'terminate').map((o) => o.key),
+    node.outcomes.filter((o) => o.kind !== 'terminate' && !choosesTarget(o)).map((o) => o.key),
     graph.outgoing(node.id),
     report,
   );
+  for (const outcome of node.outcomes) {
+    if ((outcome.target as string | undefined) !== undefined && !choosesTarget(outcome)) {
+      report('return-target-invalid', { node: node.id }, { outcome: outcome.key });
+    }
+  }
   if (node.overdue?.action === 'complete' && !keys.includes(node.overdue.outcome)) {
     report('overdue-unknown-outcome', { node: node.id }, { outcome: node.overdue.outcome });
+  }
+  // 引擎自己选的结果（超时自动完成、会签没达到门槛时的 fallback）没人选退回的节点
+  const automatic = [node.overdue?.action === 'complete' ? node.overdue.outcome : undefined, node.multi?.fallback];
+  for (const key of automatic) {
+    if (key !== undefined && node.outcomes.some((o) => o.key === key && choosesTarget(o))) {
+      report('outcome-choose-automatic', { node: node.id }, { outcome: key });
+    }
   }
   const lane = graph.lane(node.lane);
   if ((node.assignees === undefined || node.assignees.length === 0) && !lane?.inbox) report('assignee-missing', { node: node.id });
@@ -210,6 +224,11 @@ function checkTask(node: TaskNode, graph: ProcessGraph, context: ValidationConte
   if (multi && !['all', 'any', 'ratio', 'votes', 'sequential'].includes(multi.complete) && context.isRegistered?.('completion', multi.complete) === false) {
     report('extension-unknown', { node: node.id }, { kind: 'completion', name: multi.complete });
   }
+}
+
+/** 处理时选退回到哪个节点的结果（kind: return、target: choose）：不走出边 */
+function choosesTarget(outcome: Outcome): boolean {
+  return outcome.kind === 'return' && outcome.target === 'choose';
 }
 
 /** 每个结果都要有出边：写明这个结果的，或没写结果的 */

@@ -29,7 +29,7 @@
 | --- | --- | --- |
 | `start` | `key`、`form`、`variables`、`businessKey`、`title`、`priority`、`picks`（`{ 节点: [用户编号] }`） | `instance`、`workItems`（新生成的待办）、`closed`（结束的待办）、`events`（这一步的流转记录） |
 | `claim` | `workItem` | 同上 |
-| `complete` | `workItem`、`outcome`、`comment`、`form`、`picks` | 同上 |
+| `complete` | `workItem`、`outcome`、`comment`、`form`、`picks`、`returnTarget`（退回时选的节点） | 同上 |
 | `withdraw` | `instance`、`reason` | 同上 |
 | `withdrawStep` | `workItem`、`reason` | 同上（处理人撤回刚处理的一步） |
 | `startable` | — | `processes`（每项 `{ key, name, category, version }`） |

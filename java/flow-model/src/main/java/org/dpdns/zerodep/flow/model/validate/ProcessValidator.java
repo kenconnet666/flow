@@ -189,11 +189,18 @@ public final class ProcessValidator {
         List<String> keys = node.outcomes().stream().map(Outcome::key).toList();
         if (keys.isEmpty()) atNode("task-no-outcome", node.id());
         for (String key : duplicates(keys)) atNode("outcome-duplicate", node.id(), "outcome", key);
-        checkUnrouted(node.id(),
-            node.outcomes().stream().filter(o -> !"terminate".equals(o.kind())).map(Outcome::key).toList(), graph.outgoing(node.id()));
+        // 终止的结果、处理时选退回节点的结果不走出边
+        checkUnrouted(node.id(), node.outcomes().stream().filter(o -> !"terminate".equals(o.kind()) && !o.choosesTarget())
+            .map(Outcome::key).toList(), graph.outgoing(node.id()));
+        for (Outcome outcome : node.outcomes()) {
+            if (outcome.target() != null && !outcome.choosesTarget()) atNode("return-target-invalid", node.id(), "outcome", outcome.key());
+        }
         if (node.overdue() != null && "complete".equals(node.overdue().action()) && !keys.contains(node.overdue().outcome())) {
             atNode("overdue-unknown-outcome", node.id(), "outcome", node.overdue().outcome());
         }
+        // 引擎自己选的结果（超时自动完成、会签没达到门槛时的 fallback）没人选退回的节点
+        if (node.overdue() != null && "complete".equals(node.overdue().action())) checkNotChoosing(node, node.overdue().outcome());
+        if (node.multi() != null && node.multi().fallback() != null) checkNotChoosing(node, node.multi().fallback());
         Lane lane = graph.lane(node.lane());
         if (node.assignees().isEmpty() && (lane == null || lane.inbox() == null)) atNode("assignee-missing", node.id());
         List<AssigneeSource> sources = new ArrayList<>(node.assignees());
@@ -212,6 +219,12 @@ public final class ProcessValidator {
             && Boolean.FALSE.equals(context.isRegistered(ExtensionKind.COMPLETION, multi.complete()))) {
             atNode("extension-unknown", node.id(), "kind", "completion", "name", multi.complete());
         }
+    }
+
+    /** 引擎自己选的结果不能是要处理人选退回节点的 */
+    private void checkNotChoosing(ProcessNode.Task node, String key) {
+        boolean choosing = node.outcomes().stream().anyMatch(o -> o.key().equals(key) && o.choosesTarget());
+        if (choosing) atNode("outcome-choose-automatic", node.id(), "outcome", key);
     }
 
     /** 每个结果都要有出边：写明这个结果的，或没写结果的 */

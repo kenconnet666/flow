@@ -116,7 +116,7 @@ final class ScenarioRunner {
                     Variables.of(args.map("variables")), args.text("businessKey"), args.text("title"), args.number("priority", 0), args.picks())));
                 case "claim" -> commandResult(engine.claim(actor, new ClaimCommand(args.id("workItem"))));
                 case "complete" -> commandResult(engine.complete(actor, new CompleteCommand(args.id("workItem"), args.text("outcome"),
-                    args.text("comment"), FormValues.of(args.map("form")), args.picks())));
+                    args.text("comment"), FormValues.of(args.map("form")), args.picks(), args.text("returnTarget"))));
                 case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.id("instance"), args.text("reason"))));
                 case "startable" -> wire(Map.of("processes", engine.startable(actor)));
                 case "startView" -> view(engine.startView(actor, args.text("key")));

@@ -25,7 +25,7 @@ import java.util.function.Supplier;
  * <pre>
  * POST {前缀}/commands/start      { key, form, variables, businessKey, title, priority }
  * POST {前缀}/commands/claim      { workItemId }
- * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
+ * POST {前缀}/commands/complete   { workItemId, outcome, comment, form, picks, returnTarget }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
  * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal、assign、withdraw-step
  * POST {前缀}/admin/terminate、suspend、resume、jump、reassign、retry-job、skip-job

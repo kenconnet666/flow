@@ -22,4 +22,7 @@ public record Outcome(String key, String label, String kind, String comment, Str
 
     /** 种类，没写时是 {@code approve} */
     public String kindOrDefault() { return kind == null ? "approve" : kind; }
+
+    /** 处理时选退回到哪个节点（{@code kind: "return"}、{@code target: "choose"}）：不走出边 */
+    public boolean choosesTarget() { return "return".equals(kind) && "choose".equals(target); }
 }

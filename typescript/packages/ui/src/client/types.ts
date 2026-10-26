@@ -74,6 +74,16 @@ export interface OutcomeView {
   readonly confirm: boolean;
   /** 选了这个结果后要选处理人的下一步 */
   readonly picks: readonly PickView[];
+  /** 退回时能选的节点（结果写了 target: "choose"）；别的结果是空的 */
+  readonly targets: readonly ReturnTarget[];
+}
+
+/** 退回时能选的一个节点 */
+export interface ReturnTarget {
+  readonly node: string;
+  readonly nodeName: string | null;
+  /** 上次在那里处理的人（退回去落到他） */
+  readonly handlerName: string | null;
 }
 
 /** 待办详情 */
@@ -262,6 +272,8 @@ export interface CompleteCommand {
   readonly form?: Readonly<Record<string, unknown>>;
   /** 下一步要选处理人的节点 → 选的人 */
   readonly picks?: Readonly<Record<string, readonly Id[]>>;
+  /** 退回到哪个节点：结果的 targets 不空时必填 */
+  readonly returnTarget?: string;
 }
 
 /** 撤回 */

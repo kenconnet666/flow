@@ -134,6 +134,9 @@ export interface FlowMessages {
   readonly incidentSkipped: string;
   /** 实例因为异常暂停了（onFailure: error） */
   readonly incidentResumeFirst: string;
+  /** 退回时选退回到哪一步 */
+  readonly returnTargetTitle: string;
+  readonly returnTargetTo: (handler: string) => string;
   /** 选下一步的处理人 */
   readonly pickTitle: string;
   readonly pickFor: (node: string) => string;
@@ -317,6 +320,8 @@ const zhProblemTexts: Record<string, (p: Readonly<Record<string, string>>) => st
   'node-unreachable': () => '从开始走不到这个节点',
   'outcome-duplicate': () => '处理结果的标识重复',
   'outcome-unrouted': (p) => `处理结果 ${p['outcome'] ?? ''} 没有出边`,
+  'return-target-invalid': (p) => `处理结果 ${p['outcome'] ?? ''} 的 target 只能写在退回上，而且只能是 choose`,
+  'outcome-choose-automatic': (p) => `超时自动完成、会签的 fallback 不能用要选退回节点的结果 ${p['outcome'] ?? ''}`,
   'edge-unknown-outcome': () => '连线写的处理结果在起点上不存在',
   'edge-outcome-not-branching': () => '起点不按结果分出边，连线却写了 outcome',
   'edge-default-not-gateway': () => '起点不是排他、包容网关，连线却写了 default',
@@ -450,6 +455,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
     incidentRetried: '已重新排队，稍后自动执行',
     incidentSkipped: '已跳过，流程往下走了',
     incidentResumeFirst: '流程因为这个异常暂停了：先恢复，再重试或跳过',
+    returnTargetTitle: '退回到哪一步',
+    returnTargetTo: (handler) => `退回给 ${handler}`,
     pickTitle: '选择下一步的处理人',
     pickFor: (node) => `${node} 的处理人`,
     noPeopleSource: '没有可选的人员数据，请联系管理员',
@@ -593,6 +600,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
     incidentRetried: 'Queued again; it runs shortly',
     incidentSkipped: 'Skipped; the process moved on',
     incidentResumeFirst: 'The process was suspended by this failure: resume it first, then retry or skip',
+    returnTargetTitle: 'Return to which step',
+    returnTargetTo: (handler) => `Goes back to ${handler}`,
     pickTitle: 'Choose who handles the next step',
     pickFor: (node) => `Assignee for ${node}`,
     noPeopleSource: 'No people directory is available; contact your administrator',

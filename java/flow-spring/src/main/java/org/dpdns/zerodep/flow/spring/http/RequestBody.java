@@ -69,9 +69,9 @@ final class RequestBody {
     /** {@code { workItemId }} */
     ClaimCommand claim() { return new ClaimCommand(id("workItemId")); }
 
-    /** {@code { workItemId, outcome, comment, form, picks }} */
+    /** {@code { workItemId, outcome, comment, form, picks, returnTarget }} */
     CompleteCommand complete() {
-        return new CompleteCommand(id("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")), picks());
+        return new CompleteCommand(id("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")), picks(), text("returnTarget"));
     }
 
     /** {@code { instanceId, reason }} */

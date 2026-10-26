@@ -93,6 +93,8 @@ final class Execution {
     boolean quiet;
     /** 这一步的处理人选的下一步处理人（0005 的 5.6）：节点 → 人 */
     private Map<String, List<Long>> picks = Map.of();
+    /** 这次处理退回到哪个节点（处理结果 {@code target: "choose"} 时） */
+    private String returnTarget;
 
     /**
      * @param actor    这次的操作人；记进流转记录
@@ -125,6 +127,9 @@ final class Execution {
 
     /** 这一步的处理人选的下一步处理人：节点 → 人 */
     void picks(Map<String, List<Long>> next) { this.picks = next; }
+
+    /** 退回时处理人选的节点（处理结果 {@code target: "choose"}，已经核对过是能选的） */
+    void returnTarget(String node) { this.returnTarget = node; }
 
     /** 引擎内部共用的东西 */
     EngineContext context() { return context; }
@@ -178,7 +183,7 @@ final class Execution {
             }
             if (edge.isBackward()) {
                 leaveRegions(nodeId, edge.to());
-                rememberResubmit(nodeId, edge);
+                rememberResubmit(nodeId, edge.to(), edge.kind());
             }
             enter(edge.to(), edge.isBackward() ? edge.kind() : arrival);
         }
@@ -217,10 +222,22 @@ final class Execution {
     }
 
     /** 退回它的节点写了 {@code returnTo: "resubmit"}：记下来，被退回的节点重新提交后直接回来 */
-    private void rememberResubmit(String from, ProcessEdge edge) {
-        if ("return".equals(edge.kind()) && graph.node(from) instanceof ProcessNode.Task task && "resubmit".equals(task.returnTo())) {
-            instance = instance.withState(instance.state().returned(edge.to(), from));
+    private void rememberResubmit(String from, String to, String kind) {
+        if ("return".equals(kind) && graph.node(from) instanceof ProcessNode.Task task && "resubmit".equals(task.returnTo())) {
+            instance = instance.withState(instance.state().returned(to, from));
         }
+    }
+
+    /**
+     * 退回到处理人选的节点（0005 的 5.4 {@code target: "choose"}）：同沿退回的线走——跳出并行区域时取消区域里的待办，
+     * 要求"重新提交后直接回来"时记下，到了那里落到它原来的处理人。流转记录 {@code node.left} 的 data 里记着目标 target。
+     */
+    void returnTo(String from, String outcome) {
+        if (returnTarget == null) throw FlowErrors.invalid("returnTarget", "required");
+        addEvent(FlowEvent.NODE_LEFT, graph.node(from), null, outcome, null, null, Map.of("target", returnTarget));
+        leaveRegions(from, returnTarget);
+        rememberResubmit(from, returnTarget, "return");
+        enter(returnTarget, "return");
     }
 
     /** 进入一个节点，按节点类型做它该做的事 */

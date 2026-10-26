@@ -1,0 +1,38 @@
+{
+  "name": "退回时选节点：target: choose 的结果不要出边；target 只能写在退回上、只能是 choose；超时自动完成与会签的 fallback 不能用它",
+  "definition": {
+    "key": "return-choose",
+    "name": "退回时选节点",
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "draft", "type": "task", "name": "起草", "assignees": [{ "initiator": true }],
+        "outcomes": [{ "key": "submit", "label": "提交" }] },
+      { "id": "review", "type": "task", "name": "审核", "assignees": [{ "role": 1 }],
+        "outcomes": [
+          { "key": "pass", "label": "通过" },
+          { "key": "back", "label": "退回", "kind": "return", "target": "choose" },
+          { "key": "odd", "label": "奇怪的", "target": "choose" },
+          { "key": "elsewhere", "label": "退到别处", "kind": "return", "target": "nowhere" }
+        ],
+        "overdue": { "action": "complete", "outcome": "back" } },
+      { "id": "sign", "type": "task", "name": "会签", "assignees": [{ "role": 2 }],
+        "multi": { "participants": [{ "role": 2 }], "complete": "ratio", "ratio": 0.5, "fallback": "back" },
+        "outcomes": [{ "key": "ok", "label": "同意" }, { "key": "back", "label": "退回", "kind": "return", "target": "choose" }] },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "draft" },
+      { "id": "e2", "from": "draft", "to": "review", "outcome": "submit" },
+      { "id": "e3", "from": "review", "to": "sign", "outcome": "pass" },
+      { "id": "e4", "from": "review", "to": "end", "outcome": "odd" },
+      { "id": "e5", "from": "review", "to": "draft", "outcome": "elsewhere", "kind": "return" },
+      { "id": "e6", "from": "sign", "to": "end", "outcome": "ok" }
+    ]
+  },
+  "expect": [
+    { "code": "return-target-invalid", "severity": "error", "node": "review", "params": { "outcome": "odd" } },
+    { "code": "return-target-invalid", "severity": "error", "node": "review", "params": { "outcome": "elsewhere" } },
+    { "code": "outcome-choose-automatic", "severity": "error", "node": "review", "params": { "outcome": "back" } },
+    { "code": "outcome-choose-automatic", "severity": "error", "node": "sign", "params": { "outcome": "back" } }
+  ]
+}

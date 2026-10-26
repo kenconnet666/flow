@@ -39,6 +39,7 @@ import org.dpdns.zerodep.query.exec.Page;
 import org.dpdns.zerodep.wire.Json;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -217,8 +218,13 @@ public final class Queries {
         boolean completable = open && (mine || candidate);
         PickPreview preview = new PickPreview(definition.graph(), context);
         Function<String, Object> read = name -> References.read(name, instance, stored);
+        List<WorkItemView.ReturnTarget> targets = completable && task.outcomes().stream().anyMatch(Outcome::choosesTarget)
+            ? returnTargets(definition, instance, item.node()) : List.of();
+        // 选节点的退回在没有能退回的节点时（还在第一个人工节点上）不给：点了也做不成
         List<OutcomeView> outcomes = task.outcomes().stream()
-            .map(o -> outcomeView(o, completable ? preview.after(task.id(), o.key(), read) : List.of())).toList();
+            .filter(o -> !(completable && o.choosesTarget() && targets.isEmpty()))
+            .map(o -> outcomeView(o, completable ? preview.after(task.id(), o.key(), read) : List.of(), o.choosesTarget() ? targets : List.of()))
+            .toList();
         boolean assign = open && context.stores().workItems().awaitsDesignation(item.id(), actor.id());
         boolean withdrawStep = new StepWithdrawal(context).allowed(actor, item, definition.graph(), instance);
         WorkItemView.Actions actions = completable
@@ -278,8 +284,18 @@ public final class Queries {
     }
 
     /** 处理结果给前端的样子：没写意见要求时是 {@code none}（不收意见，0005 的人工节点） */
-    private static OutcomeView outcomeView(Outcome outcome, List<PickView> picks) {
+    private static OutcomeView outcomeView(Outcome outcome, List<PickView> picks, List<WorkItemView.ReturnTarget> targets) {
         return new OutcomeView(outcome.key(), outcome.label(), outcome.kindOrDefault(), outcome.comment() == null ? "none" : outcome.comment(),
-            outcome.confirm(), picks);
+            outcome.confirm(), picks, targets);
+    }
+
+    /** 退回时能选的节点，带上次在那里处理的人（取这个节点最近处理完的待办） */
+    private List<WorkItemView.ReturnTarget> returnTargets(LoadedDefinition definition, InstanceRecord instance, String current) {
+        List<WorkItem> items = context.stores().workItems().ofInstance(instance.id());
+        return ReturnTargets.of(definition, instance.state(), current).stream().map(node -> {
+            String handler = items.stream().filter(i -> i.node().equals(node.id()) && i.completedAt() != null)
+                .max(Comparator.comparing(WorkItem::completedAt)).map(WorkItem::completedByName).orElse(null);
+            return new WorkItemView.ReturnTarget(node.id(), node.name(), handler);
+        }).toList();
     }
 }

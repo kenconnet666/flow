@@ -1,16 +1,20 @@
 /**
  * 审批面板的按钮区：意见框加一排处理结果（0005 人工节点的 outcomes）。否决、终止是危险色；要确认的结果先弹确认。
  * 意见框只在有结果收意见时出现；选了要求意见的结果而意见是空的，标在意见框上，不发请求。
- * 选了的结果后面有要选处理人的下一步（OutcomeView.picks）时，先弹 PickDialog 选人，再交给 onChoose。
+ * 选了的结果后面有要选处理人的下一步（OutcomeView.picks）时，先弹 PickDialog 选人，再交给 onChoose；
+ * 退回时要选退回到哪一步的（OutcomeView.targets 不空），先弹框选节点。
  *
  *   <ApprovalActions outcomes={view.outcomes} _comment={comment} busy={busy} onChoose={(outcome) => complete(outcome)} />
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Button,
+  Dialog,
   Field,
   Flex,
   Popconfirm,
+  Radio,
+  RadioGroup,
   Textarea,
   type PeopleSource,
   type PopoverTriggerProps,
@@ -33,8 +37,8 @@ export interface ApprovalActionsProps {
   busy?: string | null;
   /** 选下一步处理人时的人员数据来源（引擎说"谁都可以选"时用） */
   people?: PeopleSource;
-  /** 选了一个结果（意见的必填已经查过，要选的处理人已经选了）；返回 false（或 resolve 成 false）时选人框不关 */
-  onChoose: (outcome: OutcomeView, picks: Record<string, Id[]>) => unknown;
+  /** 选了一个结果（意见的必填已经查过，要选的处理人、退回的节点已经选了）；返回 false（或 resolve 成 false）时弹框不关 */
+  onChoose: (outcome: OutcomeView, picks: Record<string, Id[]>, target?: string) => unknown;
 }
 
 /** 处理结果的色调：否决、终止是危险色，同意类是强调色，其余中性 */
@@ -48,11 +52,21 @@ export const ApprovalActions = _component(
     let missing = _state(false);
     let picking = _state<OutcomeView | null>(null);
     let pickOpen = _state(false);
+    let returning = _state<OutcomeView | null>(null);
+    let returnOpen = _state(false);
+    let target = _state<string | null>(null);
     const takesComment = () => outcomes.some((o) => o.comment !== 'none');
 
     function choose(outcome: OutcomeView) {
       missing = outcome.comment === 'required' && !comment.trim();
       if (missing) return;
+      if (outcome.targets.length > 0) {
+        returning = outcome;
+        // 默认选最近的一步（定义里排在最后的）
+        target = outcome.targets[outcome.targets.length - 1]!.node;
+        returnOpen = true;
+        return;
+      }
       if (outcome.picks.length === 0) {
         onChoose(outcome, {});
         return;
@@ -105,6 +119,24 @@ export const ApprovalActions = _component(
             ),
           )}
         </Flex>
+        {returning && (
+          <Dialog
+            _open={returnOpen}
+            title={messages.returnTargetTitle}
+            confirmText={messages.confirm}
+            cancelText={messages.cancel}
+            onConfirm={() => (target ? onChoose(returning!, {}, target) : false)}
+            propsConfirm={{ disabled: !target, loading: busy === returning.key }}
+          >
+            <RadioGroup _value={target} aria-label={messages.returnTargetTitle}>
+              {returning.targets.map((t) => (
+                <Radio key={t.node} value={t.node} {...(t.handlerName ? { description: messages.returnTargetTo(t.handlerName) } : {})}>
+                  {t.nodeName ?? t.node}
+                </Radio>
+              ))}
+            </RadioGroup>
+          </Dialog>
+        )}
         {picking && (
           <PickDialog
             _open={pickOpen}

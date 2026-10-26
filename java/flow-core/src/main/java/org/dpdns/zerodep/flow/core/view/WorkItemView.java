@@ -39,6 +39,17 @@ public record WorkItemView(WorkItem workItem, ProcessInstance instance, FormView
      * @param comment 意见：{@code required} 必填、{@code optional} 可写、{@code none} 不收
      * @param confirm 点了先确认
      * @param picks   选了这个结果后要选处理人的下一步（0005 的 5.6）；我不能处理时是空的
+     * @param targets 退回时能选的节点（结果写了 {@code target: "choose"}）；别的结果、我不能处理时是空的
      */
-    public record OutcomeView(String key, String label, String kind, String comment, boolean confirm, List<PickView> picks) { }
+    public record OutcomeView(String key, String label, String kind, String comment, boolean confirm, List<PickView> picks,
+                              List<ReturnTarget> targets) { }
+
+    /**
+     * 退回时能选的一个节点。
+     *
+     * @param node        节点
+     * @param nodeName    节点名称
+     * @param handlerName 上次在那里处理的人（退回去落到他）；没人处理过时为 null
+     */
+    public record ReturnTarget(String node, String nodeName, String handlerName) { }
 }

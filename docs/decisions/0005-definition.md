@@ -243,7 +243,10 @@
 
 - 退回走 `kind: "return"` 的处理结果和连线，目标默认落到那个节点**原来的处理人**（不进收件箱）。
 - `returnTo`：被退回的节点重新提交后，`"restart"` 从退回的目标往下照常走，`"resubmit"` 直接回到退回它的节点（0002 §5"退回"）。默认 `"restart"`。
-- 退回到发起人、退回到任意上游节点这类"运行时选目标"的退回：处理结果写 `{ "kind": "return", "target": "choose" }`，处理时从上游已走过的节点里选；校验保证只能选上游。
+- 退回到发起人、退回到任意上游节点这类"运行时选目标"的退回：处理结果写 `{ "kind": "return", "target": "choose" }`，不要出边，处理时从上游已走过的节点里选（处理命令的 `returnTarget`，待办详情里这个结果的 `targets` 列出能选的）。
+  - 能选的：当前节点的上游（沿前进的连线能走到当前节点）、这个实例里走到过的人工节点；不在当前节点之外的并行区域里（旁边的分支、已经汇合过的区域进去了汇合等不齐）。
+  - 退回去同沿退回的连线：跳出并行区域时取消区域里的待办，落到那个节点原来的处理人，`returnTo: "resubmit"` 照样生效。
+  - 一个能选的都没有时（还在第一个人工节点上）这个结果不给。超时自动完成、会签的 `fallback` 不能用它（没人选目标，发布时报 `outcome-choose-automatic`）；会签时用让节点结束的那个人选的目标。
 
 ### 5.5 允许的动作
 
@@ -320,7 +323,9 @@
 | `node-dead-end` | 错误 | 从这个节点走不到任何结束节点 | — |
 | `node-unreachable` | 警告 | 从开始走不到这个节点 | — |
 | `outcome-duplicate` | 错误 | 同一节点的结果标识重复 | 适用于人工节点、自动节点、外部事件 |
-| `outcome-unrouted` | 错误 | 某个结果没有出边（`terminate` 的结果除外） | 同上 |
+| `outcome-unrouted` | 错误 | 某个结果没有出边（`terminate`、`target: "choose"` 的结果除外） | 同上 |
+| `return-target-invalid` | 错误 | 处理结果的 `target` 不是写在退回上、或不是 `choose` | — |
+| `outcome-choose-automatic` | 错误 | 超时自动完成、会签的 `fallback` 用了要处理人选退回节点的结果 | — |
 | `edge-unknown-outcome` | 错误 | 连线的 `outcome` 在起点上不存在 | 同上 |
 | `edge-outcome-not-branching` | 错误 | 起点不按结果分出边，连线却写了 `outcome` | 原 `edge-outcome-not-task`，改名 |
 | `edge-default-not-gateway` | 警告 | 起点不是排他或包容网关，连线却写了 `default` | 原 `edge-default-not-exclusive`，改名 |

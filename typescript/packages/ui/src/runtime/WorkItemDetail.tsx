@@ -115,7 +115,7 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
   const claim = () => run('claim', () => flow.claim(id));
 
   /** 处理：先校验表单；返回成功没有（选人框按它决定关不关） */
-  async function complete(outcome: OutcomeView, picks: Record<string, Id[]>): Promise<boolean> {
+  async function complete(outcome: OutcomeView, picks: Record<string, Id[]>, target?: string): Promise<boolean> {
     commentError = undefined;
     if (form && !(await form.validate())) return false;
     return run(outcome.key, () =>
@@ -125,6 +125,7 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
         ...(comment.trim() ? { comment: comment.trim() } : {}),
         ...(form ? { form: form.values() } : {}),
         ...(Object.keys(picks).length ? { picks } : {}),
+        ...(target ? { returnTarget: target } : {}),
       }),
     );
   }

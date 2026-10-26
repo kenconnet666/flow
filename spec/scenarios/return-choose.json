@@ -1,0 +1,51 @@
+{
+  "name": "退回时选节点：只能选上游走到过的人工节点（不进旁边的分支、已汇合的区域）；退回跳出并行区域时另一条分支取消；落到原来的处理人；returnTo: resubmit 时改完直接回来",
+  "processes": ["processes/return-choose.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "carol": { "id": 1003, "name": "沈若水", "roles": [3] },
+    "dave": { "id": 1005, "name": "许知远", "roles": [4] },
+    "boss": { "id": 1004, "name": "总经理", "roles": [2] }
+  },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "return-choose" },
+      "expect": { "workItems": [{ "node": "draft", "assigneeId": "1001" }] } },
+    { "id": "drafted", "as": "alice", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "submit" },
+      "expect": { "workItems": [{ "node": "review" }] } },
+    { "id": "reviewed", "as": "bob", "command": "complete", "args": { "workItem": "$drafted.workItems[0]", "outcome": "pass" },
+      "expect": { "workItems": [{ "node": "legal" }, { "node": "finance" }] } },
+    { "as": "carol", "command": "workItem", "args": { "workItem": "$reviewed.workItems[0]" },
+      "expect": { "outcomes": [{ "key": "pass", "targets": [] },
+        { "key": "back", "kind": "return", "targets": [
+          { "node": "draft", "nodeName": "起草合同", "handlerName": "林小满" },
+          { "node": "review", "nodeName": "部门审核", "handlerName": "周启航" }] }] } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$reviewed.workItems[0]", "outcome": "back", "comment": "条款要再看" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "returnTarget", "code": "required" }] } } },
+    { "as": "carol", "command": "complete",
+      "args": { "workItem": "$reviewed.workItems[0]", "outcome": "back", "returnTarget": "finance", "comment": "条款要再看" },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "returnTarget", "code": "not-upstream" }] } } },
+    { "id": "back", "as": "carol", "command": "complete",
+      "args": { "workItem": "$reviewed.workItems[0]", "outcome": "back", "returnTarget": "review", "comment": "条款要再看" },
+      "expect": {
+        "instance": { "status": "active", "current": [{ "node": "review" }] },
+        "workItems": [{ "node": "review", "assignment": "direct", "assigneeId": "1002" }],
+        "closed": [{ "node": "legal" }, { "node": "finance" }]
+      } },
+    { "id": "again", "as": "bob", "command": "complete", "args": { "workItem": "$back.workItems[0]", "outcome": "pass" },
+      "expect": { "workItems": [{ "node": "legal" }, { "node": "finance" }] } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$again.workItems[0]", "outcome": "pass" } },
+    { "id": "joined", "as": "dave", "command": "complete", "args": { "workItem": "$again.workItems[1]", "outcome": "pass" },
+      "expect": { "workItems": [{ "node": "approve", "assignment": "pool" }] } },
+    { "as": "boss", "command": "workItem", "args": { "workItem": "$joined.workItems[0]" },
+      "expect": { "outcomes": [{ "key": "pass" }, { "key": "back", "targets": [{ "node": "draft" }, { "node": "review" }] }] } },
+    { "id": "toDraft", "as": "boss", "command": "complete",
+      "args": { "workItem": "$joined.workItems[0]", "outcome": "back", "returnTarget": "draft", "comment": "金额改一下" },
+      "expect": { "workItems": [{ "node": "draft", "assigneeId": "1001" }] } },
+    { "id": "resubmitted", "as": "alice", "command": "complete", "args": { "workItem": "$toDraft.workItems[0]", "outcome": "submit" },
+      "expect": { "workItems": [{ "node": "approve", "assigneeId": "1004" }] } },
+    { "as": "boss", "command": "complete", "args": { "workItem": "$resubmitted.workItems[0]", "outcome": "pass" },
+      "expect": { "instance": { "status": "completed", "result": "approved" } } }
+  ]
+}

@@ -81,6 +81,9 @@ public final class CompleteHandler {
             }
 
             run.picks(command.picks());
+            if (outcome != null && outcome.choosesTarget()) {
+                run.returnTarget(ReturnTargets.check(definition, instance.state(), item.node(), command.returnTarget()));
+            }
 
             // 守卫：表单合并好之后、改成已处理之前问一遍，任一不通过整个处理不做
             checkGuards(actor, run, item, outcome);
@@ -149,12 +152,17 @@ public final class CompleteHandler {
 
     /**
      * 节点按这个结果往下走：同意时被退回过、退回它的节点要求直接回去就直接回去，否则照常往下（Execution.proceed）；
-     * 否决、退回、提级按结果选线（退回、提级的线带 kind，Execution.leave 按它分配处理人）；终止直接结束实例。
+     * 否决、退回、提级按结果选线（退回、提级的线带 kind，Execution.leave 按它分配处理人）；处理时选退回节点的退回到选的节点
+     * （会签时是让节点结束的那个人选的）；终止直接结束实例。
      */
     private static void goOn(Execution run, ProcessNode.Task task, Outcome outcome, String comment) {
         switch (outcome.kindOrDefault()) {
             case "approve" -> run.proceed(task.id(), outcome.key());
-            case "reject", "return", "escalate" -> run.leave(task.id(), outcome.key());
+            case "return" -> {
+                if (outcome.choosesTarget()) run.returnTo(task.id(), outcome.key());
+                else run.leave(task.id(), outcome.key());
+            }
+            case "reject", "escalate" -> run.leave(task.id(), outcome.key());
             case "terminate" -> run.finish(ProcessInstance.TERMINATED, outcome.result(), FlowEvent.INSTANCE_TERMINATED, comment);
             default -> throw new UnsupportedOperationException("outcome kind '" + outcome.kindOrDefault() + "' is not supported");
         }

@@ -12,8 +12,10 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
  * @param comment    意见
  * @param form       表单的值：只取这个节点上能改的字段，其余用存着的值
  * @param picks      下一步要这一步选处理人的节点（0005 的 5.6 {@code pick}）→ 选的人
+ * @param returnTarget 退回到哪个节点：结果是 {@code { "kind": "return", "target": "choose" }} 时必填，是待办详情里那个结果的 targets 之一
  */
-public record CompleteCommand(Long workItemId, String outcome, String comment, FormValues form, Map<String, List<Long>> picks) {
+public record CompleteCommand(Long workItemId, String outcome, String comment, FormValues form, Map<String, List<Long>> picks,
+                              String returnTarget) {
     /** 补上空的表单与选人 */
     public CompleteCommand {
         form = form == null ? FormValues.empty() : form;
@@ -22,6 +24,6 @@ public record CompleteCommand(Long workItemId, String outcome, String comment, F
 
     /** 只给结果 */
     public static CompleteCommand of(Long workItemId, String outcome) {
-        return new CompleteCommand(workItemId, outcome, null, FormValues.empty(), Map.of());
+        return new CompleteCommand(workItemId, outcome, null, FormValues.empty(), Map.of(), null);
     }
 }
