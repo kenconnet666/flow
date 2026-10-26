@@ -1,6 +1,8 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.JsonNumbers;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.identity.Actor;
@@ -101,6 +103,12 @@ final class Execution {
 
     /** 实例按的那个版本的图 */
     ProcessGraph graph() { return graph; }
+
+    /** 这一步的时刻 */
+    Instant now() { return now; }
+
+    /** 这一步的结果：实例、新生成与结束的待办、流转记录（{@link #flush} 之后调） */
+    CommandResult result() { return new CommandResult(instance.view(), created, closed, events); }
 
     // ───────── 取值：{ ref } ─────────
 
@@ -266,12 +274,30 @@ final class Execution {
     }
 
     /**
+     * 待办从哪来：转办、委派、加签的人与原来的待办。流转生成的待办是 {@link #NONE}。
+     *
+     * @param fromUserId   转办、委派、加签的人
+     * @param fromUserName 那个人的名字（快照）
+     * @param parentItemId 委派、加签时原来的待办；转办时为 null（原来的那一份取消了）
+     * @param addMode      {@code delegate}、{@code before}、{@code after}、{@code parallel}；转办时为 null
+     */
+    record Origin(Long fromUserId, String fromUserName, Long parentItemId, String addMode) {
+        static final Origin NONE = new Origin(null, null, null, null);
+    }
+
+    /**
      * 生成一个待办：只有一个人、没有收件箱时直接落到他；否则进收件箱（{@code pool}），人和角色、部门都存成候选，谁先认领谁办。
      *
      * @param signSeq 会签时是第几个参与人；不是会签时为 null
      * @param weight  票签的权重；不是票签时为 null
      */
-    private void createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight) {
+    private WorkItem createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight) {
+        return createWorkItem(task, arrival, who, signSeq, weight, Origin.NONE, WorkItem.OPEN);
+    }
+
+    /** 同上，带上从哪来；state 是 {@code open}，或后加签时先生成、原来的人处理完才打开的 {@code waiting} */
+    private WorkItem createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight,
+                                    Origin origin, String state) {
         Long assigneeId = who.isDirect() ? who.directUser() : null;
         String assigneeName = assigneeId == null ? null : context.org().userName(assigneeId);
         String assignment = assigneeId != null ? WorkItem.DIRECT : WorkItem.POOL;
@@ -279,12 +305,27 @@ final class Execution {
         int round = instance.state().round(task.id());
 
         WorkItem draft = new WorkItem(null, instance.id(), instance.processKey(), instance.priority(), task.id(), task.name(), round,
-            signSeq, weight, WorkItem.OPEN, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.targetId(),
-            assigneeId, assigneeName, now,
+            signSeq, weight, state, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.targetId(),
+            assigneeId, assigneeName, origin.fromUserId(), origin.fromUserName(), origin.parentItemId(), origin.addMode(), now,
             null, null, null, null, null, null, null);   // 认领时间、截止时间、处理结果、意见、处理人、处理人名字、处理时间：都还没有
         WorkItem item = context.stores().workItems().insert(draft, assigneeId != null ? List.of() : who.candidates());
         created.add(item);
         addEvent(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null);
+        return item;
+    }
+
+    /**
+     * 把一个待办交给别人（转办、委派、加签）：直接落到这个人，会签的序号与权重照抄原来的那一份。
+     *
+     * @param from    原来的待办
+     * @param arrival {@code transfer}、{@code delegate}、{@code addSign}
+     * @param addMode 委派、加签的方式；转办时为 null（新的待办不挂在原来的下面）
+     * @param state   {@code open}，或后加签时的 {@code waiting}
+     */
+    WorkItem handOver(WorkItem from, Long userId, String arrival, String addMode, String state) {
+        ProcessNode.Task task = (ProcessNode.Task) graph.node(from.node());
+        Origin origin = new Origin(actor.id(), actor.name(), addMode == null ? null : from.id(), addMode);
+        return createWorkItem(task, arrival, Assignees.of(userId), from.signSeq(), from.weight(), origin, state);
     }
 
     /**
@@ -314,6 +355,23 @@ final class Execution {
             List.of(ErrorDetail.node(task.id(), "assignee-empty")));
     }
 
+    /** 换实例的状态（暂停、恢复），记一条流转记录 */
+    void changeStatus(String status, String eventType, String comment) {
+        instance = instance.withStatus(status);
+        addEvent(eventType, null, null, null, null, comment);
+    }
+
+    /** 管理员跳转：还没办完的待办都取消，等待中的汇合、队列都不再记，从这个节点重新走 */
+    void jumpTo(String nodeId, String reason) {
+        for (WorkItem item : context.stores().workItems().cancelOpen(instance.id(), now)) {
+            closed.add(item);
+            addEvent(FlowEvent.WORK_ITEM_CANCELED, graph.node(item.node()), null, null, item.id(), null);
+        }
+        instance = instance.withState(instance.state().withoutPending());
+        addEvent(FlowEvent.INSTANCE_JUMPED, graph.node(nodeId), null, null, null, reason);
+        enter(nodeId, "jump");
+    }
+
     /**
      * 结束实例：取消还开着的待办，记结束的流转记录。
      *
@@ -340,8 +398,11 @@ final class Execution {
     void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment, Map<String, Object> data) {
         String nodeId = node == null ? null : node.id();
         String nodeName = node == null ? null : node.name();
+        // 附加数据是用户的 JSON：数字按 JavaScript 的数（同存进库再读出来的样子，这一步返回的与以后查到的一致）
+        @SuppressWarnings("unchecked")
+        Map<String, Object> json = (Map<String, Object>) JsonNumbers.normalize(data);
         events.add(new FlowEvent(null, instance.id(), workItemId, type, nodeId, nodeName, edge, outcome, rev, actor.id(), actor.name(), now,
-            comment, data));
+            comment, json));
     }
 
     // ───────── 写回 ─────────

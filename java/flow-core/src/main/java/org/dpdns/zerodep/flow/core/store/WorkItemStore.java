@@ -30,11 +30,29 @@ public interface WorkItemStore {
     /** 处理：只在打开着时改到，并删掉候选；返回是否改到 */
     boolean complete(Long workItemId, Completion completion);
 
-    /** 取消实例上全部打开着的待办并删掉候选，返回取消了的（取消之前的样子） */
+    /** 取消实例上全部还没办完的待办（打开着的、等委派加签的）并删掉候选，返回取消了的（取消之前的样子） */
     List<WorkItem> cancelOpen(Long instanceId, Instant at);
 
-    /** 只取消这些节点上打开着的待办（退回跳出并行区域时，区域里其余的分支） */
+    /** 只取消这些节点上还没办完的待办（退回跳出并行区域时区域里其余的分支、会签结束时其余的人） */
     List<WorkItem> cancelOpenAt(Long instanceId, Collection<String> nodes, Instant at);
+
+    /** 取消一个打开着、或在等委派加签的待办（转办时原来的那一份）；返回是否改到 */
+    boolean cancel(Long workItemId, Instant at);
+
+    /** 待办在"打开"与"等别人办完"之间切换（委派、前加签）：只在是 from 时改到；返回是否改到 */
+    boolean changeState(Long workItemId, String from, String to);
+
+    /** 认领的人退回收件箱：清掉处理人，这个人以后不能再认领这一条（加一行 excluded 候选）；返回是否改到 */
+    boolean release(Long workItemId, Long userId);
+
+    /** 改成直接落到这个人（管理员改派、收件箱负责人指定）：删掉候选；返回是否改到 */
+    boolean reassign(Long workItemId, Long userId, String userName);
+
+    /** 记一次催办：次数加一、记下时间；上一次催办在 notBefore 之后时不记（频率限制）；返回记了没有 */
+    boolean remind(Long workItemId, Instant at, Instant notBefore);
+
+    /** 委派、加签从这个待办生成的待办，按生成的先后 */
+    List<WorkItem> children(Long parentItemId);
 
     /** 实例的全部待办，按到达的先后 */
     List<WorkItem> ofInstance(Long instanceId);

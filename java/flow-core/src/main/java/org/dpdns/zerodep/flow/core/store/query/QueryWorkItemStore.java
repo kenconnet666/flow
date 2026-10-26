@@ -31,6 +31,9 @@ final class QueryWorkItemStore implements WorkItemStore {
     /** 新到的待办的顺序：到达时间从新到旧，同一时刻按编号从大到小 */
     private static final Comparator<WorkItem> NEWEST_FIRST = Comparator.comparing(WorkItem::createdAt).thenComparing(WorkItem::id).reversed();
 
+    /** 还没办完的待办：打开着的，和等委派、加签的人办完的 */
+    private static final List<String> PENDING = List.of(WorkItem.OPEN, WorkItem.WAITING);
+
     private final Database db;
 
     QueryWorkItemStore(Database db) { this.db = db; }
@@ -79,7 +82,7 @@ final class QueryWorkItemStore implements WorkItemStore {
 
     @Override
     public List<WorkItem> cancelOpen(Long instanceId, Instant at) {
-        return cancel(db.list(from(FlowTables.WorkItem.class).where(r -> { r.instanceId().eq(instanceId); r.state().eq(WorkItem.OPEN); })
+        return cancel(db.list(from(FlowTables.WorkItem.class).where(r -> { r.instanceId().eq(instanceId); r.state().in(PENDING); })
             .orderBy(r -> r.id()).selectAs(WorkItem.class)), at);
     }
 
@@ -87,7 +90,7 @@ final class QueryWorkItemStore implements WorkItemStore {
     public List<WorkItem> cancelOpenAt(Long instanceId, Collection<String> nodes, Instant at) {
         if (nodes.isEmpty()) return List.of();
         return cancel(db.list(from(FlowTables.WorkItem.class)
-            .where(r -> { r.instanceId().eq(instanceId); r.state().eq(WorkItem.OPEN); r.node().in(nodes); })
+            .where(r -> { r.instanceId().eq(instanceId); r.state().in(PENDING); r.node().in(nodes); })
             .orderBy(r -> r.id()).selectAs(WorkItem.class)), at);
     }
 
@@ -99,9 +102,69 @@ final class QueryWorkItemStore implements WorkItemStore {
             r.state().to(WorkItem.CANCELED);
             r.completedAt().to(at);   // 取消也记下时间：列表上看得出什么时候结束的
             r.rev().to(r.rev().plus(val(1)));
-        }).where(r -> { r.id().in(ids); r.state().eq(WorkItem.OPEN); }));
+        }).where(r -> { r.id().in(ids); r.state().in(PENDING); }));
         db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().in(ids)));
         return open;
+    }
+
+    @Override
+    public boolean cancel(Long workItemId, Instant at) {
+        boolean changed = db.execute(update(FlowTables.WorkItem.class).set(r -> {
+            r.state().to(WorkItem.CANCELED);
+            r.completedAt().to(at);
+            r.rev().to(r.rev().plus(val(1)));
+        }).where(r -> { r.id().eq(workItemId); r.state().in(PENDING); })) == 1;
+        if (changed) db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().eq(workItemId)));
+        return changed;
+    }
+
+    @Override
+    public boolean changeState(Long workItemId, String from, String to) {
+        return db.execute(update(FlowTables.WorkItem.class)
+            .set(r -> { r.state().to(to); r.rev().to(r.rev().plus(val(1))); })
+            .where(r -> { r.id().eq(workItemId); r.state().eq(from); })) == 1;
+    }
+
+    @Override
+    public boolean release(Long workItemId, Long userId) {
+        boolean changed = db.execute(update(FlowTables.WorkItem.class).set(r -> {
+            r.assigneeId().to((Long) null);
+            r.assigneeName().to((String) null);
+            r.claimedAt().to((Instant) null);
+            r.assignment().to(WorkItem.POOL);
+            r.rev().to(r.rev().plus(val(1)));
+        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); r.assigneeId().eq(userId); r.assignment().eq(WorkItem.CLAIMED); })) == 1;
+        if (changed) db.execute(insertInto(FlowTables.Candidate.class).values(new NewCandidate(workItemId, Candidate.EXCLUDED, userId)));
+        return changed;
+    }
+
+    @Override
+    public boolean reassign(Long workItemId, Long userId, String userName) {
+        boolean changed = db.execute(update(FlowTables.WorkItem.class).set(r -> {
+            r.assigneeId().to(userId);
+            r.assigneeName().to(userName);
+            r.assignment().to(WorkItem.DIRECT);
+            r.rev().to(r.rev().plus(val(1)));
+        }).where(r -> { r.id().eq(workItemId); r.state().eq(WorkItem.OPEN); })) == 1;
+        if (changed) db.execute(deleteFrom(FlowTables.Candidate.class).where(r -> r.workItemId().eq(workItemId)));
+        return changed;
+    }
+
+    @Override
+    public boolean remind(Long workItemId, Instant at, Instant notBefore) {
+        return db.execute(update(FlowTables.WorkItem.class)
+            .set(r -> { r.remindCount().to(r.remindCount().plus(val(1))); r.lastRemindedAt().to(at); })
+            .where(r -> {
+                r.id().eq(workItemId);
+                r.state().eq(WorkItem.OPEN);
+                any(() -> { r.lastRemindedAt().isNull(); r.lastRemindedAt().lt(notBefore); });
+            })) == 1;
+    }
+
+    @Override
+    public List<WorkItem> children(Long parentItemId) {
+        return db.list(from(FlowTables.WorkItem.class).where(r -> r.parentItemId().eq(parentItemId)).orderBy(r -> r.id())
+            .selectAs(WorkItem.class));
     }
 
     @Override

@@ -25,7 +25,8 @@ import java.util.Map;
  *   <li>核对处理结果与意见：结果要是节点上写的一个，意见必填的要填；</li>
  *   <li>收表单：只取这个节点上能改的字段，其余用存着的值；</li>
  *   <li>待办改成"已处理"（带条件的更新，改到 0 行就是别人先处理了）；</li>
- *   <li>往下走：会签节点先看结束了没有（{@link Countersign}：还要等别人、轮到下一个人、或按某个结果结束）；
+ *   <li>往下走：委派、加签生成的待办办完了按 {@link SubItems} 回到原来的待办；原来的待办还在等加签的人时先不走；
+ *       会签节点先看结束了没有（{@link Countersign}：还要等别人、轮到下一个人、或按某个结果结束）；
  *       节点结束了按结果的种类往下：同意、否决、退回、提级按出边流转，终止直接结束实例；</li>
  *   <li>重算标题与摘要列，写回。</li>
  * </ol>
@@ -82,27 +83,42 @@ public final class CompleteHandler {
             Map<String, Object> data = outcome == null ? Map.of() : Map.of(FlowEvent.OUTCOME_LABEL, outcome.label());
             run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), command.comment(), data);
 
-            // 6. 往下走：会签节点先看结束了没有
+            // 6. 往下走
             Outcome chosen = outcome != null ? outcome : implicitApprove(outcomeKey);
-            if (task.multi() == null) {
-                goOn(run, task, chosen, command.comment());
-            } else {
-                List<WorkItem> round = context.stores().workItems().ofInstance(instance.id()).stream()
-                    .filter(i -> i.node().equals(task.id()) && i.round() == item.round()).toList();
-                Countersign.Decision decision = Countersign.decide(task.multi(), chosen, round, run.instance().state().queue(task.id()).size());
-                if (decision instanceof Countersign.Decision.Next) {
-                    run.nextSigner(task, round.size() + 1);
-                } else if (decision instanceof Countersign.Decision.Finish finish) {
-                    run.closeCountersign(task);
-                    goOn(run, task, chosenOutcome(task, finish.outcome()), command.comment());
-                }
-                // Wait：还要等别人，这一步只记下这个人的处理
+            if (item.parentItemId() != null) {
+                // 委派、加签的人办完：回到原来的待办（SubItems）；后加签、并加的都办完了才按原来的人的结果往下
+                SubItems.childDone(context, run, task, item, (parent, parentOutcome) -> settle(run, task, parent, parentOutcome, command.comment()));
+            } else if (!SubItems.holdsParent(context, run, task, item, chosen)) {
+                settle(run, task, item, chosen, command.comment());
             }
 
             // 7. 写回
             run.flush(null);
             return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
         });
+    }
+
+    /**
+     * 一个待办（会签时是其中一份）按这个结果办完了，节点怎样往下：不是会签时直接往下；会签时先问 {@link Countersign}——
+     * 还要等别人、轮到下一个人、或按某个结果结束（结束时取消其余的待办）。
+     */
+    private void settle(Execution run, ProcessNode.Task task, WorkItem item, Outcome chosen, String comment) {
+        if (task.multi() == null) {
+            goOn(run, task, chosen, comment);
+            return;
+        }
+        // 这一轮的会签待办：不含转办取消掉的、委派加签挂在下面的
+        List<WorkItem> round = context.stores().workItems().ofInstance(item.instanceId()).stream()
+            .filter(i -> i.node().equals(task.id()) && i.round() == item.round() && i.parentItemId() == null)
+            .filter(i -> !WorkItem.CANCELED.equals(i.state())).toList();
+        Countersign.Decision decision = Countersign.decide(task.multi(), chosen, round, run.instance().state().queue(task.id()).size());
+        if (decision instanceof Countersign.Decision.Next) {
+            run.nextSigner(task, round.size() + 1);
+        } else if (decision instanceof Countersign.Decision.Finish finish) {
+            run.closeCountersign(task);
+            goOn(run, task, chosenOutcome(task, finish.outcome()), comment);
+        }
+        // Wait：还要等别人，这一步只记下这个人的处理
     }
 
     /**

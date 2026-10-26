@@ -1,9 +1,21 @@
 package org.dpdns.zerodep.flow.spring.http;
 
+import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
+import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
+import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
+import org.dpdns.zerodep.flow.core.command.JumpCommand;
+import org.dpdns.zerodep.flow.core.command.ReassignCommand;
+import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
+import org.dpdns.zerodep.flow.core.command.RemindCommand;
+import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
+import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
+import org.dpdns.zerodep.flow.core.command.SuspendCommand;
+import org.dpdns.zerodep.flow.core.command.TerminateCommand;
+import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
@@ -12,6 +24,7 @@ import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.wire.Json;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -56,6 +69,42 @@ final class RequestBody {
     /** {@code { instanceId, reason }} */
     WithdrawCommand withdraw() { return new WithdrawCommand(id("instanceId"), text("reason")); }
 
+    /** {@code { workItemId, userId, reason }} */
+    TransferCommand transfer() { return new TransferCommand(id("workItemId"), id("userId"), text("reason")); }
+
+    /** {@code { workItemId, userId, reason }} */
+    DelegateCommand delegate() { return new DelegateCommand(id("workItemId"), id("userId"), text("reason")); }
+
+    /** {@code { workItemId, users, mode, reason }} */
+    AddSignersCommand addSigners() { return new AddSignersCommand(id("workItemId"), ids("users"), text("mode"), text("reason")); }
+
+    /** {@code { workItemId, users }} */
+    RemoveSignersCommand removeSigners() { return new RemoveSignersCommand(id("workItemId"), ids("users")); }
+
+    /** {@code { workItemId, reason }} */
+    ReleaseCommand release() { return new ReleaseCommand(id("workItemId"), text("reason")); }
+
+    /** {@code { instanceId, workItemId, message }} */
+    RemindCommand remind() { return new RemindCommand(id("instanceId"), id("workItemId"), text("message")); }
+
+    /** {@code { instanceId, text }} */
+    CommentCommand comment() { return new CommentCommand(id("instanceId"), text("text")); }
+
+    /** {@code { instanceId, reason }} */
+    TerminateCommand terminate() { return new TerminateCommand(id("instanceId"), text("reason")); }
+
+    /** {@code { instanceId, reason }} */
+    SuspendCommand suspend() { return new SuspendCommand(id("instanceId"), text("reason")); }
+
+    /** {@code { instanceId }} */
+    ResumeCommand resume() { return new ResumeCommand(id("instanceId")); }
+
+    /** {@code { instanceId, node, reason }} */
+    JumpCommand jump() { return new JumpCommand(id("instanceId"), text("node"), text("reason")); }
+
+    /** {@code { workItemId, userId, reason }} */
+    ReassignCommand reassign() { return new ReassignCommand(id("workItemId"), id("userId"), text("reason")); }
+
     /** {@code { key, name, category, manifest, clientSource, clientCompiled, compilerVersion, serverLanguage, serverSource, note }}；manifest 是对象 */
     FormPublication formPublication() {
         return new FormPublication(text("key"), text("name"), text("category"), Json.write(object("manifest")), text("clientSource"),
@@ -72,6 +121,10 @@ final class RequestBody {
     private Long id(String name) {
         Object value = fields.get(name);
         if (value == null) return null;
+        return idOf(name, value);
+    }
+
+    private static Long idOf(String name, Object value) {
         try {
             if (value instanceof Number n) return Long.valueOf(n.toString());
             if (value instanceof String s) return Long.valueOf(s.trim());
@@ -79,6 +132,16 @@ final class RequestBody {
             throw invalid(name, "expected-id");
         }
         throw invalid(name, "expected-id");
+    }
+
+    /** 一串编号 */
+    private List<Long> ids(String name) {
+        Object value = fields.get(name);
+        if (value == null) return List.of();
+        if (!(value instanceof List<?> items)) throw invalid(name, "expected-list");
+        List<Long> out = new ArrayList<>();
+        for (Object item : items) out.add(idOf(name, item));
+        return out;
     }
 
     private int number(String name) {

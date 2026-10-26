@@ -43,6 +43,30 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String WORK_ITEM_COMPLETED = "workItem.completed";
     /** 取消 */
     public static final String WORK_ITEM_CANCELED = "workItem.canceled";
+    /** 转办：data 里是交给谁（toUserId、toUserName） */
+    public static final String WORK_ITEM_TRANSFERRED = "workItem.transferred";
+    /** 委派：data 同上 */
+    public static final String WORK_ITEM_DELEGATED = "workItem.delegated";
+    /** 加签：data 里是加的人（users）与方式（mode） */
+    public static final String SIGNERS_ADDED = "workItem.signersAdded";
+    /** 减签 */
+    public static final String SIGNERS_REMOVED = "workItem.signersRemoved";
+    /** 委派、前加签的人都办完了，待办回到原来的处理人 */
+    public static final String WORK_ITEM_RESUMED = "workItem.resumed";
+    /** 退回收件箱 */
+    public static final String WORK_ITEM_RELEASED = "workItem.released";
+    /** 改派：data 同转办 */
+    public static final String WORK_ITEM_REASSIGNED = "workItem.reassigned";
+    /** 催办 */
+    public static final String WORK_ITEM_REMINDED = "workItem.reminded";
+    /** 留言 */
+    public static final String INSTANCE_COMMENTED = "instance.commented";
+    /** 暂停 */
+    public static final String INSTANCE_SUSPENDED = "instance.suspended";
+    /** 恢复 */
+    public static final String INSTANCE_RESUMED = "instance.resumed";
+    /** 管理员跳转：节点是跳到哪 */
+    public static final String INSTANCE_JUMPED = "instance.jumped";
     /** 进入节点（含网关） */
     public static final String NODE_ENTERED = "node.entered";
     /** 离开节点 */

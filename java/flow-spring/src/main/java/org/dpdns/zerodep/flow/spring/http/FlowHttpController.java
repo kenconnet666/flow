@@ -23,6 +23,8 @@ import java.util.function.Supplier;
  * POST {前缀}/commands/claim      { workItemId }
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
+ * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment
+ * POST {前缀}/admin/terminate、suspend、resume、jump、reassign
  * GET  {前缀}/queries/startable
  * GET  {前缀}/queries/start/{key}
  * GET  {前缀}/queries/todo?page=1&amp;pageSize=20
@@ -60,6 +62,68 @@ public class FlowHttpController {
     @PostMapping("/commands/withdraw")
     public ResponseEntity<String> withdraw(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
         return respond(() -> ResponseBody.of(engine.withdraw(RequestBody.parse(body).withdraw())));
+    }
+
+    // ───────── 协作与管理员命令（0006 的 3.1–3.4）；管理员命令谁能做由 PermissionPolicy 定 ─────────
+
+    @PostMapping("/commands/transfer")
+    public ResponseEntity<String> transfer(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.transfer(RequestBody.parse(body).transfer())));
+    }
+
+    @PostMapping("/commands/delegate")
+    public ResponseEntity<String> delegate(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.delegate(RequestBody.parse(body).delegate())));
+    }
+
+    @PostMapping("/commands/add-signers")
+    public ResponseEntity<String> addSigners(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.addSigners(RequestBody.parse(body).addSigners())));
+    }
+
+    @PostMapping("/commands/remove-signers")
+    public ResponseEntity<String> removeSigners(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.removeSigners(RequestBody.parse(body).removeSigners())));
+    }
+
+    @PostMapping("/commands/release")
+    public ResponseEntity<String> release(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.release(RequestBody.parse(body).release())));
+    }
+
+    @PostMapping("/commands/remind")
+    public ResponseEntity<String> remind(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.remind(RequestBody.parse(body).remind())));
+    }
+
+    @PostMapping("/commands/comment")
+    public ResponseEntity<String> comment(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.comment(RequestBody.parse(body).comment())));
+    }
+
+    @PostMapping("/admin/terminate")
+    public ResponseEntity<String> terminate(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.terminate(RequestBody.parse(body).terminate())));
+    }
+
+    @PostMapping("/admin/suspend")
+    public ResponseEntity<String> suspend(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.suspend(RequestBody.parse(body).suspend())));
+    }
+
+    @PostMapping("/admin/resume")
+    public ResponseEntity<String> resume(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.resume(RequestBody.parse(body).resume())));
+    }
+
+    @PostMapping("/admin/jump")
+    public ResponseEntity<String> jump(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.jump(RequestBody.parse(body).jump())));
+    }
+
+    @PostMapping("/admin/reassign")
+    public ResponseEntity<String> reassign(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.of(engine.reassign(RequestBody.parse(body).reassign())));
     }
 
     /** 发布流程定义：请求体就是 0005 的定义 JSON，发布说明放在参数 note 里 */

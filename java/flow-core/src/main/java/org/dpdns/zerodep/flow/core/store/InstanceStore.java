@@ -62,6 +62,12 @@ public interface InstanceStore {
                 next, state, startedBy, startedByName, startedAt, endedAt, rev);
         }
 
+        /** 换状态：暂停、恢复 */
+        public InstanceRecord withStatus(String nextStatus) {
+            return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, nextStatus, result, current,
+                variables, state, startedBy, startedByName, startedAt, endedAt, rev);
+        }
+
         /** 换运行状态 */
         public InstanceRecord withState(RunState next) {
             return new InstanceRecord(id, processKey, definitionId, version, businessKey, title, priority, summary, status, result, current,

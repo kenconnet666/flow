@@ -191,6 +191,11 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
   | `POST {前缀}/commands/claim` | `{ workItemId }` | 同上 |
   | `POST {前缀}/commands/complete` | `{ workItemId, outcome, comment, form }` | 同上 |
   | `POST {前缀}/commands/withdraw` | `{ instanceId, reason }` | 同上 |
+  | `POST {前缀}/commands/transfer`、`delegate` | `{ workItemId, userId, reason }` | 同上 |
+  | `POST {前缀}/commands/add-signers`、`remove-signers` | `{ workItemId, users, mode, reason }`（`mode`：`before`、`after`、`parallel`） | 同上 |
+  | `POST {前缀}/commands/release` | `{ workItemId, reason }` | 同上 |
+  | `POST {前缀}/commands/remind`、`comment` | `{ instanceId, workItemId, message }`、`{ instanceId, text }` | 同上 |
+  | `POST {前缀}/admin/terminate`、`suspend`、`resume`、`jump`、`reassign` | `{ instanceId, reason }`、`{ instanceId, node, reason }`、`{ workItemId, userId, reason }` | 同上；谁能做由 `PermissionPolicy` 定 |
   | `POST {前缀}/definitions/publish?note=` | 定义的 JSON 本身 | `{ id, key, version }` |
   | `POST {前缀}/forms/publish` | `{ key, name, category, manifest, clientSource, …, note }` | `{ id, key, version }` |
   | `GET {前缀}/queries/startable` | — | `[{ key, name, category, version }]`：我能发起的流程 |

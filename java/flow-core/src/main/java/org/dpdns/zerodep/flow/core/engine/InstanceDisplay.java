@@ -59,7 +59,8 @@ final class InstanceDisplay {
 
     /** 还开着的待办所在的节点，按到达的先后、去重 */
     private static List<CurrentNode> currentNodes(InstanceRecord instance, WorkItemStore workItems) {
-        if (!ProcessInstance.ACTIVE.equals(instance.status())) return List.of();
+        // 结束了的没有正在处理的节点；暂停的照样显示停在哪
+        if (instance.endedAt() != null) return List.of();
         Map<String, CurrentNode> open = new LinkedHashMap<>();
         for (WorkItem item : workItems.ofInstance(instance.id())) {
             if (WorkItem.OPEN.equals(item.state())) open.putIfAbsent(item.node(), new CurrentNode(item.node(), item.nodeName()));

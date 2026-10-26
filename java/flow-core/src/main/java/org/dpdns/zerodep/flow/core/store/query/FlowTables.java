@@ -154,10 +154,15 @@ final class FlowTables {
         @Column("inbox_id") ColBigint<Long> inboxId();
         @Column("assignee_id") ColBigint<Long> assigneeId();
         @Column("assignee_name") ColText<String> assigneeName();
+        @Column("from_user_id") ColBigint<Long> fromUserId();
+        @Column("from_user_name") ColText<String> fromUserName();
+        @Column("parent_item_id") ColBigint<Long> parentItemId();
+        @Column("add_mode") ColText<String> addMode();
         @Column(value = "due_at", converter = Columns.Utc.class) ColTimestamp<Instant> dueAt();
         @Column(value = "claimed_at", converter = Columns.Utc.class) ColTimestamp<Instant> claimedAt();
         @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
         @Column("remind_count") ColInteger<Integer> remindCount();
+        @Column(value = "last_reminded_at", converter = Columns.Utc.class) ColTimestamp<Instant> lastRemindedAt();
         @Column("needs_designation") ColBoolean<Boolean> needsDesignation();
         @Column("outcome") ColText<String> outcome();
         @Column("comment") ColClob<String> comment();

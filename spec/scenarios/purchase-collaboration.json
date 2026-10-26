@@ -1,0 +1,424 @@
+{
+  "name": "协作与管理员命令：转办、委派、前加签、后加签、暂停与恢复、跳转、退回收件箱、催办、留言、终止",
+  "forms": [
+    "forms/purchase-form.json"
+  ],
+  "processes": [
+    "processes/purchase.json"
+  ],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": {
+      "id": 1001,
+      "name": "林小满"
+    },
+    "bob": {
+      "id": 1002,
+      "name": "周启航",
+      "roles": [
+        1
+      ]
+    },
+    "carol": {
+      "id": 1003,
+      "name": "沈若水"
+    },
+    "boss": {
+      "id": 1004,
+      "name": "总经理"
+    },
+    "dave": {
+      "id": 1005,
+      "name": "韩笑"
+    },
+    "admin": {
+      "id": 1000,
+      "name": "管理员"
+    }
+  },
+  "steps": [
+    {
+      "id": "start",
+      "as": "alice",
+      "command": "start",
+      "args": {
+        "key": "purchase",
+        "form": {
+          "title": "办公桌",
+          "amount": "12000.00"
+        }
+      }
+    },
+    {
+      "id": "transferred",
+      "as": "bob",
+      "command": "transfer",
+      "args": {
+        "workItem": "$start.workItems[0]",
+        "user": 1003,
+        "reason": "我休假"
+      },
+      "expect": {
+        "closed": [
+          {
+            "node": "review"
+          }
+        ],
+        "workItems": [
+          {
+            "node": "review",
+            "assignment": "direct",
+            "assigneeId": "1003",
+            "arrival": "transfer",
+            "fromUserId": "1002",
+            "parentItemId": null
+          }
+        ],
+        "events": [
+          {
+            "type": "workItem.transferred",
+            "comment": "我休假",
+            "data": {
+              "toUserId": 1003,
+              "toUserName": "沈若水"
+            }
+          },
+          "workItem.created"
+        ]
+      }
+    },
+    {
+      "id": "delegated",
+      "as": "carol",
+      "command": "delegate",
+      "args": {
+        "workItem": "$transferred.workItems[0]",
+        "user": 1005
+      },
+      "expect": {
+        "workItems": [
+          {
+            "assigneeId": "1005",
+            "arrival": "delegate",
+            "addMode": "delegate",
+            "parentItemId": "2"
+          }
+        ]
+      }
+    },
+    {
+      "as": "carol",
+      "command": "complete",
+      "args": {
+        "workItem": "$transferred.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "error": {
+          "code": "flow.work-item-not-open"
+        }
+      }
+    },
+    {
+      "as": "dave",
+      "command": "complete",
+      "args": {
+        "workItem": "$delegated.workItems[0]",
+        "outcome": "pass",
+        "comment": "没问题"
+      },
+      "expect": {
+        "workItems": [],
+        "instance": {
+          "current": [
+            {
+              "node": "review"
+            }
+          ]
+        },
+        "events": [
+          "workItem.completed",
+          "workItem.resumed"
+        ]
+      }
+    },
+    {
+      "id": "before",
+      "as": "carol",
+      "command": "addSigners",
+      "args": {
+        "workItem": "$transferred.workItems[0]",
+        "users": [
+          1002
+        ],
+        "mode": "before"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "assigneeId": "1002",
+            "addMode": "before"
+          }
+        ]
+      }
+    },
+    {
+      "as": "bob",
+      "command": "complete",
+      "args": {
+        "workItem": "$before.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "events": [
+          "workItem.completed",
+          "workItem.resumed"
+        ]
+      }
+    },
+    {
+      "id": "after",
+      "as": "carol",
+      "command": "addSigners",
+      "args": {
+        "workItem": "$transferred.workItems[0]",
+        "users": [
+          1005
+        ],
+        "mode": "after"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "assigneeId": "1005",
+            "addMode": "after",
+            "state": "waiting"
+          }
+        ]
+      }
+    },
+    {
+      "as": "carol",
+      "command": "complete",
+      "args": {
+        "workItem": "$transferred.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "workItems": [],
+        "instance": {
+          "current": [
+            {
+              "node": "review"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "afterDone",
+      "as": "dave",
+      "command": "complete",
+      "args": {
+        "workItem": "$after.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "workItems": [
+          {
+            "node": "approve",
+            "assigneeId": "1004"
+          }
+        ],
+        "instance": {
+          "current": [
+            {
+              "node": "approve"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as": "admin",
+      "command": "suspend",
+      "args": {
+        "instance": "$start.instance",
+        "reason": "预算冻结"
+      },
+      "expect": {
+        "instance": {
+          "status": "suspended",
+          "current": [
+            {
+              "node": "approve"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "as": "boss",
+      "command": "complete",
+      "args": {
+        "workItem": "$afterDone.workItems[0]",
+        "outcome": "pass"
+      },
+      "expect": {
+        "error": {
+          "code": "flow.instance-not-active"
+        }
+      }
+    },
+    {
+      "as": "admin",
+      "command": "resume",
+      "args": {
+        "instance": "$start.instance"
+      },
+      "expect": {
+        "instance": {
+          "status": "active"
+        }
+      }
+    },
+    {
+      "id": "jumped",
+      "as": "admin",
+      "command": "jump",
+      "args": {
+        "instance": "$start.instance",
+        "node": "review",
+        "reason": "重新复核"
+      },
+      "expect": {
+        "closed": [
+          {
+            "node": "approve"
+          }
+        ],
+        "workItems": [
+          {
+            "node": "review",
+            "assignment": "pool",
+            "arrival": "jump",
+            "round": 2
+          }
+        ]
+      }
+    },
+    {
+      "as": "bob",
+      "command": "claim",
+      "args": {
+        "workItem": "$jumped.workItems[0]"
+      }
+    },
+    {
+      "as": "bob",
+      "command": "release",
+      "args": {
+        "workItem": "$jumped.workItems[0]",
+        "reason": "不是我的"
+      },
+      "expect": {
+        "events": [
+          "workItem.released"
+        ]
+      }
+    },
+    {
+      "as": "bob",
+      "command": "claim",
+      "args": {
+        "workItem": "$jumped.workItems[0]"
+      },
+      "expect": {
+        "error": {
+          "code": "flow.not-candidate"
+        }
+      }
+    },
+    {
+      "as": "alice",
+      "command": "remind",
+      "args": {
+        "instance": "$start.instance",
+        "message": "急用"
+      },
+      "expect": {
+        "events": [
+          {
+            "type": "workItem.reminded",
+            "comment": "急用"
+          }
+        ]
+      }
+    },
+    {
+      "as": "alice",
+      "command": "remind",
+      "args": {
+        "instance": "$start.instance"
+      },
+      "expect": {
+        "events": []
+      }
+    },
+    {
+      "as": "alice",
+      "command": "comment",
+      "args": {
+        "instance": "$start.instance",
+        "text": "供应商月底涨价"
+      },
+      "expect": {
+        "events": [
+          {
+            "type": "instance.commented",
+            "comment": "供应商月底涨价"
+          }
+        ]
+      }
+    },
+    {
+      "as": "admin",
+      "command": "reassign",
+      "args": {
+        "workItem": "$jumped.workItems[0]",
+        "user": 1003
+      },
+      "expect": {
+        "events": [
+          {
+            "type": "workItem.reassigned",
+            "data": {
+              "toUserId": 1003
+            }
+          }
+        ]
+      }
+    },
+    {
+      "as": "admin",
+      "command": "terminate",
+      "args": {
+        "instance": "$start.instance",
+        "reason": "不买了"
+      },
+      "expect": {
+        "instance": {
+          "status": "terminated",
+          "result": "terminated",
+          "current": []
+        },
+        "closed": [
+          {
+            "node": "review",
+            "assigneeId": "1003"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -46,7 +46,7 @@ export interface ProcessInstance {
 }
 
 /** 待办的状态 */
-export type WorkItemState = 'open' | 'done' | 'canceled';
+export type WorkItemState = 'open' | 'waiting' | 'done' | 'canceled';
 
 /** 落到谁：收件箱里等认领、认领了、直接落到人 */
 export type WorkItemAssignment = 'pool' | 'claimed' | 'direct';
@@ -79,6 +79,13 @@ export interface WorkItem {
   /** 当前处理人；在收件箱里等认领时为 null */
   readonly assigneeId: Id | null;
   readonly assigneeName: string | null;
+  /** 从谁那里来：转办、委派、加签的人 */
+  readonly fromUserId: Id | null;
+  readonly fromUserName: string | null;
+  /** 委派、加签生成的待办指向原来的待办 */
+  readonly parentItemId: Id | null;
+  /** 怎样加进来的：delegate 委派、before 前加签、after 后加签、parallel 并加 */
+  readonly addMode: 'delegate' | 'before' | 'after' | 'parallel' | null;
   readonly createdAt: string;
   readonly claimedAt: string | null;
   readonly dueAt: string | null;

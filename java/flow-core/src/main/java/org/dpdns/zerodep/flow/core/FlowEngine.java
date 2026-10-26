@@ -1,12 +1,26 @@
 package org.dpdns.zerodep.flow.core;
 
+import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.CommentCommand;
+import org.dpdns.zerodep.flow.core.command.DelegateCommand;
+import org.dpdns.zerodep.flow.core.command.JumpCommand;
+import org.dpdns.zerodep.flow.core.command.ReassignCommand;
+import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
+import org.dpdns.zerodep.flow.core.command.RemindCommand;
+import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
+import org.dpdns.zerodep.flow.core.command.ResumeCommand;
+import org.dpdns.zerodep.flow.core.command.SuspendCommand;
+import org.dpdns.zerodep.flow.core.command.TerminateCommand;
+import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
+import org.dpdns.zerodep.flow.core.engine.AdminHandler;
 import org.dpdns.zerodep.flow.core.engine.ClaimHandler;
+import org.dpdns.zerodep.flow.core.engine.CollaborationHandler;
 import org.dpdns.zerodep.flow.core.engine.CompleteHandler;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
@@ -71,6 +85,8 @@ public final class FlowEngine<U extends Actor> {
     private final ClaimHandler claims;
     private final CompleteHandler completions;
     private final WithdrawHandler withdrawals;
+    private final CollaborationHandler collaboration;
+    private final AdminHandler admin;
     private final Publishing publishing;
     private final Queries queries;
 
@@ -82,6 +98,8 @@ public final class FlowEngine<U extends Actor> {
         this.claims = new ClaimHandler(context, definitions);
         this.completions = new CompleteHandler(context, definitions, claims);
         this.withdrawals = new WithdrawHandler(context, definitions);
+        this.collaboration = new CollaborationHandler(context, definitions, claims);
+        this.admin = new AdminHandler(context, definitions);
         this.publishing = new Publishing(context);
         this.queries = new Queries(context, definitions);
     }
@@ -148,6 +166,116 @@ public final class FlowEngine<U extends Actor> {
     public CommandResult withdraw(U actor, WithdrawCommand command) {
         allow(actor, "withdraw", String.valueOf(command.instanceId()));
         return withdrawals.handle(actor, command);
+    }
+
+    // ───────── 协作与管理员命令（0006 的 3.1–3.4） ─────────
+
+    /** 转办（当前操作人） */
+    public CommandResult transfer(TransferCommand command) { return transfer(actors.current(), command); }
+
+    /** 转办：交给别人，自己不再参与 */
+    public CommandResult transfer(U actor, TransferCommand command) {
+        allow(actor, "transfer", String.valueOf(command.workItemId()));
+        return collaboration.transfer(actor, command);
+    }
+
+    /** 委派（当前操作人） */
+    public CommandResult delegate(DelegateCommand command) { return delegate(actors.current(), command); }
+
+    /** 委派：请别人先办，办完回到自己手里 */
+    public CommandResult delegate(U actor, DelegateCommand command) {
+        allow(actor, "delegate", String.valueOf(command.workItemId()));
+        return collaboration.delegate(actor, command);
+    }
+
+    /** 加签（当前操作人） */
+    public CommandResult addSigners(AddSignersCommand command) { return addSigners(actors.current(), command); }
+
+    /** 加签：前加签、后加签、并加 */
+    public CommandResult addSigners(U actor, AddSignersCommand command) {
+        allow(actor, "addSigners", String.valueOf(command.workItemId()));
+        return collaboration.addSigners(actor, command);
+    }
+
+    /** 减签（当前操作人） */
+    public CommandResult removeSigners(RemoveSignersCommand command) { return removeSigners(actors.current(), command); }
+
+    /** 减签：取消自己加的、还没办的人 */
+    public CommandResult removeSigners(U actor, RemoveSignersCommand command) {
+        allow(actor, "removeSigners", String.valueOf(command.workItemId()));
+        return collaboration.removeSigners(actor, command);
+    }
+
+    /** 退回收件箱（当前操作人） */
+    public CommandResult release(ReleaseCommand command) { return release(actors.current(), command); }
+
+    /** 退回收件箱：自己以后不能再认领这一条 */
+    public CommandResult release(U actor, ReleaseCommand command) {
+        allow(actor, "release", String.valueOf(command.workItemId()));
+        return collaboration.release(actor, command);
+    }
+
+    /** 催办（当前操作人） */
+    public CommandResult remind(RemindCommand command) { return remind(actors.current(), command); }
+
+    /** 催办：同一个待办一小时内只记一次 */
+    public CommandResult remind(U actor, RemindCommand command) {
+        allow(actor, "remind", String.valueOf(command.instanceId()));
+        return collaboration.remind(actor, command);
+    }
+
+    /** 留言（当前操作人） */
+    public CommandResult comment(CommentCommand command) { return comment(actors.current(), command); }
+
+    /** 留言：记进流转记录 */
+    public CommandResult comment(U actor, CommentCommand command) {
+        allow(actor, "comment", String.valueOf(command.instanceId()));
+        return collaboration.comment(actor, command);
+    }
+
+    /** 终止（管理员）（当前操作人） */
+    public CommandResult terminate(TerminateCommand command) { return terminate(actors.current(), command); }
+
+    /** 终止（管理员）：打开着的待办都取消，实例结束 */
+    public CommandResult terminate(U actor, TerminateCommand command) {
+        allow(actor, "terminate", String.valueOf(command.instanceId()));
+        return admin.terminate(actor, command);
+    }
+
+    /** 暂停（管理员）（当前操作人） */
+    public CommandResult suspend(SuspendCommand command) { return suspend(actors.current(), command); }
+
+    /** 暂停（管理员）：待办都不能处理，直到恢复 */
+    public CommandResult suspend(U actor, SuspendCommand command) {
+        allow(actor, "suspend", String.valueOf(command.instanceId()));
+        return admin.suspend(actor, command);
+    }
+
+    /** 恢复（管理员）（当前操作人） */
+    public CommandResult resume(ResumeCommand command) { return resume(actors.current(), command); }
+
+    /** 恢复（管理员） */
+    public CommandResult resume(U actor, ResumeCommand command) {
+        allow(actor, "resume", String.valueOf(command.instanceId()));
+        return admin.resume(actor, command);
+    }
+
+    /** 跳转（管理员）（当前操作人） */
+    public CommandResult jump(JumpCommand command) { return jump(actors.current(), command); }
+
+    /** 跳转（管理员）：原来的待办取消，从指定的节点重新走 */
+    public CommandResult jump(U actor, JumpCommand command) {
+        allow(actor, "jump", String.valueOf(command.instanceId()));
+        return admin.jump(actor, command);
+    }
+
+    /** 改派（管理员、收件箱负责人）（当前操作人） */
+    public CommandResult reassign(ReassignCommand command) { return reassign(actors.current(), command); }
+
+    /** 改派（管理员、收件箱负责人）：待办直接落到这个人 */
+    public CommandResult reassign(U actor, ReassignCommand command) {
+        allow(actor, "reassign", String.valueOf(command.workItemId()));
+        return admin.reassign(actor, command);
     }
 
     // ───────── 查询 ─────────

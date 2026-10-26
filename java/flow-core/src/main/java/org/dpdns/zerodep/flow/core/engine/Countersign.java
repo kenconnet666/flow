@@ -46,7 +46,7 @@ final class Countersign {
      */
     static Decision decide(MultiInstance multi, Outcome chosen, List<WorkItem> items, int waiting) {
         boolean approve = "approve".equals(chosen.kindOrDefault());
-        boolean someoneOpen = items.stream().anyMatch(i -> WorkItem.OPEN.equals(i.state())) || waiting > 0;
+        boolean someoneOpen = items.stream().anyMatch(i -> WorkItem.OPEN.equals(i.state()) || WorkItem.WAITING.equals(i.state())) || waiting > 0;
         return switch (multi.complete()) {
             case "any" -> new Decision.Finish(chosen.key());
             case "all" -> !approve || !someoneOpen ? new Decision.Finish(chosen.key()) : new Decision.Wait();

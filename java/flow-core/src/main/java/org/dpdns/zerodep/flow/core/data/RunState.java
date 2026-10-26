@@ -86,6 +86,11 @@ public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting
         return new RunState(rounds, waiting, next, queues);
     }
 
+    // ───────── 跳转 ─────────
+
+    /** 管理员跳转：不再等汇合、不再记退回后直接回去与依次会签的队列（原来的待办都取消了）；轮次照旧 */
+    public RunState withoutPending() { return new RunState(rounds, Map.of(), Map.of(), Map.of()); }
+
     // ───────── 依次会签 ─────────
 
     /** 依次会签的节点还没轮到的人；没有时是空列表 */

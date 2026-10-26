@@ -1,7 +1,19 @@
 package org.dpdns.zerodep.flow.it.scenario;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
+import org.dpdns.zerodep.flow.core.command.CommentCommand;
+import org.dpdns.zerodep.flow.core.command.DelegateCommand;
+import org.dpdns.zerodep.flow.core.command.JumpCommand;
+import org.dpdns.zerodep.flow.core.command.ReassignCommand;
+import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
+import org.dpdns.zerodep.flow.core.command.RemindCommand;
+import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
+import org.dpdns.zerodep.flow.core.command.ResumeCommand;
+import org.dpdns.zerodep.flow.core.command.SuspendCommand;
+import org.dpdns.zerodep.flow.core.command.TerminateCommand;
+import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
@@ -92,6 +104,19 @@ final class ScenarioRunner {
                 case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("size", 20)));
                 case "workItem" -> view(engine.workItem(actor, args.id("workItem")));
                 case "instance" -> detail(engine.instance(actor, args.id("instance")));
+                case "transfer" -> commandResult(engine.transfer(actor, new TransferCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
+                case "delegate" -> commandResult(engine.delegate(actor, new DelegateCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
+                case "addSigners" -> commandResult(engine.addSigners(actor,
+                    new AddSignersCommand(args.id("workItem"), args.ids("users"), args.text("mode"), args.text("reason"))));
+                case "removeSigners" -> commandResult(engine.removeSigners(actor, new RemoveSignersCommand(args.id("workItem"), args.ids("users"))));
+                case "release" -> commandResult(engine.release(actor, new ReleaseCommand(args.id("workItem"), args.text("reason"))));
+                case "remind" -> commandResult(engine.remind(actor, new RemindCommand(args.id("instance"), args.id("workItem"), args.text("message"))));
+                case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"))));
+                case "terminate" -> commandResult(engine.terminate(actor, new TerminateCommand(args.id("instance"), args.text("reason"))));
+                case "suspend" -> commandResult(engine.suspend(actor, new SuspendCommand(args.id("instance"), args.text("reason"))));
+                case "resume" -> commandResult(engine.resume(actor, new ResumeCommand(args.id("instance"))));
+                case "jump" -> commandResult(engine.jump(actor, new JumpCommand(args.id("instance"), args.text("node"), args.text("reason"))));
+                case "reassign" -> commandResult(engine.reassign(actor, new ReassignCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
                 case "publishDefinition" -> {
                     engine.publishDefinition(actor, Json.write(args.raw("definition")), null);
                     yield Map.of();
@@ -186,8 +211,19 @@ final class ScenarioRunner {
     private record Arguments(Map<String, Object> values) {
         String text(String name) { return (String) values.get(name); }
 
-        /** 编号：引用解出来的是线上的文字 */
-        Long id(String name) { return values.get(name) == null ? null : Long.valueOf((String) values.get(name)); }
+        /** 编号：引用解出来的是线上的文字，直接写的是数字（用户编号） */
+        Long id(String name) { return toId(values.get(name)); }
+
+        /** 一串编号 */
+        List<Long> ids(String name) {
+            Object value = values.get(name);
+            return value == null ? List.of() : ((List<?>) value).stream().map(Arguments::toId).toList();
+        }
+
+        private static Long toId(Object value) {
+            if (value == null) return null;
+            return value instanceof Number n ? n.longValue() : Long.valueOf((String) value);
+        }
 
         int number(String name, int fallback) {
             Object value = values.get(name);

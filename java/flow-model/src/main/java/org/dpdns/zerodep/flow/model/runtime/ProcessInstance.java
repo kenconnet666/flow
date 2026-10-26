@@ -28,6 +28,8 @@ public record ProcessInstance(Long id, String processKey, int version, String bu
                               Long startedBy, String startedByName, Instant startedAt, Instant endedAt) {
     /** 实例的状态 */
     public static final String ACTIVE = "active";
+    /** 管理员暂停：待办都不能处理，直到恢复 */
+    public static final String SUSPENDED = "suspended";
     /** 正常走到结束节点 */
     public static final String COMPLETED = "completed";
     /** 处理结果是终止 */
