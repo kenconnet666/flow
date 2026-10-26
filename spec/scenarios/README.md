@@ -35,6 +35,9 @@
 | `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null）、`picks` |
 | `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary, status, outcomeLabel }`） |
 | `started` | 同上 | `total`、`rows`（每行是实例） |
+| `instances` | `status`、`processKey`、`keyword`、`startedBy`、`page`、`size` | 同上（管理端搜实例） |
+| `processes` | — | `processes`（每项 `{ key, name, category, status, latestVersion }`） |
+| `failedJobs` | `page`、`size` | `total`、`rows`（重试用完的作业） |
 | `workItem` | `workItem` | `workItem`、`instance`、`form`、`outcomes`、`claimable`、`completable`、`actions` |
 | `instance` | `instance` | `instance`、`form`（同发起页的 form，按流程级 formView 只读）、`workItems`（全部待办）、`timeline`、`actions` |
 | `transfer`、`delegate`、`reassign` | `workItem`、`user`、`reason` | 同 `start` |

@@ -9,7 +9,7 @@
 export type Id = bigint;
 
 /** 实例的状态 */
-export type InstanceStatus = 'active' | 'completed' | 'terminated' | 'withdrawn';
+export type InstanceStatus = 'active' | 'suspended' | 'completed' | 'terminated' | 'withdrawn';
 
 /** 正在处理的一个节点 */
 export interface CurrentNode {

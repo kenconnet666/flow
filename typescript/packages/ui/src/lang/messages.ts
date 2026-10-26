@@ -78,6 +78,22 @@ export interface FlowMessages {
   readonly ccMessage: string;
   /** 抄送之后的提示 */
   readonly ccDone: (count: number) => string;
+  /** 流程监控（管理端） */
+  readonly monitor: string;
+  readonly columnProcess: string;
+  readonly keyword: string;
+  readonly allStatuses: string;
+  readonly allProcesses: string;
+  /** 管理员的操作 */
+  readonly adminActions: string;
+  readonly suspend: string;
+  readonly resume: string;
+  readonly terminate: string;
+  readonly terminateConfirm: string;
+  readonly jump: string;
+  readonly jumpTo: string;
+  readonly reassign: string;
+  readonly reassignTo: string;
   /** 选下一步的处理人 */
   readonly pickTitle: string;
   readonly pickFor: (node: string) => string;
@@ -285,6 +301,20 @@ export const flowMessages: MessageTable<FlowMessages> = {
     pickCcUsers: '抄送给谁',
     ccMessage: '附言',
     ccDone: (count) => `已抄送给 ${count} 人`,
+    monitor: '流程监控',
+    columnProcess: '流程',
+    keyword: '标题',
+    allStatuses: '全部状态',
+    allProcesses: '全部流程',
+    adminActions: '管理员操作',
+    suspend: '暂停',
+    resume: '恢复',
+    terminate: '终止',
+    terminateConfirm: '终止这个流程？打开着的待办都会取消',
+    jump: '跳转',
+    jumpTo: '跳到哪个节点',
+    reassign: '改派',
+    reassignTo: '改派给谁',
     pickTitle: '选择下一步的处理人',
     pickFor: (node) => `${node} 的处理人`,
     noPeopleSource: '没有可选的人员数据，请联系管理员',
@@ -377,6 +407,20 @@ export const flowMessages: MessageTable<FlowMessages> = {
     pickCcUsers: 'People to copy',
     ccMessage: 'Message',
     ccDone: (count) => `Copied to ${count} people`,
+    monitor: 'Process monitor',
+    columnProcess: 'Process',
+    keyword: 'Title',
+    allStatuses: 'All statuses',
+    allProcesses: 'All processes',
+    adminActions: 'Administration',
+    suspend: 'Suspend',
+    resume: 'Resume',
+    terminate: 'Terminate',
+    terminateConfirm: 'Terminate this process? Open tasks will be canceled',
+    jump: 'Jump',
+    jumpTo: 'Jump to step',
+    reassign: 'Reassign',
+    reassignTo: 'Reassign to',
     pickTitle: 'Choose who handles the next step',
     pickFor: (node) => `Assignee for ${node}`,
     noPeopleSource: 'No people directory is available; contact your administrator',

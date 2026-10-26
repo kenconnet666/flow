@@ -1,0 +1,34 @@
+{
+  "name": "管理端的查询：按状态、流程、标题搜实例；流程列表；实例详情给出跳转能去的节点",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json", "processes/notice.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "admin": { "id": 1000, "name": "管理员" }
+  },
+  "steps": [
+    { "id": "desk", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "100.00" } } },
+    { "id": "chair", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "100.00" } } },
+    { "as": "alice", "command": "start", "args": { "key": "notice" } },
+    { "as": "admin", "command": "terminate", "args": { "instance": "$chair.instance", "reason": "重复了" } },
+    { "as": "admin", "command": "instances", "args": { "status": "active", "processKey": "purchase" },
+      "expect": { "total": 1, "rows": [{ "title": "采购申请：办公桌" }] } },
+    { "as": "admin", "command": "instances", "args": { "keyword": "椅" },
+      "expect": { "total": 1, "rows": [{ "title": "采购申请：椅子", "status": "terminated" }] } },
+    { "as": "admin", "command": "instances", "expect": { "total": 3 } },
+    { "as": "admin", "command": "processes",
+      "expect": { "processes": [
+        { "key": "notice", "name": "发文审批", "status": "active", "latestVersion": 1 },
+        { "key": "purchase", "name": "采购申请", "status": "active", "latestVersion": 1 }
+      ] } },
+    { "as": "admin", "command": "instance", "args": { "instance": "$desk.instance" },
+      "expect": { "nodes": [
+        { "node": "review", "name": "财务复核", "type": "task" },
+        { "node": "approve", "name": "总经理审批", "type": "task" },
+        { "node": "done", "name": "通过", "type": "end" },
+        { "node": "rejected", "name": "否决", "type": "end" }
+      ] } },
+    { "as": "admin", "command": "failedJobs", "expect": { "total": 0 } }
+  ]
+}

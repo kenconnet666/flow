@@ -15,6 +15,9 @@ import type {
   AddSignersCommand,
   CcCommand,
   CommandResult,
+  FailedJob,
+  InstanceSearch,
+  ProcessSummary,
   SignalCommand,
   CommentCommand,
   CompleteCommand,
@@ -59,6 +62,12 @@ export interface FlowClient {
   done(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 我发起的：按发起时间从新到旧 */
   started(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
+  /** 管理端搜实例：按发起时间从新到旧 */
+  instances(query: PageQuery & InstanceSearch, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
+  /** 管理端的流程列表 */
+  processes(signal?: AbortSignal): Promise<readonly ProcessSummary[]>;
+  /** 重试用完的作业 */
+  failedJobs(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<FailedJob>>;
   /** 抄送我的：未读在前 */
   ccList(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<CcItem>>;
   /** 待办详情 */
@@ -115,7 +124,7 @@ export interface FlowClientOptions {
 
 /** 在一个请求客户端上建引擎的客户端 */
 export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowClientOptions = {}): FlowClient {
-  const get = <T>(path: string, signal?: AbortSignal, query?: Record<string, number>) =>
+  const get = <T>(path: string, signal?: AbortSignal, query?: Record<string, number | string>) =>
     http.request<T>({ url: prefix + path, ...(signal ? { signal } : {}), ...(query ? { query } : {}) });
   const post = <T>(path: string, body: unknown) => http.request<T>({ url: prefix + path, method: 'POST', body });
   return {
@@ -125,6 +134,13 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     done: ({ page, pageSize }, signal) => get('/queries/done', signal, { page, pageSize }),
     started: ({ page, pageSize }, signal) => get('/queries/started', signal, { page, pageSize }),
     ccList: ({ page, pageSize }, signal) => get('/queries/cc', signal, { page, pageSize }),
+    instances: ({ page, pageSize, ...search }, signal) => {
+      // 空的条件不发：后端按"不限"处理
+      const filters = Object.fromEntries(Object.entries(search).filter(([, v]) => v != null && v !== '')) as Record<string, string>;
+      return get('/queries/instances', signal, { page, pageSize, ...filters });
+    },
+    processes: (signal) => get('/queries/processes', signal),
+    failedJobs: ({ page, pageSize }, signal) => get('/queries/failed-jobs', signal, { page, pageSize }),
     workItem: (id, signal) => get(`/queries/work-items/${id}`, signal),
     instance: (id, signal) => get(`/queries/instances/${id}`, signal),
     start: (command) => post('/commands/start', command),

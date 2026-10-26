@@ -1,28 +1,28 @@
 package org.dpdns.zerodep.flow.core;
 
+import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
+import org.dpdns.zerodep.flow.core.command.CcCommand;
+import org.dpdns.zerodep.flow.core.command.ClaimCommand;
+import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
+import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
+import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
-import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
+import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
+import org.dpdns.zerodep.flow.core.command.SignalCommand;
+import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
-import org.dpdns.zerodep.flow.core.command.CcCommand;
-import org.dpdns.zerodep.flow.core.command.ClaimCommand;
-import org.dpdns.zerodep.flow.core.command.CommandResult;
-import org.dpdns.zerodep.flow.core.command.CompleteCommand;
-import org.dpdns.zerodep.flow.core.command.FormPublication;
-import org.dpdns.zerodep.flow.core.command.SignalCommand;
-import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
-import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.engine.AdminHandler;
 import org.dpdns.zerodep.flow.core.engine.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.engine.ClaimHandler;
@@ -50,13 +50,15 @@ import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.store.CcStore;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
+import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.EventStore;
 import org.dpdns.zerodep.flow.core.store.FormDataStore;
-import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
+import org.dpdns.zerodep.flow.core.store.FormStore;
+import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
+import org.dpdns.zerodep.flow.core.store.JobStore.Job;
 import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.RequestStore;
 import org.dpdns.zerodep.flow.core.store.Stores;
@@ -65,12 +67,13 @@ import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
 import org.dpdns.zerodep.flow.core.store.query.QueryStores;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
+import org.dpdns.zerodep.flow.core.view.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.StartView;
 import org.dpdns.zerodep.flow.core.view.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.WorkItemView;
+import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
-import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.runtime.CcItem;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.TodoItem;
@@ -442,6 +445,33 @@ public final class FlowEngine<U extends Actor> {
     public Page<CcItem> ccList(U actor, int page, int size) {
         allow(actor, "cc.list", String.valueOf(actor.id()));
         return queries.ccList(actor, page, size);
+    }
+
+    /** 管理端搜实例（当前操作人） */
+    public Page<ProcessInstance> instances(InstanceSearch search, int page, int size) { return instances(actors.current(), search, page, size); }
+
+    /** 管理端搜实例：按状态、流程、标题、发起人；谁能搜由 PermissionPolicy 定（{@code instances.search}） */
+    public Page<ProcessInstance> instances(U actor, InstanceSearch search, int page, int size) {
+        allow(actor, "instances.search", null);
+        return queries.instances(search, page, size);
+    }
+
+    /** 管理端的流程列表（当前操作人） */
+    public List<ProcessSummary> processes() { return processes(actors.current()); }
+
+    /** 管理端的流程列表：全部流程，停用的也在（{@code processes.list}） */
+    public List<ProcessSummary> processes(U actor) {
+        allow(actor, "processes.list", null);
+        return queries.processes();
+    }
+
+    /** 重试用完的作业（当前操作人） */
+    public Page<Job> failedJobs(int page, int size) { return failedJobs(actors.current(), page, size); }
+
+    /** 重试用完的作业，新的在前（{@code jobs.failed}）：管理员修好外部系统后 retryJob */
+    public Page<Job> failedJobs(U actor, int page, int size) {
+        allow(actor, "jobs.failed", null);
+        return queries.failedJobs(page, size);
     }
 
     /** 我发起的（当前操作人） */

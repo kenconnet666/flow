@@ -29,6 +29,19 @@ public interface InstanceStore {
     /** 按编号读几行（收件箱带上实例的标题与摘要用） */
     List<InstanceRecord> findAll(Collection<Long> instanceIds);
 
+    /**
+     * 管理端搜实例的条件：不写的不限。
+     *
+     * @param status     状态
+     * @param processKey 流程
+     * @param keyword    标题里有这几个字
+     * @param startedBy  发起人
+     */
+    record InstanceSearch(String status, String processKey, String keyword, Long startedBy) { }
+
+    /** 管理端搜实例：按发起时间从新到旧 */
+    Page<InstanceRecord> search(InstanceSearch search, int page, int size);
+
     /** 某人发起的，按发起时间从新到旧 */
     Page<InstanceRecord> startedBy(Long userId, int page, int size);
 

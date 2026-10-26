@@ -7,21 +7,24 @@ import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
 import org.dpdns.zerodep.flow.core.store.FormDataStore.StoredFormData;
 import org.dpdns.zerodep.flow.core.store.FormStore.FormClient;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
+import org.dpdns.zerodep.flow.core.store.JobStore.Job;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Member;
 import org.dpdns.zerodep.flow.core.view.FormView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.PickView;
+import org.dpdns.zerodep.flow.core.view.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.StartView;
 import org.dpdns.zerodep.flow.core.view.StartableProcess;
-import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.core.view.WorkItemView.OutcomeView;
+import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.model.definition.FieldAccess;
 import org.dpdns.zerodep.flow.model.definition.NodeFormAccess;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.form.FormAccess;
 import org.dpdns.zerodep.flow.model.form.FormAccess.FieldState;
+import org.dpdns.zerodep.flow.model.form.FormAccess;
 import org.dpdns.zerodep.flow.model.runtime.Cc;
 import org.dpdns.zerodep.flow.model.runtime.CcItem;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
@@ -126,6 +129,23 @@ public final class Queries {
         return new Page<>(rows, ccs.total(), ccs.page(), ccs.size());
     }
 
+    /** 管理端搜实例：按发起时间从新到旧 */
+    public Page<ProcessInstance> instances(InstanceSearch search, int page, int size) {
+        Page<InstanceRecord> rows = context.stores().instances().search(search, page, size);
+        return new Page<>(rows.rows().stream().map(InstanceRecord::view).toList(), rows.total(), rows.page(), rows.size());
+    }
+
+    /** 管理端的流程列表：全部流程（停用的也在），按分类、名称排 */
+    public List<ProcessSummary> processes() {
+        return context.stores().definitions().processes().stream()
+            .map(p -> new ProcessSummary(p.processKey(), p.name(), p.category(), p.status(), p.latestVersion())).toList();
+    }
+
+    /** 重试用完的作业，新的在前 */
+    public Page<Job> failedJobs(int page, int size) {
+        return context.stores().jobs().failed(page, size);
+    }
+
     /** 我发起的：按发起时间从新到旧 */
     public Page<ProcessInstance> started(Actor actor, int page, int size) {
         Page<InstanceRecord> rows = context.stores().instances().startedBy(actor.id(), page, size);
@@ -180,7 +200,10 @@ public final class Queries {
         InstanceDetail.Actions actions = new InstanceDetail.Actions(
             starterOfActive && WithdrawHandler.allowed(definition, items),
             starterOfActive && items.stream().anyMatch(w -> WorkItem.OPEN.equals(w.state())));
-        return new InstanceDetail(instance.view(), form, items, context.stores().events().timeline(instanceId), actions);
+        List<InstanceDetail.NodeRef> nodes = definition.model().nodes().stream()
+            .filter(n -> !(n instanceof ProcessNode.Start) && !(n instanceof ProcessNode.Gateway))
+            .map(n -> new InstanceDetail.NodeRef(n.id(), n.name(), n.type())).toList();
+        return new InstanceDetail(instance.view(), form, items, context.stores().events().timeline(instanceId), actions, nodes);
     }
 
     /** 流程最新发布的版本（解析好的） */

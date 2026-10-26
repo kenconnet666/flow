@@ -13,7 +13,7 @@ public interface PermissionPolicy<U extends Actor> {
     /**
      * 能不能做。
      *
-     * @param operation 命令或查询的名字：{@code start}、{@code claim}、{@code complete}、{@code withdraw}、{@code startable}、{@code startView}、{@code todo}、{@code done}、{@code started}、{@code cc.list}、{@code workItem}、{@code instance}、
+     * @param operation 命令或查询的名字：{@code start}、{@code claim}、{@code complete}、{@code withdraw}、{@code startable}、{@code startView}、{@code todo}、{@code done}、{@code started}、{@code cc.list}、{@code instances.search}、{@code processes.list}、{@code jobs.failed}、{@code workItem}、{@code instance}、
      *                  {@code definitions.publish}、{@code forms.publish}；
      *                  协作：{@code transfer}、{@code delegate}、{@code addSigners}、{@code removeSigners}、{@code release}、{@code remind}、{@code comment}、{@code cc}、{@code readCc}、{@code signal}；
      *                  管理员：{@code terminate}、{@code suspend}、{@code resume}、{@code jump}、{@code reassign}、{@code retryJob}

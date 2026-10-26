@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.store;
 
+import org.dpdns.zerodep.query.exec.Page;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +67,9 @@ public interface JobStore {
 
     /** 失败的作业重新来过（管理员 retryJob）：改回等着做、失败次数清零、马上到期；返回改到没有 */
     boolean revive(Long jobId, Instant now);
+
+    /** 重试用完的作业（当前租户），新的在前：管理员看哪里卡住了 */
+    Page<Job> failed(int page, int size);
 
     /** 实例结束了：它还没做的作业都删掉（失败的留着） */
     void cancelForInstance(Long instanceId);

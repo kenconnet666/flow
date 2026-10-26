@@ -1,6 +1,6 @@
 /**
  * 流程详情（发起人看进度、从我已办里打开）：实例的概要、当前在谁手里、只读的表单、流转记录，
- * 以及撤回、催办（引擎说我能做时）、抄送（给了挑人的数据来源时）与留言。
+ * 以及撤回、催办（引擎说我能做时）、抄送（给了挑人的数据来源时）与留言；管理端打开时（admin）多一块管理员操作。
  *
  *   <FlowInstanceDetail id={instanceId} people={peopleSource} onChange={(result) => …} />
  *
@@ -32,6 +32,7 @@ import type { CommandResult } from '../client/types';
 import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
 import { FlowTimeline } from './FlowTimeline';
+import { InstanceAdminActions } from './InstanceAdminActions';
 import { statusTone } from './status';
 
 /** FlowInstanceDetail 的属性 */
@@ -42,15 +43,17 @@ export interface FlowInstanceDetailProps {
   people?: PeopleSource;
   /** 表单代码还能导入的模块（见 FlowForm） */
   modules?: Readonly<Record<string, unknown>>;
-  /** 撤回、催办、抄送、留言之后 */
+  /** 撤回、催办、抄送、留言、管理员操作之后 */
   onChange?: (result: CommandResult) => void;
+  /** 显示管理员操作（暂停、恢复、终止、跳转、改派）：管理端打开时给；能不能做仍由后端的 PermissionPolicy 定 */
+  admin?: boolean;
 }
 
 /** 打开着的待办的处理人：落到人的写名字，在收件箱里的写"待认领" */
 const holder = (item: WorkItem, pool: string) => item.assigneeName ?? pool;
 
 /** 流程详情 */
-export const FlowInstanceDetail = _component(({ id, people, modules, onChange }: FlowInstanceDetailProps) => {
+export const FlowInstanceDetail = _component(({ id, people, modules, onChange, admin = false }: FlowInstanceDetailProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const errorText = useErrorMessage();
@@ -66,7 +69,8 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
   let ccMessage = _state('');
 
   /** 发一个命令：成功时刷新并告诉父级 */
-  async function run(key: string, action: () => Promise<CommandResult>, done?: (result: CommandResult) => void) {
+  /** 发一个命令：成功时刷新并告诉父级，返回 true */
+  async function run(key: string, action: () => Promise<CommandResult>, done?: (result: CommandResult) => void): Promise<boolean> {
     busy = key;
     failure = null;
     notice = null;
@@ -75,8 +79,10 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
       done?.(result);
       await detail.refresh();
       onChange?.(result);
+      return true;
     } catch (error) {
       failure = errorText(error);
+      return false;
     } finally {
       busy = null;
     }
@@ -96,8 +102,7 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
     if (ccPicked.length === 0) return false;
     const users = ccPicked.map((entry) => BigInt(entry.id));
     const message = ccMessage.trim();
-    await run('cc', () => flow.cc({ instanceId: id, users, ...(message ? { message } : {}) }), () => (notice = messages.ccDone(users.length)));
-    return failure == null;
+    return run('cc', () => flow.cc({ instanceId: id, users, ...(message ? { message } : {}) }), () => (notice = messages.ccDone(users.length)));
   }
 
   const leaveComment = () =>
@@ -159,6 +164,7 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange }:
                 )}
               </Flex>
             )}
+            {admin && <InstanceAdminActions detail={data} {...(people ? { people } : {})} busy={busy} onRun={(key, action) => run(key, action)} />}
           </Flex>
         </Card>
         {people && (

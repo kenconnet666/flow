@@ -57,6 +57,18 @@ final class QueryInstanceStore implements InstanceStore {
             .orderBy(r -> r.id()).selectAs(InstanceRecord.class));
     }
 
+    /** 有状态、流程时走（租户, 状态, 流程, 发起时间）的索引 */
+    @Override
+    public Page<InstanceRecord> search(InstanceSearch search, int page, int size) {
+        return db.page(from(Instance.class).where(r -> {
+                if (search.status() != null && !search.status().isBlank()) r.status().eq(search.status());
+                if (search.processKey() != null && !search.processKey().isBlank()) r.processKey().eq(search.processKey());
+                if (search.keyword() != null && !search.keyword().isBlank()) r.title().contains(search.keyword().trim());
+                if (search.startedBy() != null) r.startedBy().eq(search.startedBy());
+            })
+            .orderBy(r -> Sql.orders(r.startedAt().desc(), r.id().desc())).selectAs(InstanceRecord.class), page, size);
+    }
+
     /** 走（租户, 发起人, 发起时间）的索引 */
     @Override
     public Page<InstanceRecord> startedBy(Long userId, int page, int size) {

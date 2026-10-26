@@ -113,6 +113,36 @@ export interface InstanceDetail {
   readonly timeline: readonly FlowEvent[];
   /** 我现在能对实例做的事（留言随时能留） */
   readonly actions: InstanceActions;
+  /** 流程的节点（开始节点、网关除外）：管理员跳转时选目标 */
+  readonly nodes: readonly { readonly node: string; readonly name: string | null; readonly type: string }[];
+}
+
+/** 管理端的流程列表的一行 */
+export interface ProcessSummary {
+  readonly key: string;
+  readonly name: string;
+  readonly category: string | null;
+  /** active 能发起，其余停用 */
+  readonly status: string;
+  readonly latestVersion: number;
+}
+
+/** 管理端搜实例的条件：不写的不限 */
+export interface InstanceSearch {
+  readonly status?: string;
+  readonly processKey?: string;
+  readonly keyword?: string;
+}
+
+/** 重试用完的作业 */
+export interface FailedJob {
+  readonly id: Id;
+  readonly kind: string;
+  readonly instanceId: Id;
+  readonly workItemId: Id | null;
+  readonly dueAt: string;
+  readonly attempts: number;
+  readonly lastError: string | null;
 }
 
 /** 我现在能对实例做的事 */

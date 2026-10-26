@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.core.store.query;
 
 import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.query.exec.Database;
+import org.dpdns.zerodep.query.exec.Page;
 
 import java.time.Instant;
 import java.util.List;
@@ -101,6 +102,12 @@ final class QueryJobStore implements JobStore {
             r.lockedBy().to((String) null);
             r.lockedUntil().to((Instant) null);
         }).where(r -> { r.id().eq(jobId); r.state().eq(Job.FAILED); })) == 1;
+    }
+
+    @Override
+    public Page<Job> failed(int page, int size) {
+        return db.page(from(FlowTables.Job.class).where(r -> r.state().eq(Job.FAILED)).orderBy(r -> orders(r.dueAt().desc(), r.id().desc()))
+            .selectAs(Job.class), page, size);
     }
 
     @Override

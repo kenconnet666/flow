@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.spring.http;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.query.exec.CodedException;
@@ -33,6 +34,7 @@ import java.util.function.Supplier;
  * GET  {前缀}/queries/todo?page=1&amp;pageSize=20、done、started、cc
  * GET  {前缀}/queries/work-items/{id}
  * GET  {前缀}/queries/instances/{id}
+ * GET  {前缀}/queries/instances?status=&amp;processKey=&amp;keyword=、processes、failed-jobs（管理端）
  * </pre>
  * 命令（POST）的请求头带 {@code Idempotency-Key} 时幂等：同一个键再来时返回第一次的响应体，不再做一遍。
  * HTTP 一律 200，成败看响应体的 {@code code}（0008）：{@code ok}，或 {@code flow.}、{@code query.} 的业务错误码；
@@ -173,6 +175,30 @@ public class FlowHttpController {
     @PostMapping("/commands/signal")
     public ResponseEntity<String> signal(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
         return command("commands/signal", () -> ResponseBody.view(Map.of("results", engine.signal(RequestBody.parse(body).signal()))));
+    }
+
+    /** 管理端搜实例：{@code ?status=&processKey=&keyword=&startedBy=&page=&pageSize=} */
+    @GetMapping("/queries/instances")
+    public ResponseEntity<String> instances(@RequestParam(name = "status", required = false) String status,
+                                            @RequestParam(name = "processKey", required = false) String processKey,
+                                            @RequestParam(name = "keyword", required = false) String keyword,
+                                            @RequestParam(name = "startedBy", required = false) Long startedBy,
+                                            @RequestParam(name = "page", defaultValue = "1") int page,
+                                            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.page(engine.instances(new InstanceSearch(status, processKey, keyword, startedBy), page, pageSize)));
+    }
+
+    /** 管理端的流程列表 */
+    @GetMapping("/queries/processes")
+    public ResponseEntity<String> processes() {
+        return respond(() -> ResponseBody.view(engine.processes()));
+    }
+
+    /** 重试用完的作业 */
+    @GetMapping("/queries/failed-jobs")
+    public ResponseEntity<String> failedJobs(@RequestParam(name = "page", defaultValue = "1") int page,
+                                             @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return respond(() -> ResponseBody.page(engine.failedJobs(page, pageSize)));
     }
 
     /** 抄送我的 */
