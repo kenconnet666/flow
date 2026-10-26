@@ -84,6 +84,27 @@ export interface FlowMessages {
   readonly nodeState: Readonly<Record<string, string>>;
   /** 流程图上节点的种类（人工节点、开始、结束不写） */
   readonly nodeType: Readonly<Record<string, string>>;
+  /** 流程管理（管理端） */
+  readonly processManage: string;
+  readonly newProcess: string;
+  readonly edit: string;
+  readonly enable: string;
+  readonly disable: string;
+  readonly processStatus: Readonly<Record<string, string>>;
+  readonly columnKey: string;
+  readonly columnCategory: string;
+  readonly columnVersion: string;
+  /** 定义编辑 */
+  readonly definitionEditor: string;
+  readonly loadVersion: string;
+  readonly validate: string;
+  readonly publish: string;
+  readonly publishNote: string;
+  readonly published: (version: number) => string;
+  readonly noProblems: string;
+  readonly problemAt: (where: string) => string;
+  /** 0005 第 7 节的问题代号的说明；认不出的显示代号 */
+  readonly problem: (code: string, params: Readonly<Record<string, string>>) => string;
   /** 流程监控（管理端） */
   readonly monitor: string;
   readonly columnProcess: string;
@@ -248,6 +269,54 @@ const enEvents: Record<string, string> = {
 /** 标题后面接节点名的实例级事件（"跳转到 财务复核""收到事件 等对方盖章"） */
 const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'job.failed']);
 
+/** 定义的问题代号（0005 第 7 节）的中文说明 */
+const zhProblemTexts: Record<string, (p: Readonly<Record<string, string>>) => string> = {
+  malformed: (p) => `定义写得不对：${p['reason'] ?? ''}`,
+  'form-unknown': (p) => `引用的表单 ${p['key'] ?? ''} 不存在`,
+  'start-missing': () => '没有开始节点',
+  'start-multiple': () => '开始节点不止一个',
+  'start-incoming': () => '有线连进开始节点',
+  'end-missing': () => '没有结束节点',
+  'end-outgoing': () => '结束节点有出边',
+  'node-duplicate': () => '节点标识重复',
+  'edge-duplicate': () => '连线标识重复',
+  'lane-duplicate': () => '泳道标识重复',
+  'node-type-unknown': () => '节点类型认不出（自定义类型要以 x- 开头）',
+  'lane-unknown': () => '节点的泳道不存在',
+  'edge-unknown-node': () => '连线的起点或终点不存在',
+  'node-no-outgoing': () => '节点没有出边',
+  'node-dead-end': () => '从这个节点走不到结束',
+  'node-unreachable': () => '从开始走不到这个节点',
+  'outcome-duplicate': () => '处理结果的标识重复',
+  'outcome-unrouted': (p) => `处理结果 ${p['outcome'] ?? ''} 没有出边`,
+  'edge-unknown-outcome': () => '连线写的处理结果在起点上不存在',
+  'edge-outcome-not-branching': () => '起点不按结果分出边，连线却写了 outcome',
+  'edge-default-not-gateway': () => '起点不是排他、包容网关，连线却写了 default',
+  'gateway-multiple-default': () => '网关有不止一条默认出边',
+  'gateway-edge-unconditional': () => '网关的出边既没条件也不是默认',
+  'parallel-edge-condition': () => '并行网关的出边写了条件（不起作用）',
+  'parallel-useless': () => '并行网关只有一进一出',
+  'overdue-unknown-outcome': () => '超时自动完成的结果不存在',
+  'task-no-outcome': () => '人工节点没有处理结果',
+  'assignee-unknown-node': () => 'sameAs 指的节点不存在或不是人工节点',
+  'assignee-missing': () => '人工节点没写处理人，泳道也没有收件箱',
+  'gateway-unpaired': () => '并行或包容的分叉没有配对的汇合，或分支跳出了区域',
+  'return-not-upstream': () => '退回连线的目标不在上游',
+  'escalate-no-inbox': () => '提级连线的目标节点没有收件箱',
+  'ref-unknown': (p) => `引用了不存在的 ${p['ref'] ?? ''}（没声明的变量、表单里没有的字段、不存在的节点）`,
+  'ref-type-mismatch': (p) => `引用 ${p['ref'] ?? ''} 的类型用不上`,
+  'org-id-invalid': () => '用户、角色、部门编号要是正整数',
+  'condition-incomplete': () => '条件没写完',
+  'condition-fn-in-form': () => '表单的条件里不能用 fn.',
+  'multi-no-fallback': () => '按比例、按票数的会签要写 fallback',
+  'form-field-unknown': (p) => `节点权限引用了表单里没有的字段 ${p['field'] ?? ''}`,
+  'form-required-unfillable': () => '必填字段在发起时是隐藏或只读的',
+  'call-cycle': () => '调用流程形成了环',
+  'call-unknown-process': () => '调用的流程不存在或已停用',
+  'extension-unknown': (p) => `${p['kind'] ?? '扩展'} ${p['name'] ?? ''} 没有注册`,
+  'due-unknown-calendar': () => '工作日历不存在',
+};
+
 /** 引擎自动提醒的原因（流转记录里 workItem.reminded 的 data.reason） */
 const zhReminders: Record<string, string> = { dueSoon: '即将到期，自动提醒', overdue: '已超时，自动提醒', unclaimed: '很久没人认领，自动提醒' };
 const enReminders: Record<string, string> = {
@@ -310,6 +379,24 @@ export const flowMessages: MessageTable<FlowMessages> = {
     diagram: '流程图',
     nodeState: { done: '已走过', current: '进行中', pending: '未到' },
     nodeType: { exclusive: '条件分支', parallel: '并行', inclusive: '包容分支', service: '自动处理', timer: '定时', receive: '等待事件', cc: '抄送', call: '子流程' },
+    processManage: '流程管理',
+    newProcess: '新建流程',
+    edit: '编辑',
+    enable: '启用',
+    disable: '停用',
+    processStatus: { active: '启用', disabled: '停用' },
+    columnKey: '标识',
+    columnCategory: '分类',
+    columnVersion: '版本',
+    definitionEditor: '流程定义',
+    loadVersion: '载入版本',
+    validate: '校验',
+    publish: '发布',
+    publishNote: '发布说明',
+    published: (version) => `已发布第 ${version} 版`,
+    noProblems: '没有问题，可以发布',
+    problemAt: (where) => `位置：${where}`,
+    problem: (code, params) => zhProblemTexts[code]?.(params) ?? code,
     monitor: '流程监控',
     columnProcess: '流程',
     keyword: '标题',
@@ -419,6 +506,24 @@ export const flowMessages: MessageTable<FlowMessages> = {
     diagram: 'Process diagram',
     nodeState: { done: 'done', current: 'in progress', pending: 'not reached' },
     nodeType: { exclusive: 'Decision', parallel: 'Parallel', inclusive: 'Inclusive', service: 'Automatic', timer: 'Timer', receive: 'Wait for event', cc: 'Copy', call: 'Subprocess' },
+    processManage: 'Processes',
+    newProcess: 'New process',
+    edit: 'Edit',
+    enable: 'Enable',
+    disable: 'Disable',
+    processStatus: { active: 'Enabled', disabled: 'Disabled' },
+    columnKey: 'Key',
+    columnCategory: 'Category',
+    columnVersion: 'Version',
+    definitionEditor: 'Process definition',
+    loadVersion: 'Load version',
+    validate: 'Validate',
+    publish: 'Publish',
+    publishNote: 'Release note',
+    published: (version) => `Published version ${version}`,
+    noProblems: 'No problems; ready to publish',
+    problemAt: (where) => `At ${where}`,
+    problem: (code) => code,
     monitor: 'Process monitor',
     columnProcess: 'Process',
     keyword: 'Title',

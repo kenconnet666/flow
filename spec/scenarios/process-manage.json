@@ -1,0 +1,34 @@
+{
+  "name": "流程管理：校验不发布、列出错误与警告；停用后不能发起、启用后又能；版本列表新的在前",
+  "forms": [],
+  "processes": ["processes/notice.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "admin": { "id": 1000, "name": "管理员" }
+  },
+  "steps": [
+    { "as": "admin", "command": "validateDefinition",
+      "args": { "definition": { "key": "draft", "name": "草稿",
+        "nodes": [{ "id": "start", "type": "start", "name": "开始" }, { "id": "a", "type": "task", "name": "办", "assignees": [{ "user": 1004 }] }],
+        "edges": [{ "id": "e1", "from": "start", "to": "a" }] } },
+      "expect": { "problems": [
+        { "code": "end-missing", "severity": "error" },
+        { "code": "node-no-outgoing", "severity": "error", "node": "a" },
+        { "code": "task-no-outcome", "severity": "error", "node": "a" }
+      ] } },
+    { "as": "admin", "command": "validateDefinition", "args": { "definition": { "key": "x" } },
+      "expect": { "problems": [{ "code": "malformed", "severity": "error" }] } },
+    { "as": "admin", "command": "disableProcess", "args": { "key": "notice" }, "expect": { "key": "notice", "status": "disabled" } },
+    { "as": "alice", "command": "startable", "expect": { "processes": [] } },
+    { "as": "alice", "command": "start", "args": { "key": "notice" }, "expect": { "error": { "code": "flow.forbidden" } } },
+    { "as": "admin", "command": "enableProcess", "args": { "key": "notice" }, "expect": { "status": "active" } },
+    { "as": "alice", "command": "start", "args": { "key": "notice" }, "expect": { "instance": { "status": "active" } } },
+    { "as": "admin", "command": "publishDefinition", "args": { "definition": {
+        "key": "notice", "name": "发文审批", "title": "发文审批",
+        "nodes": [{ "id": "start", "type": "start", "name": "拟稿" }, { "id": "end", "type": "end", "name": "结束" }],
+        "edges": [{ "id": "e1", "from": "start", "to": "end" }] } } },
+    { "as": "admin", "command": "versions", "args": { "key": "notice" },
+      "expect": { "versions": [{ "version": 2, "publishedByName": "管理员" }, { "version": 1 }] } }
+  ]
+}

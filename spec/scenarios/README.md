@@ -56,6 +56,9 @@
 | `retryJob` | `job`（作业编号，`job.failed` 的 data 里有） | `revived` |
 | `runJobs` | `at`：把时钟拨到这一刻（不能往回拨），做到期的作业；这一步不写 `as` | `ran`（做了几个作业） |
 | `publishDefinition` | `definition`（内联的定义） | — |
+| `validateDefinition` | `definition` | `problems`（每项 `{ code, severity, node, edge, lane, field, params }`） |
+| `disableProcess`、`enableProcess` | `key` | 流程（`{ key, name, category, status, latestVersion }`） |
+| `versions` | `key` | `versions`（新的在前，每项 `{ version, note, publishedByName, publishedAt, formKey, formVersion }`） |
 
 ## 场景里注册的扩展
 

@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.JsonNumbers;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
+import org.dpdns.zerodep.flow.core.store.DefinitionStore.VersionInfo;
 import org.dpdns.zerodep.flow.core.store.FormDataStore.StoredFormData;
 import org.dpdns.zerodep.flow.core.store.FormStore.FormClient;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
@@ -141,6 +142,18 @@ public final class Queries {
     public List<ProcessSummary> processes() {
         return context.stores().definitions().processes().stream()
             .map(p -> new ProcessSummary(p.processKey(), p.name(), p.category(), p.status(), p.latestVersion())).toList();
+    }
+
+    /** 流程的全部版本，新的在前 */
+    public List<VersionInfo> versions(String processKey) {
+        context.stores().definitions().process(processKey).orElseThrow(() -> FlowErrors.notFound("process", processKey));
+        return context.stores().definitions().versions(processKey);
+    }
+
+    /** 某个版本的定义（0005 的 JSON 文字，发布时的原样）；version 为 null 时取最新的 */
+    public String definitionJson(String processKey, Integer version) {
+        var stored = version == null ? context.stores().definitions().latest(processKey) : context.stores().definitions().version(processKey, version);
+        return stored.orElseThrow(() -> FlowErrors.notFound("definition", processKey + (version == null ? "" : "@" + version))).model();
     }
 
     /** 重试用完的作业，新的在前 */

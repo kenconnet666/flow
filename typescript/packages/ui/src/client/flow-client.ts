@@ -15,9 +15,12 @@ import type {
   AddSignersCommand,
   CcCommand,
   CommandResult,
+  DefinitionProblem,
+  DefinitionVersion,
   FailedJob,
   InstanceSearch,
   ProcessSummary,
+  PublishedDefinition,
   SignalCommand,
   CommentCommand,
   CompleteCommand,
@@ -68,6 +71,16 @@ export interface FlowClient {
   processes(signal?: AbortSignal): Promise<readonly ProcessSummary[]>;
   /** 重试用完的作业 */
   failedJobs(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<FailedJob>>;
+  /** 流程的全部版本，新的在前 */
+  versions(processKey: string, signal?: AbortSignal): Promise<readonly DefinitionVersion[]>;
+  /** 某个版本的定义（发布时的原文）；version 不给时取最新的 */
+  definitionJson(processKey: string, version?: number, signal?: AbortSignal): Promise<{ readonly json: string }>;
+  /** 校验定义、不发布：错误与警告都列出来；json 是定义的原文（写错了也照样发，后端报 malformed） */
+  validateDefinition(json: string): Promise<{ readonly problems: readonly DefinitionProblem[] }>;
+  /** 发布定义：有错误时报 flow.definition-invalid，明细是问题列表 */
+  publishDefinition(json: string, note?: string): Promise<PublishedDefinition>;
+  /** 停用或启用流程 */
+  setProcessActive(processKey: string, active: boolean): Promise<ProcessSummary>;
   /** 抄送我的：未读在前 */
   ccList(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<CcItem>>;
   /** 待办详情 */
@@ -141,6 +154,14 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     },
     processes: (signal) => get('/queries/processes', signal),
     failedJobs: ({ page, pageSize }, signal) => get('/queries/failed-jobs', signal, { page, pageSize }),
+    versions: (processKey, signal) => get(`/queries/processes/${encodeURIComponent(processKey)}/versions`, signal),
+    definitionJson: (processKey, version, signal) =>
+      get(`/queries/processes/${encodeURIComponent(processKey)}/definition`, signal, version == null ? {} : { version }),
+    // 定义的原文按文字发（不经 JSON 序列化）：写错的 JSON 也让后端报出位置
+    validateDefinition: (json) => http.request({ url: prefix + '/definitions/validate', method: 'POST', body: json }),
+    publishDefinition: (json, note) =>
+      http.request({ url: prefix + '/definitions/publish', method: 'POST', body: json, ...(note ? { query: { note } } : {}) }),
+    setProcessActive: (processKey, active) => post(`/definitions/${active ? 'enable' : 'disable'}`, { key: processKey }),
     workItem: (id, signal) => get(`/queries/work-items/${id}`, signal),
     instance: (id, signal) => get(`/queries/instances/${id}`, signal),
     start: (command) => post('/commands/start', command),

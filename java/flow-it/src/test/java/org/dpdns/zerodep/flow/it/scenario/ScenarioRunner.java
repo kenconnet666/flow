@@ -122,6 +122,10 @@ final class ScenarioRunner {
                 case "done" -> page(engine.done(actor, args.number("page", 1), args.number("size", 20)));
                 case "instances" -> page(engine.instances(actor, new InstanceSearch(args.text("status"), args.text("processKey"),
                     args.text("keyword"), args.id("startedBy")), args.number("page", 1), args.number("size", 20)));
+                case "validateDefinition" -> wire(Map.of("problems", engine.validateDefinition(actor, Json.write(args.raw("definition")))));
+                case "disableProcess" -> view(engine.setProcessActive(actor, args.text("key"), false));
+                case "enableProcess" -> view(engine.setProcessActive(actor, args.text("key"), true));
+                case "versions" -> wire(Map.of("versions", engine.versions(actor, args.text("key"))));
                 case "processes" -> wire(Map.of("processes", engine.processes(actor)));
                 case "failedJobs" -> page(engine.failedJobs(actor, args.number("page", 1), args.number("size", 20)));
                 case "started" -> page(engine.started(actor, args.number("page", 1), args.number("size", 20)));

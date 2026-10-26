@@ -19,7 +19,7 @@ import {
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
-import { statusTone } from './status';
+import { statusTone } from '../runtime/status';
 
 /** FlowInstanceMonitor 的属性 */
 export interface FlowInstanceMonitorProps {

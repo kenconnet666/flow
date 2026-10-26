@@ -27,6 +27,18 @@ public interface DefinitionStore {
     /** 按编号取一个版本 */
     Optional<StoredDefinition> byId(Long definitionId);
 
+    /** 某个版本 */
+    Optional<StoredDefinition> version(String processKey, int version);
+
+    /** 流程的全部版本，新的在前 */
+    List<VersionInfo> versions(String processKey);
+
+    /** 停用、启用：改流程的状态；流程不存在时返回 false */
+    boolean setStatus(String processKey, String status);
+
+    /** 版本列表的一行：谁、什么时候发布的、说明、定下的表单版本 */
+    record VersionInfo(int version, String note, String publishedByName, Instant publishedAt, String formKey, Integer formVersion) { }
+
     /** 发布一个版本要的东西；{@code model} 是 0005 的整份定义的 JSON 文字 */
     record Publication(String processKey, String name, String category, String model, String formKey, Integer formVersion,
                        String note, Long publishedBy, String publishedByName, Instant at) { }
@@ -35,6 +47,8 @@ public interface DefinitionStore {
     record StoredProcess(String processKey, String name, String category, String status, int latestVersion) {
         /** 能发起 */
         public static final String ACTIVE = "active";
+        /** 停用：不能再发起，进行中的照常走完 */
+        public static final String DISABLED = "disabled";
     }
 
     /** 发布的一个版本；formKey、formVersion 是发布时定下的表单版本 */

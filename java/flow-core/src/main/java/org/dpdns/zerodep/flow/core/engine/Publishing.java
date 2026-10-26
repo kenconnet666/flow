@@ -3,10 +3,13 @@ package org.dpdns.zerodep.flow.core.engine;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
-import org.dpdns.zerodep.flow.core.store.FormStore;
+import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
+import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
+import org.dpdns.zerodep.flow.core.store.FormStore;
+import org.dpdns.zerodep.flow.core.view.DefinitionProblem;
+import org.dpdns.zerodep.flow.core.view.ProcessSummary;
 import org.dpdns.zerodep.flow.model.definition.Definitions;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
@@ -20,6 +23,7 @@ import org.dpdns.zerodep.flow.model.validate.ValidationContext;
 import org.dpdns.zerodep.wire.Json;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -47,6 +51,39 @@ public final class Publishing {
         return context.stores().definitions().publish(new DefinitionStore.Publication(model.key(), model.name(), model.category(), json,
             form == null ? null : form.formKey(), form == null ? null : form.version(), note, actor.id(), actor.name(),
             context.clock().instant()));
+    }
+
+    /**
+     * 校验一份定义，不发布：错误与警告都列出来（设计、编辑定义时用）。JSON 写错、形状不对时只有一条 {@code malformed}。
+     */
+    public List<DefinitionProblem> validateDefinition(String json) {
+        ProcessDefinition model;
+        try {
+            model = Definitions.parse(json);
+        } catch (IllegalArgumentException e) {
+            return List.of(new DefinitionProblem("malformed", "error", null, null, null, null, Map.of("reason", String.valueOf(e.getMessage()))));
+        }
+        FormManifest manifest = null;
+        if (model.form() != null) {
+            var form = model.form().version() == null ? context.stores().forms().latest(model.form().key())
+                : context.stores().forms().version(model.form().key(), model.form().version());
+            if (form.isEmpty()) {
+                return List.of(new DefinitionProblem("form-unknown", "error", null, null, null, "form", Map.of("key", model.form().key())));
+            }
+            manifest = FormManifest.parse(Json.read(form.get().manifest()));
+        }
+        return ProcessValidator.validate(model, new PublishContext(manifest, context.extensions())).stream()
+            .map(p -> new DefinitionProblem(p.code(), p.severity().name().toLowerCase(Locale.ROOT), p.node(), p.edge(), p.lane(),
+                p.field(), p.params()))
+            .toList();
+    }
+
+    /** 停用、启用流程：停用后不能再发起，进行中的照常走完 */
+    public ProcessSummary setStatus(String processKey, boolean active) {
+        String status = active ? StoredProcess.ACTIVE : StoredProcess.DISABLED;
+        if (!context.stores().definitions().setStatus(processKey, status)) throw FlowErrors.notFound("process", processKey);
+        StoredProcess p = context.stores().definitions().process(processKey).orElseThrow();
+        return new ProcessSummary(p.processKey(), p.name(), p.category(), p.status(), p.latestVersion());
     }
 
     /** 发布一张表单：先校验字段清单本身（0004 的 1.2），有错误时报 {@code flow.validation-failed} */

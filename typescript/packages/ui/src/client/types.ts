@@ -152,6 +152,35 @@ export interface ProcessSummary {
   readonly latestVersion: number;
 }
 
+/** 校验定义找出的一个问题（0005 第 7 节的问题代号） */
+export interface DefinitionProblem {
+  readonly code: string;
+  /** error 不能发布，warning 多半是画漏了 */
+  readonly severity: 'error' | 'warning';
+  readonly node: string | null;
+  readonly edge: string | null;
+  readonly lane: string | null;
+  readonly field: string | null;
+  readonly params: Readonly<Record<string, string>>;
+}
+
+/** 流程的一个版本 */
+export interface DefinitionVersion {
+  readonly version: number;
+  readonly note: string | null;
+  readonly publishedByName: string | null;
+  readonly publishedAt: string;
+  readonly formKey: string | null;
+  readonly formVersion: number | null;
+}
+
+/** 发布的结果 */
+export interface PublishedDefinition {
+  readonly id: Id;
+  readonly key: string;
+  readonly version: number;
+}
+
 /** 管理端搜实例的条件：不写的不限 */
 export interface InstanceSearch {
   readonly status?: string;

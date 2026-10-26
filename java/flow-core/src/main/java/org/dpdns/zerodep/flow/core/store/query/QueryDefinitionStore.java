@@ -75,4 +75,22 @@ final class QueryDefinitionStore implements DefinitionStore {
     public Optional<StoredDefinition> byId(Long definitionId) {
         return db.optional(from(Definition.class).where(r -> r.id().eq(definitionId)).selectAs(StoredDefinition.class));
     }
+
+    @Override
+    public Optional<StoredDefinition> version(String processKey, int version) {
+        return db.optional(from(Definition.class).where(r -> { r.processKey().eq(processKey); r.version().eq(version); })
+            .selectAs(StoredDefinition.class));
+    }
+
+    @Override
+    public List<VersionInfo> versions(String processKey) {
+        return db.list(from(Definition.class).where(r -> r.processKey().eq(processKey)).orderBy(r -> r.version().desc())
+            .selectAs(VersionInfo.class));
+    }
+
+    @Override
+    public boolean setStatus(String processKey, String status) {
+        return db.execute(update(Process.class).set(r -> { r.status().to(status); r.rev().to(r.rev().plus(val(1))); })
+            .where(r -> r.processKey().eq(processKey))) == 1;
+    }
 }

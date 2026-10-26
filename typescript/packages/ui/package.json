@@ -18,6 +18,10 @@
       "@vue-tsx-pro/source": "./src/form/index.ts",
       "default": "./src/form/index.ts"
     },
+    "./admin": {
+      "@vue-tsx-pro/source": "./src/admin/index.ts",
+      "default": "./src/admin/index.ts"
+    },
     "./form-tools": {
       "@vue-tsx-pro/source": "./src/form-tools/index.ts",
       "default": "./src/form-tools/index.ts"

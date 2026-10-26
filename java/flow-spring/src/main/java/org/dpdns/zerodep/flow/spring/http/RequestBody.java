@@ -116,6 +116,13 @@ final class RequestBody {
     /** {@code { instanceId 或 businessKey, event, outcome, data }} */
     SignalCommand signal() { return new SignalCommand(id("instanceId"), text("businessKey"), text("event"), text("outcome"), object("data")); }
 
+    /** {@code { key }}：停用、启用流程 */
+    String processKey() {
+        String key = text("key");
+        if (key == null || key.isBlank()) throw invalid("key", "required");
+        return key;
+    }
+
     /** {@code { jobId }} */
     RetryJobCommand retryJob() { return new RetryJobCommand(id("jobId")); }
 

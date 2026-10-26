@@ -51,6 +51,7 @@ import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.store.CcStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
+import org.dpdns.zerodep.flow.core.store.DefinitionStore.VersionInfo;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.EventStore;
 import org.dpdns.zerodep.flow.core.store.FormDataStore;
@@ -66,6 +67,7 @@ import org.dpdns.zerodep.flow.core.store.WaitStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
 import org.dpdns.zerodep.flow.core.store.query.QueryStores;
+import org.dpdns.zerodep.flow.core.view.DefinitionProblem;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.StartView;
@@ -156,6 +158,42 @@ public final class FlowEngine<U extends Actor> {
     public StoredDefinition publishDefinition(U actor, String json, String note) {
         allow(actor, "definitions.publish", null);
         return publishing.publishDefinition(actor, json, note);
+    }
+
+    /** 校验定义、不发布（当前操作人） */
+    public List<DefinitionProblem> validateDefinition(String json) { return validateDefinition(actors.current(), json); }
+
+    /** 校验一份定义、不发布：错误与警告都列出来（设计、编辑定义时用，{@code definitions.validate}） */
+    public List<DefinitionProblem> validateDefinition(U actor, String json) {
+        allow(actor, "definitions.validate", null);
+        return publishing.validateDefinition(json);
+    }
+
+    /** 停用或启用流程（当前操作人） */
+    public ProcessSummary setProcessActive(String processKey, boolean active) { return setProcessActive(actors.current(), processKey, active); }
+
+    /** 停用或启用流程：停用后不能再发起，进行中的照常走完（{@code definitions.status}） */
+    public ProcessSummary setProcessActive(U actor, String processKey, boolean active) {
+        allow(actor, "definitions.status", processKey);
+        return publishing.setStatus(processKey, active);
+    }
+
+    /** 流程的全部版本（当前操作人） */
+    public List<VersionInfo> versions(String processKey) { return versions(actors.current(), processKey); }
+
+    /** 流程的全部版本，新的在前（{@code definitions.versions}） */
+    public List<VersionInfo> versions(U actor, String processKey) {
+        allow(actor, "definitions.versions", processKey);
+        return queries.versions(processKey);
+    }
+
+    /** 某个版本的定义 JSON（当前操作人） */
+    public String definitionJson(String processKey, Integer version) { return definitionJson(actors.current(), processKey, version); }
+
+    /** 某个版本的定义 JSON（发布时的原样）；version 为 null 时取最新的（{@code definitions.read}） */
+    public String definitionJson(U actor, String processKey, Integer version) {
+        allow(actor, "definitions.read", processKey);
+        return queries.definitionJson(processKey, version);
     }
 
     /** 发布表单（当前操作人） */

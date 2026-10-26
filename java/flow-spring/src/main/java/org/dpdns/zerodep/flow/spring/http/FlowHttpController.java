@@ -188,6 +188,36 @@ public class FlowHttpController {
         return respond(() -> ResponseBody.page(engine.instances(new InstanceSearch(status, processKey, keyword, startedBy), page, pageSize)));
     }
 
+    /** 校验定义、不发布：请求体是 0005 的定义 JSON，返回 {@code { problems: [...] }} */
+    @PostMapping("/definitions/validate")
+    public ResponseEntity<String> validateDefinition(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> ResponseBody.view(Map.of("problems", engine.validateDefinition(body == null ? "" : body))));
+    }
+
+    /** 停用流程：{@code { key }} */
+    @PostMapping("/definitions/disable")
+    public ResponseEntity<String> disableProcess(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("definitions/disable", () -> ResponseBody.view(engine.setProcessActive(RequestBody.parse(body).processKey(), false)));
+    }
+
+    /** 启用流程：{@code { key }} */
+    @PostMapping("/definitions/enable")
+    public ResponseEntity<String> enableProcess(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("definitions/enable", () -> ResponseBody.view(engine.setProcessActive(RequestBody.parse(body).processKey(), true)));
+    }
+
+    /** 流程的全部版本 */
+    @GetMapping("/queries/processes/{key}/versions")
+    public ResponseEntity<String> versions(@PathVariable("key") String key) {
+        return respond(() -> ResponseBody.view(engine.versions(key)));
+    }
+
+    /** 某个版本的定义 JSON（version 不写取最新的）：返回 {@code { json }}，json 是发布时的原文 */
+    @GetMapping("/queries/processes/{key}/definition")
+    public ResponseEntity<String> definition(@PathVariable("key") String key, @RequestParam(name = "version", required = false) Integer version) {
+        return respond(() -> ResponseBody.view(Map.of("json", engine.definitionJson(key, version))));
+    }
+
     /** 管理端的流程列表 */
     @GetMapping("/queries/processes")
     public ResponseEntity<String> processes() {
