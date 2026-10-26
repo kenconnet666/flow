@@ -22,7 +22,7 @@
 | 项 | 决定 |
 | --- | --- |
 | 来源 | 表单只存一份 TSX 源码。设计器打开时解析源码，拖拽、改属性都是改源码；手改代码后设计器重新解析显示 |
-| 编译 | 保存时在浏览器的 Worker 里编译（`@vue-tsx-pro/tsx/compiler` 的 `compile`，同文档站演练场），源码与编译结果一起存。运行时只执行编译结果，审批页面不带编译器 |
+| 编译 | 保存时在浏览器的 Worker 里编译（`@zerodep-dev/vue-tsx-pro-tsx/compiler` 的 `compile`，同文档站演练场），源码与编译结果一起存。运行时只执行编译结果，审批页面不带编译器 |
 | 依赖 | 表单代码只能导入登记过的模块：vue、vue-tsx-pro 的入口、接入方注册的业务组件与工具（同演练场的模块表 `run.ts`）。导入了没登记的模块，保存时报问题 |
 
 ## 方案（待讨论）
@@ -33,7 +33,7 @@
 
 ```tsx
 import { defineFlowForm, defineFields } from '@zerodep-dev/flow-ui/form';
-import { Field, FormSection, NumberField, TextField } from '@vue-tsx-pro/ui';
+import { Field, FormSection, NumberField, TextField } from '@zerodep-dev/vue-tsx-pro-ui';
 
 /** 字段清单：引擎、设计器、条件构造器都从这里读；只能是字面量 */
 export const fields = defineFields({
@@ -105,7 +105,7 @@ export default defineFlowForm(fields, (form) => () => (
 
 | 部分 | 位置 |
 | --- | --- |
-| 编译（TSX → 可执行代码、import 换成模块表）、执行、编辑器 | 现在都在 vue-tsx-pro 的文档站里（`apps/docs/src/playground/`：`compile.ts`、`run.ts`、`editor.ts`），不是公开的包。建议挪进 vue-tsx-pro 的公开子路径（例如 `@vue-tsx-pro/tsx/runtime-compile` 与 `@vue-tsx-pro/ui/code-editor`），文档站改用它；会动组件库的公开 API，要先确认 |
+| 编译（TSX → 可执行代码、import 换成模块表）、执行、编辑器 | 现在都在 vue-tsx-pro 的文档站里（`apps/docs/src/playground/`：`compile.ts`、`run.ts`、`editor.ts`），不是公开的包。建议挪进 vue-tsx-pro 的公开子路径（例如 `@zerodep-dev/vue-tsx-pro-tsx/runtime-compile` 与 `@zerodep-dev/vue-tsx-pro-ui/code-editor`），文档站改用它；会动组件库的公开 API，要先确认 |
 | 字段清单格式、静态提取、问题代号 | 模型包（TS 与 Java 各一份：Java 后端发布时校验清单、校验提交的值与权限） |
 | `defineFields` / `defineFlowForm`、表单容器、设计器 | 本仓库的前端包 |
 

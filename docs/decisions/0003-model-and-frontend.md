@@ -7,7 +7,7 @@
 
 ## 背景
 
-流程定义、运行时类型（实例、待办、流转记录）和校验原来写在 vue-tsx-pro 的 `@vue-tsx-pro/ui/workflow` 里，注明"后端引擎照这里实现"。
+流程定义、运行时类型（实例、待办、流转记录）和校验原来写在 vue-tsx-pro 的 `@zerodep-dev/vue-tsx-pro-ui/workflow` 里，注明"后端引擎照这里实现"。
 但 TypeScript 后端跑在 Nuxt、Nest 这类服务端框架里，不应为了几个类型和校验函数依赖一个 Vue 组件库；Java 后端也要一份同样语义的实现。
 
 ## 决定
@@ -34,5 +34,5 @@ vue-tsx-pro 是公开仓库，CI 要能安装全部依赖；本仓库是私有�
 
 - vue-tsx-pro 只留通用底座（画布、撤销重做、条件构造器、人员与组织选择器、FilterBar 的高级筛选），现有的 `/workflow` 子路径
   （FlowDiagram、FlowDesigner、ApprovalActions 等）已于 2026-10-26 整个删除（连同文档站的“流程”分类；旧实现在 vue-tsx-pro 的提交 `f7bfdc2e`），流程组件在本仓库按模型包重做，界面风格与新的画布一致；
-- 组件库暂时缺的能力，本仓库像 vue-tsx-pro 的文档站那样用 `@vue-tsx-pro/tsx` 的编译插件直接编译自己的 TSX 补上，不必等组件库发版；
+- 组件库暂时缺的能力，本仓库像 vue-tsx-pro 的文档站那样用 `@zerodep-dev/vue-tsx-pro-tsx` 的编译插件直接编译自己的 TSX 补上，不必等组件库发版；
 - 条件树与组件库的 `Condition`（`{ field, op, value }` 加 all / any / not）同形，模型包定稿时把流程定义里的 `var` 对齐成 `field`。

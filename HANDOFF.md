@@ -15,11 +15,10 @@
   - [0003 模型包与前端的分工](docs/decisions/0003-model-and-frontend.md)：已采纳，前端取 B（见下）。
   - [0004 表单](docs/decisions/0004-forms.md)：讨论中。形态已定：代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
     文件约定、设计器的子集、字段权限、存储与安全待确认。
-- **依赖的两个库已做好发布前的准备，由用户手动发布**：
-  - vue-tsx-pro（组件库）`@vue-tsx-pro/tsx`、`@vue-tsx-pro/ui` 0.1.0，按它的 `RELEASE.md` 发到 npm；
-  - query（ORM）Java 发 Maven 中央仓库、TS 发 npm `@zerodep-dev/query-*`，按它的 `docs/release.md`。发布前要定版本号：
-    CHANGELOG 里 2.1.0 与 2.0.0 都标“未发布”，根 POM 是 `2.0.0-SNAPSHOT`。
-  - 发布之前本仓库要用时：Maven 用本机 `mvnw install` 出的 SNAPSHOT，前端用 vue-tsx-pro 的 `pnpm pack` 出的 tgz。
+- **依赖的两个库由用户手动发布**（2026-10-26 查 npm）：
+  - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0（原名 `@vue-tsx-pro/*`），仓库里已推进到 0.2.0-dev；
+  - query（ORM）TS 已发 npm `@zerodep-dev/query-*` 2.0.0；Java 的 Maven 中央仓库当时还搜不到 `org.dpdns.zerodep`，根 POM 仍是 `2.0.0-SNAPSHOT`。
+  - Maven 发布之前本仓库要用时：用本机 `mvnw install` 出的 SNAPSHOT。
 
 ## 2. 三个仓库的关系
 
@@ -27,12 +26,12 @@
 | --- | --- | --- |
 | flow（本仓库，私有） | `kenconnet666/flow` | 引擎（Java + TS 两个后端）、模型包、流程组件（前端）、管理端页面 |
 | query（公开） | `kenconnet666/query` | 持久化。为引擎补好的能力见 query 的 `.claude/HANDOFF.md`“为流程引擎做的准备”：Spring 多数据源的事务管理器、迁移历史表改名 `historyTable("flow_migration")`、PolarDB 方言、通用门面 `Sql.database(...)` / `database(driver)`、条件树 `conditionBy`、表格请求 `db.table`；引擎写法的实库场景在 query 的 `java/query-it/.../workflow/EngineTest` 与 TS `test/src/live/workflow/engine.live.test.ts` |
-| vue-tsx-pro（公开） | `kenconnet666/vue-tsx-pro` | 前端技术栈与通用底座：画布 `@vue-tsx-pro/ui/diagram`（节点、连线、泳道、撤销重做、小地图、导出）、条件构造器 `ConditionBuilder`（条件树与 query 的 `conditionBy` 同形）、人员与组织选择器 `PeoplePicker`、FilterBar 的高级筛选、`QueryTable` + `useTableQuery`（与 query 的 `db.table` 对接） |
+| vue-tsx-pro（公开） | `kenconnet666/vue-tsx-pro` | 前端技术栈与通用底座：画布 `@zerodep-dev/vue-tsx-pro-ui/diagram`（节点、连线、泳道、撤销重做、小地图、导出）、条件构造器 `ConditionBuilder`（条件树与 query 的 `conditionBy` 同形）、人员与组织选择器 `PeoplePicker`、FilterBar 的高级筛选、`QueryTable` + `useTableQuery`（与 query 的 `db.table` 对接） |
 
 **0003 的 B**：流程组件（流程图、设计器、审批面板、收件箱）在本仓库按模型包重做，界面风格与 vue-tsx-pro 新的画布示例一致
 （虚线泳道、点阵、`DiagramNode`）；vue-tsx-pro 的 `/workflow` 子路径（FlowDiagram、FlowDesigner、ApprovalActions、流程定义与校验）2026-10-26 已删除，
 旧实现在 vue-tsx-pro 的提交 `f7bfdc2e` 的 `packages/ui/src/workflow/`，重做时可以参考（契约的类型、校验规则、排布、文案）。前端方案在 [docs/frontend.md](docs/frontend.md)。
-组件库暂时缺的能力，本仓库像 vue-tsx-pro 的文档站那样用 `@vue-tsx-pro/tsx` 的 Vite 预设直接编译自己的 TSX 补上，不必等组件库发版。
+组件库暂时缺的能力，本仓库像 vue-tsx-pro 的文档站那样用 `@zerodep-dev/vue-tsx-pro-tsx` 的 Vite 预设直接编译自己的 TSX 补上，不必等组件库发版。
 模型包定稿时把流程定义条件里的 `var` 对齐成 `field`（与组件库的 `Condition` 同形）。
 
 改契约（定义 JSON、运行时类型、条件树、表格请求）要三个仓库一起看：前端组件在 vue-tsx-pro，两个后端与模型包在本仓库，SQL 写法在 query。
@@ -91,6 +90,6 @@
 
 ## 6. 下一步
 
-1. 用户手动发布 vue-tsx-pro 0.1.0 与 query（先定版本号）。
+1. 用户手动发布 query 的 Java 包到 Maven 中央仓库（npm 两个库都已发布）。
 2. 和用户讨论第 3 节的待讨论项，定稿 0001、0002。
 3. 建模型包（定义、运行时类型、校验与问题代号、条件求值；TS 与 Java 各一份，共用样例），再建两个后端，最后按 0003 的 B 在本仓库重做流程组件。

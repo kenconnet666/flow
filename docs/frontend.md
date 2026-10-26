@@ -1,7 +1,7 @@
 # 流程前端方案（流程图、设计器、审批与运行时组件）
 
 > 来源：原是 vue-tsx-pro 的 `WORKFLOW.md`，2026-10-26 挪到本仓库。按 [0003](decisions/0003-model-and-frontend.md) 的 B，
-> 流程组件在本仓库按模型包重做，建在 vue-tsx-pro 的画布（`@vue-tsx-pro/ui/diagram`）、条件构造器、人员选择器这些底座上；
+> 流程组件在本仓库按模型包重做，建在 vue-tsx-pro 的画布（`@zerodep-dev/vue-tsx-pro-ui/diagram`）、条件构造器、人员选择器这些底座上；
 > vue-tsx-pro 的 `/workflow` 子路径与文档站的“流程”分类已删除，旧实现（FlowDiagram、FlowDesigner、ApprovalActions、layoutProcess、
 > 流程定义与校验、运行时类型、useWorkflowTimeline）在 vue-tsx-pro 的提交 `f7bfdc2e` 的 `packages/ui/src/workflow/`。
 > 下文说的“本库”指当时的 vue-tsx-pro，“子路径”指当时的 `/workflow`；§1–§6 的结论仍然有效，实施时落在本仓库。
