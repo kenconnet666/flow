@@ -1,6 +1,6 @@
 # 0007 表
 
-- 状态：讨论中（2026-10-26 起草），逐节定稿；第 1 节已定（2026-10-26）。接替 0001 的"表的草案"，按 0004（表单）、0005（定义）、0006（接口）重新设计
+- 状态：讨论中（2026-10-26 起草），逐节定稿；第 1、3 节已定（2026-10-26）。接替 0001 的"表的草案"，按 0004（表单）、0005（定义）、0006（接口）重新设计
 - 相关：并发写法见 0001 的初步方向第 3、4 条（已定）；主键策略见 0006 的 6.1；参考了 warm-flow、FlowLong 的建表脚本与 Flowable 的表（结论见 0001 的"调研结论"）
 
 ## 1. 取舍（已定，用户 2026-10-26）
@@ -35,7 +35,7 @@
 下面的类型里，`ID` 表示按主键策略的编号列，`USER` 是 `VARCHAR(64)`（接入方的用户、部门、角色编号），`NAME` 是 `VARCHAR(200)`，`KEY` 是 `VARCHAR(64)`（流程、表单、节点的标识），`TIME` 是 `DATETIME(3)`。
 每张表都有 `tenant_id VARCHAR(64) NOT NULL DEFAULT ''`，下面不再列。
 
-## 3. 各表
+## 3. 各表（已定，用户 2026-10-26）
 
 ### 3.1 定义
 
@@ -115,6 +115,7 @@
 | `process_key`、`definition_id`、`version` | KEY、ID、INT | 按哪个版本走 |
 | `business_key` | `VARCHAR(128)` | 业务单据编号；同一个业务编号可以有多个实例（重新提交） |
 | `title` | `VARCHAR(500)` | 实例标题（0005 第 2 节的模板） |
+| `priority` | `TINYINT` | 紧急程度，0 是常规，越大越急；发起时给（`start` 的参数），管理员可改；抄到待办上排序用 |
 | `summary` | JSON | 摘要列（0005 第 2 节） |
 | `status` | `VARCHAR(16)` | `draft`、`active`、`suspended`、`completed`、`terminated`、`withdrawn` |
 | `result` | KEY | 结束结果 |
@@ -134,18 +135,19 @@
 | 列 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | ID | |
-| `instance_id`、`process_key` | ID、KEY | `process_key` 抄过来：待办按流程筛选不用连实例表 |
+| `kind` | `VARCHAR(16)` | `task`（普通待办）、`failure`（自动节点重试用完后给管理员的"异常处理"，0005 的 4.1） |
+| `instance_id`、`process_key`、`priority` | ID、KEY、`TINYINT` | 从实例抄过来：待办按流程筛选、按紧急程度排序不用连实例表 |
 | `node`、`node_name`、`round` | KEY、NAME、INT | `round`：这个节点第几轮（`sys.round.节点`） |
-| `state` | `VARCHAR(16)` | `open`、`done`、`canceled` |
+| `state` | `VARCHAR(16)` | `open`、`waiting`（等前加签、委派出去的人办完）、`done`、`canceled` |
 | `assignment` | `VARCHAR(16)` | `pool`（收件箱里等认领）、`claimed`、`direct`、`designated`（负责人指定） |
 | `arrival` | `VARCHAR(16)` | `start`、`forward`、`return`、`escalate`、`transfer`、`delegate`、`addSign`、`jump` |
-| `inbox_role` | USER | 角色收件箱（显示用；可认领的查询走候选表） |
+| `inbox_kind`、`inbox_id` | `VARCHAR(32)`、USER | 收件箱是哪个角色、部门（或扩展的种类）的；显示用，可认领的查询走候选表 |
 | `assignee_id`、`assignee_name` | USER、NAME | 当前处理人；在收件箱里等认领时为空 |
-| `owner_id`、`owner_name` | USER、NAME | 委派时原来的处理人（处理完回到他确认，0006 的 3.3） |
 | `from_node`、`from_user_id`、`from_user_name`、`from_item_id` | | 从哪个节点、谁那里来的 |
 | `sign_group`、`sign_seq`、`weight` | ID、INT、INT | 会签：同一节点同一轮的参与人共用一个 `sign_group`；依次会签的顺序；票签的权重 |
-| `parent_item_id`、`sign_mode` | ID、`VARCHAR(8)` | 加签：从哪个待办加出来的，`before` / `after` / `parallel` |
-| `due_at`、`claimed_at`、`created_at` | TIME | |
+| `parent_item_id`、`add_mode` | ID、`VARCHAR(8)` | 委派与加签都生成**子待办**，`parent_item_id` 指向原来的待办；`add_mode` 是加签的方式 `before` / `after` / `parallel`。前加签、委派时原待办进 `waiting`，子待办都办完回到 `open`（委派就回到原处理人确认） |
+| `due_at`、`claimed_at`、`created_at`、`read_at` | TIME | `read_at`：处理人第一次打开的时间，列表里标"新" |
+| `remind_count`、`last_reminded_at` | INT、TIME | 催办的次数与上一次的时间（0002 §5 的频率限制） |
 | `needs_designation` | `BOOLEAN` | 无人认领超时，等负责人指定 |
 | `reassign_request` | JSON | 申请改派：谁、原因、何时 |
 | `draft` | JSON | 暂存：表单的值与意见（0004 的 5.5） |
@@ -153,7 +155,7 @@
 | `completed_by`、`completed_by_name`、`completed_at` | USER、NAME、TIME | |
 | `rev` | INT | |
 
-索引：（租户, `assignee_id`, `state`, `created_at`）；（租户, `completed_by`, `completed_at`）；（`instance_id`, `state`）；（`sign_group`）。
+索引：（租户, `assignee_id`, `state`, `created_at`）；（租户, `completed_by`, `completed_at`）；（`instance_id`, `state`）；（`sign_group`）；（`parent_item_id`）。
 
 **`flow_candidate`**：打开着的待办谁能处理、谁被排除（1 节第 3、4 条）
 
@@ -184,13 +186,14 @@
 | `id` | ID | |
 | `instance_id`、`work_item_id` | ID | |
 | `type` | `VARCHAR(48)` | 0006 第 5 节的事件种类，另有 `comment`（留言）、`data.changed`（管理员改数据）等 |
-| `node`、`edge`、`outcome` | KEY | |
+| `node`、`node_name`、`edge`、`outcome` | KEY、NAME、KEY、KEY | 名字存快照，看记录不用再查定义 |
+| `instance_rev` | INT | 写这条记录时实例的 `rev`：同一个实例的记录按它排出准确的先后（同一毫秒、不同机器发的号也不会乱），同一步写的几条它相同 |
 | `actor_id`、`actor_name` | USER、NAME | |
 | `at` | TIME | |
 | `comment`、`attachments` | `TEXT`、JSON | |
 | `data` | JSON | 附加：退回的目标、改了哪些表单字段（旧值、新值，0004 的 4.5）、事件带来的数据 |
 
-索引：（`instance_id`, `at`, `id`）；（租户, `actor_id`, `type`, `at`）（我参与过的、工作量统计）。量大时可以用 query 的按月分表（query 的 0008），见第 6 节。
+索引：（`instance_id`, `instance_rev`, `id`）；（租户, `actor_id`, `type`, `at`）（我参与过的、工作量统计）。量大时可以用 query 的按月分表（query 的 0008），见第 6 节。
 
 ### 3.4 协作
 
@@ -200,6 +203,7 @@
 | --- | --- | --- |
 | `id`、`instance_id`、`node` | | |
 | `recipient_id`、`recipient_name` | USER、NAME | |
+| `from_user_id`、`from_user_name`、`message` | USER、NAME、`VARCHAR(500)` | 谁抄送的（抄送节点时为空）、附言 |
 | `created_at`、`read_at` | TIME | |
 
 索引：（租户, `recipient_id`, `read_at`, `created_at`）；（`instance_id`）。
@@ -277,7 +281,7 @@
 | 已办 | `completed_by = 我` | （租户, `completed_by`, `completed_at`） |
 | 我发起的 | `started_by = 我` | `flow_instance`（租户, `started_by`, `started_at`） |
 | 抄送我的 | `recipient_id = 我`，未读在前 | `flow_cc`（租户, `recipient_id`, `read_at`, `created_at`） |
-| 实例详情、进度 | 实例主键 + 它的待办 + 它的流转记录 | （`instance_id`, `state`）、（`instance_id`, `at`, `id`） |
+| 实例详情、进度 | 实例主键 + 它的待办 + 它的流转记录 | （`instance_id`, `state`）、（`instance_id`, `instance_rev`, `id`） |
 | 领取到期作业 | `state = 'pending' AND due_at <= 现在 AND (locked_until IS NULL OR locked_until < 现在)` 按 `due_at` 取一批，再逐个带条件 UPDATE 抢 | `flow_job`（`state`, `due_at`） |
 | 外部事件 | `event = ? AND business_key = ?` | `flow_wait`（租户, `event`, `business_key`） |
 | 统计 | 按流转记录算停留时长、超时率、工作量 | `flow_event`（租户, `actor_id`, `type`, `at`）；大的统计建议在只读库或数仓里做 |
@@ -314,13 +318,12 @@
 ## 8. 和 0001 原草案相比
 
 - 新增 `flow_process`（流程本身）、`flow_form`、`flow_form_version`、`flow_form_data`、`flow_wait`、`flow_calendar`、`flow_worker`、`flow_request` 与归档表；`flow_draft` 改为流程与表单共用。
-- 实例上新增 `state`（运行状态）、`summary`、`root_instance_id`、`suspension`，`current` 改成带名字的 JSON。
-- 待办上新增 `owner`（委派）、会签与加签的几列、`draft`（暂存）、名字快照；`flow_candidate` 改成只存打开着的待办。
+- 实例上新增 `state`（运行状态）、`summary`、`priority`、`root_instance_id`、`suspension`，`current` 改成带名字的 JSON。
+- 待办上新增 `kind`（普通待办、异常处理）、`waiting` 状态、会签的几列、子待办（委派与加签都生成子待办，不用 `owner` 列）、`draft`（暂存）、`read_at`、催办次数、`priority`、名字快照；`flow_candidate` 改成只存打开着的待办。
 - 工作日历拆成日历（带时区、一周的工作日）与例外日两张。
 - 全部表加租户列，索引以租户开头（作业表除外）。
 
 ## 9. 待讨论
 
-1. 第 3 节各表的列，有没有漏的、多的。
-2. 第 4 节的查询，尤其"我的待办"两段合并分页的做法。
-3. 第 6 节：归档默认关、流转记录按月分表可选。
+1. 第 4 节的查询，尤其"我的待办"两段合并分页的做法。
+2. 第 6 节：归档默认关、流转记录按月分表可选。

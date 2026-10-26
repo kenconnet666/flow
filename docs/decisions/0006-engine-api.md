@@ -48,7 +48,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 
 | 命令 | 参数 | 说明 |
 | --- | --- | --- |
-| `start` | `key`、`form`、`variables`、`businessKey`、`title`、`picks`（5.6 选下一步的处理人） | 发起；`starters`（0005 第 2 节）不放行时报错 |
+| `start` | `key`、`form`、`variables`、`businessKey`、`title`、`priority`（随 0007 补）、`picks`（5.6 选下一步的处理人） | 发起；`starters`（0005 第 2 节）不放行时报错 |
 | `saveStartDraft` / `startFromDraft` | 同上 | 发起前存草稿（实例状态 `draft`，不进流程） |
 | `withdraw` | `instanceId`、`reason` | 发起人撤回整个实例，按定义的 `withdraw` 规则 |
 | `remind` | `instanceId` 或 `workItemId` | 催办，按频率限制 |
