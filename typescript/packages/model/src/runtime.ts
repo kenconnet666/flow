@@ -162,3 +162,42 @@ export interface CcItem {
   readonly summary: Readonly<Record<string, unknown>>;
   readonly status: string | null;
 }
+
+/** 流转记录的种类（同 Java 的 FlowEvent 常量）；接入方监听、前端显示时按它认 */
+export const FLOW_EVENT = {
+  INSTANCE_STARTED: 'instance.started',
+  INSTANCE_WITHDRAWN: 'instance.withdrawn',
+  INSTANCE_TERMINATED: 'instance.terminated',
+  INSTANCE_FINISHED: 'instance.finished',
+  INSTANCE_SUSPENDED: 'instance.suspended',
+  INSTANCE_RESUMED: 'instance.resumed',
+  INSTANCE_JUMPED: 'instance.jumped',
+  INSTANCE_COMMENTED: 'instance.commented',
+  INSTANCE_CC: 'instance.cc',
+  NODE_ENTERED: 'node.entered',
+  NODE_LEFT: 'node.left',
+  NODE_OVERDUE: 'node.overdue',
+  WORK_ITEM_CREATED: 'workItem.created',
+  WORK_ITEM_CLAIMED: 'workItem.claimed',
+  WORK_ITEM_COMPLETED: 'workItem.completed',
+  WORK_ITEM_CANCELED: 'workItem.canceled',
+  WORK_ITEM_TRANSFERRED: 'workItem.transferred',
+  WORK_ITEM_DELEGATED: 'workItem.delegated',
+  WORK_ITEM_SIGNERS_ADDED: 'workItem.signersAdded',
+  WORK_ITEM_SIGNERS_REMOVED: 'workItem.signersRemoved',
+  WORK_ITEM_RESUMED: 'workItem.resumed',
+  WORK_ITEM_RELEASED: 'workItem.released',
+  WORK_ITEM_REASSIGNED: 'workItem.reassigned',
+  WORK_ITEM_ASSIGNED: 'workItem.assigned',
+  WORK_ITEM_REMINDED: 'workItem.reminded',
+  WORK_ITEM_OVERDUE: 'workItem.overdue',
+  WORK_ITEM_UNCLAIMED: 'workItem.unclaimed',
+  WORK_ITEM_WITHDRAWN: 'workItem.withdrawn',
+  JOB_FAILED: 'job.failed',
+  JOB_SKIPPED: 'job.skipped',
+  SIGNAL_RECEIVED: 'signal.received',
+  SIGNAL_IGNORED: 'signal.ignored',
+} as const;
+
+/** 处理结果的名字在流转记录 data 里的键（`workItem.completed`） */
+export const OUTCOME_LABEL = 'outcomeLabel';

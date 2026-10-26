@@ -12,7 +12,8 @@
     "typecheck": "tsc -b",
     "test": "tsc -b && node --test \"test/dist/unit/**/*.test.js\"",
     "typecheck:ui": "pnpm --filter @zerodep-dev/flow-ui --filter @zerodep-dev/flow-demo typecheck",
-    "test:ui": "pnpm --filter @zerodep-dev/flow-ui test"
+    "test:ui": "pnpm --filter @zerodep-dev/flow-ui test",
+    "test:live": "tsc -b && node --test --test-concurrency=1 \"test/dist/live/**/*.test.js\""
   },
   "devDependencies": {
     "typescript": "7.1.0-dev.20261023.1"

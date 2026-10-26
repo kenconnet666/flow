@@ -148,7 +148,7 @@ function checkEdges(definition: ProcessDefinition, graph: ProcessGraph, report: 
 
 /** 节点写明了的结果；自动节点、调用流程的结果由运行时给出，没有清单 */
 function declaredOutcomes(node: ProcessNode): readonly string[] | undefined {
-  if (node.type === 'task') return node.outcomes.map((o) => o.key);
+  if (node.type === 'task') return (node.outcomes ?? []).map((o) => o.key);
   if (node.type === 'receive') return node.outcomes;
   return undefined;
 }
@@ -183,17 +183,19 @@ function checkNode(node: ProcessNode, graph: ProcessGraph, context: ValidationCo
 }
 
 function checkTask(node: TaskNode, graph: ProcessGraph, context: ValidationContext, report: Report): void {
-  const keys = node.outcomes.map((o) => o.key);
+  // 草稿里可能还没写结果：当作空的，报 task-no-outcome，而不是校验本身出错
+  const outcomes = node.outcomes ?? [];
+  const keys = outcomes.map((o) => o.key);
   if (keys.length === 0) report('task-no-outcome', { node: node.id });
   for (const key of new Set(keys.filter((k, i) => keys.indexOf(k) !== i))) report('outcome-duplicate', { node: node.id }, { outcome: key });
   // 终止的结果、处理时选退回节点的结果不走出边
   checkUnrouted(
     node.id,
-    node.outcomes.filter((o) => o.kind !== 'terminate' && !choosesTarget(o)).map((o) => o.key),
+    outcomes.filter((o) => o.kind !== 'terminate' && !choosesTarget(o)).map((o) => o.key),
     graph.outgoing(node.id),
     report,
   );
-  for (const outcome of node.outcomes) {
+  for (const outcome of outcomes) {
     if ((outcome.target as string | undefined) !== undefined && !choosesTarget(outcome)) {
       report('return-target-invalid', { node: node.id }, { outcome: outcome.key });
     }
@@ -204,7 +206,7 @@ function checkTask(node: TaskNode, graph: ProcessGraph, context: ValidationConte
   // 引擎自己选的结果（超时自动完成、会签没达到门槛时的 fallback）没人选退回的节点
   const automatic = [node.overdue?.action === 'complete' ? node.overdue.outcome : undefined, node.multi?.fallback];
   for (const key of automatic) {
-    if (key !== undefined && node.outcomes.some((o) => o.key === key && choosesTarget(o))) {
+    if (key !== undefined && outcomes.some((o) => o.key === key && choosesTarget(o))) {
       report('outcome-choose-automatic', { node: node.id }, { outcome: key });
     }
   }
@@ -493,7 +495,7 @@ function checkPublishOnly(definition: ProcessDefinition, context: ValidationCont
       if (node.type.startsWith('x-')) need('node', node.type, at);
       if (node.type === 'service') need('action', node.action, at);
       if (node.type === 'task') {
-        for (const outcome of node.outcomes) for (const guard of outcome.guards ?? []) need('guard', guard, at);
+        for (const outcome of node.outcomes ?? []) for (const guard of outcome.guards ?? []) need('guard', guard, at);
         for (const source of flattenSources(node.assignees ?? [])) if ('resolver' in source) need('resolver', source.resolver, at);
       }
     }

@@ -148,6 +148,7 @@
 | ③u（已完成，2026-10-27） | 命令拦截器（0006 第 6 节"管道"）：命令记录都实现 `FlowCommand`，`CommandInterceptor` 环绕式（先注册的在外层），和标准处理在同一个事务里；`FlowEngine` 的 23 个命令都走 `execute`（权限 → 拦截器 → 标准处理）；Builder `interceptor(...)`、Spring 的 Bean 按 `@Order` 注册 | 场景 interceptors（拦下、改参数、做完再拦整个回滚） |
 | ③v（已完成，2026-10-27） | 幂等记录的定期清理：`RequestStore.deleteBefore`（跨租户，走 created_at 索引）、`engine.purgeRequests(olderThan)`；Spring 的 `FlowJobPoller` 每小时删一次，留 `flow.idempotency.retention`（默认 24 小时）；租户过滤器的名字收成 `FlowDatabase.TENANT_FILTER` | SpringHttpTest 的幂等用例补了清理 |
 | ③w（已完成，2026-10-27） | 表单的管理：查询 `forms`、`formVersions`、`formDocument`，停用启用（停用的表单新发布的流程不能再选，校验报 `form-disabled`）；前端 admin 的 `FlowFormList`、`FlowFormEditor`（字段清单或代码两种写法，边改边校验、预览，清单转代码用 form-tools 的 `codeFromManifest`）；示例前端加"表单管理" | 场景 forms-admin、form-tools 的单测；浏览器里走过编辑采购单、转成代码、发布第 3 版、流程改用后发起页按代码渲染 |
+| ④a（已完成，2026-10-27） | TS 引擎 `@zerodep-dev/flow-core`（typescript/packages/core）：照 Java flow-core 移植——query TS 上的默认存储（同一套表与 JSON 形状，两个后端读写同一张表互通）、发布与校验、发起、认领、处理（会签、委派加签回到原待办、退回选节点、守卫）、撤回、撤回这一步、命令拦截器、监听、各个查询（待办详情、实例详情带流程图、我的待办、已办、我发起的、抄送我的、管理端）；模型包加 `FLOW_EVENT` 常量，校验对没写 outcomes 的人工节点不再出错；TS 的场景运行器跑 spec/scenarios 的实库（`pnpm test:live`，CI 检出 query、起 MySQL）；建表脚本打包时从 Java 的 resources 抄（`scripts/copy-sql.mjs`） | 场景 29 个里 17 个通过、0 失败；12 个跳过（要作业的轮询、协作命令、管理员命令、外部事件、子流程、表单管理与异常的查询，见下一步） |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 
@@ -174,4 +175,4 @@
 17. **按命令替换处理类用拦截器做**：不另设 `CommandHandler<C>`，拦截器认出命令后不调 proceed 就是换掉标准行为；发布定义、发布表单、停用启用暂不过拦截器（不是命令记录，审计可以先用 PermissionPolicy 记）。
 18. **表单发布时只存源码**：编译结果与编译器版本（0004 的 5.4）等组件库给出编译器版本号后再存；现在审批页按源码在浏览器里编译（已有的路径）。表单编辑器预览也是这条路径。
 
-下面是还没做的、按优先级：④ TS 引擎与 Nuxt → ⑤ 可视化设计器 → ⑥ 表单设计器。
+下面是还没做的、按优先级：④b TS 引擎补齐（作业的轮询与内置作业、协作命令、管理员命令、外部事件、子流程、表单管理与异常、幂等）→ ④c `flow-nuxt`（HTTP 接口同 Spring、组织与操作人的接法）→ ⑤ 可视化设计器 → ⑥ 表单设计器。

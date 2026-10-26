@@ -43,3 +43,6 @@ build/
 node_modules/
 **/dist/
 *.tsbuildinfo
+
+# 打包时从 Java 的 resources 抄来的建表脚本（scripts/copy-sql.mjs）
+typescript/packages/core/sql/

@@ -13,6 +13,9 @@
   "references": [
     {
       "path": "../packages/model"
+    },
+    {
+      "path": "../packages/core"
     }
   ]
 }

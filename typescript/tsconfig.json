@@ -5,6 +5,9 @@
       "path": "packages/model"
     },
     {
+      "path": "packages/core"
+    },
+    {
       "path": "test"
     }
   ]
