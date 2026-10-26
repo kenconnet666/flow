@@ -1,6 +1,6 @@
 # 0007 表
 
-- 状态：讨论中（2026-10-26 起草），逐节定稿；第 1、3 节已定（2026-10-26）。接替 0001 的"表的草案"，按 0004（表单）、0005（定义）、0006（接口）重新设计
+- 状态：已定（用户 2026-10-26，逐节讨论定稿）。接替 0001 的"表的草案"，按 0004（表单）、0005（定义）、0006（接口）重新设计
 - 相关：并发写法见 0001 的初步方向第 3、4 条（已定）；主键策略见 0006 的 6.1；参考了 warm-flow、FlowLong 的建表脚本与 Flowable 的表（结论见 0001 的"调研结论"）
 
 ## 1. 取舍（已定，用户 2026-10-26）
@@ -20,7 +20,7 @@
 | 11 | **流程与表单都是"本身 + 版本"两张表**：`flow_process` 存启用停用、最新版本，`flow_definition` 存不可变的版本 | 停用是对整个流程的，不是对某个版本；和表单的 `flow_form` / `flow_form_version`（0004 的 5.2）对称 | 原草案只有版本表，停用要改所有版本或另找地方记 |
 | 12 | 表名前缀可配（默认 `flow_`）；每组表背后是一个可替换的存储接口（0006 第 6 节） | 标准行为都能替换 | — |
 
-## 2. 表一览
+## 2. 表一览（已定，用户 2026-10-26）
 
 | 组 | 表 | 一句话 |
 | --- | --- | --- |
@@ -149,13 +149,14 @@
 | `due_at`、`claimed_at`、`created_at`、`read_at` | TIME | `read_at`：处理人第一次打开的时间，列表里标"新" |
 | `remind_count`、`last_reminded_at` | INT、TIME | 催办的次数与上一次的时间（0002 §5 的频率限制） |
 | `needs_designation` | `BOOLEAN` | 无人认领超时，等负责人指定 |
+| `designator_id` | USER | 等谁来指定：无人认领的作业到期时解析出的收件箱负责人（随第 4 节补） |
 | `reassign_request` | JSON | 申请改派：谁、原因、何时 |
 | `draft` | JSON | 暂存：表单的值与意见（0004 的 5.5） |
 | `outcome`、`comment`、`attachments` | KEY、`TEXT`、JSON | 处理结果 |
 | `completed_by`、`completed_by_name`、`completed_at` | USER、NAME、TIME | |
 | `rev` | INT | |
 
-索引：（租户, `assignee_id`, `state`, `created_at`）；（租户, `completed_by`, `completed_at`）；（`instance_id`, `state`）；（`sign_group`）；（`parent_item_id`）。
+索引：（租户, `assignee_id`, `state`, `created_at`）；（租户, `completed_by`, `completed_at`）；（`instance_id`, `state`）；（`sign_group`）；（`parent_item_id`）；（租户, `designator_id`, `needs_designation`）（随第 4 节补）。
 
 **`flow_candidate`**：打开着的待办谁能处理、谁被排除（1 节第 3、4 条）
 
@@ -193,7 +194,7 @@
 | `comment`、`attachments` | `TEXT`、JSON | |
 | `data` | JSON | 附加：退回的目标、改了哪些表单字段（旧值、新值，0004 的 4.5）、事件带来的数据 |
 
-索引：（`instance_id`, `instance_rev`, `id`）；（租户, `actor_id`, `type`, `at`）（我参与过的、工作量统计）。量大时可以用 query 的按月分表（query 的 0008），见第 6 节。
+索引：（`instance_id`, `instance_rev`, `id`）；（租户, `actor_id`, `type`, `at`）（我参与过的、工作量统计）；（租户, `type`, `at`）（按节点、按流程统计，随第 4 节补）。量大时可以用 query 的按月分表（query 的 0008），见第 6 节。
 
 ### 3.4 协作
 
@@ -269,25 +270,26 @@
 
 **`flow_migration`**：query 的迁移器维护（`historyTable("flow_migration")`）。
 
-## 4. 主要查询与用到的索引
+## 4. 主要查询与用到的索引（已定，用户 2026-10-26）
 
 | 查询 | 怎样查 | 索引 |
 | --- | --- | --- |
 | 我的待办：落到我的 | `assignee_id = 我 AND state = 'open'` | `flow_work_item`（租户, `assignee_id`, `state`, `created_at`） |
 | 我的待办：可认领的 | 候选表里 `(kind, value)` 属于我的（`user` = 我、`role` 在我的角色里、`department` 在我的部门里、扩展种类在我的归属里）→ 待办 `state = 'open' AND assignee_id IS NULL` → 去掉我被排除的 | `flow_candidate`（租户, `kind`, `value`, `work_item_id`）+ 主键 + 唯一（`work_item_id`, `kind`, `value`） |
-| 两种合在一页 | 两段各取前"偏移 + 页长"条再合并排序；总数是两段之和（第二段要求没有处理人，两段不重叠） | 同上 |
-| 需要我指定的 | 我是负责人的收件箱（角色、部门）里 `needs_designation` 的待办 | 候选表按角色、部门查 + 待办的条件 |
+| 两种合在一页 | 两段各取前"偏移 + 页长"条再合并排序；总数是两段之和（第二段要求没有处理人，两段不重叠）。能排序的只有到达时间、截止时间、紧急程度：一个人的待办不多，两段各自在库里排好再合并 | 同上 |
+| 待办数（角标） | 两段各 `COUNT(*)` 相加 | 同上 |
+| 需要我指定的 | 无人认领的作业到期时就解析出负责人，写进待办的 `designator_id`（第 3 节随第 4 节补的一列）；查 `designator_id = 我 AND needs_designation` | `flow_work_item`（租户, `designator_id`, `needs_designation`） |
 | 按摘要筛选、排序待办 | 连实例表取 `summary`；只在"我的待办"这个小集合里筛 | 实例主键 |
-| 已办 | `completed_by = 我` | （租户, `completed_by`, `completed_at`） |
+| 已办 | `completed_by = 我`，默认只查最近 90 天（可改）；翻到很后面时改用"按上一页最后一条的时间往后取"，不用越来越大的偏移 | （租户, `completed_by`, `completed_at`） |
 | 我发起的 | `started_by = 我` | `flow_instance`（租户, `started_by`, `started_at`） |
 | 抄送我的 | `recipient_id = 我`，未读在前 | `flow_cc`（租户, `recipient_id`, `read_at`, `created_at`） |
 | 实例详情、进度 | 实例主键 + 它的待办 + 它的流转记录 | （`instance_id`, `state`）、（`instance_id`, `instance_rev`, `id`） |
 | 领取到期作业 | `state = 'pending' AND due_at <= 现在 AND (locked_until IS NULL OR locked_until < 现在)` 按 `due_at` 取一批，再逐个带条件 UPDATE 抢 | `flow_job`（`state`, `due_at`） |
 | 外部事件 | `event = ? AND business_key = ?` | `flow_wait`（租户, `event`, `business_key`） |
-| 统计 | 按流转记录算停留时长、超时率、工作量 | `flow_event`（租户, `actor_id`, `type`, `at`）；大的统计建议在只读库或数仓里做 |
+| 统计 | 待办办完、节点离开时，流转记录的 `data` 里直接记下停留时长与是否超时，统计只对一种记录分组求和，不用把到达与离开配对 | `flow_event`（租户, `type`, `at`）（第 3 节随第 4 节补的索引）；大的统计建议在只读库或数仓里做 |
 | 归档 | `ended_at < 现在 - N 天` 分批 | `flow_instance`（租户, `ended_at`） |
 
-## 5. 写入
+## 5. 写入（已定，用户 2026-10-26）
 
 | 操作 | 语句 |
 | --- | --- |
@@ -299,14 +301,18 @@
 | 外部事件 | 带条件删掉 `flow_wait` 的那一行，删到了再推进 |
 | 幂等 | 命令的事务里先插 `flow_request` |
 
-## 6. 数据量与归档
+## 6. 数据量与归档（已定，用户 2026-10-26）
 
 - 估算：一个实例 5–20 个待办、20–60 条流转记录。每天 1000 个实例时，一年约 36 万实例、700 万待办、2000 万流转记录。
 - **归档**（默认关，打开后配 N 天）：作业按 `ended_at` 分批把结束的实例连同待办、流转记录、表单的值、抄送搬进 `*_archive`，同一个事务里删掉原行。查实例详情、已办、我发起的时可以带上归档表（参数选）。
-- **流转记录按月分表**（可选）：用 query 的按月分表（query 的 0008，`shard(Event, monthly(...))`），查询按时间条件自动选表。
+- **流转记录按月分表**（可选）：用 query 的按月分表（query 的 0008，`shard(Event, monthly(...))`）。**分表键是实例的发起月份**，不是记录自己的时间：
+  流转记录上加一列 `instance_started_on`（`DATE`，实例的发起日期，打开分表时才有；query 的按月规则按日期列分），一个实例的记录都在同一张表里；查一个实例的记录时引擎从实例行带上这个月份，只查一张表。
+  按记录时间分表的话，"查一个实例的流转记录"不带时间条件，会把所有月份的表都扫一遍。"我参与过的"这类跨实例的查询要带时间范围，按范围选表。
+- **按需打开**：量不大时都不开；量大时先开归档（热表一直小），流转记录还嫌大再分表。
+- **定期清理**：`flow_request` 默认保留 7 天、失败的作业默认保留 30 天，由作业删掉（天数可配）。
 - 候选表与作业表只存"现在还有用的行"，不会随时间增长。
 
-## 7. 可替换的部分
+## 7. 可替换的部分（已定，用户 2026-10-26）
 
 | 标准行为 | 怎样替换 |
 | --- | --- |
@@ -315,15 +321,10 @@
 | 归档 | 替换"归档策略"：搬到别的库、导出成文件、不归档 |
 | 待办查询 | `TodoQueryCustomizer` 连接入方自己的表（0006 第 4 节） |
 
-## 8. 和 0001 原草案相比
+## 8. 和 0001 原草案相比（已定，用户 2026-10-26）
 
 - 新增 `flow_process`（流程本身）、`flow_form`、`flow_form_version`、`flow_form_data`、`flow_wait`、`flow_calendar`、`flow_worker`、`flow_request` 与归档表；`flow_draft` 改为流程与表单共用。
 - 实例上新增 `state`（运行状态）、`summary`、`priority`、`root_instance_id`、`suspension`，`current` 改成带名字的 JSON。
 - 待办上新增 `kind`（普通待办、异常处理）、`waiting` 状态、会签的几列、子待办（委派与加签都生成子待办，不用 `owner` 列）、`draft`（暂存）、`read_at`、催办次数、`priority`、名字快照；`flow_candidate` 改成只存打开着的待办。
 - 工作日历拆成日历（带时区、一周的工作日）与例外日两张。
 - 全部表加租户列，索引以租户开头（作业表除外）。
-
-## 9. 待讨论
-
-1. 第 4 节的查询，尤其"我的待办"两段合并分页的做法。
-2. 第 6 节：归档默认关、流转记录按月分表可选。
