@@ -1,0 +1,13 @@
+{
+  "name": "flow-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Unit tests of every TypeScript package; the shared samples under spec/ run here and in the Java tests",
+  "dependencies": {
+    "@zerodep-dev/flow-model": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2"
+  }
+}

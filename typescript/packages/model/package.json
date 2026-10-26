@@ -1,0 +1,29 @@
+{
+  "name": "@zerodep-dev/flow-model",
+  "version": "0.1.0-dev",
+  "type": "module",
+  "description": "Process definitions, validation, condition evaluation and form access rules shared by the engine and the front end",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kenconnet666/flow.git",
+    "directory": "typescript/packages/model"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

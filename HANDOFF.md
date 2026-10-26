@@ -10,7 +10,7 @@
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：已定（2026-10-26）。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
     主键默认雪花 BIGINT（另带大雪花，也可实现接口自定义，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
-    “初步方向”“表的草案”还待确认。
+    “初步方向”已定，表由 0007 接替。
   - [0002 能力清单](docs/decisions/0002-capabilities.md)：已定（2026-10-26），每节注明落在哪份文档。
   - [0003 模型包与前端的分工](docs/decisions/0003-model-and-frontend.md)：已采纳，前端取 B（见下）。
   - [0007 表](docs/decisions/0007-tables.md)：已定（2026-10-26）。待办不拆运行与历史、冷数据进归档表；候选只存打开着的待办，角色、部门按查询时的成员匹配；运行状态放实例 JSON；租户列都有；名字存快照；流程与表单都是"本身 + 版本"。
@@ -22,8 +22,8 @@
 - **思路记录**（不采用，只留档）：[Spring 里嵌 GraalJS、引擎核心只写一份 TS](docs/notes/graaljs-in-spring.md)。用户 2026-10-26 定路线不变：Java（Spring Boot）与 Nuxt 两个后端。
 - **依赖的两个库由用户手动发布**（2026-10-26 查 npm）：
   - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0（原名 `@vue-tsx-pro/*`），仓库里已推进到 0.2.0-dev；
-  - query（ORM）TS 已发 npm `@zerodep-dev/query-*` 2.0.0；Java 的 Maven 中央仓库当时还搜不到 `org.dpdns.zerodep`，根 POM 仍是 `2.0.0-SNAPSHOT`。
-  - Maven 发布之前本仓库要用时：用本机 `mvnw install` 出的 SNAPSHOT。
+  - query（ORM）已发 2.0.0：npm `@zerodep-dev/query-*`、Maven 中央仓库 `org.dpdns.zerodep:*`；query 主干已推进到 2.1.0-SNAPSHOT。
+  - 本仓库按 2.0.0 依赖（根 `pom.xml` 的 `query.version`）；要先改 query 时，在 query 里 `mvnw install` 出 2.1.0-SNAPSHOT，再把 `query.version` 换过去。
 
 ## 2. 三个仓库的关系
 
@@ -81,7 +81,7 @@
 - **通用性**：引擎要通用、扩展性强。用户背后的真实业务项目只用来检验扩展点够不够，它的业务名词、编号、公司信息**不进任何仓库**
   （公开仓库尤其如此；示例、测试、文档一律用通用的虚构场景：采购、销售、门店、供应商甲）。
 - **密钥**：`GITHUB_TOKEN`、`CONTEXT7_API_KEY`、数据库密码只放用户级环境变量或已忽略的 `.env`，配置用 `${VAR}` 引用，绝不写进文件或提交。
-- **发布**：npm 与 Maven 的发布都由用户手动做，不要替他发布。
+- **发布**：npm 与 Maven 的发布都由用户手动做，不要替他发布。做引擎时碰到 query、wire、组件库这些基础设施的问题，直接在那个仓库里改好，只在本地打包安装给本仓库用（用户 2026-10-26）。
 
 ## 5. 换电脑
 
@@ -99,6 +99,6 @@
 
 ## 6. 下一步
 
-1. 用户手动发布 query 的 Java 包到 Maven 中央仓库（npm 两个库都已发布）。
+1. （已完成）query 2.0.0 与 vue-tsx-pro 0.1.0 都已发布。
 2. 契约都已定（2026-10-26）。整体顺序按 0004 "已定"里的"顺序"一行，现在做第 ② 步：建目录与模型包。
 3. 按 0001 的"模块划分"建目录，再建模型包（TS 与 Java 各一份，共用 spec/ 的样例）、两个后端、前端。

@@ -1,0 +1,19 @@
+{
+  "name": "flow-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Approval workflow engine for TypeScript: the model package, the engine core, the Nuxt module and the UI",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "tsc -b && node --test \"test/dist/unit/**/*.test.js\""
+  },
+  "devDependencies": {
+    "typescript": "7.1.0-dev.20261023.1"
+  },
+  "packageManager": "pnpm@11.22.0"
+}

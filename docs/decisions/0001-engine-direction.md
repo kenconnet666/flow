@@ -17,7 +17,7 @@
 
   两版读同一份流程定义、写同一套表，行为由共享的场景用例保证一致（同 query 的金样例做法）。
 - **前端**用 vue-tsx-pro 搭。契约放本仓库的零依赖模型包，前后端都按它；分工见 [0003](0003-model-and-frontend.md)。
-- **依赖方式**：query、vue-tsx-pro 都按发布的包依赖（npm 上已有 `@zerodep-dev/vue-tsx-pro-*` 0.1.0、`@zerodep-dev/query-*` 2.0.0）；query 的 Java 包发到 Maven 中央仓库之前用本机 `mvnw install` 的 SNAPSHOT（2026-10-26 更新）。
+- **依赖方式**：query、vue-tsx-pro 都按发布的包依赖（npm 上已有 `@zerodep-dev/vue-tsx-pro-*` 0.1.0、`@zerodep-dev/query-*` 2.0.0），query 的 Java 包已发到 Maven 中央仓库（2.0.0）；要先改 query 时用本机 `mvnw install` 的 SNAPSHOT（2026-10-26 更新）。
 
 ## 已定（用户 2026-10-24 确认）
 

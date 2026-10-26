@@ -3,15 +3,94 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <groupId>org.dpdns.zerodep</groupId>
-    <artifactId>flow</artifactId>
-    <version>1.0-SNAPSHOT</version>
-
+    <artifactId>flow-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>flow</name>
+    <description>Approval workflow engine for Spring Boot and Nuxt, with a shared model package.</description>
+    <url>https://github.com/kenconnet666/flow</url>
+    <developers>
+        <developer>
+            <id>kenconnet666</id>
+            <name>lionheart</name>
+            <url>https://github.com/kenconnet666</url>
+        </developer>
+    </developers>
+    <scm>
+        <url>https://github.com/kenconnet666/flow</url>
+        <connection>scm:git:https://github.com/kenconnet666/flow.git</connection>
+        <developerConnection>scm:git:git@github.com:kenconnet666/flow.git</developerConnection>
+    </scm>
+    <!-- 模块按 docs/decisions/0001 的"模块划分"：先有模型包，引擎与 Spring 适配随后加 -->
+    <modules>
+        <module>java/flow-model</module>
+    </modules>
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- 用发布到 Maven 中央仓库的版本；要先改 query 时换成本机 mvnw install 出的 SNAPSHOT -->
+        <query.version>2.0.0</query.version>
+        <junit.version>6.0.3</junit.version>
+        <surefire.version>3.6.0</surefire.version>
     </properties>
-
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.dpdns.zerodep</groupId>
+                <artifactId>wire</artifactId>
+                <version>${query.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dpdns.zerodep</groupId>
+                <artifactId>flow-model</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.16.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${surefire.version}</version>
+                    <configuration>
+                        <argLine>-Xmx512m -Dfile.encoding=UTF-8</argLine>
+                        <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.2</version>
+                    <executions>
+                        <execution>
+                            <id>default-jar</id>
+                            <configuration>
+                                <archive>
+                                    <manifestEntries>
+                                        <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
+                                    </manifestEntries>
+                                </archive>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

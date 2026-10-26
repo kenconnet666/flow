@@ -38,3 +38,8 @@ build/
 ### Mac OS ###
 .DS_Store
 /.idea/
+
+### Node / TypeScript ###
+node_modules/
+**/dist/
+*.tsbuildinfo
