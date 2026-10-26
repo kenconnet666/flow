@@ -1,0 +1,37 @@
+{
+  "name": "定时节点等两小时；收件箱里一小时没人认领提醒，到期前一小时提醒；超时按“同意”自动处理，实例结束后剩下的作业删掉",
+  "forms": [],
+  "processes": ["processes/overtime.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] }
+  },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "overtime" },
+      "expect": { "instance": { "status": "active", "current": [{ "node": "cooling", "name": "冷静期" }] }, "workItems": [] } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T09:59:59Z" }, "expect": { "ran": 0 } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T10:00:00Z" }, "expect": { "ran": 1 } },
+    { "as": "bob", "command": "todo",
+      "expect": { "total": 1, "rows": [{ "workItem": { "node": "review", "assignment": "pool", "dueAt": "2026-10-26T14:00:00Z" } }] } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": { "instance": { "current": [{ "node": "review", "name": "财务确认" }] } } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T11:00:00Z" }, "expect": { "ran": 1 } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T13:00:00Z" }, "expect": { "ran": 1 } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T14:00:00Z" }, "expect": { "ran": 1 } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
+      "expect": {
+        "instance": { "status": "completed", "result": "approved", "current": [] },
+        "workItems": [{ "node": "review", "state": "done", "outcome": "pass", "completedBy": null }],
+        "timeline": [
+          "instance.started", "node.left", "node.entered", "node.left", "node.entered", "workItem.created",
+          { "type": "workItem.reminded", "data": { "auto": true, "reason": "unclaimed" } },
+          { "type": "workItem.reminded", "data": { "auto": true, "reason": "dueSoon" } },
+          { "type": "workItem.overdue", "data": { "dueAt": "2026-10-26T14:00:00Z" } },
+          { "type": "workItem.completed", "outcome": "pass", "actorId": null, "data": { "outcomeLabel": "同意" } },
+          "node.left", "node.entered", "instance.finished"
+        ]
+      } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T18:00:00Z" }, "expect": { "ran": 0 } }
+  ]
+}

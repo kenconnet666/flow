@@ -1,0 +1,26 @@
+{
+  "key": "overtime",
+  "name": "加班申请",
+  "title": "加班申请",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "cooling", "type": "timer", "name": "冷静期", "wait": { "hours": 2 } },
+    { "id": "review", "type": "task", "name": "财务确认", "assignees": [{ "role": 1 }],
+      "due": { "hours": 4 },
+      "reminders": [{ "before": { "hours": 1 } }, { "every": { "hours": 1 }, "times": 2 }],
+      "unclaimed": { "after": { "hours": 1 }, "action": "remind" },
+      "overdue": { "action": "complete", "outcome": "pass" },
+      "outcomes": [
+        { "key": "pass", "label": "同意" },
+        { "key": "reject", "label": "不同意", "kind": "reject" }
+      ] },
+    { "id": "done", "type": "end", "name": "同意", "result": "approved" },
+    { "id": "rejected", "type": "end", "name": "不同意", "result": "rejected" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "cooling" },
+    { "id": "waited", "from": "cooling", "to": "review" },
+    { "id": "passed", "from": "review", "to": "done", "outcome": "pass" },
+    { "id": "refused", "from": "review", "to": "rejected", "outcome": "reject" }
+  ]
+}

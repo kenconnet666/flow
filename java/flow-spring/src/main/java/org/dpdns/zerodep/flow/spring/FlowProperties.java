@@ -2,6 +2,8 @@ package org.dpdns.zerodep.flow.spring;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
+
 /**
  * 引擎在 Spring Boot 里的配置（{@code application.yml} 的 {@code flow.*}）：
  * <pre>
@@ -13,6 +15,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   http:
  *     enabled: true                       # 打开引擎自带的 HTTP 接口（默认关）
  *     path: /flow                         # 接口的路径前缀
+ *   jobs:
+ *     enabled: true                       # 定时做到期的作业：定时节点、超时、提醒（默认开）
+ *     interval: 10s                       # 多久看一次
+ *   calendar:
+ *     zone: Asia/Shanghai                 # 工作日按哪个时区的日期算（默认 UTC）；有节假日时声明一个 WorkCalendar Bean
  * </pre>
  */
 @ConfigurationProperties("flow")
@@ -29,6 +36,12 @@ public class FlowProperties {
     /** HTTP 接口 */
     private final Http http = new Http();
 
+    /** 作业 */
+    private final Jobs jobs = new Jobs();
+
+    /** 工作日历 */
+    private final Calendar calendar = new Calendar();
+
     public String getDatasource() { return datasource; }
 
     public void setDatasource(String datasource) { this.datasource = datasource; }
@@ -40,6 +53,10 @@ public class FlowProperties {
     public Flyway getFlyway() { return flyway; }
 
     public Http getHttp() { return http; }
+
+    public Jobs getJobs() { return jobs; }
+
+    public Calendar getCalendar() { return calendar; }
 
     /**
      * 启动时用 Flyway 执行引擎的建表脚本（docs/decisions/0007 第 9 节）。和应用自己的 Flyway 分开：自己的脚本位置、自己的历史表。
@@ -86,5 +103,35 @@ public class FlowProperties {
         public String getPath() { return path; }
 
         public void setPath(String path) { this.path = path; }
+    }
+
+    /**
+     * 到期的作业（定时节点、待办的超时、提醒、无人认领）谁来做：默认本进程里定时做（{@link FlowJobPoller}）；
+     * 交给已有的调度平台时关掉，由平台定时调 {@code engine.runDueJobs()}。
+     */
+    public static class Jobs {
+        /** 默认开 */
+        private boolean enabled = true;
+
+        /** 多久看一次 */
+        private Duration interval = Duration.ofSeconds(10);
+
+        public boolean isEnabled() { return enabled; }
+
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public Duration getInterval() { return interval; }
+
+        public void setInterval(Duration interval) { this.interval = interval; }
+    }
+
+    /** 默认的工作日历（周一到周五）按哪个时区的日期算；有节假日、调休时声明一个 {@code WorkCalendar} Bean 换掉 */
+    public static class Calendar {
+        /** 默认 UTC */
+        private String zone = "UTC";
+
+        public String getZone() { return zone; }
+
+        public void setZone(String zone) { this.zone = zone; }
     }
 }

@@ -1,0 +1,181 @@
+package org.dpdns.zerodep.flow.core.engine;
+
+import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.RunState;
+import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.store.JobStore.Job;
+import org.dpdns.zerodep.flow.model.definition.Outcome;
+import org.dpdns.zerodep.flow.model.definition.ProcessNode;
+import org.dpdns.zerodep.flow.model.definition.TaskRules;
+import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
+import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
+import org.dpdns.zerodep.flow.model.runtime.WorkItem;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiFunction;
+
+/**
+ * 内置的四种作业（0005 的 5.3 与定时节点）。作业由 {@link Execution} 在待办生成、到达定时节点时排好，到点由 {@link JobRunner} 调：
+ * <ul>
+ *   <li>{@code timer}：定时节点到点了，往下走；</li>
+ *   <li>{@code overdue}：待办超时，记一条"超时"，再按节点的 {@code overdue} 处理——{@code mark} 只记（默认）、
+ *       {@code complete} 按指定的结果自动处理、{@code escalate} 按提级的结果走；</li>
+ *   <li>{@code remind}：提醒处理人（记一条催办，通知由接入方监听流转记录去发）；超时后每隔一段时间的提醒排下一次；</li>
+ *   <li>{@code unclaimed}：进收件箱很久没人认领，提醒，或转收件箱的负责人指定。</li>
+ * </ul>
+ * 都先锁住实例再做，操作人是 {@link SystemActor}。待办已经办完（不再打开）、实例已经结束的作业直接跳过；实例暂停时往后推一小时。
+ */
+public final class BuiltinJobs {
+    static final String TIMER = "timer";
+    static final String OVERDUE = "overdue";
+    static final String REMIND = "remind";
+    static final String UNCLAIMED = "unclaimed";
+
+    /** 作业数据里的键：定时节点、它的轮次、第几个提醒、提醒过几次 */
+    static final String NODE = "node";
+    static final String ROUND = "round";
+    static final String REMINDER = "reminder";
+    static final String SENT = "sent";
+
+    /** 内置作业最多试几次 */
+    static final int MAX_ATTEMPTS = 3;
+    /** 实例暂停时往后推多久再看 */
+    private static final Duration POSTPONE = Duration.ofHours(1);
+
+    private final EngineContext context;
+    private final DefinitionCache definitions;
+    private final CompleteHandler completions;
+
+    public BuiltinJobs(EngineContext context, DefinitionCache definitions, CompleteHandler completions) {
+        this.context = context;
+        this.definitions = definitions;
+        this.completions = completions;
+    }
+
+    /** 四种作业的处理 */
+    public List<JobHandler> handlers() {
+        return List.of(handler(TIMER, this::timer), handler(OVERDUE, this::overdue), handler(REMIND, this::remind),
+            handler(UNCLAIMED, this::unclaimed));
+    }
+
+    /** 定时节点到点：实例还停在这个节点的这一轮上时往下走（跳转、退回跳出区域后不再等了的跳过） */
+    private JobHandler.Next timer(Job job, Instant now) {
+        String node = (String) job.payload().get(NODE);
+        int round = ((Number) job.payload().get(ROUND)).intValue();
+        return onInstance(job, now, run -> {
+            RunState state = run.instance().state();
+            if (state.timers().containsKey(node) && state.round(node) == round) run.timerFired(node);
+            return null;
+        });
+    }
+
+    /** 待办超时：记一条"超时"，再按节点的 overdue 处理 */
+    private JobHandler.Next overdue(Job job, Instant now) {
+        return onOpenItem(job, now, (run, item, task) -> {
+            run.addEvent(FlowEvent.WORK_ITEM_OVERDUE, task, null, null, item.id(), null, Map.of("dueAt", item.dueAt().toString()));
+            overdueOutcome(task).ifPresent(outcome -> completions.finishItem(run, task, item, outcome.key(), outcome, null));
+            return null;
+        });
+    }
+
+    /** 超时自动处理按哪个结果：{@code complete} 是写的那个，{@code escalate} 是提级的那个；{@code mark}（默认）不处理 */
+    private static Optional<Outcome> overdueOutcome(ProcessNode.Task task) {
+        TaskRules.Overdue rule = task.overdue();
+        if (rule == null) return Optional.empty();
+        return switch (rule.action()) {
+            case "complete" -> Optional.of(CompleteHandler.chosenOutcome(task, rule.outcome()));
+            case "escalate" -> task.outcomes().stream().filter(o -> "escalate".equals(o.kindOrDefault())).findFirst();
+            default -> Optional.empty();
+        };
+    }
+
+    /** 提醒：记一条催办；超时后每隔一段时间的，次数没用完时排下一次 */
+    private JobHandler.Next remind(Job job, Instant now) {
+        int index = ((Number) job.payload().get(REMINDER)).intValue();
+        int sent = ((Number) job.payload().get(SENT)).intValue();
+        return onOpenItem(job, now, (run, item, task) -> {
+            if (index >= task.reminders().size()) return null;   // 定义改了：按实例的版本不会走到这里，留个保险
+            TaskRules.Reminder reminder = task.reminders().get(index);
+            context.stores().workItems().remind(item.id(), now, now);
+            remindEvent(run, task, item, reminder.before() != null ? "dueSoon" : "overdue");
+            boolean more = reminder.every() != null && (reminder.times() == null || sent + 1 < reminder.times());
+            return more ? new JobHandler.Next(run.deadlines().plus(reminder.every(), now), Map.of(REMINDER, index, SENT, sent + 1)) : null;
+        });
+    }
+
+    /** 没人认领：还在收件箱里时提醒，或标成等收件箱的负责人指定 */
+    private JobHandler.Next unclaimed(Job job, Instant now) {
+        return onOpenItem(job, now, (run, item, task) -> {
+            if (item.assigneeId() != null || task.unclaimed() == null) return null;   // 已经有人认领了
+            if ("assignByManager".equals(task.unclaimed().action())) {
+                context.stores().workItems().needDesignation(item.id());
+                run.addEvent(FlowEvent.WORK_ITEM_UNCLAIMED, task, null, null, item.id(), null);
+            } else {
+                remindEvent(run, task, item, "unclaimed");
+            }
+            return null;
+        });
+    }
+
+    private static void remindEvent(Execution run, ProcessNode.Task task, WorkItem item, String reason) {
+        run.addEvent(FlowEvent.WORK_ITEM_REMINDED, task, null, null, item.id(), null, Map.of("auto", true, "reason", reason));
+    }
+
+    // ───────── 共用的步骤 ─────────
+
+    /** 对实例做一件事 */
+    @FunctionalInterface
+    private interface InstanceAction {
+        JobHandler.Next apply(Execution run);
+    }
+
+    /** 对实例上一个打开着的待办做一件事 */
+    @FunctionalInterface
+    private interface ItemAction {
+        JobHandler.Next apply(Execution run, WorkItem item, ProcessNode.Task task);
+    }
+
+    /**
+     * 锁住实例再做：实例没了、结束了跳过；暂停时往后推（数据不变）。做完写回。
+     * {@link JobRunner} 已经开了事务。
+     */
+    private JobHandler.Next onInstance(Job job, Instant now, InstanceAction action) {
+        Optional<Integer> rev = context.stores().instances().lock(job.instanceId());
+        if (rev.isEmpty()) return null;
+        InstanceRecord instance = context.stores().instances().find(job.instanceId()).orElseThrow();
+        if (instance.endedAt() != null) return null;
+        if (ProcessInstance.SUSPENDED.equals(instance.status())) return new JobHandler.Next(now.plus(POSTPONE), job.payload());
+        FormValues form = context.stores().formData().read(instance.id()).map(f -> f.values()).orElse(FormValues.empty());
+        Execution run = new Execution(context, SystemActor.INSTANCE, now, definitions.of(instance), instance, form, rev.get());
+        JobHandler.Next next = action.apply(run);
+        run.flush(null);
+        return next;
+    }
+
+    /** 待办还打开着才做：先不加锁看一眼（办完了的直接跳过，不去锁实例），锁住实例后再重读一次 */
+    private JobHandler.Next onOpenItem(Job job, Instant now, ItemAction action) {
+        if (!isOpen(job.workItemId())) return null;
+        return onInstance(job, now, run -> {
+            WorkItem item = context.stores().workItems().find(job.workItemId()).orElseThrow();
+            if (!WorkItem.OPEN.equals(item.state())) return null;
+            return action.apply(run, item, (ProcessNode.Task) run.graph().node(item.node()));
+        });
+    }
+
+    private boolean isOpen(Long workItemId) {
+        return context.stores().workItems().find(workItemId).map(item -> WorkItem.OPEN.equals(item.state())).orElse(false);
+    }
+
+    /** 一种作业的处理 */
+    private static JobHandler handler(String kind, BiFunction<Job, Instant, JobHandler.Next> run) {
+        return new JobHandler() {
+            @Override public String kind() { return kind; }
+
+            @Override public Next run(Job job, Instant now) { return run.apply(job, now); }
+        };
+    }
+}

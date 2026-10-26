@@ -8,6 +8,7 @@ import type { FlowEvent } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Timeline, useFormat, type StatusTone, type TimelineItem } from '@zerodep-dev/vue-tsx-pro-ui';
 import {
+  AlarmClock,
   ArrowRightLeft,
   Bell,
   Check,
@@ -53,6 +54,8 @@ const LOOKS: Readonly<Record<string, { icon: TimelineItem['icon']; tone?: Status
   'workItem.released': { icon: Undo2 },
   'workItem.reassigned': { icon: UserRoundCog, tone: 'warning' },
   'workItem.reminded': { icon: Bell },
+  'workItem.overdue': { icon: AlarmClock, tone: 'danger' },
+  'workItem.unclaimed': { icon: Inbox, tone: 'warning' },
   'instance.commented': { icon: MessageSquare },
   'instance.suspended': { icon: Pause, tone: 'warning' },
   'instance.resumed': { icon: Play },

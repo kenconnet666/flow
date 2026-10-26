@@ -7,6 +7,8 @@ import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.store.JobStore;
+import org.dpdns.zerodep.flow.core.store.JobStore.NewJob;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
@@ -14,6 +16,7 @@ import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.definition.Routing;
+import org.dpdns.zerodep.flow.model.definition.TaskRules;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
@@ -35,7 +38,8 @@ import java.util.Map;
  *   leave(节点, 结果) ──► 按结果与条件选一条线（Routing.selectEdges）
  *                         线上的副作用改流程变量
  *                         enter(下一个节点)
- *                           ├─ 人工节点：轮次加一，解析处理人，生成待办 ──► 停下，等人处理
+ *                           ├─ 人工节点：轮次加一，解析处理人，生成待办（有时限的排上超时、提醒的作业）──► 停下，等人处理
+ *                           ├─ 定时节点：记下到什么时候，排一个作业 ──► 停下，到时候作业让它往下走（BuiltinJobs）
  *                           ├─ 排他网关：leave(网关) ──► 接着走
  *                           ├─ 并行、包容的分叉：选出的每条线都走，记下配对的汇合要等几条
  *                           ├─ 并行、包容的汇合：到了一条，还没等齐 ──► 这条分支停下；等齐了 ──► 接着走
@@ -47,7 +51,8 @@ import java.util.Map;
  *   flush() ──► 重算标题、摘要列、正在处理的节点；写回实例；写入这一步的流转记录
  * </pre>
  * 一路上记下这次新生成的待办（{@link #created}）、结束的待办（{@link #closed}）和流转记录（{@link #events}），处理类把它们作为命令的结果返回。
- * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2）、排他网关、并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
+ * <p>现在有：开始、结束、人工节点（含会签，0005 的 5.2；时限、提醒、超时、无人认领，5.3）、定时节点、排他网关、
+ * 并行与包容网关（结构化配对，0005 的 4.4）、退回与提级、
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
  */
@@ -61,6 +66,7 @@ final class Execution {
     private final Instant now;
     private final ProcessGraph graph;
     private final GatewayPairs pairs;
+    private final Deadlines deadlines;
     private final int rev;
     private InstanceRecord instance;
     private FormValues form;
@@ -87,6 +93,7 @@ final class Execution {
         this.now = now;
         this.graph = definition.graph();
         this.pairs = definition.pairs();
+        this.deadlines = new Deadlines(context.calendar(), definition.model().settings().calendar());
         this.instance = instance;
         this.form = form;
         this.rev = rev;
@@ -106,6 +113,12 @@ final class Execution {
 
     /** 这一步的时刻 */
     Instant now() { return now; }
+
+    /** 这次的操作人；引擎自己推进（作业）时是 {@link SystemActor} */
+    Actor actor() { return actor; }
+
+    /** 时限算成时刻 */
+    Deadlines deadlines() { return deadlines; }
 
     /** 这一步的结果：实例、新生成与结束的待办、流转记录（{@link #flush} 之后调） */
     CommandResult result() { return new CommandResult(instance.view(), created, closed, events); }
@@ -176,6 +189,8 @@ final class Execution {
                 closed.add(item);
                 addEvent(FlowEvent.WORK_ITEM_CANCELED, graph.node(item.node()), null, null, item.id(), null);
             }
+            // 区域里停在定时节点上的分支也不再等（作业到时候看到不在等了就跳过）
+            for (String node : pairs.region(fork)) instance = instance.withState(instance.state().timerDone(node));
             instance = instance.withState(instance.state().forget(pairs.joinOf(fork)));
         }
     }
@@ -196,6 +211,8 @@ final class Execution {
             arriveAtTask(task, arrival);
         } else if (node instanceof ProcessNode.Gateway) {
             arriveAtGateway(nodeId);
+        } else if (node instanceof ProcessNode.Timer timer) {
+            arriveAtTimer(timer);
         } else if (node instanceof ProcessNode.End end) {
             finish(ProcessInstance.COMPLETED, end.result(), FlowEvent.INSTANCE_FINISHED, null);
         } else {
@@ -213,6 +230,28 @@ final class Execution {
             instance = instance.withState(instance.state().arrive(nodeId));
             if (!last) return;
         }
+        leave(nodeId, null);
+    }
+
+    /**
+     * 到达定时节点：轮次加一，算出到什么时候（时长从现在起算，或到某个时刻），记在运行状态里、排一个作业，停在这里；
+     * 到时候作业调 {@link #timerFired}。时刻已经过了、引用的字段没有值时直接往下走。
+     */
+    private void arriveAtTimer(ProcessNode.Timer timer) {
+        instance = instance.withState(instance.state().enter(timer.id()));
+        Instant until = deadlines.of(timer.waitFor(), now, this::read);
+        if (until == null || !until.isAfter(now)) {
+            leave(timer.id(), null);
+            return;
+        }
+        instance = instance.withState(instance.state().waitUntil(timer.id(), until));
+        Map<String, Object> payload = Map.of(BuiltinJobs.NODE, timer.id(), BuiltinJobs.ROUND, instance.state().round(timer.id()));
+        context.stores().jobs().schedule(new NewJob(BuiltinJobs.TIMER, instance.id(), null, until, payload, BuiltinJobs.MAX_ATTEMPTS, now));
+    }
+
+    /** 定时节点到时候了：不再等，往下走 */
+    void timerFired(String nodeId) {
+        instance = instance.withState(instance.state().timerDone(nodeId));
         leave(nodeId, null);
     }
 
@@ -292,12 +331,17 @@ final class Execution {
      * @param weight  票签的权重；不是票签时为 null
      */
     private WorkItem createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight) {
-        return createWorkItem(task, arrival, who, signSeq, weight, Origin.NONE, WorkItem.OPEN);
+        Instant due = task.due() == null ? null : deadlines.of(task.due(), now, this::read);
+        return createWorkItem(task, arrival, who, signSeq, weight, Origin.NONE, WorkItem.OPEN, due);
     }
 
-    /** 同上，带上从哪来；state 是 {@code open}，或后加签时先生成、原来的人处理完才打开的 {@code waiting} */
+    /**
+     * 同上，带上从哪来；state 是 {@code open}，或后加签时先生成、原来的人处理完才打开的 {@code waiting}。
+     *
+     * @param dueAt 截止时间：流转来的按节点的时限算，转办、委派、加签的沿用原来那一份的；没有时限时为 null
+     */
     private WorkItem createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight,
-                                    Origin origin, String state) {
+                                    Origin origin, String state, Instant dueAt) {
         Long assigneeId = who.isDirect() ? who.directUser() : null;
         String assigneeName = assigneeId == null ? null : context.org().userName(assigneeId);
         String assignment = assigneeId != null ? WorkItem.DIRECT : WorkItem.POOL;
@@ -307,9 +351,10 @@ final class Execution {
         WorkItem draft = new WorkItem(null, instance.id(), instance.processKey(), instance.priority(), task.id(), task.name(), round,
             signSeq, weight, state, assignment, arrival, inbox == null ? null : inbox.kind(), inbox == null ? null : inbox.targetId(),
             assigneeId, assigneeName, origin.fromUserId(), origin.fromUserName(), origin.parentItemId(), origin.addMode(), now,
-            null, null, null, null, null, null, null);   // 认领时间、截止时间、处理结果、意见、处理人、处理人名字、处理时间：都还没有
+            null, dueAt, null, null, null, null, null);   // 认领时间、处理结果、意见、处理人、处理人名字、处理时间：都还没有
         WorkItem item = context.stores().workItems().insert(draft, assigneeId != null ? List.of() : who.candidates());
         created.add(item);
+        scheduleTimeouts(task, item);
         // 直接落到人的记下名字快照：流转记录上显示"到达 某节点 · 处理人 张三"；在收件箱里的没有
         addEvent(FlowEvent.WORK_ITEM_CREATED, task, null, null, item.id(), null,
             assigneeName == null ? Map.of() : Map.of("assigneeName", assigneeName));
@@ -327,7 +372,31 @@ final class Execution {
     WorkItem handOver(WorkItem from, Long userId, String arrival, String addMode, String state) {
         ProcessNode.Task task = (ProcessNode.Task) graph.node(from.node());
         Origin origin = new Origin(actor.id(), actor.name(), addMode == null ? null : from.id(), addMode);
-        return createWorkItem(task, arrival, Assignees.of(userId), from.signSeq(), from.weight(), origin, state);
+        return createWorkItem(task, arrival, Assignees.of(userId), from.signSeq(), from.weight(), origin, state, from.dueAt());
+    }
+
+    /**
+     * 待办的超时、提醒、无人认领（0005 的 5.3）各排一个作业：有截止时间时到期那一刻一个超时作业（超时怎么办见节点的 overdue）、
+     * 每个提醒一个（到期前的；超时后每隔一段时间的从到期起算）；进了收件箱、写了 unclaimed 时到点看还有没有人认领。
+     * 待办先办完了也不用删：作业到时候看到待办不再打开就跳过（BuiltinJobs）。
+     */
+    private void scheduleTimeouts(ProcessNode.Task task, WorkItem item) {
+        JobStore jobs = context.stores().jobs();
+        if (item.dueAt() != null) {
+            jobs.schedule(itemJob(BuiltinJobs.OVERDUE, item, item.dueAt(), Map.of()));
+            for (int i = 0; i < task.reminders().size(); i++) {
+                TaskRules.Reminder reminder = task.reminders().get(i);
+                Instant at = reminder.before() != null ? deadlines.minus(reminder.before(), item.dueAt()) : deadlines.plus(reminder.every(), item.dueAt());
+                if (at.isAfter(now)) jobs.schedule(itemJob(BuiltinJobs.REMIND, item, at, Map.of(BuiltinJobs.REMINDER, i, BuiltinJobs.SENT, 0)));
+            }
+        }
+        if (task.unclaimed() != null && item.assigneeId() == null) {
+            jobs.schedule(itemJob(BuiltinJobs.UNCLAIMED, item, deadlines.plus(task.unclaimed().after(), now), Map.of()));
+        }
+    }
+
+    private NewJob itemJob(String kind, WorkItem item, Instant at, Map<String, Object> payload) {
+        return new NewJob(kind, instance.id(), item.id(), at, payload, BuiltinJobs.MAX_ATTEMPTS, now);
     }
 
     /**
@@ -388,6 +457,7 @@ final class Execution {
             addEvent(FlowEvent.WORK_ITEM_CANCELED, graph.node(item.node()), null, null, item.id(), null);
         }
         instance = instance.withEnd(status, result, now);
+        context.stores().jobs().cancelForInstance(instance.id());
         addEvent(eventType, null, null, result, null, comment);
     }
 

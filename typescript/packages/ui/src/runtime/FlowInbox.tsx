@@ -5,12 +5,12 @@
  *   <FlowInbox onOpen={(item) => router.push(`/work-items/${item.workItem.id}`)} />
  *   <FlowInbox list="done" onOpen={(item) => router.push(`/instances/${item.workItem.instanceId}`)} />
  *
- * 标题列是打开的入口；我的待办里等认领的显示"待认领"，我已办里是处理结果与流程现在的状态。
+ * 标题列是打开的入口；我的待办里等认领的显示"待认领"、过了截止时间的标"已超时"，我已办里是处理结果与流程现在的状态。
  * 业务摘要列（实例上的 summary）由使用方经 columns 加。
  */
 import type { TodoItem } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Badge, Link, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
+import { Badge, Flex, Link, useFormat, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
@@ -34,6 +34,7 @@ export interface FlowInboxProps {
 export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], pageSize = 20, title }: FlowInboxProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
+  const format = useFormat();
   const query = useTableQuery((q, signal) => flow[list]({ page: q.page, pageSize: q.pageSize }, signal), {
     pageSize,
     // 两个列表现在都没有筛选条件
@@ -53,7 +54,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
   const nodeColumn = (): DataTableColumn<TodoItem> => ({
     key: 'node',
     header: messages.columnNode,
-    width: 140,
+    width: 120,
     value: (item) => item.workItem.nodeName ?? item.workItem.node,
   });
 
@@ -63,7 +64,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     {
       key: 'assignee',
       header: messages.columnAssignee,
-      width: 120,
+      width: 100,
       value: (item) => item.workItem.assigneeName ?? '',
       cell: (item) =>
         item.workItem.assignment === 'pool' ? <Badge tone="warning">{messages.pool}</Badge> : item.workItem.assigneeName,
@@ -71,9 +72,23 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     {
       key: 'createdAt',
       header: messages.columnArrivedAt,
-      width: 180,
+      width: 170,
       type: 'dateTime',
       value: (item) => new Date(item.workItem.createdAt),
+    },
+    {
+      key: 'dueAt',
+      header: messages.columnDue,
+      width: 190,
+      value: (item) => (item.workItem.dueAt ? new Date(item.workItem.dueAt) : null),
+      // 过了截止时间的标红：时刻按浏览器的时区显示
+      cell: (item) =>
+        item.workItem.dueAt && (
+          <Flex gap="xs" align="center" wrap>
+            {format.date(item.workItem.dueAt, { dateStyle: 'medium', timeStyle: 'short' })}
+            {Date.parse(item.workItem.dueAt) < Date.now() && <Badge tone="danger">{messages.overdue}</Badge>}
+          </Flex>
+        ),
     },
   ];
 

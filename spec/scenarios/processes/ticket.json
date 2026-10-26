@@ -1,0 +1,17 @@
+{
+  "key": "ticket",
+  "name": "工单",
+  "title": "工单",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "handle", "type": "task", "name": "处理工单", "assignees": [{ "user": 1002 }],
+      "due": { "workdays": 5 },
+      "reminders": [{ "every": { "hours": 4 }, "times": 2 }],
+      "outcomes": [{ "key": "fixed", "label": "已解决" }] },
+    { "id": "done", "type": "end", "name": "结束", "result": "fixed" }
+  ],
+  "edges": [
+    { "id": "submit", "from": "start", "to": "handle" },
+    { "id": "fixed", "from": "handle", "to": "done", "outcome": "fixed" }
+  ]
+}

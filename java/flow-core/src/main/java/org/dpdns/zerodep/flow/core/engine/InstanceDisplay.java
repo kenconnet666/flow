@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.model.Values;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
+import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 import org.dpdns.zerodep.flow.model.runtime.ProcessInstance.CurrentNode;
 import org.dpdns.zerodep.flow.model.runtime.WorkItem;
@@ -20,7 +21,7 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>标题：定义的 {@code title} 模板，花括号里的引用换成值，如 {@code "采购申请：{form.title}"} → "采购申请：办公桌"；</li>
  *   <li>摘要列：定义的 {@code summary} 里每个引用 → 值，收件箱直接显示，不用再查表单；</li>
- *   <li>正在处理的节点：还开着的待办在哪些节点上（去重）；实例结束了就是空的。</li>
+ *   <li>正在处理的节点：还开着的待办在哪些节点上（去重），加上停着等时间的定时节点；实例结束了就是空的。</li>
  * </ul>
  */
 final class InstanceDisplay {
@@ -40,7 +41,7 @@ final class InstanceDisplay {
         String title = fixedTitle != null ? fixedTitle : title(definition, read);
         Map<String, Object> summary = new LinkedHashMap<>();
         for (String name : definition.summary()) summary.put(name, read.apply(name));
-        return instance.withDisplay(title, summary, currentNodes(instance, workItems));
+        return instance.withDisplay(title, summary, currentNodes(instance, definition, workItems));
     }
 
     /** 按模板生成标题；不写模板时用流程名 */
@@ -57,13 +58,17 @@ final class InstanceDisplay {
         return out.toString();
     }
 
-    /** 还开着的待办所在的节点，按到达的先后、去重 */
-    private static List<CurrentNode> currentNodes(InstanceRecord instance, WorkItemStore workItems) {
+    /** 还开着的待办所在的节点，按到达的先后、去重；再加上停着等时间的定时节点 */
+    private static List<CurrentNode> currentNodes(InstanceRecord instance, ProcessDefinition definition, WorkItemStore workItems) {
         // 结束了的没有正在处理的节点；暂停的照样显示停在哪
         if (instance.endedAt() != null) return List.of();
         Map<String, CurrentNode> open = new LinkedHashMap<>();
         for (WorkItem item : workItems.ofInstance(instance.id())) {
             if (WorkItem.OPEN.equals(item.state())) open.putIfAbsent(item.node(), new CurrentNode(item.node(), item.nodeName()));
+        }
+        for (String node : instance.state().timers().keySet()) {
+            String name = definition.nodes().stream().filter(n -> n.id().equals(node)).map(ProcessNode::name).findFirst().orElse(null);
+            open.putIfAbsent(node, new CurrentNode(node, name));
         }
         return List.copyOf(open.values());
     }

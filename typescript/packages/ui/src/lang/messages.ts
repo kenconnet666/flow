@@ -23,6 +23,8 @@ export interface FlowMessages {
   readonly startedAt: string;
   /** 在收件箱里等认领 */
   readonly pool: string;
+  /** 过了截止时间 */
+  readonly overdue: string;
   /** 打开一个待办的按钮 */
   readonly open: string;
   /** 认领 */
@@ -64,7 +66,8 @@ export interface FlowMessages {
   /** 我已办、我发起的列表的标题 */
   readonly doneList: string;
   readonly startedList: string;
-  /** 列表的列：处理结果、处理时间、状态、当前环节 */
+  /** 列表的列：截止时间、处理结果、处理时间、状态、当前环节 */
+  readonly columnDue: string;
   readonly columnOutcome: string;
   readonly columnCompletedAt: string;
   readonly columnStatus: string;
@@ -160,6 +163,8 @@ const zhEvents: Record<string, string> = {
   'workItem.released': '退回收件箱',
   'workItem.reassigned': '改派',
   'workItem.reminded': '催办',
+  'workItem.overdue': '超时',
+  'workItem.unclaimed': '无人认领',
   'instance.commented': '留言',
   'instance.suspended': '暂停',
   'instance.resumed': '恢复',
@@ -183,10 +188,20 @@ const enEvents: Record<string, string> = {
   'workItem.released': 'Released',
   'workItem.reassigned': 'Reassigned',
   'workItem.reminded': 'Reminded',
+  'workItem.overdue': 'Overdue at',
+  'workItem.unclaimed': 'Unclaimed at',
   'instance.commented': 'Commented',
   'instance.suspended': 'Suspended',
   'instance.resumed': 'Resumed',
   'instance.jumped': 'Jumped to',
+};
+
+/** 引擎自动提醒的原因（流转记录里 workItem.reminded 的 data.reason） */
+const zhReminders: Record<string, string> = { dueSoon: '即将到期，自动提醒', overdue: '已超时，自动提醒', unclaimed: '很久没人认领，自动提醒' };
+const enReminders: Record<string, string> = {
+  dueSoon: 'Due soon (automatic)',
+  overdue: 'Overdue (automatic)',
+  unclaimed: 'Not claimed yet (automatic)',
 };
 
 /** 事件数据里的名字（引擎存的快照） */
@@ -204,6 +219,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     startedBy: '发起人',
     startedAt: '发起时间',
     pool: '待认领',
+    overdue: '已超时',
     open: '办理',
     claim: '认领',
     comment: '意见',
@@ -230,6 +246,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     removeRow: (row) => `删除第 ${row} 行`,
     doneList: '我已办',
     startedList: '我发起的',
+    columnDue: '截止',
     columnOutcome: '处理结果',
     columnCompletedAt: '处理时间',
     columnStatus: '状态',
@@ -264,6 +281,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
         const who = text(data['assigneeName']);
         return who && `处理人 ${who}`;
       }
+      if (type === 'workItem.reminded' && data['auto']) return zhReminders[text(data['reason']) ?? ''] ?? '自动提醒';
+      if (type === 'workItem.unclaimed') return '转收件箱的负责人指定';
       const to = text(data['toUserName']);
       return to ? `交给 ${to}` : null;
     },
@@ -277,6 +296,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     startedBy: 'Started by',
     startedAt: 'Started at',
     pool: 'Unclaimed',
+    overdue: 'Overdue',
     open: 'Open',
     claim: 'Claim',
     comment: 'Comment',
@@ -303,6 +323,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     removeRow: (row) => `Remove row ${row}`,
     doneList: 'Done by me',
     startedList: 'Started by me',
+    columnDue: 'Due',
     columnOutcome: 'Outcome',
     columnCompletedAt: 'Completed',
     columnStatus: 'Status',
@@ -337,6 +358,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
         const who = text(data['assigneeName']);
         return who && `Assigned to ${who}`;
       }
+      if (type === 'workItem.reminded' && data['auto']) return enReminders[text(data['reason']) ?? ''] ?? 'Automatic reminder';
+      if (type === 'workItem.unclaimed') return 'Handed to the inbox manager';
       const to = text(data['toUserName']);
       return to ? `To ${to}` : null;
     },

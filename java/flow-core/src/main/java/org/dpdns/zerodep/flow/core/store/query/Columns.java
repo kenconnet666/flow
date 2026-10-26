@@ -46,18 +46,34 @@ public final class Columns {
         @Override public Variables fromDatabase(String value) { return Variables.of(object(value)); }
     }
 
-    /** 运行状态：{ "rounds": { 节点: 轮次 } } */
+    /** 运行状态：{ "rounds": { 节点: 轮次 }, "waiting": …, "returns": …, "queues": …, "timers": { 节点: 时刻 } } */
     public static final class RunStateJson implements Converter<RunState, String> {
         @Override
         public String toDatabase(RunState value) {
             return value == null ? null
-                : Json.write(Map.of("rounds", value.rounds(), "waiting", value.waiting(), "returns", value.returns(), "queues", value.queues()));
+                : Json.write(Map.of("rounds", value.rounds(), "waiting", value.waiting(), "returns", value.returns(), "queues", value.queues(),
+                    "timers", texts(value.timers())));
         }
 
         @Override
         public RunState fromDatabase(String value) {
             Map<String, Object> json = object(value);
-            return new RunState(counts(json.get("rounds")), counts(json.get("waiting")), names(json.get("returns")), queues(json.get("queues")));
+            return new RunState(counts(json.get("rounds")), counts(json.get("waiting")), names(json.get("returns")), queues(json.get("queues")),
+                moments(json.get("timers")));
+        }
+
+        /** 节点 → 时刻写成带 Z 的文字 */
+        private static Map<String, String> texts(Map<String, Instant> timers) {
+            Map<String, String> out = new LinkedHashMap<>();
+            timers.forEach((node, at) -> out.put(node, at.toString()));
+            return out;
+        }
+
+        /** 节点 → 时刻（JSON 里是带 Z 的文字） */
+        private static Map<String, Instant> moments(Object stored) {
+            Map<String, Instant> out = new LinkedHashMap<>();
+            if (stored instanceof Map<?, ?> map) map.forEach((node, at) -> out.put((String) node, Instant.parse(String.valueOf(at))));
+            return out;
         }
 
         /** 节点 → 一串用户编号 */

@@ -24,7 +24,7 @@ import java.util.Map;
  *   <li>重读待办：已处理、已取消的报 {@code flow.work-item-not-open}（重复提交）；还在收件箱里的，候选人处理就是先认领；</li>
  *   <li>核对处理结果与意见：结果要是节点上写的一个，意见必填的要填；</li>
  *   <li>收表单：只取这个节点上能改的字段，其余用存着的值；</li>
- *   <li>待办改成"已处理"（带条件的更新，改到 0 行就是别人先处理了）；</li>
+ *   <li>待办改成"已处理"（带条件的更新，改到 0 行就是别人先处理了；这一步与下一步在 {@link #finishItem}，超时自动处理也走它）；</li>
  *   <li>往下走：委派、加签生成的待办办完了按 {@link SubItems} 回到原来的待办；原来的待办还在等加签的人时先不走；
  *       会签节点先看结束了没有（{@link Countersign}：还要等别人、轮到下一个人、或按某个结果结束）；
  *       节点结束了按结果的种类往下：同意、否决、退回、提级按出边流转，终止直接结束实例；</li>
@@ -74,28 +74,36 @@ public final class CompleteHandler {
                 context.stores().formData().update(instance.id(), run.form());
             }
 
-            // 5. 待办改成已处理
-            String outcomeKey = outcome == null ? command.outcome() : outcome.key();
-            Completion completion = new Completion(outcomeKey, command.comment(), actor.id(), actor.name(), now);
-            if (!context.stores().workItems().complete(item.id(), completion)) throw FlowErrors.notOpen(item.id());
-            run.closed.add(item);
-            // 结果的名字存快照（同处理人的名字）：流转记录上显示"通过"而不是 pass，以后改了定义也不变
-            Map<String, Object> data = outcome == null ? Map.of() : Map.of(FlowEvent.OUTCOME_LABEL, outcome.label());
-            run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), command.comment(), data);
-
-            // 6. 往下走
-            Outcome chosen = outcome != null ? outcome : implicitApprove(outcomeKey);
-            if (item.parentItemId() != null) {
-                // 委派、加签的人办完：回到原来的待办（SubItems）；后加签、并加的都办完了才按原来的人的结果往下
-                SubItems.childDone(context, run, task, item, (parent, parentOutcome) -> settle(run, task, parent, parentOutcome, command.comment()));
-            } else if (!SubItems.holdsParent(context, run, task, item, chosen)) {
-                settle(run, task, item, chosen, command.comment());
-            }
+            // 5、6. 待办改成已处理，往下走
+            finishItem(run, task, item, outcome == null ? command.outcome() : outcome.key(), outcome, command.comment());
 
             // 7. 写回
             run.flush(null);
             return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
         });
+    }
+
+    /**
+     * 待办按这个结果办完（第 5、6 步）：改成已处理、记流转记录、往下走。处理人是这一步的操作人（超时自动处理时是系统）。
+     * 处理命令与超时自动处理（{@link BuiltinJobs}）共用。
+     *
+     * @param outcome 选的结果；节点没写处理结果时为 null（按 outcomeKey 当作一个"同意"）
+     */
+    void finishItem(Execution run, ProcessNode.Task task, WorkItem item, String outcomeKey, Outcome outcome, String comment) {
+        Completion completion = new Completion(outcomeKey, comment, run.actor().id(), run.actor().name(), run.now());
+        if (!context.stores().workItems().complete(item.id(), completion)) throw FlowErrors.notOpen(item.id());
+        run.closed.add(item);
+        // 结果的名字存快照（同处理人的名字）：流转记录上显示"通过"而不是 pass，以后改了定义也不变
+        Map<String, Object> data = outcome == null ? Map.of() : Map.of(FlowEvent.OUTCOME_LABEL, outcome.label());
+        run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), comment, data);
+
+        Outcome chosen = outcome != null ? outcome : implicitApprove(outcomeKey);
+        if (item.parentItemId() != null) {
+            // 委派、加签的人办完：回到原来的待办（SubItems）；后加签、并加的都办完了才按原来的人的结果往下
+            SubItems.childDone(context, run, task, item, (parent, parentOutcome) -> settle(run, task, parent, parentOutcome, comment));
+        } else if (!SubItems.holdsParent(context, run, task, item, chosen)) {
+            settle(run, task, item, chosen, comment);
+        }
     }
 
     /**
@@ -140,7 +148,7 @@ public final class CompleteHandler {
     }
 
     /** 选的结果：节点写了结果时必须是其中一个；节点没写结果时为 null（按没写结果的出边走） */
-    private static Outcome chosenOutcome(ProcessNode.Task task, String key) {
+    static Outcome chosenOutcome(ProcessNode.Task task, String key) {
         if (task.outcomes().isEmpty()) return null;
         Outcome outcome = task.outcomes().stream().filter(o -> o.key().equals(key)).findFirst()
             .orElseThrow(() -> FlowErrors.invalid("outcome", "unknown-outcome"));

@@ -15,3 +15,7 @@ flow:
   http:
     enabled: true        # 打开引擎自带的接口：/flow/commands/*、/flow/queries/*
     path: /flow
+  jobs:
+    interval: 5s         # 定时节点、超时、提醒：每 5 秒看一次到期的作业（默认 10 秒）
+  calendar:
+    zone: Asia/Shanghai  # "工作日"按北京时间的日期算

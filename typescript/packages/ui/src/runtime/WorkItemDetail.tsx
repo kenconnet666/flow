@@ -143,6 +143,9 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
               { key: 'node', label: messages.columnNode, value: workItem.nodeName ?? workItem.node },
               { key: 'startedBy', label: messages.startedBy, value: instance.startedByName ?? '' },
               { key: 'startedAt', label: messages.startedAt, value: format.date(instance.startedAt, { dateStyle: 'medium', timeStyle: 'short' }) },
+              ...(workItem.dueAt
+                ? [{ key: 'dueAt', label: messages.columnDue, value: format.date(workItem.dueAt, { dateStyle: 'medium', timeStyle: 'short' }) }]
+                : []),
             ]}
           />
         </Card>

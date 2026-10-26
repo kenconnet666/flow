@@ -51,6 +51,9 @@ public interface WorkItemStore {
     /** 记一次催办：次数加一、记下时间；上一次催办在 notBefore 之后时不记（频率限制）；返回记了没有 */
     boolean remind(Long workItemId, Instant at, Instant notBefore);
 
+    /** 无人认领超时，标成等收件箱的负责人指定（0007 的 needs_designation）；返回是否改到 */
+    boolean needDesignation(Long workItemId);
+
     /** 委派、加签从这个待办生成的待办，按生成的先后 */
     List<WorkItem> children(Long parentItemId);
 

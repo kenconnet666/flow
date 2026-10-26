@@ -1,6 +1,8 @@
 package org.dpdns.zerodep.flow.spring;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
+import org.dpdns.zerodep.flow.core.engine.JobHandler;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
@@ -10,6 +12,7 @@ import org.dpdns.zerodep.flow.core.store.EventStore;
 import org.dpdns.zerodep.flow.core.store.FormDataStore;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
+import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.spring.http.FlowHttpController;
 import org.dpdns.zerodep.query.spring.SpringConnections;
@@ -26,6 +29,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.time.Clock;
+import java.time.ZoneId;
 
 /**
  * 引擎在 Spring Boot 里的自动配置（docs/decisions/0006 的 7.1）。应用只要：
@@ -35,7 +39,8 @@ import java.time.Clock;
  *   <li>当前操作人：用了 Spring Security 且登录后的 principal 实现了 {@link Actor} 时自动取；否则声明一个 {@link ActorProvider} Bean；</li>
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
- * 其余扩展点（权限、时钟、六个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）。
+ * 其余扩展点（权限、时钟、工作日历、七个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
+ * 声明的 {@link JobHandler} Bean 注册成作业的处理。到期的作业默认由 {@link FlowJobPoller} 定时做（{@code flow.jobs.*}）。
  * 引擎注入成 {@code FlowEngine<自己的用户类型>} 即可。
  */
 @AutoConfiguration(afterName = {
@@ -60,7 +65,9 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<PermissionPolicy> permissions, ObjectProvider<Clock> clock,
                                  ObjectProvider<DefinitionStore> definitionStore, ObjectProvider<FormStore> formStore,
                                  ObjectProvider<FormDataStore> formDataStore, ObjectProvider<InstanceStore> instanceStore,
-                                 ObjectProvider<WorkItemStore> workItemStore, ObjectProvider<EventStore> eventStore) {
+                                 ObjectProvider<WorkItemStore> workItemStore, ObjectProvider<EventStore> eventStore,
+                                 ObjectProvider<JobStore> jobStore, ObjectProvider<WorkCalendar> calendar,
+                                 ObjectProvider<JobHandler> jobHandlers) {
         migration.ifAvailable(m -> { });
         OrgDirectory directory = org.getIfAvailable();
         if (directory == null) {
@@ -80,6 +87,9 @@ public class FlowAutoConfiguration {
         instanceStore.ifAvailable(builder::instanceStore);
         workItemStore.ifAvailable(builder::workItemStore);
         eventStore.ifAvailable(builder::eventStore);
+        jobStore.ifAvailable(builder::jobStore);
+        builder.workCalendar(calendar.getIfAvailable(() -> WorkCalendar.weekdays(ZoneId.of(properties.getCalendar().getZone()))));
+        jobHandlers.orderedStream().forEach(builder::jobHandler);
         return builder.build();
     }
 
@@ -90,6 +100,14 @@ public class FlowAutoConfiguration {
     public FlowSchemaMigration flowSchemaMigration(FlowProperties properties, BeanFactory beans) {
         DataSource dataSource = pick(beans, DataSource.class, properties.getDatasource(), "flow.datasource");
         return new FlowSchemaMigration(dataSource, properties.getFlyway());
+    }
+
+    /** 定时做到期的作业；{@code flow.jobs.enabled=false} 时不建，由接入方的调度平台调 {@code engine.runDueJobs()} */
+    @Bean
+    @ConditionalOnProperty(prefix = "flow.jobs", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @SuppressWarnings("rawtypes")
+    public FlowJobPoller flowJobPoller(FlowEngine engine, FlowProperties properties) {
+        return new FlowJobPoller(engine, properties.getJobs().getInterval());
     }
 
     /** 用了 Spring Security、应用没给 {@link ActorProvider} 时：当前操作人取登录的 principal */

@@ -32,8 +32,7 @@ import org.dpdns.zerodep.query.exec.Page;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
 
-import java.time.Clock;
-import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,17 +54,19 @@ final class ScenarioRunner {
 
     private final Scenario scenario;
     private final FlowEngine<TestUser> engine;
+    private final MovableClock clock;
     private final Map<String, Map<String, Object>> named = new HashMap<>();
     private Map<String, Object> previous = Map.of();
 
     ScenarioRunner(Scenario scenario) {
         this.scenario = scenario;
         LiveMysql.recreateTables();
+        this.clock = new MovableClock(scenario.clock());
         Map<Long, String> names = new HashMap<>();
         scenario.actors().values().forEach(user -> names.put(user.id(), user.name()));
         this.engine = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
             .orgDirectory(new TestOrg(names))
-            .clock(Clock.fixed(scenario.clock(), ZoneOffset.UTC))
+            .clock(clock)
             .build();
     }
 
@@ -88,6 +89,11 @@ final class ScenarioRunner {
 
     /** 执行一步：成功时是结果，出了带码的错时是 {@code { error: … }} */
     private Map<String, Object> execute(Step step, String where) {
+        // 拨时钟、做到期的作业：引擎自己做的事，没有操作人
+        if ("runJobs".equals(step.command())) {
+            clock.moveTo(Instant.parse((String) step.args().get("at")));
+            return Map.of("ran", engine.runDueJobs());
+        }
         TestUser actor = scenario.actors().get(step.as());
         if (actor == null) throw new IllegalArgumentException(where + ": unknown actor " + step.as());
         Arguments args = new Arguments(resolve(step.args()));

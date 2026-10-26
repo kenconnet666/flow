@@ -33,9 +33,20 @@
 | `withdraw` | `instance`、`reason` | 同上 |
 | `startable` | — | `processes`（每项 `{ key, name, category, version }`） |
 | `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null） |
-| `todo` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary }`） |
-| `workItem` | `workItem` | `workItem`、`instance`、`form`、`outcomes`、`claimable`、`completable` |
-| `instance` | `instance` | `instance`、`form`、`workItems`（全部待办）、`timeline` |
+| `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary, status, outcomeLabel }`） |
+| `started` | 同上 | `total`、`rows`（每行是实例） |
+| `workItem` | `workItem` | `workItem`、`instance`、`form`、`outcomes`、`claimable`、`completable`、`actions` |
+| `instance` | `instance` | `instance`、`form`（同发起页的 form，按流程级 formView 只读）、`workItems`（全部待办）、`timeline`、`actions` |
+| `transfer`、`delegate`、`reassign` | `workItem`、`user`、`reason` | 同 `start` |
+| `addSigners` | `workItem`、`users`、`mode`（before / after / parallel）、`reason` | 同 `start` |
+| `removeSigners` | `workItem`、`users` | 同 `start` |
+| `release` | `workItem`、`reason` | 同 `start` |
+| `remind` | `instance`、`workItem`（不写时催实例上全部打开着的）、`message` | 同 `start` |
+| `comment` | `instance`、`text` | 同 `start` |
+| `terminate`、`suspend` | `instance`、`reason` | 同 `start` |
+| `resume` | `instance` | 同 `start` |
+| `jump` | `instance`、`node`、`reason` | 同 `start` |
+| `runJobs` | `at`：把时钟拨到这一刻（不能往回拨），做到期的作业；这一步不写 `as` | `ran`（做了几个作业） |
 | `publishDefinition` | `definition`（内联的定义） | — |
 
 ## 引用前面的结果

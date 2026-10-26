@@ -184,6 +184,24 @@ final class FlowTables {
         @Column("target_id") ColBigint<Long> targetId();
     }
 
+    /** 作业：到时候要做的事；读出来就是 JobStore.Job */
+    @Table("flow_job")
+    interface Job extends Tenanted {
+        @Id @Generated @Column("id") ColBigint<Long> id();
+        @Column("kind") ColText<String> kind();
+        @Column("instance_id") ColBigint<Long> instanceId();
+        @Column("work_item_id") ColBigint<Long> workItemId();
+        @Column(value = "due_at", converter = Columns.Utc.class) ColTimestamp<Instant> dueAt();
+        @Column(value = "payload", converter = Columns.ObjectJson.class) ColClob<Map<String, Object>> payload();
+        @Column("state") ColText<String> state();
+        @Column("attempts") ColInteger<Integer> attempts();
+        @Column("max_attempts") ColInteger<Integer> maxAttempts();
+        @Column("locked_by") ColText<String> lockedBy();
+        @Column(value = "locked_until", converter = Columns.Utc.class) ColTimestamp<Instant> lockedUntil();
+        @Column("last_error") ColClob<String> lastError();
+        @Column(value = "created_at", converter = Columns.Utc.class) ColTimestamp<Instant> createdAt();
+    }
+
     /** 流转记录，只追加：读出来就是模型包的 FlowEvent */
     @Table("flow_event")
     interface Event extends Tenanted {

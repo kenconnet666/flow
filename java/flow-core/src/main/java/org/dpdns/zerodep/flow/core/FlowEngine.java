@@ -18,15 +18,20 @@ import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
+import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.engine.AdminHandler;
+import org.dpdns.zerodep.flow.core.engine.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.engine.ClaimHandler;
 import org.dpdns.zerodep.flow.core.engine.CollaborationHandler;
 import org.dpdns.zerodep.flow.core.engine.CompleteHandler;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.JobHandler;
+import org.dpdns.zerodep.flow.core.engine.JobRunner;
 import org.dpdns.zerodep.flow.core.engine.Publishing;
 import org.dpdns.zerodep.flow.core.engine.Queries;
 import org.dpdns.zerodep.flow.core.engine.StartHandler;
+import org.dpdns.zerodep.flow.core.engine.TenantScope;
 import org.dpdns.zerodep.flow.core.engine.WithdrawHandler;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
@@ -39,6 +44,7 @@ import org.dpdns.zerodep.flow.core.store.FormDataStore;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.InstanceStore;
+import org.dpdns.zerodep.flow.core.store.JobStore;
 import org.dpdns.zerodep.flow.core.store.Stores;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
@@ -57,6 +63,8 @@ import org.dpdns.zerodep.query.exec.Page;
 
 import javax.sql.DataSource;
 import java.time.Clock;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -90,8 +98,9 @@ public final class FlowEngine<U extends Actor> {
     private final AdminHandler admin;
     private final Publishing publishing;
     private final Queries queries;
+    private final JobRunner jobs;
 
-    private FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions) {
+    private FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, List<JobHandler> jobHandlers) {
         this.actors = actors;
         this.permissions = permissions;
         DefinitionCache definitions = new DefinitionCache(context);
@@ -103,6 +112,10 @@ public final class FlowEngine<U extends Actor> {
         this.admin = new AdminHandler(context, definitions);
         this.publishing = new Publishing(context);
         this.queries = new Queries(context, definitions);
+        // 内置的作业在前，接入方注册的在后：同一种时接入方的换掉内置的
+        List<JobHandler> handlers = new ArrayList<>(new BuiltinJobs(context, definitions, completions).handlers());
+        handlers.addAll(jobHandlers);
+        this.jobs = new JobRunner(context, handlers);
     }
 
     /** 开始组装：引擎在这个数据源上建自己的数据库实例（方言由连接决定；不在事务里时每条语句借一个连接） */
@@ -279,6 +292,14 @@ public final class FlowEngine<U extends Actor> {
         return admin.reassign(actor, command);
     }
 
+    // ───────── 作业 ─────────
+
+    /**
+     * 做一批到期的作业（定时节点到点、待办超时、提醒、无人认领），返回做了几个。Spring Boot 里默认定时调它（{@code flow.jobs.*}）；
+     * 交给已有的调度平台时关掉默认的、由平台调它。几个进程同时调不会重复做（{@link JobRunner}）。
+     */
+    public int runDueJobs() { return jobs.runDue(); }
+
     // ───────── 查询 ─────────
 
     /** 我能发起的流程（当前操作人） */
@@ -369,6 +390,9 @@ public final class FlowEngine<U extends Actor> {
         private InstanceStore instanceStore;
         private WorkItemStore workItemStore;
         private EventStore eventStore;
+        private JobStore jobStore;
+        private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
+        private final List<JobHandler> jobHandlers = new ArrayList<>();
 
         private Builder(ConnectionProvider connections) { this.connections = Objects.requireNonNull(connections, "connections"); }
 
@@ -405,10 +429,20 @@ public final class FlowEngine<U extends Actor> {
         /** 换掉流转记录的存储 */
         public Builder<U> eventStore(EventStore store) { this.eventStore = store; return this; }
 
+        /** 换掉作业的存储 */
+        public Builder<U> jobStore(JobStore store) { this.jobStore = store; return this; }
+
+        /** 工作日历：时限写成工作日时按它算；默认周一到周五、UTC 的日期（{@link WorkCalendar#weekdays}） */
+        public Builder<U> workCalendar(WorkCalendar calendar) { this.calendar = calendar; return this; }
+
+        /** 注册一种作业的处理（新的种类，或换掉内置的 timer、overdue、remind、unclaimed） */
+        public Builder<U> jobHandler(JobHandler handler) { this.jobHandlers.add(handler); return this; }
+
         /** 组装 */
         public FlowEngine<U> build() {
             if (org == null) throw new IllegalStateException("an OrgDirectory is required: the engine has no default organisation");
-            Database db = FlowDatabase.create(connections, tenant, clock);
+            // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
+            Database db = FlowDatabase.create(connections, TenantScope.over(tenant), clock);
             Stores defaults = QueryStores.create(db);
             Stores stores = new Stores(
                 definitionStore != null ? definitionStore : defaults.definitions(),
@@ -416,8 +450,9 @@ public final class FlowEngine<U extends Actor> {
                 formDataStore != null ? formDataStore : defaults.formData(),
                 instanceStore != null ? instanceStore : defaults.instances(),
                 workItemStore != null ? workItemStore : defaults.workItems(),
-                eventStore != null ? eventStore : defaults.events());
-            return new FlowEngine<>(new EngineContext(db, stores, clock, org), actors, permissions);
+                eventStore != null ? eventStore : defaults.events(),
+                jobStore != null ? jobStore : defaults.jobs());
+            return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar), actors, permissions, List.copyOf(jobHandlers));
         }
     }
 }

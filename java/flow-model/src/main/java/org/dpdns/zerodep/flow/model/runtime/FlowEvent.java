@@ -57,8 +57,12 @@ public record FlowEvent(Long id, Long instanceId, Long workItemId, String type, 
     public static final String WORK_ITEM_RELEASED = "workItem.released";
     /** 改派：data 同转办 */
     public static final String WORK_ITEM_REASSIGNED = "workItem.reassigned";
-    /** 催办 */
+    /** 催办；引擎按节点的 reminders、unclaimed 自动提醒时 data 里 auto 为 true，reason 是 dueSoon、overdue、unclaimed */
     public static final String WORK_ITEM_REMINDED = "workItem.reminded";
+    /** 待办超时了（0005 的 5.3）：data 里是截止时间 dueAt；超时自动处理的随后另有一条处理的记录 */
+    public static final String WORK_ITEM_OVERDUE = "workItem.overdue";
+    /** 进了收件箱很久没人认领，转收件箱的负责人指定（unclaimed 的 assignByManager） */
+    public static final String WORK_ITEM_UNCLAIMED = "workItem.unclaimed";
     /** 留言 */
     public static final String INSTANCE_COMMENTED = "instance.commented";
     /** 暂停 */
