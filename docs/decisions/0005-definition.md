@@ -1,6 +1,6 @@
 # 0005 流程定义 JSON
 
-- 状态：讨论中（2026-10-26 起草），逐节定稿；第 1–6 节已定（2026-10-26）
+- 状态：已定（用户 2026-10-26，逐节讨论定稿）
 - 起点：vue-tsx-pro 提交 `f7bfdc2e` 的 `packages/ui/src/workflow/definition.ts`（BPMN 子集的图：泳道、开始与结束、人工节点、排他与并行网关、连线带处理结果与条件）
 - 相关：方向见 [0001](0001-engine-direction.md)（模型是图加结构校验、定义发布后不可变），能力见 [0002](0002-capabilities.md)，表单见 [0004](0004-forms.md)
 
@@ -68,6 +68,7 @@
 | `emptyAssignee` | 处理人解析为空时：`"autoPass"`（自动通过）、`"admin"`（转给管理员）、`"error"`（发起或流转失败） | `"admin"` |
 | `autoSkip` | 自动跳过：`{ "sameAsPrevious": true, "initiator": false }`（处理人和上一步相同、处理人就是发起人时自动通过） | 都关 |
 | `formView` | 不在待办里看表单的人（发起人看进度、抄送、历史）对哪些字段隐藏：`{ "cost": "hidden" }`（0004 的 4.3） | 全部只读 |
+| `notify` | 通知怎样发：按事件换模板、加收件人、不发（第 8 节，2026-10-26 随第 8 节补入） | 全发 |
 
 节点上可以覆盖 `emptyAssignee`、`autoSkip`。
 
@@ -96,7 +97,7 @@
 | 发起人 | `{ "initiator": true }` | 发起人 |
 | 同某节点 | `{ "sameAs": "check" }` | 那个节点最后的处理人 |
 | 解析器 | `{ "resolver": "deptLeader", "args": { "level": 2 } }` | 接入方注册的扩展点：部门负责人、上级第 N 级、角色…… |
-| 上一步选 | `{ "pick": { "from": [来源…], "max": 1 } }` | 上一步的处理人提交时选（5.6，随第 5 节补入） |
+| 上一步选 | `{ "pick": { "from": [来源…], "max": 1 } }` | 上一步的处理人提交时选（5.6，2026-10-26 随第 5 节补入） |
 
 - 解析出来只有一个人：直接落到他；多于一个人或含岗位、部门：进收件箱，候选人认领。
 - 解析为空时按 `emptyAssignee`。
@@ -295,27 +296,80 @@
 - 不同的一点：筛选里"没填完整的比较、空的组"当作不加条件，流程里**发布时报错**（`condition-incomplete`），不让一条没写完的条件默默变成"总是成立"。
 - 连线条件在后端求值；前端只在预览时求值（5.6 算出会走到哪些节点），用到 `fn.` 时问后端。
 
-## 7. 校验与问题代号
+## 7. 校验与问题代号（已定，用户 2026-10-26）
 
-旧契约的问题代号全部保留（`start-missing`、`outcome-unrouted`、`gateway-multiple-default`、`node-unreachable` 等），文案移到语言包（frontend.md §2.4）。新增：
+一个问题是 `{ code, severity, node?, edge?, lane?, params }`：只给代号和参数，文案在前端的语言包里（frontend.md §2.4）。规则写在模型包里，设计器保存时、后端发布时跑同一份；
+要查注册情况的几条（标"发布"）只在后端跑。**错误**不能发布（引擎会走不下去），**警告**可以发布（多半是画漏了）。
+
+### 7.1 沿用旧契约的代号
+
+| 代号 | 严重程度 | 说明 | 变化 |
+| --- | --- | --- | --- |
+| `start-missing` / `start-multiple` | 错误 | 没有开始节点 / 不止一个 | — |
+| `start-incoming` | 错误 | 有线连进开始节点 | — |
+| `end-missing` | 错误 | 没有结束节点 | — |
+| `end-outgoing` | 错误 | 结束节点有出边 | — |
+| `node-duplicate` / `edge-duplicate` / `lane-duplicate` | 错误 | 标识重复 | — |
+| `lane-unknown` | 错误 | 节点的泳道不存在 | — |
+| `edge-unknown-node` | 错误 | 连线的起点或终点不存在 | — |
+| `node-no-outgoing` | 错误 | 除结束以外的节点没有出边 | — |
+| `node-dead-end` | 错误 | 从这个节点走不到任何结束节点 | — |
+| `node-unreachable` | 警告 | 从开始走不到这个节点 | — |
+| `outcome-duplicate` | 错误 | 同一节点的结果标识重复 | 适用于人工节点、自动节点、外部事件 |
+| `outcome-unrouted` | 错误 | 某个结果没有出边（`terminate` 的结果除外） | 同上 |
+| `edge-unknown-outcome` | 错误 | 连线的 `outcome` 在起点上不存在 | 同上 |
+| `edge-outcome-not-branching` | 错误 | 起点不按结果分出边，连线却写了 `outcome` | 原 `edge-outcome-not-task`，改名 |
+| `edge-default-not-gateway` | 警告 | 起点不是排他或包容网关，连线却写了 `default` | 原 `edge-default-not-exclusive`，改名 |
+| `gateway-multiple-default` | 错误 | 网关有不止一条默认出边 | — |
+| `gateway-edge-unconditional` | 警告 | 排他、包容网关的出边既没条件也不是默认 | 加上包容 |
+| `parallel-edge-condition` | 警告 | 并行网关的出边写了条件（不起作用） | — |
+| `parallel-useless` | 警告 | 并行网关只有一条出边、一条入边 | — |
+| `overdue-unknown-outcome` | 错误 | 超时自动完成的结果不存在 | — |
+| `task-no-outcome` | 错误 | 人工节点没有处理结果 | — |
+| `assignee-unknown-node` | 错误 | `sameAs` 指的节点不存在或不是人工节点 | — |
+| `assignee-missing` | 错误 | 人工节点没写处理人，泳道也没有收件箱 | 原 `task-no-assignee`，改名 |
+
+### 7.2 新增的代号
 
 | 代号 | 严重程度 | 说明 |
 | --- | --- | --- |
-| `gateway-unpaired` | 错误 | 并行或包容的分叉没有配对的汇合；排他分出去的分支进了并行汇合（会卡住） |
+| `gateway-unpaired` | 错误 | 并行或包容的分叉没有配对的汇合，或分支跳出了区域；排他分出去的分支进了并行汇合（会卡住）（4.4） |
 | `return-not-upstream` | 错误 | 退回连线的目标不在上游 |
 | `escalate-no-inbox` | 错误 | 提级连线的目标节点没有收件箱 |
-| `assignee-missing` | 错误 | 人工节点没写处理人，泳道也没有收件箱 |
-| `ref-unknown` | 错误 | 引用了没声明的流程变量、表单里没有的字段 |
-| `extension-unknown` | 错误 | 解析器、动作、守卫、计算值没有注册（发布时由后端查） |
+| `ref-unknown` | 错误 | 引用了没声明的流程变量、表单里没有的字段、不存在的节点（`sys.round.节点`） |
+| `ref-type-mismatch` | 错误 | 引用的类型用不上（处理人来源取了一个不是 `people` 的字段，时限取了不是日期的字段） |
 | `condition-incomplete` | 错误 | 条件里有没写完的比较或空的组（6.2） |
 | `condition-fn-in-form` | 错误 | 表单的显示、必填条件里用了 `fn.`（6.1） |
+| `multi-no-fallback` | 错误 | 按比例、按票数的会签没写 `fallback`（5.2） |
 | `form-field-unknown` | 错误 | 节点的字段权限引用了表单里没有的字段（0004 的 4.1） |
 | `form-required-unfillable` | 警告 | 表单的必填字段在发起节点上是隐藏或只读（0004 的 4.6） |
-| `call-cycle` | 错误 | 调用流程形成了环（A 调 B、B 调 A） |
-| `multi-no-fallback` | 错误 | 按比例、按票数的会签没写 `fallback` |
-| `due-unknown-calendar` | 错误 | 工作日历不存在 |
+| `call-cycle` | 错误（发布） | 调用流程形成了环（A 调 B、B 调 A） |
+| `call-unknown-process` | 错误（发布） | 调用的流程不存在或已停用 |
+| `extension-unknown` | 错误（发布） | 解析器、动作、守卫、计算值没有注册 |
+| `due-unknown-calendar` | 错误（发布） | 工作日历不存在 |
 
-## 8. 待讨论
+## 8. 通知（已定，用户 2026-10-26）
 
-1. 第 7 节：问题代号清单。
-2. 通知：事件都发（0002 §8），定义里要不要按节点关掉某些通知、指定模板。
+引擎在下面这些时候都发事件（0002 §8），渠道（站内信、邮件、企业微信、钉钉）由接入方注册，引擎只给出收件人、事件与模板参数：
+
+| 事件 | 默认收件人 |
+| --- | --- |
+| `arrived` 待办到达 | 处理人或收件箱里的候选人 |
+| `reminded` 催办 | 当前处理人 |
+| `dueSoon` 即将到期、`overdue` 已超时 | 当前处理人；超时另发收件箱的负责人 |
+| `cc` 抄送 | 抄送的人 |
+| `returned` 被退回 | 退回的目标处理人 |
+| `finished` 流程结束（带结束结果） | 发起人 |
+
+定义里可以按流程或按节点改（默认全发，这里只是放宽给接入方用的口子）：
+
+```jsonc
+"notify": {
+  "arrived": { "template": "purchase-arrived", "to": [{ "user": { "ref": "form.buyer" } }] }, // 换模板、多发给谁
+  "dueSoon": false                                                                          // 不发
+}
+```
+
+- 流程级的 `notify` 写在 `settings` 里，节点上的覆盖流程级的。
+- `template` 只是一个名字，模板内容和渲染由接入方的渠道负责；不写时渠道用默认模板。
+- `to` 是额外的收件人，来源同 3.2，不替换默认收件人。
