@@ -10,8 +10,8 @@
 
 - **通用的审批流程引擎**，有很强的自定义扩展能力。具体业务（单据、字段、岗位）都不进本仓库，只通过扩展点接入。
 - **两个后端，同一份语义**：
-  - Java 版接 Spring；
-  - TypeScript 版接 Nuxt 等 Node 框架。
+  - Java 版接 Spring Boot；
+  - TypeScript 版接 Nuxt（目前只支持这两种）。
 
   两版读同一份流程定义、写同一套表，行为由共享的场景用例保证一致（同 query 的金样例做法）。
 - **前端**用 vue-tsx-pro 搭。契约放本仓库的零依赖模型包，前后端都按它；分工见 [0003](0003-model-and-frontend.md)。
@@ -27,7 +27,7 @@
 | 时间 | 一律按 UTC 存（`DATETIME(3)`），接口里用带 `Z` 的 ISO 8601 |
 | 范围 | 需要的功能第一版都做，尽量完善，清单见 [0002](0002-capabilities.md) |
 | 流程变量 | 实例上一个 JSON 列（下文的 A）；以后要按变量检索时再加投影表 |
-| 交付形态 | Java 是一个 jar，使用方在 Spring 后端里集成；TS 是一个包，使用方在 Nest、Nuxt 等 Node 框架里集成。前端固定用 vue-tsx-pro |
+| 交付形态 | Java 是一个 jar，使用方在 Spring Boot 里集成；TS 是一个包，使用方在 Nuxt 里集成。目前只支持这两种后端，不做 Next.js、Nest（用户 2026-10-26）。前端固定用 vue-tsx-pro |
 | 灵活表单 | 表单写成 TSX 代码，注册后运行时编译（同 vue-tsx-pro 文档站的代码演练场）；拖拽设计器生成代码，代码也可以自由修改（用户 2026-10-26 定），方案见 [0004](0004-forms.md) |
 | PolarDB | query 新增 PolarDB 方言，以开源的 PolarDB-X 标准版引擎（`polardbx/polardbx-engine`，MySQL 8.0.32 内核）实测为准 |
 | 其余 | 本文的推荐项都按推荐执行 |
@@ -129,5 +129,5 @@
 
 1. 定义 JSON 要扩展的字段：按 [0002](0002-capabilities.md) 的能力逐项落到定义里。
 2. 引擎对外的接口：命令（发起、认领、处理、退回、转办……）、查询、扩展点的签名，Java 与 TS 各一份。
-3. 模块划分：Java 是 `flow-core` 加 `flow-spring`（使用方在 Spring 里引一个 jar），TS 是核心包加 Nest / Nuxt 适配，两边都依赖模型包（[0003](0003-model-and-frontend.md)）；两个后端共享的场景用例放在哪里、什么格式。
+3. 模块划分：Java 是 `flow-core` 加 `flow-spring`（使用方在 Spring 里引一个 jar），TS 是核心包加 Nuxt 适配，两边都依赖模型包（[0003](0003-model-and-frontend.md)）；两个后端共享的场景用例放在哪里、什么格式。
 4. 雪花 ID 的机器号在集群里怎么分配。

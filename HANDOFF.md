@@ -9,12 +9,13 @@
   动手写代码之前先和用户把下面“待讨论”定下来——用户的要求是**先讨论方案，确认后才动代码**。
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：讨论中。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
-    雪花 BIGINT 主键、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nest / Nuxt、前端固定 vue-tsx-pro）；
+    雪花 BIGINT 主键、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
     “初步方向”“表的草案”还待确认。
   - [0002 能力清单](docs/decisions/0002-capabilities.md)：讨论中，用户要求“需要的功能第一版都做，尽量完善”，逐项讨论后定稿。
   - [0003 模型包与前端的分工](docs/decisions/0003-model-and-frontend.md)：已采纳，前端取 B（见下）。
-  - [0004 表单](docs/decisions/0004-forms.md)：讨论中。形态已定：代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
-    文件约定、设计器的子集、字段权限、存储与安全待确认。
+  - [0004 表单](docs/decisions/0004-forms.md)：讨论中，逐节定稿。形态已定：代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
+    第 1 节（文件约定、字段清单、字段类型、后端代码在线编辑并启动时加载、集群刷新由接入方接消息队列）已定；
+    设计器的子集、字段权限、存储与安全待确认。
 - **依赖的两个库由用户手动发布**（2026-10-26 查 npm）：
   - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0（原名 `@vue-tsx-pro/*`），仓库里已推进到 0.2.0-dev；
   - query（ORM）TS 已发 npm `@zerodep-dev/query-*` 2.0.0；Java 的 Maven 中央仓库当时还搜不到 `org.dpdns.zerodep`，根 POM 仍是 `2.0.0-SNAPSHOT`。
@@ -42,7 +43,7 @@
 
 1. 定义 JSON 要扩展的字段：按 0002 的能力逐项落到定义里。
 2. 引擎对外的接口：命令（发起、认领、处理、退回、转办……）、查询、扩展点的签名，Java 与 TS 各一份。
-3. 模块划分：Java 是 `flow-core` 加 `flow-spring`，TS 是核心包加 Nest / Nuxt 适配，两边都依赖模型包；两个后端共享的场景用例放哪里、什么格式
+3. 模块划分：Java 是 `flow-core` 加 `flow-spring`，TS 是核心包加 Nuxt 适配，两边都依赖模型包；两个后端共享的场景用例放哪里、什么格式
    （建议照 query 的金样例：一份 JSON 样例两端共用）。
 4. 雪花 ID 的机器号在集群里怎么分配。
 5. 0001 的“初步方向”（模型是图加结构校验、定义发布后不可变）与“表的草案”逐项确认。

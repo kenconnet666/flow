@@ -8,7 +8,7 @@
 ## 背景
 
 流程定义、运行时类型（实例、待办、流转记录）和校验原来写在 vue-tsx-pro 的 `@zerodep-dev/vue-tsx-pro-ui/workflow` 里，注明"后端引擎照这里实现"。
-但 TypeScript 后端跑在 Nuxt、Nest 这类服务端框架里，不应为了几个类型和校验函数依赖一个 Vue 组件库；Java 后端也要一份同样语义的实现。
+但 TypeScript 后端跑在 Nuxt 的服务端，不应为了几个类型和校验函数依赖一个 Vue 组件库；Java 后端也要一份同样语义的实现。
 
 ## 决定
 
@@ -30,7 +30,7 @@ vue-tsx-pro 是公开仓库，CI 要能安装全部依赖；本仓库是私有�
 | B. 流程组件挪到本仓库（例如 `@zerodep-dev/flow-ui`），vue-tsx-pro 只留通用底座 | 契约、两个后端、流程组件在一个仓库里，一次提交改完；vue-tsx-pro 不再依赖引擎 | 本仓库要有前端的构建与演示页（可以用 vue-tsx-pro 的 `/docs-kit`），vue-tsx-pro 改了底座要重新打包给本仓库用 |
 
 用户 2026-10-26 的方向：vue-tsx-pro 与 query 由用户手动发布到 npm、Maven，本仓库把它们当普通依赖开发，引擎自己也打包发布
-（后端支持 Nuxt、Next 这类 Node 框架与 Java Spring，前端用 vue-tsx-pro 的技术栈）。因此取 B：
+（后端支持 Nuxt 与 Java Spring Boot，不做 Next.js、Nest，前端用 vue-tsx-pro 的技术栈）。因此取 B：
 
 - vue-tsx-pro 只留通用底座（画布、撤销重做、条件构造器、人员与组织选择器、FilterBar 的高级筛选），现有的 `/workflow` 子路径
   （FlowDiagram、FlowDesigner、ApprovalActions 等）已于 2026-10-26 整个删除（连同文档站的“流程”分类；旧实现在 vue-tsx-pro 的提交 `f7bfdc2e`），流程组件在本仓库按模型包重做，界面风格与新的画布一致；
