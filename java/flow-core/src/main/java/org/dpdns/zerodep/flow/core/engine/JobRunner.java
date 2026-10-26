@@ -56,7 +56,7 @@ public final class JobRunner {
         try {
             JobHandler handler = handlers.get(job.kind());
             if (handler == null) throw new IllegalStateException("no JobHandler is registered for job kind '" + job.kind() + "'");
-            context.db().transaction(() -> {
+            context.transaction(() -> {
                 JobHandler.Next next = handler.run(job, now);
                 if (next == null) jobs.done(job.id());
                 else jobs.reschedule(job.id(), next.at(), next.payload());

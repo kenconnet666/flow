@@ -39,7 +39,7 @@ public final class StartHandler {
 
     /** 发起；出错时抛带业务错误码的异常，整个事务回滚 */
     public CommandResult handle(Actor actor, StartCommand command) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             // 1. 流程与版本
             StoredProcess process = context.stores().definitions().process(command.key())
                 .orElseThrow(() -> FlowErrors.notFound("process", command.key()));

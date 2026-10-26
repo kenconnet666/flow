@@ -94,7 +94,7 @@ public final class CollaborationHandler {
 
     /** 减签：取消自己加的、还没办的人；前加签的人都取消了，待办回到自己手里 */
     public CommandResult removeSigners(Actor actor, RemoveSignersCommand command) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             Locked locked = lock(command.workItemId());
             WorkItem item = locked.item();
             if (!actor.id().equals(item.assigneeId())) throw FlowErrors.notCandidate(item.id());
@@ -118,7 +118,7 @@ public final class CollaborationHandler {
 
     /** 退回收件箱：认领了又不办，放回去；自己以后不能再认领这一条 */
     public CommandResult release(Actor actor, ReleaseCommand command) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             Locked locked = lock(command.workItemId());
             WorkItem item = locked.item();
             if (!WorkItem.CLAIMED.equals(item.assignment()) || !actor.id().equals(item.assigneeId())) {
@@ -137,7 +137,7 @@ public final class CollaborationHandler {
      * 节点上 {@code allow.remind} 关掉的不催。不改实例，所以不锁。
      */
     public CommandResult remind(Actor actor, RemindCommand command) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             InstanceRecord instance = context.stores().instances().find(command.instanceId())
                 .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
             ClaimHandler.requireActive(instance);
@@ -150,7 +150,7 @@ public final class CollaborationHandler {
                 if (!task.allow().remind() || !context.stores().workItems().remind(item.id(), run.now(), notBefore)) continue;
                 run.addEvent(FlowEvent.WORK_ITEM_REMINDED, task, null, null, item.id(), command.message());
             }
-            context.stores().events().append(run.events);
+            run.publish();
             return run.result();
         });
     }
@@ -158,13 +158,13 @@ public final class CollaborationHandler {
     /** 留言：记进流转记录，实例结束后也能留 */
     public CommandResult comment(Actor actor, CommentCommand command) {
         if (command.text() == null || command.text().isBlank()) throw FlowErrors.invalid("text", "required");
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             InstanceRecord instance = context.stores().instances().find(command.instanceId())
                 .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
             Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
                 instance.rev());
             run.addEvent(FlowEvent.INSTANCE_COMMENTED, null, null, null, null, command.text());
-            context.stores().events().append(run.events);
+            run.publish();
             return run.result();
         });
     }
@@ -172,13 +172,13 @@ public final class CollaborationHandler {
     /** 抄送（知会）：每人一条抄送、记一条流转记录；实例结束后也能抄送。不改实例，所以不锁 */
     public CommandResult cc(Actor actor, CcCommand command) {
         if (command.users().isEmpty()) throw FlowErrors.invalid("users", "required");
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             InstanceRecord instance = context.stores().instances().find(command.instanceId())
                 .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
             Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
                 instance.rev());
             run.copyTo(null, command.users(), command.message());
-            context.stores().events().append(run.events);
+            run.publish();
             return run.result();
         });
     }
@@ -198,7 +198,7 @@ public final class CollaborationHandler {
 
     /** 锁住实例、重读待办；还在收件箱里时候选人先认领；只有它的处理人能做；做完重算、写回 */
     private CommandResult onMyItem(Actor actor, Long workItemId, ItemAction action) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             Locked locked = lock(workItemId);
             WorkItem item = locked.item();
             if (item.assigneeId() == null) claims.claim(actor, item);

@@ -28,7 +28,7 @@ public final class WithdrawHandler {
 
     /** 撤回；不是发起人、规则不允许时报 {@code flow.forbidden} */
     public CommandResult handle(Actor actor, WithdrawCommand command) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             int rev = context.stores().instances().lock(command.instanceId())
                 .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
             InstanceRecord instance = context.stores().instances().find(command.instanceId()).orElseThrow();

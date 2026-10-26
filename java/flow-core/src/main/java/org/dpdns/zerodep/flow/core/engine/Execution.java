@@ -518,8 +518,16 @@ final class Execution {
     void flush(String fixedTitle) {
         instance = InstanceDisplay.refresh(instance, graph.definition(), fixedTitle, this::read, context.stores().workItems());
         context.stores().instances().update(instance);
+        publish();
+    }
+
+    /**
+     * 只写流转记录（不改实例的命令：认领、催办、留言、抄送）：换上数据库给的编号，交给监听（事务内的马上调，提交后的记下）。
+     */
+    void publish() {
         List<FlowEvent> saved = context.stores().events().append(events);
         events.clear();
         events.addAll(saved);
+        context.dispatcher().published(saved, instance.view(), graph);
     }
 }

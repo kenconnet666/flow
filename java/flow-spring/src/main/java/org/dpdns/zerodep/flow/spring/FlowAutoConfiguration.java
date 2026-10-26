@@ -7,6 +7,8 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.listener.AfterCommit;
+import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.store.CcStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.EventStore;
@@ -41,7 +43,7 @@ import java.time.ZoneId;
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
  * 其余扩展点（权限、时钟、工作日历、八个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
- * 声明的 {@link JobHandler} Bean 注册成作业的处理。到期的作业默认由 {@link FlowJobPoller} 定时做（{@code flow.jobs.*}）。
+ * 声明的 {@link JobHandler} Bean 注册成作业的处理，{@link FlowListener} Bean 注册成监听（提交后的等 Spring 的事务提交了再调）。到期的作业默认由 {@link FlowJobPoller} 定时做（{@code flow.jobs.*}）。
  * 引擎注入成 {@code FlowEngine<自己的用户类型>} 即可。
  */
 @AutoConfiguration(afterName = {
@@ -68,7 +70,8 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<FormDataStore> formDataStore, ObjectProvider<InstanceStore> instanceStore,
                                  ObjectProvider<WorkItemStore> workItemStore, ObjectProvider<EventStore> eventStore,
                                  ObjectProvider<JobStore> jobStore, ObjectProvider<CcStore> ccStore, ObjectProvider<WorkCalendar> calendar,
-                                 ObjectProvider<JobHandler> jobHandlers) {
+                                 ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners,
+                                 ObjectProvider<AfterCommit> afterCommit) {
         migration.ifAvailable(m -> { });
         OrgDirectory directory = org.getIfAvailable();
         if (directory == null) {
@@ -92,6 +95,8 @@ public class FlowAutoConfiguration {
         ccStore.ifAvailable(builder::ccStore);
         builder.workCalendar(calendar.getIfAvailable(() -> WorkCalendar.weekdays(ZoneId.of(properties.getCalendar().getZone()))));
         jobHandlers.orderedStream().forEach(builder::jobHandler);
+        listeners.orderedStream().forEach(builder::listener);
+        builder.afterCommit(afterCommit.getIfAvailable(SpringAfterCommit::new));
         return builder.build();
     }
 

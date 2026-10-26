@@ -28,6 +28,7 @@ import org.dpdns.zerodep.flow.core.engine.CollaborationHandler;
 import org.dpdns.zerodep.flow.core.engine.CompleteHandler;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.EventDispatcher;
 import org.dpdns.zerodep.flow.core.engine.JobHandler;
 import org.dpdns.zerodep.flow.core.engine.JobRunner;
 import org.dpdns.zerodep.flow.core.engine.Publishing;
@@ -39,6 +40,8 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.listener.AfterCommit;
+import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.store.CcStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
@@ -425,6 +428,8 @@ public final class FlowEngine<U extends Actor> {
         private CcStore ccStore;
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
+        private final List<FlowListener> listeners = new ArrayList<>();
+        private AfterCommit afterCommit = AfterCommit.immediately();
 
         private Builder(ConnectionProvider connections) { this.connections = Objects.requireNonNull(connections, "connections"); }
 
@@ -470,6 +475,12 @@ public final class FlowEngine<U extends Actor> {
         /** 工作日历：时限写成工作日时按它算；默认周一到周五、UTC 的日期（{@link WorkCalendar#weekdays}） */
         public Builder<U> workCalendar(WorkCalendar calendar) { this.calendar = calendar; return this; }
 
+        /** 注册一个监听：发通知、同步业务表、审计（{@link FlowListener}） */
+        public Builder<U> listener(FlowListener listener) { this.listeners.add(listener); return this; }
+
+        /** 提交后的监听怎么排：默认引擎的事务做完马上调；命令会加入外面的事务时换成那个事务的提交后回调 */
+        public Builder<U> afterCommit(AfterCommit afterCommit) { this.afterCommit = afterCommit; return this; }
+
         /** 注册一种作业的处理（新的种类，或换掉内置的 timer、overdue、remind、unclaimed） */
         public Builder<U> jobHandler(JobHandler handler) { this.jobHandlers.add(handler); return this; }
 
@@ -488,7 +499,7 @@ public final class FlowEngine<U extends Actor> {
                 eventStore != null ? eventStore : defaults.events(),
                 jobStore != null ? jobStore : defaults.jobs(),
                 ccStore != null ? ccStore : defaults.ccs());
-            return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar), actors, permissions, List.copyOf(jobHandlers));
+            return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit)), actors, permissions, List.copyOf(jobHandlers));
         }
     }
 }

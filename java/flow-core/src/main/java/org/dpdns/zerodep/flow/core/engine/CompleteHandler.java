@@ -44,7 +44,7 @@ public final class CompleteHandler {
 
     /** 处理；出错时抛带业务错误码的异常，整个事务回滚 */
     public CommandResult handle(Actor actor, CompleteCommand command) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             // 1. 锁实例
             WorkItem found = context.stores().workItems().find(command.workItemId())
                 .orElseThrow(() -> FlowErrors.notFound("workItem", command.workItemId()));

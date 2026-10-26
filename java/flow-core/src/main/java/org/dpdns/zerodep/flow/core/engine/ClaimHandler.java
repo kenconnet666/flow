@@ -28,7 +28,7 @@ public final class ClaimHandler {
 
     /** 认领，记一条"认领"的流转记录 */
     public CommandResult handle(Actor actor, ClaimCommand command) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             WorkItem item = context.stores().workItems().find(command.workItemId())
                 .orElseThrow(() -> FlowErrors.notFound("workItem", command.workItemId()));
             InstanceRecord instance = context.stores().instances().find(item.instanceId())
@@ -39,7 +39,7 @@ public final class ClaimHandler {
             Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance,
                 FormValues.empty(), instance.rev());
             run.addEvent(FlowEvent.WORK_ITEM_CLAIMED, run.graph().node(item.node()), null, null, item.id(), null);
-            context.stores().events().append(run.events);
+            run.publish();
             return new CommandResult(instance.view(), List.of(), List.of(), run.events);
         });
     }

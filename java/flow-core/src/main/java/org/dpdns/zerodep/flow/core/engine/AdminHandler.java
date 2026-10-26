@@ -81,7 +81,7 @@ public final class AdminHandler {
      * 锁住实例（版本加一）再做：已结束的实例报 {@code flow.instance-not-active}；mustBeActive 时暂停的也报。做完写回。
      */
     private CommandResult onInstance(Actor actor, Long instanceId, boolean mustBeActive, BiConsumer<Execution, InstanceRecord> action) {
-        return context.db().transaction(() -> {
+        return context.transaction(() -> {
             int rev = context.stores().instances().lock(instanceId).orElseThrow(() -> FlowErrors.notFound("instance", instanceId));
             InstanceRecord instance = context.stores().instances().find(instanceId).orElseThrow();
             boolean active = ProcessInstance.ACTIVE.equals(instance.status());
