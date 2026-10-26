@@ -61,6 +61,7 @@ import org.dpdns.zerodep.flow.core.store.DefinitionStore.VersionInfo;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
 import org.dpdns.zerodep.flow.core.store.EventStore;
 import org.dpdns.zerodep.flow.core.store.FormDataStore;
+import org.dpdns.zerodep.flow.core.store.FormStore.FormVersionInfo;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
@@ -74,6 +75,8 @@ import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
 import org.dpdns.zerodep.flow.core.store.query.QueryStores;
 import org.dpdns.zerodep.flow.core.view.DefinitionProblem;
+import org.dpdns.zerodep.flow.core.view.FormDocument;
+import org.dpdns.zerodep.flow.core.view.FormSummary;
 import org.dpdns.zerodep.flow.core.view.IncidentView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.ProcessSummary;
@@ -210,6 +213,42 @@ public final class FlowEngine<U extends Actor> {
     public String definitionJson(U actor, String processKey, Integer version) {
         allow(actor, "definitions.read", processKey);
         return queries.definitionJson(processKey, version);
+    }
+
+    /** 表单列表（当前操作人） */
+    public List<FormSummary> forms() { return forms(actors.current()); }
+
+    /** 管理端的表单列表：停用的也在，按分类、名称排（{@code forms.list}） */
+    public List<FormSummary> forms(U actor) {
+        allow(actor, "forms.list", null);
+        return queries.forms();
+    }
+
+    /** 表单的全部版本（当前操作人） */
+    public List<FormVersionInfo> formVersions(String formKey) { return formVersions(actors.current(), formKey); }
+
+    /** 表单的全部版本，新的在前（{@code forms.versions}） */
+    public List<FormVersionInfo> formVersions(U actor, String formKey) {
+        allow(actor, "forms.versions", formKey);
+        return queries.formVersions(formKey);
+    }
+
+    /** 表单某个版本的全部内容（当前操作人） */
+    public FormDocument formDocument(String formKey, Integer version) { return formDocument(actors.current(), formKey, version); }
+
+    /** 表单某个版本的源码与字段清单（编辑时载入）；version 为 null 时取最新的（{@code forms.read}） */
+    public FormDocument formDocument(U actor, String formKey, Integer version) {
+        allow(actor, "forms.read", formKey);
+        return queries.formDocument(formKey, version);
+    }
+
+    /** 停用或启用表单（当前操作人） */
+    public FormSummary setFormActive(String formKey, boolean active) { return setFormActive(actors.current(), formKey, active); }
+
+    /** 停用或启用表单：停用后新发布的流程不能再选它，已经引用它的照常用（{@code forms.status}） */
+    public FormSummary setFormActive(U actor, String formKey, boolean active) {
+        allow(actor, "forms.status", formKey);
+        return publishing.setFormStatus(formKey, active);
     }
 
     /** 发布表单（当前操作人） */

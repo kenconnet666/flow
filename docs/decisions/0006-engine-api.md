@@ -189,15 +189,20 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
   | --- | --- | --- |
   | `POST {前缀}/commands/start` | `{ key, form, variables, businessKey, title, priority }` | `{ instance, workItems, closed, events }` |
   | `POST {前缀}/commands/claim` | `{ workItemId }` | 同上 |
-  | `POST {前缀}/commands/complete` | `{ workItemId, outcome, comment, form }` | 同上 |
+  | `POST {前缀}/commands/complete` | `{ workItemId, outcome, comment, form, picks, returnTarget }` | 同上 |
   | `POST {前缀}/commands/withdraw` | `{ instanceId, reason }` | 同上 |
   | `POST {前缀}/commands/transfer`、`delegate` | `{ workItemId, userId, reason }` | 同上 |
   | `POST {前缀}/commands/add-signers`、`remove-signers` | `{ workItemId, users, mode, reason }`（`mode`：`before`、`after`、`parallel`） | 同上 |
   | `POST {前缀}/commands/release` | `{ workItemId, reason }` | 同上 |
   | `POST {前缀}/commands/remind`、`comment` | `{ instanceId, workItemId, message }`、`{ instanceId, text }` | 同上 |
-  | `POST {前缀}/admin/terminate`、`suspend`、`resume`、`jump`、`reassign` | `{ instanceId, reason }`、`{ instanceId, node, reason }`、`{ workItemId, userId, reason }` | 同上；谁能做由 `PermissionPolicy` 定 |
+  | `POST {前缀}/admin/terminate`、`suspend`、`resume`、`jump`、`reassign`、`skip-job` | `{ instanceId, reason }`、`{ instanceId, node, reason }`、`{ workItemId, userId, reason }`、`{ jobId, outcome, reason }` | 同上；谁能做由 `PermissionPolicy` 定 |
+| `POST {前缀}/admin/retry-job` | `{ jobId }` | `{ revived }` |
   | `POST {前缀}/definitions/publish?note=` | 定义的 JSON 本身 | `{ id, key, version }` |
   | `POST {前缀}/forms/publish` | `{ key, name, category, manifest, clientSource, …, note }` | `{ id, key, version }` |
+| `POST {前缀}/definitions/disable`、`enable`、`forms/disable`、`enable` | `{ key }` | 流程或表单列表的一行 |
+| `GET {前缀}/queries/processes`、`forms` | — | 管理端的流程、表单列表（停用的也在） |
+| `GET {前缀}/queries/processes/{key}/versions`、`definition?version=`、`forms/{key}/versions`、`document?version=` | — | 版本列表；某个版本的原文（流程是 `{ json }`，表单是清单与源码） |
+| `GET {前缀}/queries/instances?status=&processKey=&keyword=`、`incidents?instanceId=` | — | 管理端搜实例、异常（重试用完的作业） |
   | `GET {前缀}/queries/startable` | — | `[{ key, name, category, version }]`：我能发起的流程 |
   | `GET {前缀}/queries/start/{key}` | — | `{ process, form }`：发起页，`form` 是开始节点上的表单（清单、前端代码、节点权限、值） |
   | `GET {前缀}/queries/todo?page=&pageSize=` | — | `{ rows, total, page, size, totalPages }` |
@@ -205,7 +210,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
   | `GET {前缀}/queries/instances/{id}` | — | `{ instance, form, workItems, timeline }` |
 
   请求体用 query wire 的 `Json.read` 读（小数不丢精度，不依赖应用的 Jackson 版本）；data 是 typed JSON（编号、小数、时间是文字，根上带 `$types`）。
-  `Idempotency-Key` 随幂等记录（`flow_request`）补上。
+  命令带 `Idempotency-Key` 头时幂等（`flow_request`，过期的定期删）。
 
 ## 8. 错误（已定，用户 2026-10-26；HTTP 部分按 0008 改）
 

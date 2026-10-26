@@ -17,10 +17,15 @@ import type {
   CommandResult,
   DefinitionProblem,
   DefinitionVersion,
+  FormDocument,
+  FormPublication,
+  FormSummary,
+  FormVersion,
   Incident,
   InstanceSearch,
   ProcessSummary,
   PublishedDefinition,
+  PublishedForm,
   SignalCommand,
   SkipJobCommand,
   CommentCommand,
@@ -84,6 +89,16 @@ export interface FlowClient {
   publishDefinition(json: string, note?: string): Promise<PublishedDefinition>;
   /** 停用或启用流程 */
   setProcessActive(processKey: string, active: boolean): Promise<ProcessSummary>;
+  /** 管理端的表单列表（停用的也在） */
+  forms(signal?: AbortSignal): Promise<readonly FormSummary[]>;
+  /** 表单的全部版本，新的在前 */
+  formVersions(formKey: string, signal?: AbortSignal): Promise<readonly FormVersion[]>;
+  /** 表单某个版本的源码与字段清单；version 不给时取最新的 */
+  formDocument(formKey: string, version?: number, signal?: AbortSignal): Promise<FormDocument>;
+  /** 发布表单：清单不合规则时报 flow.validation-failed */
+  publishForm(form: FormPublication): Promise<PublishedForm>;
+  /** 停用、启用表单：停用后新发布的流程不能再选它 */
+  setFormActive(formKey: string, active: boolean): Promise<FormSummary>;
   /** 抄送我的：未读在前 */
   ccList(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<CcItem>>;
   /** 待办详情 */
@@ -173,6 +188,12 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     publishDefinition: (json, note) =>
       http.request({ url: prefix + '/definitions/publish', method: 'POST', body: json, ...(note ? { query: { note } } : {}) }),
     setProcessActive: (processKey, active) => post(`/definitions/${active ? 'enable' : 'disable'}`, { key: processKey }),
+    forms: (signal) => get('/queries/forms', signal),
+    formVersions: (formKey, signal) => get(`/queries/forms/${encodeURIComponent(formKey)}/versions`, signal),
+    formDocument: (formKey, version, signal) =>
+      get(`/queries/forms/${encodeURIComponent(formKey)}/document`, signal, version == null ? {} : { version }),
+    publishForm: (form) => post('/forms/publish', form),
+    setFormActive: (formKey, active) => post(`/forms/${active ? 'enable' : 'disable'}`, { key: formKey }),
     workItem: (id, signal) => get(`/queries/work-items/${id}`, signal),
     instance: (id, signal) => get(`/queries/instances/${id}`, signal),
     start: (command) => post('/commands/start', command),

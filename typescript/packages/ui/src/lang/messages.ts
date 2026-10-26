@@ -94,6 +94,20 @@ export interface FlowMessages {
   readonly columnKey: string;
   readonly columnCategory: string;
   readonly columnVersion: string;
+  /** 表单管理（管理端） */
+  readonly formManage: string;
+  readonly newForm: string;
+  readonly formEditor: string;
+  readonly formMode: string;
+  readonly formModeManifest: string;
+  readonly formModeCode: string;
+  readonly formPreview: string;
+  /** 清单有问题、取不出时预览的位置 */
+  readonly formPreviewBlocked: string;
+  readonly jsonInvalid: (reason: string) => string;
+  readonly syntaxError: (reason: string) => string;
+  /** 从代码里取字段清单的问题（fields-missing、fields-not-define、not-literal） */
+  readonly extractProblem: (code: string) => string;
   /** 定义编辑 */
   readonly definitionEditor: string;
   readonly loadVersion: string;
@@ -304,6 +318,18 @@ const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue
 const zhProblemTexts: Record<string, (p: Readonly<Record<string, string>>) => string> = {
   malformed: (p) => `定义写得不对：${p['reason'] ?? ''}`,
   'form-unknown': (p) => `引用的表单 ${p['key'] ?? ''} 不存在`,
+  'form-disabled': (p) => `引用的表单 ${p['key'] ?? ''} 停用了`,
+  'field-name-invalid': () => '字段名要以小写字母开头，只能有字母和数字',
+  'field-label-missing': () => '字段没写标签（label）',
+  'field-type-unknown': (p) => `字段类型 ${p['type'] ?? ''} 不认识`,
+  'attribute-invalid': (p) => `属性 ${p['attribute'] ?? ''} 的值不对`,
+  'pattern-invalid': () => '正则表达式（pattern）写得不对',
+  'options-empty': () => '选项是空的',
+  'option-duplicate': (p) => `选项的值 ${p['value'] ?? ''} 重复了`,
+  'default-invalid': () => '默认值不合字段的规则',
+  'range-invalid': () => '最小值大于最大值',
+  'list-nested': () => '明细表里不能再有明细表',
+  'list-no-columns': () => '明细表没有列',
   'start-missing': () => '没有开始节点',
   'start-multiple': () => '开始节点不止一个',
   'start-incoming': () => '有线连进开始节点',
@@ -423,6 +449,22 @@ export const flowMessages: MessageTable<FlowMessages> = {
     columnVersion: '版本',
     definitionEditor: '流程定义',
     loadVersion: '载入版本',
+    formManage: '表单管理',
+    newForm: '新建表单',
+    formEditor: '表单',
+    formMode: '写法',
+    formModeManifest: '字段清单（自动排版）',
+    formModeCode: '代码',
+    formPreview: '预览',
+    formPreviewBlocked: '改好下面的问题后显示预览',
+    jsonInvalid: (reason) => `JSON 写得不对：${reason}`,
+    syntaxError: (reason) => `代码有语法错误：${reason}`,
+    extractProblem: (code) =>
+      ({
+        'fields-missing': '没有导出 fields（export const fields = defineFields({ … })）',
+        'fields-not-define': 'fields 要写成 defineFields({ … })',
+        'not-literal': 'defineFields 里只能写字面量（不能用变量、函数调用、展开）',
+      })[code] ?? code,
     validate: '校验',
     publish: '发布',
     publishNote: '发布说明',
@@ -568,6 +610,22 @@ export const flowMessages: MessageTable<FlowMessages> = {
     columnVersion: 'Version',
     definitionEditor: 'Process definition',
     loadVersion: 'Load version',
+    formManage: 'Forms',
+    newForm: 'New form',
+    formEditor: 'Form',
+    formMode: 'Written as',
+    formModeManifest: 'Field list (auto layout)',
+    formModeCode: 'Code',
+    formPreview: 'Preview',
+    formPreviewBlocked: 'Fix the problems below to see the preview',
+    jsonInvalid: (reason) => `Invalid JSON: ${reason}`,
+    syntaxError: (reason) => `Syntax error: ${reason}`,
+    extractProblem: (code) =>
+      ({
+        'fields-missing': 'The code does not export fields (export const fields = defineFields({ … }))',
+        'fields-not-define': 'fields must be written as defineFields({ … })',
+        'not-literal': 'defineFields takes literals only (no variables, calls or spreads)',
+      })[code] ?? code,
     validate: 'Validate',
     publish: 'Publish',
     publishNote: 'Release note',

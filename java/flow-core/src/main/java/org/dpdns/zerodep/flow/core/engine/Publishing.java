@@ -6,9 +6,11 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore;
+import org.dpdns.zerodep.flow.core.store.FormStore.FormInfo;
 import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.view.DefinitionProblem;
+import org.dpdns.zerodep.flow.core.view.FormSummary;
 import org.dpdns.zerodep.flow.core.view.ProcessSummary;
 import org.dpdns.zerodep.flow.model.definition.Definitions;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
@@ -22,6 +24,7 @@ import org.dpdns.zerodep.flow.model.validate.ProcessValidator;
 import org.dpdns.zerodep.flow.model.validate.ValidationContext;
 import org.dpdns.zerodep.wire.Json;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,6 +44,11 @@ public final class Publishing {
      */
     public StoredDefinition publishDefinition(Actor actor, String json, String note) {
         ProcessDefinition model = parseDefinition(json);
+        DefinitionProblem disabled = disabledForm(model);
+        if (disabled != null) {
+            throw new FlowException(FlowErrorCode.DEFINITION_INVALID, "the form " + model.form().key() + " is disabled",
+                List.of(new ErrorDetail(disabled.code(), disabled.field(), null, null, null, disabled.params())));
+        }
         StoredForm form = model.form() == null ? null : formOf(model.form());
         FormManifest manifest = form == null ? null : FormManifest.parse(Json.read(form.manifest()));
         List<Problem> errors = errorsOnly(ProcessValidator.validate(model, new PublishContext(manifest, context.extensions())));
@@ -72,10 +80,21 @@ public final class Publishing {
             }
             manifest = FormManifest.parse(Json.read(form.get().manifest()));
         }
-        return ProcessValidator.validate(model, new PublishContext(manifest, context.extensions())).stream()
+        List<DefinitionProblem> problems = new ArrayList<>();
+        DefinitionProblem disabled = disabledForm(model);
+        if (disabled != null) problems.add(disabled);
+        ProcessValidator.validate(model, new PublishContext(manifest, context.extensions())).stream()
             .map(p -> new DefinitionProblem(p.code(), p.severity().name().toLowerCase(Locale.ROOT), p.node(), p.edge(), p.lane(),
                 p.field(), p.params()))
-            .toList();
+            .forEach(problems::add);
+        return problems;
+    }
+
+    /** 引用的表单停用了（0004 的 5.3：停用后新发布的流程不能再选它）：{@code form-disabled}；没停用、没引用表单时为 null */
+    private DefinitionProblem disabledForm(ProcessDefinition model) {
+        if (model.form() == null) return null;
+        boolean off = context.stores().forms().form(model.form().key()).map(f -> FormInfo.DISABLED.equals(f.status())).orElse(false);
+        return off ? new DefinitionProblem("form-disabled", "error", null, null, null, "form", Map.of("key", model.form().key())) : null;
     }
 
     /** 停用、启用流程：停用后不能再发起，进行中的照常走完 */
@@ -84,6 +103,14 @@ public final class Publishing {
         if (!context.stores().definitions().setStatus(processKey, status)) throw FlowErrors.notFound("process", processKey);
         StoredProcess p = context.stores().definitions().process(processKey).orElseThrow();
         return new ProcessSummary(p.processKey(), p.name(), p.category(), p.status(), p.latestVersion());
+    }
+
+    /** 停用、启用表单：停用后新发布的流程不能再选它，已经引用它的流程照常用 */
+    public FormSummary setFormStatus(String formKey, boolean active) {
+        String status = active ? FormInfo.ACTIVE : FormInfo.DISABLED;
+        if (!context.stores().forms().setStatus(formKey, status)) throw FlowErrors.notFound("form", formKey);
+        FormInfo f = context.stores().forms().form(formKey).orElseThrow();
+        return new FormSummary(f.formKey(), f.name(), f.category(), f.status(), f.latestVersion());
     }
 
     /** 发布一张表单：先校验字段清单本身（0004 的 1.2），有错误时报 {@code flow.validation-failed} */

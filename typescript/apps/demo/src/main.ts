@@ -12,6 +12,8 @@ import { CcPage } from './pages/CcPage';
 import { DesignationsPage } from './pages/DesignationsPage';
 import { DonePage } from './pages/DonePage';
 import { IncidentsPage } from './pages/IncidentsPage';
+import { FormEditPage } from './pages/FormEditPage';
+import { FormsPage } from './pages/FormsPage';
 import { InboxPage } from './pages/InboxPage';
 import { InstancePage } from './pages/InstancePage';
 import { StartListPage } from './pages/StartListPage';
@@ -38,6 +40,8 @@ const router = createRouter({
     { path: '/admin/incidents', component: IncidentsPage },
     { path: '/admin/processes', component: ProcessesPage },
     { path: '/admin/processes/:key', component: ProcessEditPage },
+    { path: '/admin/forms', component: FormsPage },
+    { path: '/admin/forms/:key', component: FormEditPage },
     { path: '/instances/:id', component: InstancePage },
   ],
 });

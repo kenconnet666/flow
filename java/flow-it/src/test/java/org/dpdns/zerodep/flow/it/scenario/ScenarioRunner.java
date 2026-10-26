@@ -129,6 +129,16 @@ final class ScenarioRunner {
                 case "disableProcess" -> view(engine.setProcessActive(actor, args.text("key"), false));
                 case "enableProcess" -> view(engine.setProcessActive(actor, args.text("key"), true));
                 case "versions" -> wire(Map.of("versions", engine.versions(actor, args.text("key"))));
+                case "forms" -> wire(Map.of("forms", engine.forms(actor)));
+                case "formVersions" -> wire(Map.of("versions", engine.formVersions(actor, args.text("key"))));
+                case "formDocument" -> view(engine.formDocument(actor, args.text("key"), args.has("version") ? args.number("version", 0) : null));
+                case "disableForm" -> view(engine.setFormActive(actor, args.text("key"), false));
+                case "enableForm" -> view(engine.setFormActive(actor, args.text("key"), true));
+                case "publishForm" -> {
+                    var form = engine.publishForm(actor, new FormPublication(args.text("key"), args.text("name"), args.text("category"),
+                        Json.write(args.raw("manifest")), args.text("clientSource"), null, null, null, null, args.text("note")));
+                    yield wire(Map.of("id", form.id(), "key", form.formKey(), "version", form.version()));   // 同 HTTP 接口的响应
+                }
                 case "processes" -> wire(Map.of("processes", engine.processes(actor)));
                 case "incidents" -> page(engine.incidents(actor, args.id("instance"), args.number("page", 1), args.number("size", 20)));
                 case "started" -> page(engine.started(actor, args.number("page", 1), args.number("size", 20)));
@@ -272,5 +282,7 @@ final class ScenarioRunner {
         Map<String, Object> map(String name) { return values.get(name) == null ? Map.of() : (Map<String, Object>) values.get(name); }
 
         Object raw(String name) { return values.get(name); }
+
+        boolean has(String name) { return values.get(name) != null; }
     }
 }

@@ -60,6 +60,11 @@
 | `skipJob` | `job`、`outcome`、`reason` | 同 `complete`（跳过失败的作业，按结果往下走） |
 | `runJobs` | `at`：把时钟拨到这一刻（不能往回拨），做到期的作业；这一步不写 `as` | `ran`（做了几个作业） |
 | `publishDefinition` | `definition`（内联的定义） | — |
+| `publishForm` | `key`、`name`、`category`、`manifest`（内联的清单）、`clientSource`、`note` | `id`、`key`、`version` |
+| `forms` | — | `forms`（每项 `{ key, name, category, status, latestVersion }`） |
+| `formVersions` | `key` | `versions` |
+| `formDocument` | `key`、`version`（不写时最新） | `key`、`name`、`category`、`version`、`manifest`、`clientSource`、`serverLanguage`、`serverSource` |
+| `disableForm` / `enableForm` | `key` | 同 `forms` 的一项 |
 | `validateDefinition` | `definition` | `problems`（每项 `{ code, severity, node, edge, lane, field, params }`） |
 | `disableProcess`、`enableProcess` | `key` | 流程（`{ key, name, category, status, latestVersion }`） |
 | `versions` | `key` | `versions`（新的在前，每项 `{ version, note, publishedByName, publishedAt, formKey, formVersion }`） |

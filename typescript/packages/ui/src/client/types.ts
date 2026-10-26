@@ -195,6 +195,57 @@ export interface PublishedDefinition {
   readonly version: number;
 }
 
+/** 管理端的表单列表的一行 */
+export interface FormSummary {
+  readonly key: string;
+  readonly name: string;
+  readonly category: string | null;
+  /** active 能被流程选用，disabled 停用 */
+  readonly status: string;
+  readonly latestVersion: number;
+}
+
+/** 表单版本列表的一行 */
+export interface FormVersion {
+  readonly version: number;
+  readonly note: string | null;
+  readonly publishedByName: string | null;
+  readonly publishedAt: string;
+}
+
+/** 表单某个版本的全部内容（编辑时载入） */
+export interface FormDocument {
+  readonly key: string;
+  readonly name: string;
+  readonly category: string | null;
+  readonly version: number;
+  /** 字段清单的 JSON 文字 */
+  readonly manifest: string;
+  /** 前端源码；只有字段清单、自动排版的表单为 null */
+  readonly clientSource: string | null;
+  readonly serverLanguage: string | null;
+  readonly serverSource: string | null;
+}
+
+/** 发布一张表单（版本号由后端给） */
+export interface FormPublication {
+  readonly key: string;
+  readonly name: string;
+  readonly category?: string;
+  /** 字段清单（0004 的 1.3） */
+  readonly manifest: FormManifest;
+  /** 前端源码（代码表单）；只有清单时不给 */
+  readonly clientSource?: string;
+  readonly note?: string;
+}
+
+/** 发布表单的结果 */
+export interface PublishedForm {
+  readonly id: Id;
+  readonly key: string;
+  readonly version: number;
+}
+
 /** 管理端搜实例的条件：不写的不限 */
 export interface InstanceSearch {
   readonly status?: string;

@@ -1,7 +1,7 @@
 /**
- * 示例的外壳：左侧是"发起""我的待办""我已办""我发起的""抄送我的""流程监控""异常处理""流程管理"，顶栏切换当前用户（换人之后页面重新加载数据）。
+ * 示例的外壳：左侧是"发起""我的待办""我已办""我发起的""抄送我的""流程监控""异常处理""流程管理""表单管理"，顶栏切换当前用户（换人之后页面重新加载数据）。
  */
-import { Activity, CircleCheck, CircleAlert, FileText, Inbox, Mail, Send, Settings2, UserRoundCheck, Workflow } from '@lucide/icons';
+import { Activity, CircleCheck, CircleAlert, FileText, FormInput, Inbox, Mail, Send, Settings2, UserRoundCheck, Workflow } from '@lucide/icons';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { NavItem, NavList, Select, Toaster } from '@zerodep-dev/vue-tsx-pro-ui';
 import { AppShell, AppShellBrand } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
@@ -51,6 +51,9 @@ export const App = _component(() => () => (
         </NavItem>
         <NavItem href="/admin/processes" icon={Settings2}>
           流程管理
+        </NavItem>
+        <NavItem href="/admin/forms" icon={FormInput}>
+          表单管理
         </NavItem>
       </NavList>
     }

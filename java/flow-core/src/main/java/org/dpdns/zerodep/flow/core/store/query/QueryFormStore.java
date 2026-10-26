@@ -1,16 +1,17 @@
 package org.dpdns.zerodep.flow.core.store.query;
 
-import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
 import org.dpdns.zerodep.flow.core.store.FormStore;
 import org.dpdns.zerodep.flow.core.store.query.FlowTables.Form;
 import org.dpdns.zerodep.flow.core.store.query.FlowTables.FormVersion;
 import org.dpdns.zerodep.query.exec.Database;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.dpdns.zerodep.query.Sql.from;
 import static org.dpdns.zerodep.query.Sql.insertInto;
+import static org.dpdns.zerodep.query.Sql.orders;
 import static org.dpdns.zerodep.query.Sql.update;
 import static org.dpdns.zerodep.query.Sql.val;
 
@@ -51,7 +52,7 @@ final class QueryFormStore implements FormStore {
             } else {
                 version = 1;
                 db.execute(insertInto(Form.class).values(new NewForm(p.formKey(), p.name(), p.category(),
-                    StoredProcess.ACTIVE, version, 0, p.at(), p.publishedBy())));
+                    FormInfo.ACTIVE, version, 0, p.at(), p.publishedBy())));
             }
             NewFormVersion row = new NewFormVersion(p.formKey(), version, p.clientSource(), p.clientCompiled(),
                 p.compilerVersion(), p.manifest(), p.serverLanguage(), p.serverSource(), p.note(), p.publishedBy(), p.publishedByName(), p.at());
@@ -80,5 +81,32 @@ final class QueryFormStore implements FormStore {
     @Override
     public Optional<FormClient> client(Long formVersionId) {
         return db.optional(from(FormVersion.class).where(r -> r.id().eq(formVersionId)).selectAs(FormClient.class));
+    }
+
+    @Override
+    public List<FormInfo> forms() {
+        return db.list(from(Form.class).orderBy(r -> orders(r.category(), r.name())).selectAs(FormInfo.class));
+    }
+
+    @Override
+    public Optional<FormInfo> form(String formKey) {
+        return db.optional(from(Form.class).where(r -> r.formKey().eq(formKey)).selectAs(FormInfo.class));
+    }
+
+    @Override
+    public List<FormVersionInfo> versions(String formKey) {
+        return db.list(from(FormVersion.class).where(r -> r.formKey().eq(formKey)).orderBy(r -> r.version().desc())
+            .selectAs(FormVersionInfo.class));
+    }
+
+    @Override
+    public Optional<FormSource> source(String formKey, int version) {
+        return db.optional(from(FormVersion.class).where(r -> { r.formKey().eq(formKey); r.version().eq(version); }).selectAs(FormSource.class));
+    }
+
+    @Override
+    public boolean setStatus(String formKey, String status) {
+        return db.execute(update(Form.class).set(r -> { r.status().to(status); r.rev().to(r.rev().plus(val(1))); })
+            .where(r -> r.formKey().eq(formKey))) == 1;
     }
 }

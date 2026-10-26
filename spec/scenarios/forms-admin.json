@@ -1,0 +1,47 @@
+{
+  "name": "表单的管理：列表、发布新版本、版本列表、某个版本的内容；停用后新发布的流程不能再选它（校验报 form-disabled），已经引用它的流程照常发起；启用后又能选",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "admin": { "id": 1000, "name": "管理员" }
+  },
+  "steps": [
+    { "as": "admin", "command": "forms",
+      "expect": { "forms": [{ "key": "purchase-form", "name": "采购申请单", "status": "active", "latestVersion": 1 }] } },
+    { "as": "admin", "command": "publishForm",
+      "args": { "key": "purchase-form", "name": "采购申请单", "category": "采购", "note": "加了供应商",
+        "manifest": { "title": { "label": "标题", "type": "text", "required": true }, "amount": { "label": "金额", "type": "decimal", "scale": 2 },
+          "quantity": { "label": "数量", "type": "number", "integer": true, "min": 1 }, "note": { "label": "财务意见", "type": "text" },
+          "supplier": { "label": "供应商", "type": "text" } },
+        "clientSource": "export const fields = defineFields({});" },
+      "expect": { "key": "purchase-form", "version": 2 } },
+    { "as": "admin", "command": "formVersions", "args": { "key": "purchase-form" },
+      "expect": { "versions": [{ "version": 2, "note": "加了供应商", "publishedByName": "管理员" }, { "version": 1 }] } },
+    { "as": "admin", "command": "formDocument", "args": { "key": "purchase-form" },
+      "expect": { "key": "purchase-form", "name": "采购申请单", "category": "采购", "version": 2, "clientSource": "export const fields = defineFields({});" } },
+    { "as": "admin", "command": "formDocument", "args": { "key": "purchase-form", "version": 1 },
+      "expect": { "version": 1, "clientSource": null } },
+    { "as": "admin", "command": "formDocument", "args": { "key": "nope" }, "expect": { "error": { "code": "flow.not-found" } } },
+
+    { "as": "admin", "command": "disableForm", "args": { "key": "purchase-form" }, "expect": { "status": "disabled" } },
+    { "as": "admin", "command": "validateDefinition",
+      "args": { "definition": { "key": "buy", "name": "买东西", "form": { "key": "purchase-form" },
+        "nodes": [{ "id": "start", "type": "start", "name": "提交" }, { "id": "end", "type": "end", "name": "结束" }],
+        "edges": [{ "id": "e", "from": "start", "to": "end" }] } },
+      "expect": { "problems": [{ "code": "form-disabled", "severity": "error", "field": "form", "params": { "key": "purchase-form" } }] } },
+    { "as": "admin", "command": "publishDefinition",
+      "args": { "definition": { "key": "buy", "name": "买东西", "form": { "key": "purchase-form" },
+        "nodes": [{ "id": "start", "type": "start", "name": "提交" }, { "id": "end", "type": "end", "name": "结束" }],
+        "edges": [{ "id": "e", "from": "start", "to": "end" }] } },
+      "expect": { "error": { "code": "flow.definition-invalid", "errors": [{ "code": "form-disabled" }] } } },
+    { "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "100.00" } },
+      "expect": { "instance": { "status": "active" } } },
+    { "as": "admin", "command": "enableForm", "args": { "key": "purchase-form" }, "expect": { "status": "active", "latestVersion": 2 } },
+    { "as": "admin", "command": "publishDefinition",
+      "args": { "definition": { "key": "buy", "name": "买东西", "form": { "key": "purchase-form" },
+        "nodes": [{ "id": "start", "type": "start", "name": "提交" }, { "id": "end", "type": "end", "name": "结束" }],
+        "edges": [{ "id": "e", "from": "start", "to": "end" }] } } }
+  ]
+}

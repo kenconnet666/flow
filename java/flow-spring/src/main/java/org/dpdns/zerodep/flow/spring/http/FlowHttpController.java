@@ -35,6 +35,8 @@ import java.util.function.Supplier;
  * GET  {前缀}/queries/work-items/{id}
  * GET  {前缀}/queries/instances/{id}
  * GET  {前缀}/queries/instances?status=&amp;processKey=&amp;keyword=、processes、incidents?instanceId=（管理端）
+ * GET  {前缀}/queries/forms、forms/{key}/versions、forms/{key}/document?version=（管理端）
+ * POST {前缀}/definitions/validate、definitions/publish、definitions/disable、definitions/enable、forms/publish、forms/disable、forms/enable
  * </pre>
  * 命令（POST）的请求头带 {@code Idempotency-Key} 时幂等：同一个键再来时返回第一次的响应体，不再做一遍。
  * HTTP 一律 200，成败看响应体的 {@code code}（0008）：{@code ok}，或 {@code flow.}、{@code query.} 的业务错误码；
@@ -139,6 +141,36 @@ public class FlowHttpController {
         return command("definitions/publish", () -> ResponseBody.of(engine.publishDefinition(body, note)));
     }
 
+    /** 停用表单：{@code { key }} */
+    @PostMapping("/forms/disable")
+    public ResponseEntity<String> disableForm(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("forms/disable", () -> ResponseBody.view(engine.setFormActive(RequestBody.parse(body).key(), false)));
+    }
+
+    /** 启用表单：{@code { key }} */
+    @PostMapping("/forms/enable")
+    public ResponseEntity<String> enableForm(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("forms/enable", () -> ResponseBody.view(engine.setFormActive(RequestBody.parse(body).key(), true)));
+    }
+
+    /** 管理端的表单列表 */
+    @GetMapping("/queries/forms")
+    public ResponseEntity<String> forms() {
+        return respond(() -> ResponseBody.view(engine.forms()));
+    }
+
+    /** 表单的全部版本 */
+    @GetMapping("/queries/forms/{key}/versions")
+    public ResponseEntity<String> formVersions(@PathVariable("key") String key) {
+        return respond(() -> ResponseBody.view(engine.formVersions(key)));
+    }
+
+    /** 表单某个版本的源码与字段清单（version 不写取最新的） */
+    @GetMapping("/queries/forms/{key}/document")
+    public ResponseEntity<String> formDocument(@PathVariable("key") String key, @RequestParam(name = "version", required = false) Integer version) {
+        return respond(() -> ResponseBody.view(engine.formDocument(key, version)));
+    }
+
     /** 发布表单 */
     @PostMapping("/forms/publish")
     public ResponseEntity<String> publishForm(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
@@ -197,13 +229,13 @@ public class FlowHttpController {
     /** 停用流程：{@code { key }} */
     @PostMapping("/definitions/disable")
     public ResponseEntity<String> disableProcess(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
-        return command("definitions/disable", () -> ResponseBody.view(engine.setProcessActive(RequestBody.parse(body).processKey(), false)));
+        return command("definitions/disable", () -> ResponseBody.view(engine.setProcessActive(RequestBody.parse(body).key(), false)));
     }
 
     /** 启用流程：{@code { key }} */
     @PostMapping("/definitions/enable")
     public ResponseEntity<String> enableProcess(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
-        return command("definitions/enable", () -> ResponseBody.view(engine.setProcessActive(RequestBody.parse(body).processKey(), true)));
+        return command("definitions/enable", () -> ResponseBody.view(engine.setProcessActive(RequestBody.parse(body).key(), true)));
     }
 
     /** 流程的全部版本 */

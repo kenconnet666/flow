@@ -147,6 +147,7 @@
 | ③t（已完成，2026-10-27） | 退回时选节点（处理结果 `{ kind: "return", target: "choose" }`，0005 的 5.4）：待办详情里这个结果带 `targets`（上游走到过的人工节点、上次的处理人），处理命令带 `returnTarget`；同沿退回线走（跳出并行区域取消、落到原处理人、`returnTo: resubmit` 生效）；发布校验 `return-target-invalid`、`outcome-choose-automatic`（Java、TS 同步）；前端审批面板点这个结果弹"退回到哪一步" | 场景 return-choose、定义 return-choose；浏览器里走过退回到起草、改完直接回来 |
 | ③u（已完成，2026-10-27） | 命令拦截器（0006 第 6 节"管道"）：命令记录都实现 `FlowCommand`，`CommandInterceptor` 环绕式（先注册的在外层），和标准处理在同一个事务里；`FlowEngine` 的 23 个命令都走 `execute`（权限 → 拦截器 → 标准处理）；Builder `interceptor(...)`、Spring 的 Bean 按 `@Order` 注册 | 场景 interceptors（拦下、改参数、做完再拦整个回滚） |
 | ③v（已完成，2026-10-27） | 幂等记录的定期清理：`RequestStore.deleteBefore`（跨租户，走 created_at 索引）、`engine.purgeRequests(olderThan)`；Spring 的 `FlowJobPoller` 每小时删一次，留 `flow.idempotency.retention`（默认 24 小时）；租户过滤器的名字收成 `FlowDatabase.TENANT_FILTER` | SpringHttpTest 的幂等用例补了清理 |
+| ③w（已完成，2026-10-27） | 表单的管理：查询 `forms`、`formVersions`、`formDocument`，停用启用（停用的表单新发布的流程不能再选，校验报 `form-disabled`）；前端 admin 的 `FlowFormList`、`FlowFormEditor`（字段清单或代码两种写法，边改边校验、预览，清单转代码用 form-tools 的 `codeFromManifest`）；示例前端加"表单管理" | 场景 forms-admin、form-tools 的单测；浏览器里走过编辑采购单、转成代码、发布第 3 版、流程改用后发起页按代码渲染 |
 
 之后：④ TS `core` 与 `flow-nuxt` 跑同一批场景 → 两边按场景补齐还没做的能力（定时与作业、抄送、子流程、外部事件、服务节点）→ ⑤ 流程图与设计器 → ⑥ 表单设计器。
 
@@ -171,5 +172,6 @@
 15. **异常不生成人工待办**：0005 原先写"给管理员生成异常处理待办"，改成管理端的异常列表加实例详情上的一块（同 Camunda 的 incident、Flowable 的 dead-letter job）——待办挂在自动节点上要另造一套表单、结果、处理人规则，收益不大；通知管理员交给接入方监听 `job.failed`。跳过时结果必须是出边上写的；暂停的实例要先恢复才能重试或跳过。
 16. **退回时选节点不进别的并行区域**：能选的限于当前节点所在区域之内或之外的上游，旁边的分支、已经汇合过的区域里的节点不给（进去了汇合等不齐）；一个能选的都没有时按钮不给；会签时用让节点结束的那个人选的目标。
 17. **按命令替换处理类用拦截器做**：不另设 `CommandHandler<C>`，拦截器认出命令后不调 proceed 就是换掉标准行为；发布定义、发布表单、停用启用暂不过拦截器（不是命令记录，审计可以先用 PermissionPolicy 记）。
+18. **表单发布时只存源码**：编译结果与编译器版本（0004 的 5.4）等组件库给出编译器版本号后再存；现在审批页按源码在浏览器里编译（已有的路径）。表单编辑器预览也是这条路径。
 
-下面是还没做的、按优先级：表单的管理与编辑页（同流程管理）→ ④ TS 引擎与 Nuxt → ⑤ 可视化设计器 → ⑥ 表单设计器。
+下面是还没做的、按优先级：④ TS 引擎与 Nuxt → ⑤ 可视化设计器 → ⑥ 表单设计器。

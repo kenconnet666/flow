@@ -7,11 +7,16 @@ import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
 import org.dpdns.zerodep.flow.core.store.DefinitionStore.VersionInfo;
 import org.dpdns.zerodep.flow.core.store.FormDataStore.StoredFormData;
 import org.dpdns.zerodep.flow.core.store.FormStore.FormClient;
+import org.dpdns.zerodep.flow.core.store.FormStore.FormInfo;
+import org.dpdns.zerodep.flow.core.store.FormStore.FormSource;
+import org.dpdns.zerodep.flow.core.store.FormStore.FormVersionInfo;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
 import org.dpdns.zerodep.flow.core.store.JobStore.Job;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.core.store.WorkItemStore.Member;
+import org.dpdns.zerodep.flow.core.view.FormDocument;
+import org.dpdns.zerodep.flow.core.view.FormSummary;
 import org.dpdns.zerodep.flow.core.view.FormView;
 import org.dpdns.zerodep.flow.core.view.IncidentView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
@@ -151,6 +156,28 @@ public final class Queries {
     public List<VersionInfo> versions(String processKey) {
         context.stores().definitions().process(processKey).orElseThrow(() -> FlowErrors.notFound("process", processKey));
         return context.stores().definitions().versions(processKey);
+    }
+
+    /** 管理端的表单列表：停用的也在，按分类、名称排 */
+    public List<FormSummary> forms() {
+        return context.stores().forms().forms().stream()
+            .map(f -> new FormSummary(f.formKey(), f.name(), f.category(), f.status(), f.latestVersion())).toList();
+    }
+
+    /** 表单的全部版本，新的在前 */
+    public List<FormVersionInfo> formVersions(String formKey) {
+        context.stores().forms().form(formKey).orElseThrow(() -> FlowErrors.notFound("form", formKey));
+        return context.stores().forms().versions(formKey);
+    }
+
+    /** 表单某个版本的全部内容（编辑时载入）；version 为 null 时取最新的 */
+    public FormDocument formDocument(String formKey, Integer version) {
+        FormInfo form = context.stores().forms().form(formKey).orElseThrow(() -> FlowErrors.notFound("form", formKey));
+        int wanted = version == null ? form.latestVersion() : version;
+        FormSource source = context.stores().forms().source(formKey, wanted)
+            .orElseThrow(() -> FlowErrors.notFound("form", formKey + "@" + wanted));
+        return new FormDocument(form.formKey(), form.name(), form.category(), source.version(), source.manifest(), source.clientSource(),
+            source.serverLanguage(), source.serverSource());
     }
 
     /** 某个版本的定义（0005 的 JSON 文字，发布时的原样）；version 为 null 时取最新的 */
