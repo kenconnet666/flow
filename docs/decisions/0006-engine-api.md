@@ -51,7 +51,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | 命令 | 参数 | 说明 |
 | --- | --- | --- |
 | `start` | `key`、`form`、`variables`、`businessKey`、`title`、`priority`（随 0007 补）、`picks`（5.6 选下一步的处理人） | 发起；`starters`（0005 第 2 节）不放行时报错 |
-| `saveStartDraft` / `startFromDraft` | 同上 | 发起前存草稿（实例状态 `draft`，不进流程） |
+| `saveStartDraft` / `startFromDraft` | 同上 | 发起前存草稿（实例状态 `draft`，不进流程）。实现（2026-10-27）：`startFromDraft` 并进 `start`——带 `draftId` 就用草稿那个实例；另有 `discardStartDraft` 与查询 `startDrafts` |
 | `withdraw` | `instanceId`、`reason` | 发起人撤回整个实例，按定义的 `withdraw` 规则 |
 | `remind` | `instanceId` 或 `workItemId` | 催办，按频率限制 |
 | `comment` | `instanceId`、`text`、`mentions` | 留言、@人，记进流转记录 |
@@ -106,7 +106,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | `instance` | 实例详情：定义快照、状态、当前节点、表单的值（按我在这个实例上的权限过滤，0004 的 4.5）、流程变量（只给管理员） |
 | `timeline` | 流转记录 |
 | `progress` | 流程图的进度：走过的节点与连线、正在处理的节点与处理人 |
-| `predict` | 选了某个处理结果之后会走到哪些节点、哪些要选处理人（0005 的 5.6） |
+| `predict` | 选了某个处理结果之后会走到哪些节点、哪些要选处理人（0005 的 5.6）。实现（2026-10-27）：不另开查询，待办详情每个结果带 `next`、发起页带 `next`（停在哪个节点、看得出来的处理人、进不进收件箱、要不要选人） |
 | `externalView` | 外部参与方看的：当前环节、谁在处理、预计何时答复 |
 | `stats` | 各节点停留时长、超时率、处理人工作量、按流程的数量 |
 | `instances` | 管理端：按流程、状态、发起人、时间、表单字段筛选实例 |
@@ -140,8 +140,8 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | | `AssigneeResolver` | 0005 的 3.2 六种来源加"上一步选" | 注册解析器；或替换整个处理人解析 |
 | 业务 | `Guard`、`Action`、`ComputedValue` | — | 按名字注册（0005 的 5.1、4.1、6.1） |
 | | `FormHandler` | — | 表单后端代码（0004 的 1.5），在线编辑或在代码里注册 |
-| 流转 | `NodeBehavior` | 十一种节点类型 | 注册自定义节点类型（`x-名字`） |
-| | `MultiCompletion` | 五种会签规则 | 注册新规则 |
+| 流转 | `NodeBehavior` | 十一种节点类型 | 注册自定义节点类型（`x-名字`）；实现时叫 `CustomNode`：到达时当场做完按结果往下走，或停下来等 `signal` 送来的事件 |
+| | `MultiCompletion` | 五种会签规则 | 注册新规则；实现时叫 `CountersignRule`：每有人处理完问一次，返回结果就结束、返回 null 再等 |
 | | `EdgeSelector`、`ConditionEvaluator`、`TitleRenderer` | 0005 的规则 | 替换 |
 | 时间 | `Clock` | 系统时钟，UTC | 替换（测试里用固定时钟） |
 | | `WorkCalendar`、`DurationCalculator` | `flow_calendar_day` 表 | 替换 |
@@ -150,7 +150,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | | `JobHandler` | 超时、提醒、无人认领、定时节点、异步动作 | 注册新的作业种类 |
 | 通知 | `NotificationChannel` | 无（接入方注册站内信、邮件……） | 注册 |
 | | `RecipientCalculator`、`NotificationFilter` | 0005 第 8 节的默认收件人与 `notify` | 替换 |
-| 查询 | `TodoQueryCustomizer` | 只用实例上的 `summary` | 实现它 join 自己的表、加条件 |
+| 查询 | `TodoQueryCustomizer` | 只用实例上的 `summary` | 实现它 join 自己的表、加条件：`filter(actor, params, item)` 在我的待办、我已办的查询上加条件（easy-query 的待办代理，exists 子查询连自己的表；params 是 HTTP 里 `biz.` 开头的参数），`columns(actor, rows)` 批量补业务列到 `TodoItem.business` |
 | 管道 | `CommandInterceptor` | 无 | 注册：审计、业务校验、改参数；和标准处理在同一个事务里，先注册的在外层（Java 已实现：`FlowCommand` 标记命令，拦截器是环绕式的 `intercept(actor, operation, command, chain)`） |
 | | 按命令替换 | 每个命令的标准实现 | **按命令替换**：哪个命令的标准行为不合适，就换掉那一个——用拦截器做：认出那个命令后不调 `chain.proceed`，自己做（不另设 `CommandHandler<C>`，少一套注册） |
 | 序列化 | `JsonCodec` | Java 用 query 的 `wire`（不依赖 Jackson），TS 用内置 JSON | 替换（例如用接入方的 Jackson 配置） |

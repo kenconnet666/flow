@@ -174,6 +174,8 @@
 | 整理（2026-10-27） | 用户要求：不用 record、final class，少用 Object、Map 这类临时类型；按职责分包、方法与注释写清楚。record 全部改成 Lombok 类、访问方法统一 getX（`Actor`、`ProcessNode`、`FlowException` 的接口也改了）；`engine` 拆出 `node`（TaskBehavior、GatewayBehavior、TimerBehavior、ServiceBehavior、ReceiveBehavior、CcBehavior、CallBehavior）、`handler`、`query`（InboxQueries、WorkItemQueries、InstanceQueries、ProcessQueries、FormQueries、StatsQueries）等子包；`FlowEngineBuilder` 单独一个类；前端 `admin/designer` 改名 `process-designer` | 行为不变，Java 与场景全部通过 |
 | ⑦ 把引擎做完整（2026-10-27） | 自动跳过（发起人、上一步处理人，记 `node.skipped`）与通知渠道 `NotificationChannel`（引擎按流转记录算出种类与默认收件人，定义的 notify 改模板、加人，提交后才发）；暂存 `saveDraft`（存在待办的 draft 列）；设计中的草稿 `flow_draft`（V8，版本列防覆盖，发布后删）；表单后端代码（`FormHandler`：load、validate、compute、submit、actions，发布时用 javax.tools 编译，按表单版本缓存）；批量认领与处理、申请改派、管理员改数据；子流程在父实例暂停期间结束、恢复时补上往下走；工作日历表 `flow_calendar`（V9，`TableWorkCalendar` 成为默认）与维护页；我已办、我发起的、抄送我的按流程与时间筛；实例迁移到另一个版本（`MigrateCommand`，节点对应关系、类型要相同）；外部参与方看的进度 `ProgressView` / `FlowProgress`；统计（`StatsQueries` 分组计数，V10 加了按处理时间的索引）与 `FlowStatistics`；流程、表单的导出、导入、复制（走发布接口，两个列表合成 `CatalogList`）；定义编辑器"与已发布版本对比"（模型包的 `diffProcess`） | 场景 auto-skip、save-draft、batch-reassign-change 等，实库 DesignDraftTest、FormCodeTest、CalendarTest、AdminOpsTest、NotificationTest；Java 模型与核心 121、实库 43，TS 120，UI 40 全部通过；浏览器里走过各个页面 |
 | ⑥ 表单设计器第二步（2026-10-27） | 单选组 RadioGroup、多选组 CheckboxGroup（form.Field 按清单补选项与值的转换，与 Select 共用）；预览里填的值在重新编译后留着、"只读预览"；前端代码的问题（语法、清单写法）与后端代码的编译问题点一条跳到代码位置（组件库 CodeEditorHandle 加 `goTo`）；发布时存前端的编译结果与编译器版本（组件库 browser-compile 导出 `COMPILER_VERSION`），FlowForm 只在版本一样时直接执行存下的代码 | UI 单测补了编译器版本的两种情况；浏览器里走过加单选组、预览选中后重编仍选中、只读预览 |
+| ⑧ 补齐小缺口（2026-10-27） | 开发 MySQL 搬进本仓库的 `infra/mysql`（query 暂不维护；`live-env.sh` 设实库测试与示例后端的连接，主机取 WSL 地址）；待办已读（`readWorkItem`，收件箱标"新"，换处理人时清掉）；实例详情的流程变量只给流程管理员（`OrgDirectory.administrators`）；留言 @ 人（`mentions`，通知 `mentioned`） | 场景 read-work-item、call-process 加两步；实库 NotificationTest 加一例 |
+| ⑨ 引擎能力补全（2026-10-27） | 发起前存草稿（draft 实例，`saveStartDraft`、`discardStartDraft`、`startDrafts`，`start` 带 `draftId`；前端"存草稿"与 `FlowStartDrafts`）；预测下一步（`NextSteps`，结果与发起页带 `next`，审批面板写"通过 → 总经理审批（总经理）"）；扩展口 `CustomNode`（x- 节点，当场做完或等事件）、`CountersignRule`、`FieldType`（发布认得、提交暂存时查）、`TodoQueryCustomizer`（待办连接入方的表，`biz.` 参数、`TodoItem.business`） | 场景 start-draft、custom-node、field-type，purchase-views 加 next；实库 TodoCustomizerTest；Java 实库 49、UI 41 |
 | 重做（已完成，2026-10-27） | 用户定：① 删掉 Node 后端（TS 引擎、flow-nuxt、Nitro 示例后端）；② 持久层换成 easy-query——去掉 12 个存储接口，`entity` 包的实体写库、`view` 包的 VO 读给前端，待办行、抄送行用 `selectAutoInclude` 映射成带 `instance` 的对象树，租户与修改时间交给拦截器；③ wire 迁成独立仓库 json-wire，接口的 typed JSON 由接入方集成；④ 表单的值是强类型（json-wire 还原，模型包按类型校验，spec 与场景文件改成 typed JSON），前端时刻是 ZonedDateTime | Java 154（模型 121、实库 33）、TS 120、UI 26 全部通过；浏览器里走过发起（金额 350.25 原样存成 typed JSON）、财务处理、我已办、流程监控；顺带修了自动排版的数字控件把小数对齐成整数的问题 |
 
 ### 无人值守时按推荐定（2026-10-27，待用户过目）
@@ -215,9 +217,16 @@
 32. **实例迁移**：只能迁到同一个流程的别的版本；正停着的节点在新版本里要有（同名或写了对应关系）且类型相同；待办、等待、作业里的节点一起改名，表单数据换到新版本的表单；会签、并行的内部状态按节点名平移，不做别的转换。
 33. **统计不建汇总表**：计数在库里分组算，停留时长、超时比例取那段时间处理完的待办在内存里算（默认 30 天）；数据量大了再考虑汇总表或交给 BI。
 34. **导入、复制都走发布接口**：不另开导入接口，后端照常校验；复制是取最新版本换标识与名字发布成新的一个，流程复制不连带复制它的表单。
+35. **流程变量只给流程管理员**：按 `OrgDirectory.administrators` 判（处理人为空时转的那批人），不另设管理员角色；默认谁都看不到。
+36. **发起前的草稿是 draft 实例**：从草稿发起不另开命令，`start` 带 `draftId`；按发起时最新的版本走；草稿不算进"我发起的"、管理端搜实例（不指定状态时）与统计。
+37. **predict 并进视图**：不另开查询，待办详情每个结果、发起页各带 `next`；只用定义与现在的值推，不跑自动节点，停在自动、调用、等事件这类节点上为止；处理人只列看得出来的（指定的人、发起人、同某节点的上一位）。
+38. **自定义节点能等事件**：等的事件也由 `signal` 送来，和等事件节点共用 `flow_wait`；自定义会签规则的参与人一起处理（不支持依次）。
+39. **注册的字段类型只查顶层字段**：明细表里的列用了注册类型时后端不查它的值。
+40. **待办连表给 easy-query 的代理**：`TodoQueryCustomizer.filter` 直接拿 `WorkItemEntityProxy`，接入方用导航或 exists 子查询；筛选参数是字符串（HTTP 的 `biz.` 参数），业务列是 Map（列由接入方定，没法强类型）。
 
-下面是还没做的、按优先级：
+下面是还没做的、按优先级（阶段三起，2026-10-27 的规划）：
 
+0. 阶段三：归档（`*_archive`）、实库造数据量看慢查询、流转记录按月分表要不要开；阶段五：示例的端到端测试、移动端宽度；阶段六：接入指南、依赖换版本号。
 1. 表单设计器余下的：标签页 Tabs（组件库的 Tabs 要 TabList、Tab、TabPanel 三层，设计器要能认整组）、明细表 form.List、附件控件（要接入方给上传接口）；
    编译放 Worker（`createCompileClient`，flow-ui 是库，`?worker` 的导入要由应用的 Vite 给，需要设计一个传入口）；预览时套用某个流程节点的权限（要先有"哪些流程用了这张表单"的查询）。
 2. 发布 json-wire、vue-tsx-pro 0.2 到 npm / Maven（用户手动），之后本仓库从 `link:` 换成版本号。
