@@ -13,7 +13,8 @@
  *   engine.assignee   处理人：按来源解析成人与收件箱、谁算候选、发起与处理时的选人预览
  *   engine.form       表单：按节点权限合并提交、引用（form.x、sys.x、流程变量）怎么取值
  *   engine.job        作业：轮询抢占（JobRunner）与内置的定时、超时、提醒、无人认领、异步动作
- *   engine.query      查询：收件箱、已办、抄送、实例详情、管理端的列表，流程图的视图
+ *   engine.query      查询，按对象各一个类：InboxQueries（待办、已办、抄送）、WorkItemQueries（待办详情）、InstanceQueries、
+ *                     ProcessQueries、FormQueries；DiagramView 是实例详情里的流程图
  *   engine.store      几处共用的读写：锁实例、表单的值；取消待办、带条件地改待办的状态
  *   engine.notify     按流转记录算出要发的通知
  * </pre>

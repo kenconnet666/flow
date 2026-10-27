@@ -43,8 +43,12 @@ import org.dpdns.zerodep.flow.core.engine.handler.StepWithdrawal;
 import org.dpdns.zerodep.flow.core.engine.handler.WithdrawHandler;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.engine.job.JobRunner;
-import org.dpdns.zerodep.flow.core.engine.query.Queries.InstanceSearch;
-import org.dpdns.zerodep.flow.core.engine.query.Queries;
+import org.dpdns.zerodep.flow.core.engine.query.FormQueries;
+import org.dpdns.zerodep.flow.core.engine.query.InboxQueries;
+import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
+import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries;
+import org.dpdns.zerodep.flow.core.engine.query.ProcessQueries;
+import org.dpdns.zerodep.flow.core.engine.query.WorkItemQueries;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.RequestEntity;
@@ -111,7 +115,11 @@ public class FlowEngine<U extends Actor> {
     private final SignalHandler signals;
     private final StepWithdrawal stepWithdrawals;
     private final Publishing publishing;
-    private final Queries queries;
+    private final ProcessQueries processQueries;
+    private final FormQueries formQueries;
+    private final InboxQueries inbox;
+    private final WorkItemQueries workItemQueries;
+    private final InstanceQueries instanceQueries;
     private final JobRunner jobs;
     private final EngineContext context;
     private final List<CommandInterceptor<U>> interceptors;
@@ -131,7 +139,11 @@ public class FlowEngine<U extends Actor> {
         this.signals = new SignalHandler(context);
         this.stepWithdrawals = new StepWithdrawal(context);
         this.publishing = new Publishing(context);
-        this.queries = new Queries(context);
+        this.processQueries = new ProcessQueries(context);
+        this.formQueries = new FormQueries(context);
+        this.inbox = new InboxQueries(context);
+        this.workItemQueries = new WorkItemQueries(context);
+        this.instanceQueries = new InstanceQueries(context);
         // 内置的作业在前，接入方注册的在后：同一种时接入方的换掉内置的
         List<JobHandler> handlers = new ArrayList<>(new BuiltinJobs(context, completions).handlers());
         handlers.addAll(jobHandlers);
@@ -179,7 +191,7 @@ public class FlowEngine<U extends Actor> {
     /** 流程的全部版本，新的在前（{@code definitions.versions}） */
     public List<ProcessVersionVO> versions(U actor, String processKey) {
         allow(actor, "definitions.versions", processKey);
-        return queries.versions(processKey);
+        return processQueries.versions(processKey);
     }
 
     /** 某个版本的定义 JSON（当前操作人） */
@@ -188,7 +200,7 @@ public class FlowEngine<U extends Actor> {
     /** 某个版本的定义 JSON（发布时的原样）；version 为 null 时取最新的（{@code definitions.read}） */
     public String definitionJson(U actor, String processKey, Integer version) {
         allow(actor, "definitions.read", processKey);
-        return queries.definitionJson(processKey, version);
+        return processQueries.definitionJson(processKey, version);
     }
 
     /** 表单列表（当前操作人） */
@@ -197,7 +209,7 @@ public class FlowEngine<U extends Actor> {
     /** 管理端的表单列表：停用的也在，按分类、名称排（{@code forms.list}） */
     public List<FormSummary> forms(U actor) {
         allow(actor, "forms.list", null);
-        return queries.forms();
+        return formQueries.forms();
     }
 
     /** 表单的全部版本（当前操作人） */
@@ -206,7 +218,7 @@ public class FlowEngine<U extends Actor> {
     /** 表单的全部版本，新的在前（{@code forms.versions}） */
     public List<FormVersionVO> formVersions(U actor, String formKey) {
         allow(actor, "forms.versions", formKey);
-        return queries.formVersions(formKey);
+        return formQueries.formVersions(formKey);
     }
 
     /** 表单某个版本的全部内容（当前操作人） */
@@ -215,7 +227,7 @@ public class FlowEngine<U extends Actor> {
     /** 表单某个版本的源码与字段清单（编辑时载入）；version 为 null 时取最新的（{@code forms.read}） */
     public FormDocument formDocument(U actor, String formKey, Integer version) {
         allow(actor, "forms.read", formKey);
-        return queries.formDocument(formKey, version);
+        return formQueries.formDocument(formKey, version);
     }
 
     /** 停用或启用表单（当前操作人） */
@@ -500,7 +512,7 @@ public class FlowEngine<U extends Actor> {
     /** 我能发起的流程：启用着、发起人名单里有我，按分类、名称排 */
     public List<StartableProcess> startable(U actor) {
         allow(actor, "startable", null);
-        return queries.startable(actor);
+        return processQueries.startable(actor);
     }
 
     /** 发起页（当前操作人） */
@@ -509,7 +521,7 @@ public class FlowEngine<U extends Actor> {
     /** 发起页：流程与开始节点上的表单 */
     public StartView startView(U actor, String key) {
         allow(actor, "startView", key);
-        return queries.startView(actor, key);
+        return processQueries.startView(actor, key);
     }
 
     /** 待办详情（当前操作人） */
@@ -518,7 +530,7 @@ public class FlowEngine<U extends Actor> {
     /** 待办详情：待办与实例、这个节点上的表单、能选的处理结果、我能不能认领与处理 */
     public WorkItemView workItem(U actor, Long workItemId) {
         allow(actor, "workItem", String.valueOf(workItemId));
-        return queries.workItem(actor, workItemId);
+        return workItemQueries.workItem(actor, workItemId);
     }
 
     /** 我的待办（当前操作人） */
@@ -527,7 +539,7 @@ public class FlowEngine<U extends Actor> {
     /** 我的待办：落到我的，加上我能认领的；按到达时间从新到旧，带实例的标题与摘要列 */
     public Page<TodoItem> todo(U actor, int page, int size) {
         allow(actor, "todo", String.valueOf(actor.getId()));
-        return queries.todo(actor, page, size);
+        return inbox.todo(actor, page, size);
     }
 
     /** 等我指定承办人的待办（当前操作人） */
@@ -536,7 +548,7 @@ public class FlowEngine<U extends Actor> {
     /** 等我指定承办人的待办：无人认领超时、我是收件箱负责人（{@code designations}） */
     public Page<TodoItem> designations(U actor, int page, int size) {
         allow(actor, "designations", String.valueOf(actor.getId()));
-        return queries.designations(actor, page, size);
+        return inbox.designations(actor, page, size);
     }
 
     /** 我已办（当前操作人） */
@@ -545,7 +557,7 @@ public class FlowEngine<U extends Actor> {
     /** 我处理过的待办，按处理时间从新到旧 */
     public Page<TodoItem> done(U actor, int page, int size) {
         allow(actor, "done", String.valueOf(actor.getId()));
-        return queries.done(actor, page, size);
+        return inbox.done(actor, page, size);
     }
 
     /** 抄送我的（当前操作人） */
@@ -554,7 +566,7 @@ public class FlowEngine<U extends Actor> {
     /** 抄送我的：未读在前 */
     public Page<CcItem> ccList(U actor, int page, int size) {
         allow(actor, "cc.list", String.valueOf(actor.getId()));
-        return queries.ccList(actor, page, size);
+        return inbox.ccList(actor, page, size);
     }
 
     /** 管理端搜实例（当前操作人） */
@@ -563,7 +575,7 @@ public class FlowEngine<U extends Actor> {
     /** 管理端搜实例：按状态、流程、标题、发起人；谁能搜由 PermissionPolicy 定（{@code instances.search}） */
     public Page<InstanceVO> instances(U actor, InstanceSearch search, int page, int size) {
         allow(actor, "instances.search", null);
-        return queries.instances(search, page, size);
+        return instanceQueries.instances(search, page, size);
     }
 
     /** 管理端的流程列表（当前操作人） */
@@ -572,7 +584,7 @@ public class FlowEngine<U extends Actor> {
     /** 管理端的流程列表：全部流程，停用的也在（{@code processes.list}） */
     public List<ProcessSummary> processes(U actor) {
         allow(actor, "processes.list", null);
-        return queries.processes();
+        return processQueries.processes();
     }
 
     /** 异常（当前操作人） */
@@ -584,7 +596,7 @@ public class FlowEngine<U extends Actor> {
      */
     public Page<IncidentView> incidents(U actor, Long instanceId, int page, int size) {
         allow(actor, "incidents", instanceId == null ? null : String.valueOf(instanceId));
-        return queries.incidents(instanceId, page, size);
+        return instanceQueries.incidents(instanceId, page, size);
     }
 
     /** 我发起的（当前操作人） */
@@ -593,7 +605,7 @@ public class FlowEngine<U extends Actor> {
     /** 我发起的实例，按发起时间从新到旧 */
     public Page<InstanceVO> started(U actor, int page, int size) {
         allow(actor, "started", String.valueOf(actor.getId()));
-        return queries.started(actor, page, size);
+        return instanceQueries.started(actor, page, size);
     }
 
     /** 实例详情（当前操作人） */
@@ -602,7 +614,7 @@ public class FlowEngine<U extends Actor> {
     /** 实例详情：实例、表单（按流程级的 formView 只读）、全部待办、流转记录、我能不能撤回与催办 */
     public InstanceDetail instance(U actor, Long instanceId) {
         allow(actor, "instance", String.valueOf(instanceId));
-        return queries.instance(actor, instanceId);
+        return instanceQueries.instance(actor, instanceId);
     }
 
     /**
