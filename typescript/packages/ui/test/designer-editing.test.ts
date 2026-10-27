@@ -88,14 +88,23 @@ describe('设计器的编辑', () => {
     expect(definition.edges[0]).toMatchObject({ from: id, to: 'end', outcome: 'pass' });
   });
 
-  it('删除：连着的线一起删，开始节点不删', () => {
+  it('删除：一进一出的节点删掉后前后接上（进来的线改连到后面），开始节点不删', () => {
     let { definition, id } = addNode(base, 'task', TEXTS, { x: 0, y: 0 });
     definition = connect(definition, 'start', id)!.definition;
     definition = connect(definition, id, 'end')!.definition;
     const removed = removeItems(definition, { nodes: [id, 'start'], edges: [] });
     expect(removed.nodes.map((n) => n.id)).toEqual(['start', 'end']);
-    expect(removed.edges).toEqual([]);
+    expect(removed.edges.map((e) => `${e.from}>${e.to}`)).toEqual(['start>end']);
     expect(removed.layout?.nodes?.[id]).toBeUndefined();
+  });
+
+  it('删除：几条线进出的节点（网关）连着的线一起删，不乱接', () => {
+    let { definition, id } = addNode(base, 'exclusive', TEXTS, { x: 0, y: 0 });
+    const other = addNode(definition, 'end', TEXTS, { x: 0, y: 0 });
+    definition = connect(other.definition, 'start', id)!.definition;
+    definition = connect(definition, id, 'end')!.definition;
+    definition = connect(definition, id, other.id)!.definition;
+    expect(removeItems(definition, { nodes: [id], edges: [] }).edges).toEqual([]);
   });
 
   it('设成默认出边时，同一个网关原来的默认出边不再是默认', () => {

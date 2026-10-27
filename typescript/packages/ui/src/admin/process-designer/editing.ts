@@ -212,15 +212,28 @@ export function withPositions(definition: ProcessDefinition, moves: readonly { i
   return { ...definition, layout: { ...definition.layout, nodes } };
 }
 
-/** 删掉选中的节点（连着它们的线一起）与连线；开始节点不删 */
+/**
+ * 删掉选中的节点（连着它们的线一起）与连线；开始节点不删。删的节点在一条线上（一进一出）时前后接上：
+ * 进来的线改连到它后面的节点（结果、条件照旧），不留下两段断开的流程
+ */
 export function removeItems(definition: ProcessDefinition, selection: Selection): ProcessDefinition {
   const nodes = new Set(selection.nodes.filter((id) => definition.nodes.find((n) => n.id === id)?.type !== 'start'));
   const edges = new Set(selection.edges);
+  const kept = definition.edges.filter((e) => !edges.has(e.id) && !nodes.has(e.from) && !nodes.has(e.to));
+  const bridges = [...nodes].flatMap((id): ProcessEdge[] => {
+    const incoming = definition.edges.filter((e) => e.to === id && !edges.has(e.id));
+    const outgoing = definition.edges.filter((e) => e.from === id && !edges.has(e.id));
+    if (incoming.length !== 1 || outgoing.length !== 1) return [];
+    const [line, next] = [incoming[0]!, outgoing[0]!];
+    if (nodes.has(line.from) || nodes.has(next.to) || line.from === next.to) return [];
+    if (kept.some((e) => e.from === line.from && e.to === next.to)) return [];
+    return [{ ...line, to: next.to }];
+  });
   const layoutNodes = Object.fromEntries(Object.entries(definition.layout?.nodes ?? {}).filter(([id]) => !nodes.has(id)));
   return {
     ...definition,
     nodes: definition.nodes.filter((n) => !nodes.has(n.id)),
-    edges: definition.edges.filter((e) => !edges.has(e.id) && !nodes.has(e.from) && !nodes.has(e.to)),
+    edges: [...kept, ...bridges],
     layout: { ...definition.layout, nodes: layoutNodes },
   };
 }
