@@ -22,7 +22,7 @@ import {
 import { useFlowClient } from '../client/flow-client';
 import type { CommandResult, InstanceDetail } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
-import { holderName } from './holder';
+import { holderName } from './parts/holder';
 import { MigrateDialog } from './MigrateDialog';
 
 /** InstanceAdminActions 的属性 */

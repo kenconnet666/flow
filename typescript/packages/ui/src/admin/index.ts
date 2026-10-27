@@ -4,14 +4,14 @@
  * 流程定义的编辑 FlowDefinitionEditor（设计器 FlowDesigner 与 JSON 两种写法、与已发布版本对比）。流程、表单的列表上能导出、导入、复制。流程详情的管理员操作在主入口的 FlowInstanceDetail（admin）。
  * 谁能用由后端的 PermissionPolicy 定。
  */
-export { FlowCalendars } from './FlowCalendars';
-export { FlowDefinitionEditor, type FlowDefinitionEditorProps } from './FlowDefinitionEditor';
+export { FlowCalendars } from './ops/FlowCalendars';
+export { FlowDefinitionEditor, type FlowDefinitionEditorProps } from './editor/FlowDefinitionEditor';
 export { FlowDesigner, type FlowDesignerProps } from './process-designer/FlowDesigner';
-export { FlowFormEditor, type FlowFormEditorProps } from './FlowFormEditor';
+export { FlowFormEditor, type FlowFormEditorProps } from './editor/FlowFormEditor';
 export { FormDesigner, type FormDesignerProps } from './form-designer/FormDesigner';
 export { formPreviews, type FormPreview } from './form-designer/previews';
-export { FlowFormList, type FlowFormListProps } from './FlowFormList';
-export { FlowIncidentList, type FlowIncidentListProps } from './FlowIncidentList';
-export { FlowInstanceMonitor, type FlowInstanceMonitorProps } from './FlowInstanceMonitor';
-export { FlowProcessList, type FlowProcessListProps } from './FlowProcessList';
-export { FlowStatistics } from './FlowStatistics';
+export { FlowFormList, type FlowFormListProps } from './catalog/FlowFormList';
+export { FlowIncidentList, type FlowIncidentListProps } from './ops/FlowIncidentList';
+export { FlowInstanceMonitor, type FlowInstanceMonitorProps } from './ops/FlowInstanceMonitor';
+export { FlowProcessList, type FlowProcessListProps } from './catalog/FlowProcessList';
+export { FlowStatistics } from './ops/FlowStatistics';

@@ -7,10 +7,10 @@
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Flex, Link, Text, useFormat, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
-import { useFlowClient } from '../client/flow-client';
-import type { Incident } from '../client/types';
-import { useFlowMessages } from '../lang/messages';
-import { IncidentActions, incidentDoneText, isDelivery, type IncidentAction } from '../runtime/IncidentActions';
+import { useFlowClient } from '../../client/flow-client';
+import type { Incident } from '../../client/types';
+import { useFlowMessages } from '../../lang/messages';
+import { IncidentActions, incidentDoneText, isDelivery, type IncidentAction } from '../../runtime/IncidentActions';
 
 /** FlowIncidentList 的属性 */
 export interface FlowIncidentListProps {

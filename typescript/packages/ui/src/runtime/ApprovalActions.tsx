@@ -24,7 +24,7 @@ import {
 import type { Id } from '@zerodep-dev/flow-model';
 import type { OutcomeView } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
-import { describeNext } from './next-steps';
+import { describeNext } from './parts/next-steps';
 import { PickDialog } from './PickDialog';
 
 /** ApprovalActions 的属性 */

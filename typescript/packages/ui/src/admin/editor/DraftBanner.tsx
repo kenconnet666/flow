@@ -5,7 +5,7 @@
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Button, Flex, Small, useFormat } from '@zerodep-dev/vue-tsx-pro-ui';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowMessages } from '../../lang/messages';
 import { conflictWith, type DesignDraftStatus } from './design-draft';
 
 /** DraftBanner 的属性 */

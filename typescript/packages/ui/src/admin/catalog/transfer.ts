@@ -9,8 +9,8 @@
  */
 import { downloadFile } from '@zerodep-dev/vue-tsx-pro-ui';
 import { parseDefinition, type FormManifest } from '@zerodep-dev/flow-model';
-import type { FlowClient } from '../client/flow-client';
-import type { FormPublication } from '../client/types';
+import type { FlowClient } from '../../client/flow-client';
+import type { FormPublication } from '../../client/types';
 
 /** 复制时的新标识与名字 */
 export interface Rename {
@@ -62,7 +62,7 @@ export function formTransfer(flow: FlowClient): Transfer {
 
 /** 按前端源码重新提取的清单与编译结果；清单写得不对时抛出，说明是哪一处 */
 async function fromClientSource(source: string): Promise<Pick<FormPublication, 'manifest' | 'clientCompiled' | 'compilerVersion'>> {
-  const { compileFormSource, extractFields } = await import('../form-tools');
+  const { compileFormSource, extractFields } = await import('../../form-tools');
   const extracted = extractFields(source);
   if (!extracted.manifest) {
     const first = extracted.problems[0]!;

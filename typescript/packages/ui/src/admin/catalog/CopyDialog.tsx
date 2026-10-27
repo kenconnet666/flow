@@ -6,7 +6,7 @@
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Dialog, Field, Flex, TextField } from '@zerodep-dev/vue-tsx-pro-ui';
 import { watch } from 'vue';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowMessages } from '../../lang/messages';
 import type { Rename } from './transfer';
 
 /** CopyDialog 的属性 */

@@ -9,8 +9,8 @@
  *   draft.published();                     // 发布成功：草稿没了，之后再改重新开一份
  */
 import { HttpError, useAutosave, type AutosaveStatus } from '@zerodep-dev/vue-tsx-pro-ui';
-import { useFlowClient } from '../client/flow-client';
-import type { DesignDraft, DraftKind } from '../client/types';
+import { useFlowClient } from '../../client/flow-client';
+import type { DesignDraft, DraftKind } from '../../client/types';
 
 /** useDesignDraft 的选项 */
 export interface DesignDraftOptions {

@@ -25,7 +25,7 @@ import type { CommandResult } from '../client/types';
 import type { FlowFormHandle } from '../form/context';
 import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
-import { describeNext } from './next-steps';
+import { describeNext } from './parts/next-steps';
 import { PickDialog } from './PickDialog';
 
 /** StartForm 的属性 */

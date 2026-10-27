@@ -5,8 +5,8 @@
  *   <FlowProcessList onEdit={(key) => router.push(key ? `/admin/processes/${key}` : '/admin/processes/new')} />
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { useFlowClient } from '../client/flow-client';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowClient } from '../../client/flow-client';
+import { useFlowMessages } from '../../lang/messages';
 import { CatalogList, type CatalogKind } from './CatalogList';
 import { processTransfer } from './transfer';
 

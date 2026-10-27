@@ -6,9 +6,9 @@
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Card, DataTable, Field, Flex, Select, useRequest, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
-import { useFlowClient } from '../client/flow-client';
-import type { HandlerStats, NodeStats, ProcessStats } from '../client/types';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowClient } from '../../client/flow-client';
+import type { HandlerStats, NodeStats, ProcessStats } from '../../client/types';
+import { useFlowMessages } from '../../lang/messages';
 
 /** 最近几天 */
 const RANGES = [7, 30, 90, 365] as const;

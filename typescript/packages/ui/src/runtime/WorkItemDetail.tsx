@@ -34,7 +34,7 @@ import { ApprovalActions } from './ApprovalActions';
 import { CollaborationActions, type Collaboration } from './CollaborationActions';
 import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
-import { statusTone } from './status';
+import { statusTone } from './parts/status';
 import { watch } from 'vue';
 
 /** WorkItemDetail 的属性 */

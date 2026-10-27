@@ -35,10 +35,10 @@ import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
 import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
-import { holderName } from './holder';
+import { holderName } from './parts/holder';
 import { IncidentActions, incidentDoneText, isDelivery, type IncidentAction } from './IncidentActions';
 import { InstanceAdminActions } from './InstanceAdminActions';
-import { statusTone } from './status';
+import { statusTone } from './parts/status';
 
 /** FlowInstanceDetail 的属性 */
 export interface FlowInstanceDetailProps {

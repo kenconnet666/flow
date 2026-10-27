@@ -9,7 +9,7 @@ import type { StatusTone } from '@zerodep-dev/vue-tsx-pro-ui';
 import { Diagram, DiagramNode, type DiagramEdgeItem, type DiagramNodeItem } from '@zerodep-dev/vue-tsx-pro-ui/diagram';
 import type { ProcessDiagram } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
-import { layoutDiagram } from './diagram-layout';
+import { layoutDiagram } from './parts/diagram-layout';
 
 /** FlowDiagram 的属性 */
 export interface FlowDiagramProps {

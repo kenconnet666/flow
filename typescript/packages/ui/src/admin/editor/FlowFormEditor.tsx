@@ -36,17 +36,17 @@ import {
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { CodeEditor, type CodeEditorHandle } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { watch } from 'vue';
-import { useFlowClient } from '../client/flow-client';
-import type { CompileProblem, PublishedForm } from '../client/types';
-import { applyEdits } from '../form-tools/design/edit';
-import { useFormCompiler } from '../form/compiler';
-import { FlowForm } from '../form/FlowForm';
+import { useFlowClient } from '../../client/flow-client';
+import type { CompileProblem, PublishedForm } from '../../client/types';
+import { applyEdits } from '../../form-tools/design/edit';
+import { useFormCompiler } from '../../form/compiler';
+import { FlowForm } from '../../form/FlowForm';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
-import { FormDesigner } from './form-designer/FormDesigner';
-import { formPreviews } from './form-designer/previews';
+import { FormDesigner } from '../form-designer/FormDesigner';
+import { formPreviews } from '../form-designer/previews';
 import { FormServerCode } from './FormServerCode';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowMessages } from '../../lang/messages';
 
 /** FlowFormEditor 的属性 */
 export interface FlowFormEditorProps {
@@ -146,7 +146,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       }
     } else {
       // 取清单要解析 TSX（Babel），用到时才加载（设计、代码两种写法都是）
-      const { extractFields } = await import('../form-tools');
+      const { extractFields } = await import('../../form-tools');
       try {
         const result = extractFields(source);
         if (!result.manifest) {
@@ -163,7 +163,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       }
     }
     // 接入方登记的组件声明过的字段类型也认得（registerFormComponent 的 field）
-    const { isRegisteredFieldType } = await import('../form-tools');
+    const { isRegisteredFieldType } = await import('../../form-tools');
     const problems = validateManifest(manifest, { isFieldType: isRegisteredFieldType }).map((p) => ({ text: `${messages.problem(p.code, toTexts(p.params))}${p.field ? `（${p.field}）` : ''}` }));
     return { manifest: problems.length ? null : manifest, problems };
   }
@@ -226,7 +226,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     if (next === mode) return;
     if (next !== 'manifest' && !source.trim()) {
       const parsed = analysis.manifest ?? SKELETON;
-      const { codeFromManifest } = await import('../form-tools');
+      const { codeFromManifest } = await import('../../form-tools');
       source = codeFromManifest(parsed);
     }
     if (next === 'manifest' && analysis.manifest) manifestText = JSON.stringify(analysis.manifest, null, 2);
@@ -241,7 +241,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     failure = null;
     notice = null;
     try {
-      const compiled = mode !== 'manifest' ? await (await import('../form-tools')).compileFormSource(source, compiler) : null;
+      const compiled = mode !== 'manifest' ? await (await import('../../form-tools')).compileFormSource(source, compiler) : null;
       const result = await flow.publishForm({
         key: key.trim(),
         name: name.trim(),

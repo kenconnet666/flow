@@ -30,14 +30,14 @@ import {
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { CodeEditor } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { watch } from 'vue';
-import { useFlowClient } from '../client/flow-client';
-import type { DefinitionProblem, PublishedDefinition } from '../client/types';
-import { useDesignerMessages } from '../lang/process-designer-messages';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowClient } from '../../client/flow-client';
+import type { DefinitionProblem, PublishedDefinition } from '../../client/types';
+import { useDesignerMessages } from '../../lang/process-designer-messages';
+import { useFlowMessages } from '../../lang/messages';
 import { DefinitionDiffView } from './DefinitionDiffView';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
-import { FlowDesigner } from './process-designer/FlowDesigner';
+import { FlowDesigner } from '../process-designer/FlowDesigner';
 
 /** FlowDefinitionEditor 的属性 */
 export interface FlowDefinitionEditorProps {

@@ -5,8 +5,8 @@
  *   <FlowFormList onEdit={(key) => router.push(key ? `/admin/forms/${key}` : '/admin/forms/new')} />
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { useFlowClient } from '../client/flow-client';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowClient } from '../../client/flow-client';
+import { useFlowMessages } from '../../lang/messages';
 import { CatalogList, type CatalogKind } from './CatalogList';
 import { formTransfer } from './transfer';
 

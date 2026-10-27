@@ -15,8 +15,8 @@ import {
   type DataTableColumn,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
-import type { FormSummary, ProcessSummary } from '../client/types';
-import { useFlowMessages } from '../lang/messages';
+import type { FormSummary, ProcessSummary } from '../../client/types';
+import { useFlowMessages } from '../../lang/messages';
 import { CopyDialog } from './CopyDialog';
 import { downloadJson, type Rename, type Transfer } from './transfer';
 

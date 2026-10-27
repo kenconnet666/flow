@@ -6,7 +6,7 @@
  *   definition = connect(definition, 'start', id).definition;
  */
 import { isBranching, type ProcessDefinition, type ProcessEdge, type ProcessNode } from '@zerodep-dev/flow-model';
-import { layoutDiagram } from '../../runtime/diagram-layout';
+import { layoutDiagram } from '../../runtime/parts/diagram-layout';
 
 /** 设计器的工具栏里能加的节点（开始节点每个流程有且只有一个，不在里面） */
 export const PALETTE = ['task', 'exclusive', 'parallel', 'inclusive', 'service', 'timer', 'receive', 'cc', 'call', 'end'] as const;

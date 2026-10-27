@@ -15,9 +15,9 @@ import { watch } from 'vue';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
-import { holderName } from './holder';
-import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './list-filters';
-import { statusTone } from './status';
+import { holderName } from './parts/holder';
+import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './parts/list-filters';
+import { statusTone } from './parts/status';
 
 /** FlowInbox 的属性 */
 export interface FlowInboxProps {

@@ -3,8 +3,8 @@
  *
  *   describeNext(outcome.next, messages)   // → "总经理审批（总经理）"、"财务复核（进收件箱）"、"结束：否决"
  */
-import type { NextStep } from '../client/types';
-import type { FlowMessages } from '../lang/messages';
+import type { NextStep } from '../../client/types';
+import type { FlowMessages } from '../../lang/messages';
 
 /** 一步：人工节点带上交给谁，结束节点写成"结束：结果名" */
 function describeStep(step: NextStep, messages: FlowMessages): string {

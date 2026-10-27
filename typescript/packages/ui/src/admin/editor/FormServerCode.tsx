@@ -7,13 +7,12 @@
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Button, Flex, Link, Small, useErrorMessage } from '@zerodep-dev/vue-tsx-pro-ui';
 import { CodeEditor, type CodeEditorHandle } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
-import { useFlowClient } from '../client/flow-client';
-import type { CompileProblem } from '../client/types';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowClient } from '../../client/flow-client';
+import type { CompileProblem } from '../../client/types';
+import { useFlowMessages } from '../../lang/messages';
 
 /** 新写后端代码时的骨架 */
-export const SERVER_SKELETON = `import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.form.*;
+export const SERVER_SKELETON = `import org.dpdns.zerodep.flow.core.spi.*;
 
 public class MyForm implements FormHandler {
     @Override

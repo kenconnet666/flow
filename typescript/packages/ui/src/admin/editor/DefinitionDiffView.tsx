@@ -7,7 +7,7 @@
 import type { ItemDiff, ProcessDiff } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Badge, Flex, Text } from '@zerodep-dev/vue-tsx-pro-ui';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowMessages } from '../../lang/messages';
 
 /** DefinitionDiffView 的属性 */
 export interface DefinitionDiffViewProps {

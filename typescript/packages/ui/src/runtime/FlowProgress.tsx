@@ -8,7 +8,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Badge, Card, Descriptions, Flex, Skeleton, Text, useErrorMessage, useFormat, useRequest } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
-import { statusTone } from './status';
+import { statusTone } from './parts/status';
 
 /** FlowProgress 的属性 */
 export interface FlowProgressProps {

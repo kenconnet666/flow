@@ -16,9 +16,9 @@ import { Badge,
   type DataTableColumn,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
-import { useFlowClient } from '../client/flow-client';
-import { useFlowMessages } from '../lang/messages';
-import { statusTone } from '../runtime/status';
+import { useFlowClient } from '../../client/flow-client';
+import { useFlowMessages } from '../../lang/messages';
+import { statusTone } from '../../runtime/parts/status';
 
 /** FlowInstanceMonitor 的属性 */
 export interface FlowInstanceMonitorProps {
