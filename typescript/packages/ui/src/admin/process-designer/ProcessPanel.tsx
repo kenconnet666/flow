@@ -5,7 +5,7 @@
 import type { FormManifest, ProcessDefinition, ProcessSettings } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Field, Flex, Select, Textarea, TextField } from '@zerodep-dev/vue-tsx-pro-ui';
-import { useDesignerMessages } from '../../lang/designer-messages';
+import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { compact, optionsOf } from './fields';
 
 /** ProcessPanel 的属性 */

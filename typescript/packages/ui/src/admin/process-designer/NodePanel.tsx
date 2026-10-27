@@ -30,7 +30,7 @@ import {
   TextField,
   type PeopleSource,
 } from '@zerodep-dev/vue-tsx-pro-ui';
-import { useDesignerMessages } from '../../lang/designer-messages';
+import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { AssigneeField, compact, DurationField, FieldGroup, FormAccessTable, optionsOf, OutcomeList } from './fields';
 
 /** NodePanel 的属性 */

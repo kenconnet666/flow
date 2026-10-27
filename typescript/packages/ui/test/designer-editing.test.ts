@@ -13,7 +13,7 @@ import {
   replaceNode,
   uniqueId,
   withPositions,
-} from '../src/admin/designer/editing';
+} from '../src/admin/process-designer/editing';
 
 const TEXTS = { name: '审批', outcome: '同意' };
 

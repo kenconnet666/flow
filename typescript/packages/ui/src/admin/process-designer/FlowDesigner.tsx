@@ -58,7 +58,7 @@ import {
 } from '@zerodep-dev/vue-tsx-pro-ui/diagram';
 import { toRaw, watch } from 'vue';
 import { useFlowClient } from '../../client/flow-client';
-import { useDesignerMessages } from '../../lang/designer-messages';
+import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { useFlowMessages } from '../../lang/messages';
 import { addNode, autoLayout, connect, PALETTE, placeNodes, reconnect, removeItems, replaceEdge, replaceNode, withPositions, type PaletteType, type PlacedNode } from './editing';
 import { EdgePanel } from './EdgePanel';

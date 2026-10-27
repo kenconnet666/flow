@@ -5,7 +5,7 @@
 import { BRANCHING_TYPES, GATEWAY_TYPES, type Condition, type FormManifest, type ProcessDefinition, type ProcessEdge } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { ConditionBuilder, Field, Flex, Select, Small, Switch, TextField, type ConditionField, type ConditionFieldType } from '@zerodep-dev/vue-tsx-pro-ui';
-import { useDesignerMessages } from '../../lang/designer-messages';
+import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { outcomeKeys } from './editing';
 import { compact, FieldGroup, optionsOf } from './fields';
 

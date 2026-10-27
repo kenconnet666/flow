@@ -32,7 +32,7 @@ import {
   type PeopleType,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useId, type VNodeChild } from 'vue';
-import { useDesignerMessages } from '../../lang/designer-messages';
+import { useDesignerMessages } from '../../lang/process-designer-messages';
 
 /** 文案表（值 → 文字）排成下拉的选项 */
 export const optionsOf = (labels: Readonly<Record<string, string>>) => Object.entries(labels).map(([value, label]) => ({ value, label }));

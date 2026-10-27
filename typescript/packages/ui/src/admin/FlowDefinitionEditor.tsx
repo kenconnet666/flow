@@ -30,9 +30,9 @@ import { CodeEditor } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { watch } from 'vue';
 import { useFlowClient } from '../client/flow-client';
 import type { DefinitionProblem, PublishedDefinition } from '../client/types';
-import { useDesignerMessages } from '../lang/designer-messages';
+import { useDesignerMessages } from '../lang/process-designer-messages';
 import { useFlowMessages } from '../lang/messages';
-import { FlowDesigner } from './designer/FlowDesigner';
+import { FlowDesigner } from './process-designer/FlowDesigner';
 
 /** FlowDefinitionEditor 的属性 */
 export interface FlowDefinitionEditorProps {

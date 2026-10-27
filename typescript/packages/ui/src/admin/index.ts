@@ -5,7 +5,7 @@
  * 谁能用由后端的 PermissionPolicy 定。
  */
 export { FlowDefinitionEditor, type FlowDefinitionEditorProps } from './FlowDefinitionEditor';
-export { FlowDesigner, type FlowDesignerProps } from './designer/FlowDesigner';
+export { FlowDesigner, type FlowDesignerProps } from './process-designer/FlowDesigner';
 export { FlowFormEditor, type FlowFormEditorProps } from './FlowFormEditor';
 export { FormDesigner, type FormDesignerProps } from './form-designer/FormDesigner';
 export { FlowFormList, type FlowFormListProps } from './FlowFormList';

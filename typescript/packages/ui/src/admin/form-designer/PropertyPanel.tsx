@@ -35,8 +35,8 @@ import {
   type TextEdit,
 } from '../../form-tools';
 import { useFormDesignerMessages } from '../../lang/form-designer-messages';
-import { formConditionFields } from '../designer/EdgePanel';
-import { compact, FieldGroup } from '../designer/fields';
+import { formConditionFields } from '../process-designer/EdgePanel';
+import { compact, FieldGroup } from '../process-designer/fields';
 
 /** PropertyPanel 的属性 */
 export interface PropertyPanelProps {
