@@ -60,6 +60,24 @@ public class FlowHttpController {
         return command("commands/start", () -> ResponseBody.of(engine.start(RequestBody.parse(body).start())));
     }
 
+    /** 发起前存草稿：{@code { draftId?, key, form, businessKey }}，返回草稿（实例的样子） */
+    @PostMapping("/commands/save-start-draft")
+    public Map<String, Object> saveStartDraft(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/save-start-draft", () -> engine.saveStartDraft(RequestBody.parse(body).saveStartDraft()));
+    }
+
+    /** 放弃发起前的草稿：{@code { draftId }}，返回 {@code { discarded }} */
+    @PostMapping("/commands/discard-start-draft")
+    public Map<String, Object> discardStartDraft(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/discard-start-draft", () -> Map.of("discarded", engine.discardStartDraft(RequestBody.parse(body).id("draftId"))));
+    }
+
+    /** 我发起前存的草稿 */
+    @GetMapping("/queries/start-drafts")
+    public Map<String, Object> startDrafts() {
+        return respond(engine::startDrafts);
+    }
+
     @PostMapping("/commands/claim")
     public Map<String, Object> claim(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
         return command("commands/claim", () -> ResponseBody.of(engine.claim(RequestBody.parse(body).claim())));
@@ -315,8 +333,8 @@ public class FlowHttpController {
 
     /** 发起页：流程与开始节点上的表单 */
     @GetMapping("/queries/start/{key}")
-    public Map<String, Object> startView(@PathVariable("key") String key) {
-        return respond(() -> engine.startView(key));
+    public Map<String, Object> startView(@PathVariable("key") String key, @RequestParam(name = "draftId", required = false) Long draftId) {
+        return respond(() -> engine.startView(key, draftId));
     }
 
     /** 我的待办；参数名同 vue-tsx-pro 的表格请求（page、pageSize） */

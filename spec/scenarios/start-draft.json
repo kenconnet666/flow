@@ -1,0 +1,37 @@
+{
+  "name": "发起前存草稿：不查必填、不进流程、只有自己看得到；接着草稿填、从草稿发起用同一个实例；放弃就删掉",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-27T09:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] }
+  },
+  "steps": [
+    { "id": "d", "as": "alice", "command": "saveStartDraft", "args": { "key": "purchase", "form": { "title": "办公椅" } },
+      "expect": { "processKey": "purchase", "status": "draft", "startedBy": "1001", "current": [] } },
+    { "as": "alice", "command": "saveStartDraft", "args": { "key": "purchase", "form": { "quantity": 0 } },
+      "expect": { "error": { "code": "flow.validation-failed" } } },
+    { "as": "alice", "command": "startDrafts", "expect": { "drafts": [{ "processKey": "purchase", "status": "draft" }] } },
+    { "as": "alice", "command": "started", "expect": { "total": 0 } },
+    { "as": "bob", "command": "startView", "args": { "draft": "$d.id" }, "expect": { "error": { "code": "flow.not-found" } } },
+    { "as": "alice", "command": "startView", "args": { "draft": "$d.id" }, "expect": { "form": { "values": { "title": "办公椅" } } } },
+    { "as": "alice", "command": "saveStartDraft", "args": { "draft": "$d.id", "form": { "title": "办公椅", "amount": "350.25" } },
+      "expect": { "status": "draft" } },
+    { "as": "alice", "command": "start", "args": { "draft": "$d.id", "form": { "quantity": 2 } },
+      "expect": {
+        "instance": { "status": "active", "title": "采购申请：办公椅", "current": [{ "node": "review" }] },
+        "events": ["instance.started", "node.left", "node.entered", "workItem.created"] } },
+    { "as": "alice", "command": "startDrafts", "expect": { "drafts": [] } },
+    { "as": "alice", "command": "started", "expect": { "total": 1 } },
+    { "as": "alice", "command": "start", "args": { "draft": "$d.id" }, "expect": { "error": { "code": "flow.not-found" } } },
+
+    { "id": "e", "as": "alice", "command": "saveStartDraft", "args": { "key": "purchase", "form": {} } },
+    { "as": "bob", "command": "discardStartDraft", "args": { "draft": "$e.id" }, "expect": { "error": { "code": "flow.not-found" } } },
+    { "as": "alice", "command": "discardStartDraft", "args": { "draft": "$e.id" }, "expect": { "discarded": true } },
+    { "as": "alice", "command": "startDrafts", "expect": { "drafts": [] } }
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
+}

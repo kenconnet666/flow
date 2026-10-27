@@ -51,6 +51,11 @@ export interface FlowMessages {
   readonly submit: string;
   /** 暂存：填了一半先存 */
   readonly saveDraft: string;
+  /** 发起前的草稿 */
+  readonly startDraftSaved: string;
+  readonly startDrafts: string;
+  readonly continueDraft: string;
+  readonly draftSavedAt: (at: string) => string;
   /** 列表筛选的起止日期 */
   readonly dateFrom: string;
   readonly dateTo: string;
@@ -592,6 +597,10 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: '取消',
     submit: '提交',
     saveDraft: '暂存',
+    startDraftSaved: '草稿已存，下次在"发起"页的"我的草稿"里接着填',
+    startDrafts: '我的草稿',
+    continueDraft: '接着填',
+    draftSavedAt: (at) => `存于 ${at}`,
     formNotPublished: '表单发布之后才能调后端代码的接口',
     dateFrom: '从',
     dateTo: '到',
@@ -674,7 +683,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     reloadDraft: '载入最新的草稿',
     draftSaved: (time) => `已暂存（${time}）`,
     timeline: '流转记录',
-    status: { active: '进行中', suspended: '已暂停', completed: '已完成', terminated: '已终止', withdrawn: '已撤回' },
+    status: { draft: '草稿', active: '进行中', suspended: '已暂停', completed: '已完成', terminated: '已终止', withdrawn: '已撤回' },
     event: (type, node, outcome) => {
       const what = zhEvents[type] ?? type;
       if (type === 'workItem.completed') return `${node ?? ''}：${outcome ?? what}`;
@@ -840,6 +849,10 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: 'Cancel',
     submit: 'Submit',
     saveDraft: 'Save draft',
+    startDraftSaved: 'Draft saved; continue it later from My drafts on the start page',
+    startDrafts: 'My drafts',
+    continueDraft: 'Continue',
+    draftSavedAt: (at) => `Saved ${at}`,
     formNotPublished: 'The form backend code can be called once the form is published',
     dateFrom: 'From',
     dateTo: 'To',
@@ -922,7 +935,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     reloadDraft: 'Load the latest draft',
     draftSaved: (time) => `Draft saved (${time})`,
     timeline: 'History',
-    status: { active: 'In progress', suspended: 'Suspended', completed: 'Completed', terminated: 'Terminated', withdrawn: 'Withdrawn' },
+    status: { draft: 'Draft', active: 'In progress', suspended: 'Suspended', completed: 'Completed', terminated: 'Terminated', withdrawn: 'Withdrawn' },
     event: (type, node, outcome) => {
       const what = enEvents[type] ?? type;
       if (type === 'workItem.completed') return `${node ?? ''}: ${outcome ?? what}`;

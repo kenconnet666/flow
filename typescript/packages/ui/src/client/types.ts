@@ -476,6 +476,17 @@ export interface StartCommand {
   readonly priority?: number;
   /** 第一步要选处理人的节点 → 选的人 */
   readonly picks?: Readonly<Record<string, readonly Id[]>>;
+  /** 从这份发起前的草稿发起：用草稿那个实例，没提交的字段用草稿里的值（这时 key 可以不写） */
+  readonly draftId?: Id;
+}
+
+/** 发起前存草稿：第一次存时没有 draftId，存完从结果（状态为 draft 的实例）里拿 */
+export interface SaveStartDraftCommand {
+  readonly draftId?: Id;
+  readonly key?: string;
+  /** 开始节点上能改的字段；不查必填，整份替换上次存的 */
+  readonly form?: Readonly<Record<string, unknown>>;
+  readonly businessKey?: string;
 }
 
 /** 处理 */

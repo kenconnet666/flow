@@ -27,13 +27,16 @@
 
 | command | args | 结果里能比的 |
 | --- | --- | --- |
-| `start` | `key`、`form`、`variables`、`businessKey`、`title`、`priority`、`picks`（`{ 节点: [用户编号] }`） | `instance`、`workItems`（新生成的待办）、`closed`（结束的待办）、`events`（这一步的流转记录） |
+| `start` | `draft`（从草稿发起时，可以不写 key）、`key`、`form`、`variables`、`businessKey`、`title`、`priority`、`picks`（`{ 节点: [用户编号] }`） | `instance`、`workItems`（新生成的待办）、`closed`（结束的待办）、`events`（这一步的流转记录） |
+| `saveStartDraft` | `draft`（改已有的草稿时）、`key`、`form`、`businessKey` | 草稿（实例的样子，`status: draft`） |
+| `discardStartDraft` | `draft` | `discarded` |
+| `startDrafts` | — | `drafts`（我发起前存的草稿） |
 | `claim` | `workItem` | 同上 |
 | `complete` | `workItem`、`outcome`、`comment`、`form`、`picks`、`returnTarget`（退回时选的节点） | 同上 |
 | `withdraw` | `instance`、`reason` | 同上 |
 | `withdrawStep` | `workItem`、`reason` | 同上（处理人撤回刚处理的一步） |
 | `startable` | — | `processes`（每项 `{ key, name, category, version }`） |
-| `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null）、`picks` |
+| `startView` | `key`，或 `draft`（接着草稿填） | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null）、`picks` |
 | `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行是待办本身，加上经导航读出的 `instance: { id, definitionId, title, summary, status }` 与 `outcomeLabel`） |
 | `started` | 同上 | `total`、`rows`（每行是实例） |
 | `instances` | `status`、`processKey`、`keyword`、`startedBy`、`page`、`size` | 同上（管理端搜实例） |

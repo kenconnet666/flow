@@ -16,6 +16,7 @@ import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
+import org.dpdns.zerodep.flow.core.command.SaveStartDraftCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
@@ -118,14 +119,18 @@ class ScenarioRunner {
         try {
             return switch (step.getCommand()) {
                 case "start" -> commandResult(engine.start(actor, new StartCommand(args.text("key"), FormValues.of(args.map("form")),
-                    Variables.of(args.map("variables")), args.text("businessKey"), args.text("title"), args.number("priority", 0), args.picks())));
+                    Variables.of(args.map("variables")), args.text("businessKey"), args.text("title"), args.number("priority", 0), args.picks(), args.id("draft"))));
+                case "saveStartDraft" -> view(engine.saveStartDraft(actor, new SaveStartDraftCommand(args.id("draft"), args.text("key"),
+                    FormValues.of(args.map("form")), args.text("businessKey"))));
+                case "discardStartDraft" -> Map.of("discarded", engine.discardStartDraft(actor, args.id("draft")));
+                case "startDrafts" -> wire(Map.of("drafts", engine.startDrafts(actor)));
                 case "claim" -> commandResult(engine.claim(actor, new ClaimCommand(args.id("workItem"))));
                 case "complete" -> commandResult(engine.complete(actor, new CompleteCommand(args.id("workItem"), args.text("outcome"),
                     args.text("comment"), FormValues.of(args.map("form")), args.picks(), args.text("returnTarget"))));
                 case "saveDraft" -> commandResult(engine.saveDraft(actor, new SaveDraftCommand(args.id("workItem"), FormValues.of(args.map("form")), args.text("comment"))));
                 case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.id("instance"), args.text("reason"))));
                 case "startable" -> wire(Map.of("processes", engine.startable(actor)));
-                case "startView" -> view(engine.startView(actor, args.text("key")));
+                case "startView" -> view(engine.startView(actor, args.text("key"), args.id("draft")));
                 case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("size", 20)));
                 case "workItem" -> view(engine.workItem(actor, args.id("workItem")));
                 case "done" -> page(engine.done(actor, args.filter(), args.number("page", 1), args.number("size", 20)));

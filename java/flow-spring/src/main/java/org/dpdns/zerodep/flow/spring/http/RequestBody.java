@@ -13,6 +13,7 @@ import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
+import org.dpdns.zerodep.flow.core.command.SaveStartDraftCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
@@ -73,7 +74,12 @@ class RequestBody {
     /** {@code { key, form, variables, businessKey, title, priority, picks }} */
     StartCommand start() {
         return new StartCommand(text("key"), FormValues.of(object("form")), Variables.of(object("variables")), text("businessKey"),
-            text("title"), number("priority"), picks());
+            text("title"), number("priority"), picks(), id("draftId"));
+    }
+
+    /** {@code { draftId, key, form, businessKey }}：第一次存时没有 draftId */
+    SaveStartDraftCommand saveStartDraft() {
+        return new SaveStartDraftCommand(id("draftId"), text("key"), FormValues.of(object("form")), text("businessKey"));
     }
 
     /** {@code { workItemId }} */

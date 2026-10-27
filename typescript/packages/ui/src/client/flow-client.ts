@@ -28,6 +28,7 @@ import type {
   BatchResult,
   WorkCalendar,
   MigrateCommand,
+  SaveStartDraftCommand,
   ProgressView,
   ProcessStats,
   NodeStats,
@@ -85,7 +86,13 @@ export interface FlowClient {
   /** 我能发起的流程 */
   startable(signal?: AbortSignal): Promise<readonly StartableProcess[]>;
   /** 发起页：流程与开始节点上的表单 */
-  startView(key: string, signal?: AbortSignal): Promise<StartView>;
+  startView(key: string, signal?: AbortSignal, draftId?: Id | null): Promise<StartView>;
+  /** 发起前存草稿：返回草稿（状态为 draft 的实例），startedAt 是最后存的时间 */
+  saveStartDraft(command: SaveStartDraftCommand): Promise<ProcessInstance>;
+  /** 放弃发起前的草稿 */
+  discardStartDraft(draftId: Id): Promise<{ readonly discarded: boolean }>;
+  /** 我发起前存的草稿，最后存的在前 */
+  startDrafts(signal?: AbortSignal): Promise<readonly ProcessInstance[]>;
   /** 我的待办 */
   todo(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 等我指定承办人的（没人认领、我是收件箱负责人） */
@@ -227,7 +234,10 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
   const post = <T>(path: string, body: unknown) => http.request<T>({ url: prefix + path, method: 'POST', body });
   return {
     startable: (signal) => get('/queries/startable', signal),
-    startView: (key, signal) => get(`/queries/start/${encodeURIComponent(key)}`, signal),
+    startView: (key, signal, draftId) => get(`/queries/start/${encodeURIComponent(key)}`, signal, draftId == null ? {} : { draftId: String(draftId) }),
+    saveStartDraft: (command) => post('/commands/save-start-draft', command),
+    discardStartDraft: (draftId) => post('/commands/discard-start-draft', { draftId }),
+    startDrafts: (signal) => get('/queries/start-drafts', signal),
     todo: ({ page, pageSize }, signal) => get('/queries/todo', signal, { page, pageSize }),
     done: (query, signal) => get('/queries/done', signal, { ...query }),
     designations: ({ page, pageSize }, signal) => get('/queries/designations', signal, { page, pageSize }),

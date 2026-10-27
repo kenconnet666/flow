@@ -18,6 +18,7 @@ import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
+import org.dpdns.zerodep.flow.core.command.SaveStartDraftCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
@@ -429,6 +430,23 @@ public class FlowEngine<U extends Actor> {
         return execute(actor, "start", command.getKey(), command, starts::handle);
     }
 
+    /** 发起前存草稿（当前操作人） */
+    public InstanceVO saveStartDraft(SaveStartDraftCommand command) { return saveStartDraft(actors.current(), command); }
+
+    /** 发起前存草稿：第一次存时建一个 draft 实例，之后整份替换表单的值；发起时 StartCommand 带上 draftId */
+    public InstanceVO saveStartDraft(U actor, SaveStartDraftCommand command) {
+        return execute(actor, "saveStartDraft", command.getKey(), command, starts::saveDraft);
+    }
+
+    /** 放弃发起前的草稿（当前操作人） */
+    public boolean discardStartDraft(Long draftId) { return discardStartDraft(actors.current(), draftId); }
+
+    /** 放弃发起前的草稿：删掉它；返回是否删了 */
+    public boolean discardStartDraft(U actor, Long draftId) {
+        allow(actor, "discardStartDraft", String.valueOf(draftId));
+        return starts.discardDraft(actor, draftId);
+    }
+
     /** 认领（当前操作人） */
     public CommandResult claim(ClaimCommand command) { return claim(actors.current(), command); }
 
@@ -748,10 +766,25 @@ public class FlowEngine<U extends Actor> {
     /** 发起页（当前操作人） */
     public StartView startView(String key) { return startView(actors.current(), key); }
 
+    /** 发起页，接着一份草稿填（当前操作人） */
+    public StartView startView(String key, Long draftId) { return startView(actors.current(), key, draftId); }
+
     /** 发起页：流程与开始节点上的表单 */
-    public StartView startView(U actor, String key) {
+    public StartView startView(U actor, String key) { return startView(actor, key, null); }
+
+    /** 发起页；draftId 不为 null 时接着这份草稿填 */
+    public StartView startView(U actor, String key, Long draftId) {
         allow(actor, "startView", key);
-        return processQueries.startView(actor, key);
+        return processQueries.startView(actor, key, draftId);
+    }
+
+    /** 我发起前存的草稿（当前操作人） */
+    public List<InstanceVO> startDrafts() { return startDrafts(actors.current()); }
+
+    /** 我发起前存的草稿，最后存的在前 */
+    public List<InstanceVO> startDrafts(U actor) {
+        allow(actor, "startDrafts", String.valueOf(actor.getId()));
+        return instanceQueries.startDrafts(actor);
     }
 
     /** 待办详情（当前操作人） */

@@ -133,7 +133,7 @@ public class CompleteHandler {
             FormValues stored = Instances.form(context.getDb(), instance.getId());
             Execution run = new Execution(context, actor, context.getClock().instant(), definition, instance, stored, instance.getRev());
             FormValues form = definition.hasForm()
-                ? FormSubmission.draft(definition.getManifest(), task.getForm(), stored, command.getForm(), run::read)
+                ? FormSubmission.draft(definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read)
                 : FormValues.empty();
             String comment = command.getComment() == null || command.getComment().isBlank() ? null : command.getComment();
             WorkItemDraft draft = new WorkItemDraft(form, comment, run.getNow());

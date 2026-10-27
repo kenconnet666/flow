@@ -31,6 +31,8 @@ import java.util.Map;
 @Table("flow_instance")
 @EntityProxy
 public class InstanceEntity implements ProxyEntityAvailable<InstanceEntity, InstanceEntityProxy>, Tenanted, Touched {
+    /** 发起前存的草稿：还没进流程，只有发起人自己看得到（0006 的 3.1 saveStartDraft） */
+    public static final String DRAFT = "draft";
     /** 进行中 */
     public static final String ACTIVE = "active";
     /** 管理员暂停：待办都不能处理，直到恢复 */

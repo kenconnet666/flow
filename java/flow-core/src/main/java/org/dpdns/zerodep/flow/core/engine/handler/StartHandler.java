@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.core.engine.form.FormCode;
 
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
+import org.dpdns.zerodep.flow.core.command.SaveStartDraftCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
@@ -15,11 +16,13 @@ import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.assignee.CandidateRules;
 import org.dpdns.zerodep.flow.core.engine.form.FormSubmission;
+import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 
@@ -27,6 +30,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * 发起（0006 的 3.1）。在一个事务里：
@@ -38,6 +42,9 @@ import java.util.Map;
  *   <li>写回：按最新的值生成标题与摘要列，写回实例，写入流转记录。</li>
  * </ol>
  * 调用流程（0005 的 4.2）发起子实例也走这里的 {@link #launch}：同一个事务，不查发起人名单，记下父实例。
+ * <p>
+ * 发起前的草稿（{@link #saveDraft}）是一个状态为 draft 的实例：有编号、存着表单的值，不进流程。从草稿发起时用这个实例，
+ * 按发起时最新的版本走，没提交的字段用草稿里的值。
  */
 public class StartHandler {
     private final EngineContext context;
@@ -51,10 +58,13 @@ public class StartHandler {
     /** 发起；出错时抛带业务错误码的异常，整个事务回滚 */
     public CommandResult handle(Actor actor, StartCommand command) {
         return context.transaction(() -> {
-            LoadedDefinition definition = latestActive(command.getKey());
-            if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", command.getKey(), "not-a-starter");
-            Execution run = launch(definition, actor, new Launch(actor.getId(), actor.getName(), command.getBusinessKey(), command.getPriority(),
-                command.getVariables(), command.getForm(), false, null, command.getPicks()), context.getClock().instant());
+            InstanceEntity draft = command.getDraftId() == null ? null : ownDraft(actor, command.getDraftId());
+            String key = draft == null ? command.getKey() : draft.getProcessKey();
+            LoadedDefinition definition = latestActive(key);
+            if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", key, "not-a-starter");
+            String businessKey = command.getBusinessKey() == null && draft != null ? draft.getBusinessKey() : command.getBusinessKey();
+            Execution run = launch(definition, actor, new Launch(actor.getId(), actor.getName(), businessKey, command.getPriority(),
+                command.getVariables(), command.getForm(), false, null, command.getPicks()), context.getClock().instant(), draft);
             run.flush(command.getTitle());
             return run.toResult();
         });
@@ -106,9 +116,14 @@ public class StartHandler {
      * @param actor 记在流转记录上的操作人
      */
     public Execution launch(LoadedDefinition definition, Actor actor, Launch launch, Instant now) {
+        return launch(definition, actor, launch, now, null);
+    }
+
+    /** 同上；draft 不为 null 时用这份草稿的实例（已锁住），没提交的字段用草稿里的值 */
+    private Execution launch(LoadedDefinition definition, Actor actor, Launch launch, Instant now, InstanceEntity draft) {
         ProcessDefinition model = definition.model();
         ChildOf parent = launch.getParent();
-        InstanceEntity instance = new InstanceEntity();
+        InstanceEntity instance = draft == null ? new InstanceEntity() : draft;
         instance.setProcessKey(model.getKey());
         instance.setDefinitionId(definition.getStored().getId());
         instance.setVersion(definition.getStored().getVersion());
@@ -129,9 +144,14 @@ public class StartHandler {
             instance.setParentRound(parent.getRound());
             instance.setRootInstanceId(parent.getRoot());
         }
-        instance.setRev(0);
-        // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
-        context.getDb().insertable(instance).executeRows(true);
+        if (draft == null) {
+            instance.setRev(0);
+            // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
+            context.getDb().insertable(instance).executeRows(true);
+        } else {
+            context.getDb().updatable(instance).executeRows();
+        }
+        FormValues drafted = draft == null ? FormValues.empty() : Instances.form(context.getDb(), instance.getId());
         Execution run = new Execution(context, actor, now, definition, instance, FormValues.empty(), instance.getRev());
         if (parent != null) run.setCaller(parent.getCaller());
         run.setPicks(launch.getPicks());
@@ -142,21 +162,93 @@ public class StartHandler {
             if (launch.isFullForm()) {
                 run.setForm(FormValues.of(definition.getManifest().typed(launch.getForm().asMap())));
             } else {
-                run.setForm(FormSubmission.merge(definition.getManifest(), start.getForm(), true, FormValues.empty(), launch.getForm(), run::read));
+                run.setForm(FormSubmission.merge(definition.getManifest(), start.getForm(), true, drafted, launch.getForm(), run::read));
                 // 表单的后端代码：校验、计算、写业务表（子流程按定义的 input 发起，不经它）
                 run.setForm(FormCode.submit(run, definition, start.getId(), true, run.getForm()));
             }
-            FormDataEntity data = new FormDataEntity();
-            data.setInstanceId(instance.getId());
-            data.setFormVersionId(definition.form().getId());
-            data.setValues(run.getForm());
-            data.setRev(0);
-            context.getDb().insertable(data).executeRows();
+            saveFormData(instance.getId(), definition.form().getId(), run.getForm());
         }
         Map<String, Object> origin = parent == null ? Map.of() : Map.of("parentInstanceId", parent.getInstanceId(), "parentNode", parent.getNode());
         run.addEvent(EventEntity.INSTANCE_STARTED, start, null, null, null, null, origin);
         run.leave(start.getId(), null);
         return run;
+    }
+
+    // ───────── 发起前的草稿 ─────────
+
+    /** 存草稿：第一次存时建一个 draft 实例，之后整份替换表单的值；返回草稿（实例的样子，startedAt 是最后存的时间） */
+    public InstanceVO saveDraft(Actor actor, SaveStartDraftCommand command) {
+        return context.transaction(() -> {
+            Instant now = context.getClock().instant();
+            InstanceEntity existing = command.getDraftId() == null ? null : ownDraft(actor, command.getDraftId());
+            String key = existing == null ? command.getKey() : existing.getProcessKey();
+            if (key == null || key.isBlank()) throw FlowErrors.invalid("key", "required");
+            LoadedDefinition definition = latestActive(key);
+            if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", key, "not-a-starter");
+            InstanceEntity draft = existing == null ? newDraft(definition, actor) : existing;
+            draft.setDefinitionId(definition.getStored().getId());
+            draft.setVersion(definition.getStored().getVersion());
+            draft.setBusinessKey(command.getBusinessKey());
+            draft.setStartedAt(now);
+            if (existing == null) context.getDb().insertable(draft).executeRows(true);
+            else context.getDb().updatable(draft).executeRows();
+            if (definition.hasForm()) {
+                Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.getId() : null;
+                FormValues form = FormSubmission.draft(definition.getManifest(), definition.getGraph().start().getForm(), true,
+                    FormValues.empty(), command.getForm() == null ? FormValues.empty() : command.getForm(), read);
+                saveFormData(draft.getId(), definition.form().getId(), form);
+            }
+            return Instances.view(context.getDb(), draft.getId());
+        });
+    }
+
+    /** 放弃草稿：删掉草稿的实例与表单的值；返回是否删了 */
+    public boolean discardDraft(Actor actor, Long draftId) {
+        return context.transaction(() -> {
+            InstanceEntity draft = ownDraft(actor, draftId);
+            context.getDb().deletable(FormDataEntity.class).whereById(draft.getId()).executeRows();
+            return context.getDb().deletable(InstanceEntity.class)
+                .where(i -> { i.id().eq(draft.getId()); i.status().eq(InstanceEntity.DRAFT); })
+                .executeRows() == 1;
+        });
+    }
+
+    /** 我的一份草稿（锁住）：不是草稿、不是我的都当不存在 */
+    private InstanceEntity ownDraft(Actor actor, Long draftId) {
+        InstanceEntity draft = Instances.lock(context.getDb(), draftId);
+        if (!InstanceEntity.DRAFT.equals(draft.getStatus()) || !actor.getId().equals(draft.getStartedBy())) throw FlowErrors.notFound("draft", draftId);
+        return draft;
+    }
+
+    private static InstanceEntity newDraft(LoadedDefinition definition, Actor actor) {
+        InstanceEntity draft = new InstanceEntity();
+        draft.setProcessKey(definition.model().getKey());
+        draft.setTitle(definition.model().getName());
+        draft.setPriority(0);
+        draft.setSummary(Map.of());
+        draft.setStatus(InstanceEntity.DRAFT);
+        draft.setCurrent(List.of());
+        draft.setVariables(Variables.empty());
+        draft.setState(RunState.INITIAL);
+        draft.setStartedBy(actor.getId());
+        draft.setStartedByName(actor.getName());
+        draft.setRev(0);
+        return draft;
+    }
+
+    /** 实例上表单的值：有就整份替换（草稿存过的），没有就插入 */
+    private void saveFormData(Long instanceId, Long formVersionId, FormValues values) {
+        long updated = context.getDb().updatable(FormDataEntity.class)
+            .setColumns(f -> { f.formVersionId().set(formVersionId); f.values().set(values); f.rev().increment(); })
+            .whereById(instanceId)
+            .executeRows();
+        if (updated == 1) return;
+        FormDataEntity data = new FormDataEntity();
+        data.setInstanceId(instanceId);
+        data.setFormVersionId(formVersionId);
+        data.setValues(values);
+        data.setRev(0);
+        context.getDb().insertable(data).executeRows();
     }
 
     /** 定义里声明了默认值的变量，盖上命令给的初值 */

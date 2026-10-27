@@ -31,6 +31,7 @@ public class StatsQueries {
     /** 各流程的实例数：进行中（含暂停）、正常结束、终止与撤回 */
     public List<ProcessStats> processes() {
         List<CountRow> rows = context.getDb().queryable(InstanceEntity.class)
+            .where(i -> i.status().ne(InstanceEntity.DRAFT))
             .groupBy(i -> GroupKeys.of(i.processKey(), i.status()))
             .select(CountRow.class, g -> Select.of(g.key1().as(CountRow.Fields.key1), g.key2().as(CountRow.Fields.key2),
                 g.count().as(CountRow.Fields.count)))

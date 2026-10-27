@@ -13,7 +13,7 @@ export type Id = bigint;
 export type Moment = ZonedDateTime;
 
 /** 实例的状态 */
-export type InstanceStatus = 'active' | 'suspended' | 'completed' | 'terminated' | 'withdrawn';
+export type InstanceStatus = 'draft' | 'active' | 'suspended' | 'completed' | 'terminated' | 'withdrawn';
 
 /** 正在处理的一个节点 */
 export interface CurrentNode {

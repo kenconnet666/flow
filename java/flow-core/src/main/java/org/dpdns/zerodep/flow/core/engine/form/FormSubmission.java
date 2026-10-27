@@ -50,8 +50,9 @@ public class FormSubmission {
     /**
      * 暂存的值：只留提交里这个节点上能改的字段，按类型、长度、范围查（不查必填：还没填完）；有问题时同样报 {@code flow.validation-failed}。
      */
-    public static FormValues draft(FormManifest manifest, NodeFormAccess access, FormValues stored, FormValues submitted, Function<String, Object> read) {
-        Map<String, FormAccess.FieldState> states = FormAccess.fieldStates(manifest, access, false, read);
+    public static FormValues draft(FormManifest manifest, NodeFormAccess access, boolean isStart, FormValues stored, FormValues submitted,
+                                   Function<String, Object> read) {
+        Map<String, FormAccess.FieldState> states = FormAccess.fieldStates(manifest, access, isStart, read);
         FormAccess.Submission submission = FormAccess.mergeSubmission(manifest, states, stored.asMap(), submitted.asMap());
         List<ErrorDetail> problems = submission.getErrors().stream().filter(e -> !"required".equals(e.getCode())).map(ErrorDetail::of).toList();
         if (!problems.isEmpty()) throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the draft has " + problems.size() + " problem(s)", problems);

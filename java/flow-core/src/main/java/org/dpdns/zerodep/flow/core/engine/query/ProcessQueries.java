@@ -1,7 +1,5 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
-import org.dpdns.zerodep.flow.core.engine.form.FormCode;
-
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
@@ -9,6 +7,9 @@ import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.assignee.CandidateRules;
 import org.dpdns.zerodep.flow.core.engine.assignee.PickPreview;
+import org.dpdns.zerodep.flow.core.engine.form.FormCode;
+import org.dpdns.zerodep.flow.core.engine.store.Instances;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
@@ -48,19 +49,28 @@ public class ProcessQueries {
     }
 
     /** 发起页：流程与开始节点上的表单（没写权限的字段默认能改）；流程停用、我不能发起时报 {@code flow.forbidden} */
-    public StartView startView(Actor actor, String key) {
-        ProcessEntity process = definitions.processes().where(p -> p.processKey().eq(key))
-            .singleNotNull(() -> FlowErrors.notFound("process", key));
-        if (!ProcessEntity.ACTIVE.equals(process.getStatus())) throw FlowErrors.forbidden("process", key, "disabled");
+    public StartView startView(Actor actor, String key) { return startView(actor, key, null); }
+
+    /** 发起页，接着一份草稿填：表单的值取草稿里存的（草稿要是我的） */
+    public StartView startView(Actor actor, String key, Long draftId) {
+        InstanceEntity draft = draftId == null ? null : Instances.find(context.getDb(), draftId);
+        if (draft != null && (!InstanceEntity.DRAFT.equals(draft.getStatus()) || !actor.getId().equals(draft.getStartedBy()))) {
+            throw FlowErrors.notFound("draft", draftId);
+        }
+        String processKey = draft != null ? draft.getProcessKey() : key;
+        ProcessEntity process = definitions.processes().where(p -> p.processKey().eq(processKey))
+            .singleNotNull(() -> FlowErrors.notFound("process", processKey));
+        if (!ProcessEntity.ACTIVE.equals(process.getStatus())) throw FlowErrors.forbidden("process", processKey, "disabled");
         LoadedDefinition definition = definitions.latest(process);
-        if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", key, "not-a-starter");
+        if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", processKey, "not-a-starter");
         Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.getId() : null;
-        // 初始值：表单后端代码的 load（没有后端代码时是空的，前端用清单的默认值）
+        // 初始值：接着草稿填时是草稿里的值，否则是表单后端代码的 load（没有后端代码时是空的，前端用清单的默认值）
+        FormValues initial = draft != null ? Instances.form(context.getDb(), draft.getId()) : definition.hasForm() ? FormCode.load(context, definition, actor) : null;
         FormView form = definition.hasForm()
-            ? forms.formView(definition, definition.getGraph().start().getForm(), true, FormCode.load(context, definition, actor), read)
+            ? forms.formView(definition, definition.getGraph().start().getForm(), true, initial, read)
             : null;
         List<PickView> picks = new PickPreview(definition.getGraph(), context).after(definition.getGraph().start().getId(), null, read);
-        return new StartView(new StartableProcess(key, process.getName(), process.getCategory(), process.getLatestVersion()), form, picks);
+        return new StartView(new StartableProcess(processKey, process.getName(), process.getCategory(), process.getLatestVersion()), form, picks);
     }
 
     /** 管理端的流程列表：全部流程（停用的也在），按分类、名称排 */

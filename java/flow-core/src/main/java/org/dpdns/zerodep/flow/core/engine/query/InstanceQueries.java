@@ -64,6 +64,7 @@ public class InstanceQueries {
         return Page.of(context.getDb().queryable(InstanceEntity.class)
             .where(i -> {
                 if (search.getStatus() != null && !search.getStatus().isBlank()) i.status().eq(search.getStatus());
+                else i.status().ne(InstanceEntity.DRAFT);
                 if (search.getProcessKey() != null && !search.getProcessKey().isBlank()) i.processKey().eq(search.getProcessKey());
                 if (search.getKeyword() != null && !search.getKeyword().isBlank()) i.title().like(search.getKeyword().trim());
                 if (search.getStartedBy() != null) i.startedBy().eq(search.getStartedBy());
@@ -95,10 +96,19 @@ public class InstanceQueries {
     }
 
     /** 我发起的：按发起时间从新到旧 */
+    /** 我发起前存的草稿，最后存的在前（"我发起的"里不含它们） */
+    public List<InstanceVO> startDrafts(Actor actor) {
+        return context.getDb().queryable(InstanceEntity.class)
+            .where(i -> { i.startedBy().eq(actor.getId()); i.status().eq(InstanceEntity.DRAFT); })
+            .orderBy(i -> { i.startedAt().desc(); i.id().desc(); })
+            .select(InstanceVO.class).toList();
+    }
+
     public Page<InstanceVO> started(Actor actor, ListFilter filter, int page, int size) {
         return Page.of(context.getDb().queryable(InstanceEntity.class)
             .where(i -> {
                 i.startedBy().eq(actor.getId());
+                i.status().ne(InstanceEntity.DRAFT);
                 if (filter.hasProcess()) i.processKey().eq(filter.getProcessKey());
                 if (filter.getFrom() != null) i.startedAt().ge(filter.getFrom());
                 if (filter.getTo() != null) i.startedAt().lt(filter.getTo());
