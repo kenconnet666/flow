@@ -44,6 +44,10 @@
 | 发布核对编辑时看到的最新版本（`expectedLatest`，新建时 0）：标识已被占用、打开后别人又发布过，报 `flow.concurrent-modification`（参数 `reason`、`latest`、`publishedBy`） | flow-ui 的编辑器自动带；自己调接口不给时不核对 |
 | 存设计草稿时 `baseVersion` 为空（新建）而标识已经发布过，报同一个冲突（`reason=key-taken`），不再存到已发布的流程、表单名下 | 自己调存草稿接口、改已有流程时带上 `baseVersion` |
 | 委派、加签生成的待办（子待办）的处理结果不再带下一步预测、要选的处理人与退回节点 | 它们办的结果只是意见；自己画办理页的按 `workItem.parentItemId` 提示"由原来的人定" |
+| 校验：会签节点按参与人（`multi.participants`）判断 `assignee-missing`，不再看 `assignees`（会签本来就只按参与人生成待办）；新增警告 `return-choose-no-upstream` | 以前写了处理人、参与人为空的会签能发布、运行时才报没人处理，现在发布时就拦下；只写了参与人的会签不再要求处理人 |
+| 调用子流程时父实例记一条 `call.started`（data 带子实例的 `instanceId`、`title`） | 场景用例、按流转记录逐条比的测试把它加上 |
+| `FormUsage` 多了 `formVersion`（那个流程版本定下的表单版本）；`FlowInstanceDetail` 多了 `instanceHref`（子流程详情能点到上级流程） | 可选，不改也行 |
+| flow-ui 的文案表加了键（结果、发布冲突、子流程、表单旧版本提示……），`batchReport` 多了第一个参数（认领还是同意） | 自己写了别的语言文案表的，按类型报错补上 |
 
 ## 升级说明（以后每一版都按这些）
 
