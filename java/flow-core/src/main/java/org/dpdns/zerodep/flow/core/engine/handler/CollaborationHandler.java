@@ -11,6 +11,7 @@ import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
+import org.dpdns.zerodep.flow.core.command.RequestReassignCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
@@ -126,6 +127,37 @@ public class CollaborationHandler {
                 run.addEvent(EventEntity.SIGNERS_REMOVED, task, null, null, child.getId(), null, data);
             }
             SubItems.resumeIfSettled(context, run, item);
+            run.flush(null);
+            return run.toResult();
+        });
+    }
+
+    /**
+     * 申请改派：收件箱负责人指定给我的待办（{@code designated}），我说明原因，待办回到负责人的"待我指定"里；
+     * 负责人重新指定（{@link #assign}）之前仍由我处理
+     */
+    public CommandResult requestReassign(Actor actor, RequestReassignCommand command) {
+        if (command.getReason() == null || command.getReason().isBlank()) throw FlowErrors.invalid("reason", "required");
+        return context.transaction(() -> {
+            Locked locked = lock(command.getWorkItemId());
+            WorkItemVO item = locked.getItem();
+            long changed = context.getDb().updatable(WorkItemEntity.class)
+                .setColumns(w -> {
+                    w.needsDesignation().set(true);
+                    w.rev().increment();
+                })
+                .where(w -> {
+                    w.id().eq(item.getId());
+                    w.state().eq(WorkItemEntity.OPEN);
+                    w.assignment().eq(WorkItemEntity.DESIGNATED);
+                    w.assigneeId().eq(actor.getId());
+                    w.designatorId().isNotNull();
+                    w.needsDesignation().eq(false);
+                })
+                .executeRows();
+            if (changed != 1) throw FlowErrors.forbidden("workItem", item.getId(), "not-designated-to-you");
+            Execution run = locked.execution(actor);
+            run.addEvent(EventEntity.WORK_ITEM_REASSIGN_REQUESTED, run.getGraph().node(item.getNode()), null, null, item.getId(), command.getReason());
             run.flush(null);
             return run.toResult();
         });

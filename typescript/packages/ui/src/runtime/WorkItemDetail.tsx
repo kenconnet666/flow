@@ -120,6 +120,8 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
         return run(c.kind, () => flow.release({ workItemId: id, ...reason }));
       case 'assign':
         return run(c.kind, () => flow.assign(id, c.userId));
+      case 'requestReassign':
+        return run(c.kind, () => flow.requestReassign(id, c.reason));
     }
   }
 

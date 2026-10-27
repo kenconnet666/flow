@@ -116,8 +116,26 @@ export interface SaveDraftCommand {
   readonly comment?: string;
 }
 
+/** 批量认领、处理时一个待办的结果 */
+export interface BatchResult {
+  readonly workItemId: Id;
+  readonly ok: boolean;
+  /** 没做成时的业务错误码 */
+  readonly code: string | null;
+}
+
+/** 管理员改数据 */
+export interface ChangeDataCommand {
+  readonly instanceId: Id;
+  readonly variables?: Readonly<Record<string, unknown>>;
+  readonly form?: Readonly<Record<string, unknown>>;
+  readonly reason: string;
+}
+
 /** 处理之外我现在能做的协作：能处理、节点上的 allow 没关掉时才能做 */
 export interface WorkItemActions {
+  /** 申请改派（负责人指定给我的） */
+  readonly requestReassign?: boolean;
   /** 转办 */
   readonly transfer: boolean;
   /** 委派 */

@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
+import org.dpdns.zerodep.flow.core.command.ChangeDataCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
@@ -90,6 +91,41 @@ public class AdminHandler {
             data.put("toUserName", name);
             run.addEvent(EventEntity.WORK_ITEM_REASSIGNED, run.getGraph().node(item.getNode()), null, null, item.getId(), command.getReason(), data);
         });
+    }
+
+    /**
+     * 改数据：改流程变量、表单字段（表单按清单的字段类型读），改前改后的值记进流转记录。暂停中的实例也能改。
+     */
+    public CommandResult changeData(Actor actor, ChangeDataCommand command) {
+        if (command.getReason() == null || command.getReason().isBlank()) throw FlowErrors.invalid("reason", "required");
+        if (command.getVariables().isEmpty() && command.getForm().isEmpty()) throw FlowErrors.invalid("changes", "required");
+        return onInstance(actor, command.getInstanceId(), false, (run, instance) -> {
+            Map<String, Object> data = new LinkedHashMap<>();
+            if (!command.getVariables().isEmpty()) {
+                data.put("variables", diff(instance.getVariables().asMap(), command.getVariables().asMap()));
+                instance.setVariables(instance.getVariables().with(command.getVariables().asMap()));
+            }
+            if (!command.getForm().isEmpty()) {
+                if (run.getManifest() == null) throw FlowErrors.invalid("form", "no-form");
+                FormValues changes = FormValues.of(run.getManifest().typed(command.getForm().asMap()));
+                data.put("form", diff(run.getForm().asMap(), changes.asMap()));
+                run.setForm(run.getForm().with(changes));
+                Instances.saveForm(context.getDb(), instance.getId(), run.getForm());
+            }
+            run.addEvent(EventEntity.INSTANCE_DATA_CHANGED, null, null, null, null, command.getReason(), data);
+        });
+    }
+
+    /** 名字 → { before, after }：留痕用 */
+    private static Map<String, Object> diff(Map<String, Object> before, Map<String, Object> changes) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        changes.forEach((name, after) -> {
+            Map<String, Object> change = new LinkedHashMap<>();
+            change.put("before", before.get(name));
+            change.put("after", after);
+            out.put(name, change);
+        });
+        return out;
     }
 
     /** 失败的作业重新来过：改回等着做、马上到期；不是失败的作业时报 {@code flow.not-found} */

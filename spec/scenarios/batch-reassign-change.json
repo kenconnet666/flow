@@ -1,0 +1,40 @@
+{
+  "name": "批量认领与处理、申请改派、管理员改数据：批量各自成败；被指定的人申请改派回到负责人；改数据记下改前改后",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json", "processes/assign-demo.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "admin": { "id": 1000, "name": "管理员" },
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "carol": { "id": 1003, "name": "沈若水", "roles": [1] },
+    "boss": { "id": 1004, "name": "总经理", "roles": [9] }
+  },
+  "steps": [
+    { "id": "a", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "100.00" } } },
+    { "id": "b", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "桌子", "amount": "200.00" } } },
+    { "as": "admin", "command": "changeData", "args": { "instance": "$b.instance", "form": { "amount": "250.00" }, "reason": "录错了" },
+      "expect": { "events": [{ "type": "instance.dataChanged", "comment": "录错了", "data": { "form": { "amount": { "before": "200.00", "after": "250.00" } } } }] } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$b.instance" }, "expect": { "form": { "values": { "amount": "250.00" } } } },
+
+    { "as": "bob", "command": "batchClaim", "args": { "workItems": ["$a.workItems[0]", "$b.workItems[0]"] },
+      "expect": { "results": [{ "ok": true }, { "ok": true }] } },
+    { "as": "carol", "command": "batchClaim", "args": { "workItems": ["$a.workItems[0]"] },
+      "expect": { "results": [{ "ok": false, "code": "flow.already-claimed" }] } },
+    { "as": "bob", "command": "batchComplete", "args": { "workItems": ["$a.workItems[0]", "$b.workItems[0]"], "outcome": "pass" },
+      "expect": { "results": [{ "ok": true }, { "ok": true }] } },
+
+    { "id": "fix", "as": "alice", "command": "start", "args": { "key": "assign-demo" } },
+    { "command": "runJobs", "args": { "at": "2026-10-26T09:00:00Z" }, "expect": { "ran": 1 } },
+    { "as": "boss", "command": "assign", "args": { "workItem": "$fix.workItems[0]", "user": 1003 } },
+    { "as": "carol", "command": "workItem", "args": { "workItem": "$fix.workItems[0]" }, "expect": { "actions": { "requestReassign": true } } },
+    { "as": "carol", "command": "requestReassign", "args": { "workItem": "$fix.workItems[0]", "reason": "我请假" },
+      "expect": { "events": [{ "type": "workItem.reassignRequested", "comment": "我请假" }] } },
+    { "as": "boss", "command": "designations", "expect": { "total": 1 } },
+    { "as": "boss", "command": "assign", "args": { "workItem": "$fix.workItems[0]", "user": 1002 } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$fix.workItems[0]" }, "expect": { "workItem": { "assigneeId": "1002" }, "completable": true } }
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
+}

@@ -28,7 +28,8 @@ import { useFlowMessages } from '../lang/messages';
 export type Collaboration =
   | { readonly kind: 'transfer' | 'delegate' | 'assign'; readonly userId: Id; readonly reason?: string }
   | { readonly kind: 'addSigners'; readonly users: readonly Id[]; readonly mode: AddSignMode; readonly reason?: string }
-  | { readonly kind: 'release'; readonly reason?: string };
+  | { readonly kind: 'release'; readonly reason?: string }
+  | { readonly kind: 'requestReassign'; readonly reason: string };
 
 /** CollaborationActions 的属性 */
 export interface CollaborationActionsProps {
@@ -51,6 +52,9 @@ const idOf = (entry: PeopleEntry): Id => BigInt(entry.id);
 /** 待办上的协作 */
 export const CollaborationActions = _component(({ actions, people, busy = null, onRun }: CollaborationActionsProps) => {
   const messages = useFlowMessages();
+  /** 申请改派的对话框 */
+  let asking = _state(false);
+  let askReason = _state('');
   let picking = _state<Picking>('transfer');
   let opened = _state(false);
   let picked = _state<readonly PeopleEntry[]>([]);
@@ -90,7 +94,7 @@ export const CollaborationActions = _component(({ actions, people, busy = null, 
 
   return () => {
     const shown = (['assign', 'transfer', 'delegate', 'addSigners'] as const).filter((kind) => people && actions[kind]);
-    if (shown.length === 0 && !actions.release) return null;
+    if (shown.length === 0 && !actions.release && !actions.requestReassign) return null;
     return (
       <Flex gap="sm" wrap>
         {shown.map(button)}
@@ -107,6 +111,28 @@ export const CollaborationActions = _component(({ actions, people, busy = null, 
             )}
           />
         )}
+        {actions.requestReassign && (
+          <Button variant="ghost" disabled={busy != null} onClick={() => (asking = true)}>
+            {messages.requestReassign}
+          </Button>
+        )}
+        <Dialog
+          _open={asking}
+          title={messages.requestReassign}
+          confirmText={messages.confirm}
+          cancelText={messages.cancel}
+          onConfirm={async () => {
+            if (await onRun({ kind: 'requestReassign', reason: askReason.trim() })) {
+              asking = false;
+              askReason = '';
+            }
+          }}
+          propsConfirm={{ disabled: !askReason.trim() }}
+        >
+          <Field label={messages.reason} required>
+            <Textarea _value={askReason} rows={3} />
+          </Field>
+        </Dialog>
         {people && (
           <Dialog
             _open={opened}

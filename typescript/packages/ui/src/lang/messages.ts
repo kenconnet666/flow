@@ -47,6 +47,15 @@ export interface FlowMessages {
   readonly submit: string;
   /** 暂存：填了一半先存 */
   readonly saveDraft: string;
+  /** 申请改派、批量、改数据 */
+  readonly requestReassign: string;
+  readonly batchClaim: string;
+  readonly batchApprove: string;
+  readonly batchReport: (ok: number, failed: number) => string;
+  readonly changeData: string;
+  readonly changeVariables: string;
+  readonly changeForm: string;
+  readonly changeDataHint: string;
   /** 表单编辑器的两个页签与后端代码 */
   readonly formPanelForm: string;
   readonly formPanelServer: string;
@@ -293,6 +302,8 @@ const zhEvents: Record<string, string> = {
   'signal.received': '收到事件',
   'signal.ignored': '收到不在等的事件',
   'node.overdue': '等待超时',
+  'workItem.reassignRequested': '申请改派',
+  'instance.dataChanged': '管理员改数据',
   'node.skipped': '自动跳过',
   'job.failed': '自动处理失败',
   'job.skipped': '跳过自动处理',
@@ -327,6 +338,8 @@ const enEvents: Record<string, string> = {
   'signal.received': 'Event received at',
   'signal.ignored': 'Event ignored',
   'node.overdue': 'Timed out at',
+  'workItem.reassignRequested': 'Asked for reassignment',
+  'instance.dataChanged': 'Data changed by an administrator',
   'node.skipped': 'Skipped automatically at',
   'job.failed': 'Automatic step failed at',
   'job.skipped': 'Skipped automatic step',
@@ -437,6 +450,14 @@ export const flowMessages: MessageTable<FlowMessages> = {
     submit: '提交',
     saveDraft: '暂存',
     formNotPublished: '表单发布之后才能调后端代码的接口',
+    requestReassign: '申请改派',
+    batchClaim: '批量认领',
+    batchApprove: '批量同意',
+    batchReport: (ok, failed) => (failed ? `做成 ${ok} 条，${failed} 条没做成（已被别人处理、要填表单……），请逐条打开处理` : `做成 ${ok} 条`),
+    changeData: '改数据',
+    changeVariables: '流程变量（JSON）',
+    changeForm: '表单字段（JSON）',
+    changeDataHint: '只写要改的名字，值写 null 是清空；改前改后都记进流转记录',
     formPanelForm: '表单',
     formPanelServer: '后端代码',
     serverCodeHint: '一个 public 类实现 FormHandler（不写 package）：validate 校验、compute 算字段、submit 写业务表、actions 给前端调；可以 @Autowired 应用里的 Bean。',
@@ -616,6 +637,14 @@ export const flowMessages: MessageTable<FlowMessages> = {
     submit: 'Submit',
     saveDraft: 'Save draft',
     formNotPublished: 'The form backend code can be called once the form is published',
+    requestReassign: 'Request reassignment',
+    batchClaim: 'Claim selected',
+    batchApprove: 'Approve selected',
+    batchReport: (ok, failed) => (failed ? `${ok} done, ${failed} not done (handled by someone else, form required…); open them one by one` : `${ok} done`),
+    changeData: 'Change data',
+    changeVariables: 'Process variables (JSON)',
+    changeForm: 'Form fields (JSON)',
+    changeDataHint: 'Only the names to change; null clears a value. Before and after go into the history',
     formPanelForm: 'Form',
     formPanelServer: 'Backend code',
     serverCodeHint: 'One public class implementing FormHandler (no package): validate, compute fields, submit to business tables, actions for the front end; @Autowired beans work.',

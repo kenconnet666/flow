@@ -41,6 +41,8 @@ public class WorkItemView {
         private final boolean assign;
         /** 撤回刚处理的一步（我处理的、下一步还没人动） */
         private final boolean withdrawStep;
+        /** 申请改派（负责人指定给我的、还没在等他重新指定） */
+        private boolean requestReassign;
     }
 
     /** 一个处理结果（0005 的人工节点 {@code outcomes}）：审批面板上的一个按钮。 */

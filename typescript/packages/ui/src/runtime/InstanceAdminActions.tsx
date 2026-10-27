@@ -45,6 +45,11 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
   let reassigning = _state<WorkItem | null>(null);
   let reassignOpen = _state(false);
   let reassignTo = _state<readonly PeopleEntry[]>([]);
+  // 改数据：变量、表单字段各一段 JSON
+  let changeOpen = _state(false);
+  let changeVariables = _state('');
+  let changeForm = _state('');
+  let changeError = _state<string | null>(null);
 
   const instanceId = (): Id => detail.instance.id;
   const note = () => (reason.trim() ? { reason: reason.trim() } : {});
@@ -59,6 +64,30 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
     reassigning = item;
     reassignTo = [];
     reassignOpen = true;
+  }
+
+  /** 一段 JSON 对象；空的是不改 */
+  const parseObject = (text: string): Record<string, unknown> | undefined => {
+    if (!text.trim()) return undefined;
+    const value: unknown = JSON.parse(text);
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('{ … }');
+    return value as Record<string, unknown>;
+  };
+
+  async function changeData() {
+    changeError = null;
+    let variables: Record<string, unknown> | undefined;
+    let form: Record<string, unknown> | undefined;
+    try {
+      variables = parseObject(changeVariables);
+      form = parseObject(changeForm);
+    } catch (error) {
+      changeError = messages.jsonInvalid((error as Error).message);
+      return false;
+    }
+    return onRun('changeData', () =>
+      flow.changeData({ instanceId: instanceId(), ...(variables ? { variables } : {}), ...(form ? { form } : {}), reason: reason.trim() }),
+    );
   }
 
   const jump = () => (jumpNode ? onRun('jump', () => flow.jump({ instanceId: instanceId(), node: jumpNode!, ...note() })) : false);
@@ -90,6 +119,19 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
               {messages.jump}
             </Button>
           )}
+          <Button
+            variant="outline"
+            disabled={busy != null}
+            onClick={() => {
+              changeVariables = '';
+              changeForm = '';
+              reason = '';
+              changeError = null;
+              changeOpen = true;
+            }}
+          >
+            {messages.changeData}
+          </Button>
           <Popconfirm
             title={messages.terminateConfirm}
             tone="danger"
@@ -130,6 +172,27 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
               <Select items={detail.nodes.map((n) => ({ value: n.node, label: n.name ?? n.node }))} _value={jumpNode} />
             </Field>
             <Field label={messages.reason}>
+              <Textarea _value={reason} rows={2} />
+            </Field>
+          </Flex>
+        </Dialog>
+        <Dialog
+          _open={changeOpen}
+          title={messages.changeData}
+          confirmText={messages.confirm}
+          cancelText={messages.cancel}
+          onConfirm={changeData}
+          propsConfirm={{ disabled: !reason.trim() || (!changeVariables.trim() && !changeForm.trim()) }}
+        >
+          <Flex direction="column" gap="md">
+            <Text tone="muted">{messages.changeDataHint}</Text>
+            <Field label={messages.changeVariables}>
+              <Textarea _value={changeVariables} rows={3} placeholder='{ "round": 2 }' />
+            </Field>
+            <Field label={messages.changeForm}>
+              <Textarea _value={changeForm} rows={3} placeholder='{ "amount": "1200.00" }' />
+            </Field>
+            <Field label={messages.reason} required {...(changeError ? { error: changeError } : {})}>
               <Textarea _value={reason} rows={2} />
             </Field>
           </Flex>

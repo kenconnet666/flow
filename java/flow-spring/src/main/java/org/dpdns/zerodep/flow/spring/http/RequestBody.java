@@ -3,6 +3,7 @@ package org.dpdns.zerodep.flow.spring.http;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
+import org.dpdns.zerodep.flow.core.command.ChangeDataCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
@@ -14,6 +15,7 @@ import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
+import org.dpdns.zerodep.flow.core.command.RequestReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDesignDraftCommand;
@@ -85,6 +87,17 @@ class RequestBody {
 
     /** {@code { workItemId, form, comment }} */
     SaveDraftCommand saveDraft() { return new SaveDraftCommand(id("workItemId"), FormValues.of(object("form")), text("comment")); }
+
+    /** {@code { workItemId, reason }} */
+    RequestReassignCommand requestReassign() { return new RequestReassignCommand(id("workItemId"), text("reason")); }
+
+    /** {@code { instanceId, variables, form, reason }} */
+    ChangeDataCommand changeData() {
+        return new ChangeDataCommand(id("instanceId"), Variables.of(object("variables")), FormValues.of(object("form")), text("reason"));
+    }
+
+    /** 批量操作的待办：{@code { workItemIds: [...] }} */
+    List<Long> workItemIds() { return ids("workItemIds"); }
 
     /** {@code { instanceId, reason }} */
     WithdrawCommand withdraw() { return new WithdrawCommand(id("instanceId"), text("reason")); }

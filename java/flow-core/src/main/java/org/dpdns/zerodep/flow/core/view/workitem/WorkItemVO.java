@@ -29,6 +29,10 @@ public class WorkItemVO {
     private String state;
     /** {@code pool}（收件箱里等认领）、{@code claimed}、{@code direct}、{@code designated} */
     private String assignment;
+    /** 在等收件箱负责人指定（无人认领超时、申请了改派） */
+    private Boolean needsDesignation;
+    /** 由谁指定；不是负责人指定的为 null */
+    private Long designatorId;
     /** 怎样来的：{@code start}、{@code forward}、{@code return}…… */
     private String arrival;
     /** 收件箱是哪种：{@code role}、{@code department}、接入方扩展的种类；不在收件箱里时为 null */

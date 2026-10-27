@@ -10,7 +10,7 @@
  */
 import type { TodoItem } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Badge, Flex, Link, useFormat, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
+import { Badge, Button, Flex, Link, Small, useFormat, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
@@ -113,11 +113,45 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     },
   ];
 
+  // 我的待办能多选：批量认领、批量同意（各自成败，没做成的列出来）
+  let selected = _state<string[]>([]);
+  let busy = _state<string | null>(null);
+  let report = _state<string | null>(null);
+
+  async function batch(kind: 'claim' | 'approve') {
+    const ids = selected.map((key) => BigInt(key));
+    busy = kind;
+    report = null;
+    try {
+      const { results } = kind === 'claim' ? await flow.batchClaim(ids) : await flow.batchComplete(ids);
+      const failed = results.filter((r) => !r.ok);
+      report = messages.batchReport(results.length - failed.length, failed.length);
+      selected = [];
+      await query.refresh();
+    } finally {
+      busy = null;
+    }
+  }
+
+  const toolbar = () =>
+    list === 'todo' && (
+      <Flex gap="sm" align="center">
+        <Button size="sm" variant="outline" disabled={selected.length === 0 || busy != null} loading={busy === 'claim'} onClick={() => void batch('claim')}>
+          {messages.batchClaim}
+        </Button>
+        <Button size="sm" variant="outline" disabled={selected.length === 0 || busy != null} loading={busy === 'approve'} onClick={() => void batch('approve')}>
+          {messages.batchApprove}
+        </Button>
+        {report && <Small tone="muted">{report}</Small>}
+      </Flex>
+    );
+
   return () => (
     <QueryTable
       query={query}
       columns={[...(list === 'done' ? doneColumns() : todoColumns()), ...columns]}
       getKey={(item) => String(item.id)}
+      {...(list === 'todo' ? { selectionMode: 'multiple' as const, _selected: selected, 'onUpdate:_selected': (keys: string[]) => (selected = keys), toolbar: toolbar() } : {})}
       title={title ?? (list === 'done' ? messages.doneList : list === 'designations' ? messages.designationList : messages.inbox)}
     />
   );

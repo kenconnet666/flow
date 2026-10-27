@@ -6,6 +6,7 @@ import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
+import org.dpdns.zerodep.flow.core.command.ChangeDataCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
@@ -18,6 +19,7 @@ import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
+import org.dpdns.zerodep.flow.core.command.RequestReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
@@ -157,6 +159,10 @@ class ScenarioRunner {
                     args.text("event"), args.text("outcome"), args.map("data"))).stream().map(ScenarioRunner::commandResult).toList());
                 case "withdrawStep" -> commandResult(engine.withdrawStep(actor, new WithdrawStepCommand(args.id("workItem"), args.text("reason"))));
                 case "assign" -> commandResult(engine.assign(actor, new AssignCommand(args.id("workItem"), args.id("user"))));
+                case "requestReassign" -> commandResult(engine.requestReassign(actor, new RequestReassignCommand(args.id("workItem"), args.text("reason"))));
+                case "batchClaim" -> wire(Map.of("results", engine.batchClaim(actor, args.ids("workItems"))));
+                case "batchComplete" -> wire(Map.of("results", engine.batchComplete(actor, args.ids("workItems"), args.text("outcome"), args.text("comment"))));
+                case "changeData" -> commandResult(engine.changeData(actor, new ChangeDataCommand(args.id("instance"), Variables.of(args.map("variables")), FormValues.of(args.map("form")), args.text("reason"))));
                 case "designations" -> page(engine.designations(actor, args.number("page", 1), args.number("size", 20)));
                 case "retryJob" -> Map.of("revived", engine.retryJob(actor, new RetryJobCommand(args.id("job"))));
                 case "skipJob" -> commandResult(engine.skipJob(actor, new SkipJobCommand(args.id("job"), args.text("outcome"), args.text("reason"))));
@@ -223,11 +229,18 @@ class ScenarioRunner {
 
     // ───────── 引用 ─────────
 
-    /** 参数里的引用换成前面步骤的结果里的编号 */
+    /** 参数里的引用换成前面步骤的结果里的编号（列表里的也换） */
     private Map<String, Object> resolve(Map<String, Object> args) {
         Map<String, Object> out = new LinkedHashMap<>();
-        args.forEach((key, value) -> out.put(key, value instanceof String text && text.startsWith("$") ? reference(text) : value));
+        args.forEach((key, value) -> out.put(key, resolveValue(value)));
         return out;
+    }
+
+    /** 一个值里的引用（列表里的也换） */
+    private Object resolveValue(Object value) {
+        if (value instanceof String text && text.startsWith("$")) return reference(text);
+        if (value instanceof List<?> list) return list.stream().map(this::resolveValue).toList();
+        return value;
     }
 
     private String reference(String text) {

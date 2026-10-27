@@ -79,6 +79,8 @@ public class WorkItemQueries {
             ? new WorkItemView.Actions(task.getAllow().isTransfer(), task.getAllow().isDelegate(), task.getAllow().isAddSign(),
                 mine && WorkItemEntity.CLAIMED.equals(item.getAssignment()), assign, withdrawStep)
             : new WorkItemView.Actions(false, false, false, false, assign, withdrawStep);
+        boolean requestReassign = open && mine && WorkItemEntity.DESIGNATED.equals(item.getAssignment()) && !Boolean.TRUE.equals(item.getNeedsDesignation());
+        actions.setRequestReassign(requestReassign);
         return new WorkItemView(item, Instances.view(context.getDb(), instance.getId()), form, outcomes, open && candidate, completable, actions,
             draft == null ? null : new DraftVO(draft.getComment(), draft.getSavedAt()));
     }
@@ -97,5 +99,13 @@ public class WorkItemQueries {
                 .max(Comparator.comparing(WorkItemVO::getCompletedAt)).map(WorkItemVO::getCompletedByName).orElse(null);
             return new WorkItemView.ReturnTarget(node.getId(), node.getName(), handler);
         }).toList();
+    }
+
+    /** 待办所在节点上第一个"同意"类的结果（批量处理没指定结果时用）；没有时为 null */
+    public String approveOutcomeOf(Long workItemId) {
+        WorkItemVO item = WorkItems.find(context.getDb(), workItemId);
+        InstanceEntity instance = Instances.find(context.getDb(), item.getInstanceId());
+        ProcessNode.Task task = (ProcessNode.Task) definitions.of(instance).getGraph().node(item.getNode());
+        return task.getOutcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::getKey).findFirst().orElse(null);
     }
 }

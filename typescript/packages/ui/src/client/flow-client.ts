@@ -25,6 +25,8 @@ import type {
   InstanceSearch,
   ProcessSummary,
   PublishedDefinition,
+  BatchResult,
+  ChangeDataCommand,
   CompileProblem,
   DesignDraft,
   FormActionCommand,
@@ -133,6 +135,14 @@ export interface FlowClient {
   saveDraft(command: SaveDraftCommand): Promise<CommandResult>;
   /** 撤回 */
   withdraw(command: WithdrawCommand): Promise<CommandResult>;
+  /** 申请改派：负责人指定给我的待办回到他那里重新指定 */
+  requestReassign(workItemId: Id, reason: string): Promise<CommandResult>;
+  /** 批量认领：每个待办一个结果 */
+  batchClaim(workItemIds: readonly Id[]): Promise<{ readonly results: readonly BatchResult[] }>;
+  /** 批量处理：按同一个结果；不写结果时各按第一个"同意"类的 */
+  batchComplete(workItemIds: readonly Id[], outcome?: string, comment?: string): Promise<{ readonly results: readonly BatchResult[] }>;
+  /** 管理员改流程变量、表单字段 */
+  changeData(command: ChangeDataCommand): Promise<CommandResult>;
   /** 撤回刚处理的一步：下一步还没人动时，待办回到自己手里 */
   withdrawStep(workItemId: Id, reason?: string): Promise<CommandResult>;
   /** 转办：交给别人，自己不再参与 */
@@ -229,6 +239,11 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     complete: (command) => post('/commands/complete', command),
     saveDraft: (command) => post('/commands/save-draft', command),
     withdraw: (command) => post('/commands/withdraw', command),
+    requestReassign: (workItemId, reason) => post('/commands/request-reassign', { workItemId, reason }),
+    batchClaim: (workItemIds) => post('/commands/batch-claim', { workItemIds }),
+    batchComplete: (workItemIds, outcome, comment) =>
+      post('/commands/batch-complete', { workItemIds, ...(outcome ? { outcome } : {}), ...(comment ? { comment } : {}) }),
+    changeData: (command) => post('/admin/change-data', command),
     withdrawStep: (workItemId, reason) => post('/commands/withdraw-step', { workItemId, ...(reason ? { reason } : {}) }),
     transfer: (command) => post('/commands/transfer', command),
     delegate: (command) => post('/commands/delegate', command),

@@ -186,6 +186,8 @@ export const FLOW_EVENT = {
   NODE_LEFT: 'node.left',
   NODE_OVERDUE: 'node.overdue',
   NODE_SKIPPED: 'node.skipped',
+  WORK_ITEM_REASSIGN_REQUESTED: 'workItem.reassignRequested',
+  INSTANCE_DATA_CHANGED: 'instance.dataChanged',
   WORK_ITEM_CREATED: 'workItem.created',
   WORK_ITEM_CLAIMED: 'workItem.claimed',
   WORK_ITEM_COMPLETED: 'workItem.completed',

@@ -1,17 +1,11 @@
 package org.dpdns.zerodep.flow.core;
 
-import org.dpdns.zerodep.flow.core.form.FormContext;
-
-import org.dpdns.zerodep.flow.core.engine.store.Instances;
-
-import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
-
-import org.dpdns.zerodep.flow.core.engine.form.FormCode;
-
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
+import org.dpdns.zerodep.flow.core.command.BatchResult;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
+import org.dpdns.zerodep.flow.core.command.ChangeDataCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
@@ -26,12 +20,11 @@ import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
+import org.dpdns.zerodep.flow.core.command.RequestReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDesignDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
-import org.dpdns.zerodep.flow.core.engine.handler.DesignDraftHandler;
-import org.dpdns.zerodep.flow.core.view.definition.DesignDraftVO;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
@@ -40,13 +33,17 @@ import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
+import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.db.FlowEasyQuery;
 import org.dpdns.zerodep.flow.core.db.FlowInterceptors;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.form.FormCode;
+import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
 import org.dpdns.zerodep.flow.core.engine.handler.AdminHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.ClaimHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.CollaborationHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.CompleteHandler;
+import org.dpdns.zerodep.flow.core.engine.handler.DesignDraftHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.Publishing;
 import org.dpdns.zerodep.flow.core.engine.handler.SignalHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.StartHandler;
@@ -60,15 +57,18 @@ import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries;
 import org.dpdns.zerodep.flow.core.engine.query.ProcessQueries;
 import org.dpdns.zerodep.flow.core.engine.query.WorkItemQueries;
+import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.RequestEntity;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
+import org.dpdns.zerodep.flow.core.form.FormContext;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.core.view.definition.DefinitionProblem;
+import org.dpdns.zerodep.flow.core.view.definition.DesignDraftVO;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessVersionVO;
 import org.dpdns.zerodep.flow.core.view.definition.StartView;
@@ -362,6 +362,57 @@ public class FlowEngine<U extends Actor> {
     /** 暂存：填了一半先存在待办上，不提交（见 {@link CompleteHandler#saveDraft}） */
     public CommandResult saveDraft(U actor, SaveDraftCommand command) {
         return execute(actor, "saveDraft", String.valueOf(command.getWorkItemId()), command, completions::saveDraft);
+    }
+
+    /** 申请改派（当前操作人） */
+    public CommandResult requestReassign(RequestReassignCommand command) { return requestReassign(actors.current(), command); }
+
+    /** 申请改派：负责人指定给我的待办回到他的"待我指定"里（见 {@link CollaborationHandler#requestReassign}） */
+    public CommandResult requestReassign(U actor, RequestReassignCommand command) {
+        return execute(actor, "requestReassign", String.valueOf(command.getWorkItemId()), command, collaboration::requestReassign);
+    }
+
+    /** 管理员改数据（当前操作人） */
+    public CommandResult changeData(ChangeDataCommand command) { return changeData(actors.current(), command); }
+
+    /** 管理员改流程变量、表单字段，改前改后记进流转记录（见 {@link AdminHandler#changeData}） */
+    public CommandResult changeData(U actor, ChangeDataCommand command) {
+        return execute(actor, "changeData", String.valueOf(command.getInstanceId()), command, admin::changeData);
+    }
+
+    /** 批量认领（当前操作人） */
+    public List<BatchResult> batchClaim(List<Long> workItemIds) { return batchClaim(actors.current(), workItemIds); }
+
+    /** 批量认领：一个一个认领，各自一个事务，没认领到的在结果里带上错误码，不影响别的 */
+    public List<BatchResult> batchClaim(U actor, List<Long> workItemIds) {
+        return batch(workItemIds, id -> claim(actor, new ClaimCommand(id)));
+    }
+
+    /** 批量处理（当前操作人） */
+    public List<BatchResult> batchComplete(List<Long> workItemIds, String outcome, String comment) {
+        return batchComplete(actors.current(), workItemIds, outcome, comment);
+    }
+
+    /**
+     * 批量处理：一个一个按同一个结果处理（不交表单，表单要必填的就处理不了，结果里是 {@code flow.validation-failed}）；
+     * outcome 为 null 时各按自己节点上第一个"同意"类的结果
+     */
+    public List<BatchResult> batchComplete(U actor, List<Long> workItemIds, String outcome, String comment) {
+        return batch(workItemIds, id -> complete(actor, new CompleteCommand(id, outcome != null ? outcome : workItemQueries.approveOutcomeOf(id),
+            comment, FormValues.empty(), Map.of(), null)));
+    }
+
+    private static List<BatchResult> batch(List<Long> ids, java.util.function.Consumer<Long> each) {
+        List<BatchResult> out = new ArrayList<>();
+        for (Long id : ids) {
+            try {
+                each.accept(id);
+                out.add(new BatchResult(id, true, null));
+            } catch (FlowException e) {
+                out.add(new BatchResult(id, false, e.getCode().code()));
+            }
+        }
+        return out;
     }
 
     /** 撤回（当前操作人） */

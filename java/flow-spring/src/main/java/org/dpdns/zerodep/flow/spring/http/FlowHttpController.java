@@ -73,6 +73,31 @@ public class FlowHttpController {
         return command("commands/save-draft", () -> ResponseBody.of(engine.saveDraft(RequestBody.parse(body).saveDraft())));
     }
 
+    @PostMapping("/commands/request-reassign")
+    public Map<String, Object> requestReassign(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/request-reassign", () -> ResponseBody.of(engine.requestReassign(RequestBody.parse(body).requestReassign())));
+    }
+
+    /** 批量认领：{@code { workItemIds }}，每个待办一个结果 */
+    @PostMapping("/commands/batch-claim")
+    public Map<String, Object> batchClaim(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/batch-claim", () -> Map.of("results", engine.batchClaim(RequestBody.parse(body).workItemIds())));
+    }
+
+    /** 批量处理：{@code { workItemIds, outcome, comment }}，outcome 不写时各按第一个"同意"类的结果 */
+    @PostMapping("/commands/batch-complete")
+    public Map<String, Object> batchComplete(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        RequestBody request = RequestBody.parse(body);
+        return command("commands/batch-complete",
+            () -> Map.of("results", engine.batchComplete(request.workItemIds(), request.text("outcome"), request.text("comment"))));
+    }
+
+    /** 管理员改数据：{@code { instanceId, variables, form, reason }} */
+    @PostMapping("/admin/change-data")
+    public Map<String, Object> changeData(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("admin/change-data", () -> ResponseBody.of(engine.changeData(RequestBody.parse(body).changeData())));
+    }
+
     @PostMapping("/commands/withdraw")
     public Map<String, Object> withdraw(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
         return command("commands/withdraw", () -> ResponseBody.of(engine.withdraw(RequestBody.parse(body).withdraw())));
