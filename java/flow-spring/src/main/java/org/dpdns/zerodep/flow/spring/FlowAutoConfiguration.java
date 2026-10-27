@@ -22,7 +22,10 @@ import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
-import org.dpdns.zerodep.flow.spring.http.FlowHttpController;
+import org.dpdns.zerodep.flow.spring.http.FlowAdminController;
+import org.dpdns.zerodep.flow.spring.http.FlowCommandController;
+import org.dpdns.zerodep.flow.spring.http.FlowDesignController;
+import org.dpdns.zerodep.flow.spring.http.FlowQueryController;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
@@ -145,8 +148,16 @@ public class FlowAutoConfiguration {
     @ConditionalOnProperty(prefix = "flow.http", name = "enabled", havingValue = "true")
     static class Http {
         @Bean
-        @SuppressWarnings("rawtypes")
-        FlowHttpController flowHttpController(FlowEngine engine) { return new FlowHttpController(engine); }
+        FlowCommandController flowCommandController(FlowEngine<?> engine) { return new FlowCommandController(engine); }
+
+        @Bean
+        FlowQueryController flowQueryController(FlowEngine<?> engine) { return new FlowQueryController(engine); }
+
+        @Bean
+        FlowAdminController flowAdminController(FlowEngine<?> engine) { return new FlowAdminController(engine); }
+
+        @Bean
+        FlowDesignController flowDesignController(FlowEngine<?> engine) { return new FlowDesignController(engine); }
     }
 
     /** 按名字取 Bean；没写名字时要求只有一个，有几个时报错并说明用哪个配置项指定 */

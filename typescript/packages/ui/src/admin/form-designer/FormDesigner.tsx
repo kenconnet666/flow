@@ -54,6 +54,7 @@ import {
 import type { FlowFormHandle } from '../../form/context';
 import { FlowForm } from '../../form/FlowForm';
 import { useFormDesignerMessages } from '../../lang/form-designer-messages';
+import { dropAt, nodeAt, px, rectOf, type Drop, type Rect } from './canvas';
 import { PropertyPanel } from './PropertyPanel';
 
 /** FormDesigner 的属性 */
@@ -81,20 +82,6 @@ type Item =
 
 /** 正在拖的：面板里的一样东西，或画布上的一个节点 */
 type Drag = Item | { readonly kind: 'move'; readonly path: string };
-
-/** 放下的位置：容器与第几个子节点之前，加上画插入线的位置（相对画布） */
-interface Drop {
-  readonly parent: string;
-  readonly index: number;
-  readonly line: Rect;
-}
-
-interface Rect {
-  readonly left: number;
-  readonly top: number;
-  readonly width: number;
-  readonly height: number;
-}
 
 /** 面板里的字段：类型与默认控件（同一类型的第二个控件单列，如多行文字） */
 const FIELD_ITEMS: readonly { type: FieldType; control: string }[] = [
@@ -228,65 +215,11 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
     }
   }
 
-  // ───────── 画布上的位置 ─────────
+  // ───────── 画布上的位置（canvas.ts） ─────────
 
-  /** 一个节点在画布上的框（代码块可能有几个元素，取并起来的） */
-  function rectOf(path: string): Rect | null {
-    if (!canvas) return null;
-    const elements = [...canvas.querySelectorAll<HTMLElement>(`[data-form-node="${path}"]`)];
-    if (elements.length === 0) return null;
-    const origin = canvas.getBoundingClientRect();
-    const rects = elements.map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 || r.height > 0);
-    if (rects.length === 0) return null;
-    const left = Math.min(...rects.map((r) => r.left));
-    const top = Math.min(...rects.map((r) => r.top));
-    const right = Math.max(...rects.map((r) => r.right));
-    const bottom = Math.max(...rects.map((r) => r.bottom));
-    return { left: left - origin.left, top: top - origin.top, width: right - left, height: bottom - top };
-  }
-
-  /** 指针下面最里层的节点（操作层下面的元素） */
-  function nodeAt(x: number, y: number): string | null {
-    for (const element of document.elementsFromPoint(x, y)) {
-      if (!canvas?.contains(element) || element.closest('[data-designer-overlay]')) continue;
-      const hit = element.closest<HTMLElement>('[data-form-node]');
-      if (hit && canvas.contains(hit)) return hit.dataset.formNode ?? null;
-    }
-    return null;
-  }
-
-  /** 指针在哪放下：容器里按子节点的位置排，别的节点放它前面或后面（按上下半） */
-  function dropAt(x: number, y: number): Drop | null {
-    const root = design?.root;
-    if (!root || !canvas) return null;
-    const origin = canvas.getBoundingClientRect();
-    const py = y - origin.top;
-    const path = nodeAt(x, y) ?? root.path;
-    const node = findNode(root, path) ?? root;
-    if (node.container) return dropInside(node, py);
-    const at = parentOf(root, node.path);
-    const rect = rectOf(node.path);
-    if (!at || !rect) return dropInside(root, py);
-    const after = py > rect.top + rect.height / 2;
-    const index = at.index + (after ? 1 : 0);
-    return { parent: at.parent.path, index, line: lineAt(rect, after) };
-  }
-
-  function dropInside(container: DesignNode, py: number): Drop | null {
-    const rects = container.children.map((c) => rectOf(c.path));
-    const index = rects.findIndex((r) => r !== null && py < r.top + r.height / 2);
-    const own = rectOf(container.path);
-    if (!own) return null;
-    if (index >= 0) return { parent: container.path, index, line: lineAt(rects[index]!, false) };
-    const last = [...rects].reverse().find((r) => r !== null);
-    return {
-      parent: container.path,
-      index: container.children.length,
-      line: last ? lineAt(last, true) : { left: own.left + 8, top: own.top + own.height - 6, width: Math.max(own.width - 16, 24), height: 2 },
-    };
-  }
-
-  const lineAt = (rect: Rect, after: boolean): Rect => ({ left: rect.left, top: after ? rect.top + rect.height + 2 : rect.top - 3, width: rect.width, height: 2 });
+  const rectOfPath = (path: string) => (canvas ? rectOf(canvas, path) : null);
+  const nodeUnder = (x: number, y: number) => (canvas ? nodeAt(canvas, x, y) : null);
+  const dropUnder = (x: number, y: number) => (canvas && design?.root ? dropAt(canvas, design.root, x, y) : null);
 
   // 画布的内容（重新编译、窗口变化）变了时重量选中框
   let observer: MutationObserver | undefined;
@@ -295,7 +228,7 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
   const measure = () => {
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
-      const box = selected ? rectOf(selected) : null;
+      const box = selected ? rectOfPath(selected) : null;
       boxes = box ? [box] : [];
     });
   };
@@ -318,11 +251,11 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
 
   const overlayEvents = {
     onClick: (event: MouseEvent) => {
-      selected = nodeAt(event.clientX, event.clientY);
+      selected = nodeUnder(event.clientX, event.clientY);
       (event.currentTarget as HTMLElement).focus();
     },
     onDragstart: (event: DragEvent) => {
-      const path = nodeAt(event.clientX, event.clientY);
+      const path = nodeUnder(event.clientX, event.clientY);
       if (!path || path === design?.root?.path) return event.preventDefault();
       selected = path;
       drag = { kind: 'move', path };
@@ -331,12 +264,12 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
     onDragover: (event: DragEvent) => {
       if (!drag) return;
       event.preventDefault();
-      drop = dropAt(event.clientX, event.clientY);
+      drop = dropUnder(event.clientX, event.clientY);
     },
     onDragleave: () => (drop = null),
     onDrop: (event: DragEvent) => {
       event.preventDefault();
-      const target = dropAt(event.clientX, event.clientY);
+      const target = dropUnder(event.clientX, event.clientY);
       if (drag && target) place(drag, target.parent, target.index);
       drag = null;
       drop = null;
@@ -531,8 +464,6 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
     </Flex>
   );
 });
-
-const px = (rect: Rect) => ({ left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
 
 /** 下一个没用过的 fieldN */
 function newFieldName(design: FormDesign): string {
