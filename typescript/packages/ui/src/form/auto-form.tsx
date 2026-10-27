@@ -10,7 +10,7 @@
  *
  * 想要别的排版、联动、远程数据时写代码表单（defineFlowForm）。
  */
-import type { FieldDefinition, FieldOption, FormManifest } from '@zerodep-dev/flow-model';
+import type { FieldDefinition, FormManifest } from '@zerodep-dev/flow-model';
 import { _component, type TsxComponent } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Button,
@@ -27,9 +27,7 @@ import {
   type PeopleEntry,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { Plus, Trash2 } from '@lucide/icons';
-import Decimal from 'decimal.js';
-import { CalendarDateTime, getLocalTimeZone, toZoned, type ZonedDateTime } from '@internationalized/date';
-import type { VNodeChild } from 'vue';
+import { h, type VNodeChild } from 'vue';
 import { useFlowMessages, type FlowMessages } from '../lang/messages';
 import { defineFlowForm, type FlowFormApi, type FlowFormComponentProps } from './define';
 import type { FlowFormScope } from './context';
@@ -72,50 +70,26 @@ function fieldOf(
   );
 }
 
-/** 按字段类型挑控件；值由 form.Field 自动绑定（只有一个控件时） */
+/** 按字段类型挑控件：值的绑定、步长、选项、人员数据源这些由 form.Field 按字段补上（controls.ts） */
 function controlOf(form: FlowFormApi<FormManifest>, context: FlowFormScope, path: string, field: FieldDefinition): VNodeChild {
   switch (field.type) {
     case 'number':
-      // NumberField 失焦时把值对齐到步长（默认 1）：不是整数的字段给一个足够细的步长
-      return <NumberField min={numberOf(field.min)} max={numberOf(field.max)} step={field.integer ? 1 : 0.000001} />;
     case 'decimal':
-      // 按清单的小数位显示（12,000.00）、对齐到这么多位；没写小数位时不限（步长细到 Decimal 的精度）
-      return field.scale === undefined ? (
-        <NumberField step={new Decimal('1e-20')} />
-      ) : (
-        <NumberField
-          step={new Decimal(`1e-${field.scale}`)}
-          format={{ minimumFractionDigits: field.scale, maximumFractionDigits: field.scale }}
-        />
-      );
+      return <NumberField />;
     case 'boolean':
       return <Switch />;
     case 'date':
-      return <DatePicker valueType="dateValue" min={textOf(field.min)} max={textOf(field.max)} />;
     case 'datetime':
-      // 值是 ZonedDateTime 时控件照样写回它；从空值新选出的是本地的 CalendarDateTime，按浏览器的时区换成时刻
-      return (
-        <DatePicker
-          granularity="minute"
-          valueType="dateValue"
-          _value={form.getValue(path) as ZonedDateTime | null}
-          onUpdate:_value={(value: ZonedDateTime | CalendarDateTime | null) =>
-            form.setValue(path, value instanceof CalendarDateTime ? toZoned(value, getLocalTimeZone()) : value)
-          }
-        />
-      );
+      return <DatePicker />;
     case 'select':
-      return selectOf(form, path, field);
+      // 选项由 form.Field 按清单补上（Select 的类型要求写 items）
+      return h(Select);
     case 'people':
-      return context.people ? (
-        <PeoplePicker source={context.people} types={field.types as never} max={numberOf(field.max)} />
-      ) : (
-        <Text>{((form.getValue(path) ?? []) as PeopleEntry[]).map((p) => p.name).join('、')}</Text>
-      );
+      return context.people ? <PeoplePicker source={context.people} /> : <Text>{((form.getValue(path) ?? []) as PeopleEntry[]).map((p) => p.name).join('、')}</Text>;
     case 'file':
       return <Text>{((form.getValue(path) ?? []) as { name: string }[]).map((f) => f.name).join('、')}</Text>;
     default:
-      return (field.maxLength ?? 0) > 100 ? <Textarea maxlength={field.maxLength} /> : <TextField maxlength={field.maxLength} />;
+      return (field.maxLength ?? 0) > 100 ? <Textarea /> : <TextField />;
   }
 }
 
@@ -155,36 +129,4 @@ function listOf(
     </FormSection>
   );
 }
-
-/**
- * 下拉选择：选项的值可以是数字，组件库的 Select 按文字选，这里来回换（值按清单里选项本来的类型存）。
- * 选项来自字典（{ source }）时还没有接，列表是空的
- */
-function selectOf(form: FlowFormApi<FormManifest>, path: string, field: FieldDefinition): VNodeChild {
-  const options: readonly FieldOption[] = Array.isArray(field.options) ? field.options : [];
-  const items = options.map((option) => ({ value: String(option.value), label: option.label }));
-  const original = (text: string) => options.find((option) => String(option.value) === text)?.value ?? text;
-  const value = form.getValue(path);
-  if (field.multiple) {
-    return (
-      <Select
-        items={items}
-        selectionMode="multiple"
-        _value={((value ?? []) as unknown[]).map(String)}
-        onUpdate:_value={(texts: string[]) => form.setValue(path, texts.map(original))}
-      />
-    );
-  }
-  return (
-    <Select
-      items={items}
-      clearable={!field.required}
-      _value={value == null ? null : String(value)}
-      onUpdate:_value={(text: string | null) => form.setValue(path, text == null ? null : original(text))}
-    />
-  );
-}
-
-const numberOf = (value: unknown) => (typeof value === 'number' ? value : undefined);
-const textOf = (value: unknown) => (typeof value === 'string' ? value : undefined);
 

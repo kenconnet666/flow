@@ -6,12 +6,13 @@
  *     <form.Form>
  *       <form.Field name="title"><TextField /></form.Field>
  *       <form.Field name="amount"><NumberField /></form.Field>
- *       <form.Field name="buyer"><PeoplePicker source={context.people!} /></form.Field>
+ *       <form.Field name="buyer"><PeoplePicker /></form.Field>
  *     </form.Form>
  *   ));
  *
  * - 标签、必填标记、说明从清单来，form.Field 不用再写；节点权限与显示条件合算出的状态（隐藏、只读、必填）自动套上。
- * - decimal 字段在表单里是 Decimal（NumberField 按 Decimal 读写，不经浮点），交给引擎时按小数位写回文字。
+ * - 控件按字段类型补上没写的属性（controls.ts）：decimal 的 NumberField 按 Decimal 读写，日期是 CalendarDate / ZonedDateTime，
+ *   Select 的选项、PeoplePicker 的数据源取清单与容器，代码里只写控件本身。
  * - 校验用模型包的规则（必填、类型、长度、范围……），与两个后端是同一套；跨字段的规则写在 options.validate 里。
  * - 表单由容器（FlowForm）渲染：容器给 context，表单把"校验、取值"交回容器，提交按钮在审批面板上。
  */
@@ -32,10 +33,11 @@ import {
   type FormProps,
   type PeopleEntry,
 } from '@zerodep-dev/vue-tsx-pro-ui';
-import Decimal from 'decimal.js';
-import { cloneVNode, computed, isVNode, type VNode, type VNodeChild } from 'vue';
+import type Decimal from 'decimal.js';
+import { computed, type VNodeChild } from 'vue';
 import { useFlowMessages } from '../lang/messages';
 import type { FlowFormContext, FlowFormScope } from './context';
+import { bindControl } from './controls';
 import { formPath, toFormState, type FormState } from './values';
 
 /** 一个字段在表单里的值的类型 */
@@ -151,7 +153,11 @@ export function defineFlowForm<const M extends FormManifest>(
           readonly={!state.editable || context.mode === 'view'}
           {...rest}
         >
-          {controlOf(children, field?.type === 'decimal')}
+          {bindControl(children, field, {
+            get: () => controller.getValue(name as never),
+            set: (value) => controller.setValue(name as never, value as never),
+            people: context.people,
+          })}
         </Field>
       );
     });
@@ -185,14 +191,3 @@ function columnOf(manifest: FormManifest, path: string) {
   return list && column ? manifest[list]?.fields?.[column] : undefined;
 }
 
-/**
- * 交给组件库 Field 的控件：只有一个控件时拿出这一个 vnode（Field 认出"只有一个控件"才自动绑定值，包在数组里认不出）。
- * decimal 字段的控件（NumberField）补上 valueType：一开始为空时也按 Decimal 写回
- */
-function controlOf(children: unknown, decimal: boolean): VNodeChild {
-  const only = Array.isArray(children) && children.length === 1 ? children[0] : children;
-  if (!isVNode(only)) return children as VNodeChild;
-  const props = (only as VNode).props ?? {};
-  if (!decimal || 'valueType' in props || 'value-type' in props) return only;
-  return cloneVNode(only, { valueType: Decimal });
-}

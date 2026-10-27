@@ -34,6 +34,8 @@ export interface FlowFormProps {
   read?: (name: string) => unknown;
   /** 表单建好了：拿到校验、取值的操作 */
   onReady?: (form: FlowFormHandle) => void;
+  /** 换代码时先留着旧的表单，新的编好了再换上（表单设计器：每次改动都重新编译，画布不闪） */
+  keepPrevious?: boolean;
 }
 
 /** 表单代码默认能导入的模块：Vue、组件库、flow-ui 的表单写法。用到时才加载 */
@@ -55,7 +57,7 @@ export async function flowFormModules(): Promise<Record<string, unknown>> {
 }
 
 /** 表单容器 */
-export const FlowForm = _component(({ view, mode = 'fill', people, modules, read, onReady }: FlowFormProps) => {
+export const FlowForm = _component(({ view, mode = 'fill', people, modules, read, onReady, keepPrevious }: FlowFormProps) => {
   const messages = useFlowMessages();
   let component = _state.raw<Component | null>(null);
   let failure = _state<string | null>(null);
@@ -75,16 +77,20 @@ export const FlowForm = _component(({ view, mode = 'fill', people, modules, read
     return exported.default;
   }
 
-  // 换了表单（另一个待办）重新加载；同一张表单只加载一次
+  // 换了表单（另一个待办）重新加载；同一张表单只加载一次。连着换了几次时只用最后一次的结果
+  let loads = 0;
   watch(
     () => [view.compiled, view.source, view.manifest] as const,
     async () => {
-      component = null;
-      failure = null;
+      const current = ++loads;
+      if (!keepPrevious) component = null;
       try {
-        component = await load();
+        const next = await load();
+        if (current !== loads) return;
+        failure = null;
+        component = next;
       } catch (error) {
-        failure = error instanceof Error ? error.message : String(error);
+        if (current === loads) failure = error instanceof Error ? error.message : String(error);
       }
     },
     { immediate: true },
