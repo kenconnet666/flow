@@ -37,3 +37,16 @@ export function provideFlowFiles(source: FileSource): void {
 export function useFlowFiles(): FileSource | undefined {
   return inject(FLOW_FILES, undefined);
 }
+
+/** 附件字段报告自己还有几个没传完（选了、正在传）；所在的表单字段记下，提交时不放行 */
+const UPLOAD_PENDING: InjectionKey<(count: number) => void> = Symbol('flow-upload-pending');
+
+/** 表单字段（form.Field）给里面的附件控件一个报告的口子 */
+export function provideUploadPending(report: (count: number) => void): void {
+  provide(UPLOAD_PENDING, report);
+}
+
+/** 附件控件拿到报告的口子；不在表单字段里时为 undefined */
+export function useUploadPending(): ((count: number) => void) | undefined {
+  return inject(UPLOAD_PENDING, undefined);
+}

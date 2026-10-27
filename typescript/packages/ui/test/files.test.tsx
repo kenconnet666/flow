@@ -67,6 +67,28 @@ describe('附件', () => {
     expect((handle.values()['receipts'] as FileRef[]).map((f) => f.name)).toEqual(['发票.pdf', '车票.png']);
   });
 
+  it('还没传完时校验不放行，提示附件在上传；传完了放行，附件在值里', async () => {
+    // 由测试决定什么时候传完
+    let finish: (ref: FileRef) => void = () => {};
+    const held: FileSource = { upload: () => new Promise<FileRef>((resolve) => (finish = resolve)) };
+    const { host, handle } = await mountWith(held);
+    const input = host.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['abc'], '住宿单.pdf', { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle();
+    expect(await handle.validate()).toBe(false);
+    await settle();
+    expect(host.textContent).toContain('附件还在上传');
+
+    finish({ id: 'f9', name: '住宿单.pdf', size: 3 });
+    await settle();
+    await settle();
+    expect(host.textContent).not.toContain('附件还在上传');
+    expect(await handle.validate()).toBe(true);
+    expect((handle.values()['receipts'] as FileRef[]).map((f) => f.name)).toEqual(['发票.pdf', '住宿单.pdf']);
+  });
+
   it('没给附件的存取时只显示文件名，不能上传', async () => {
     const { host } = await mountWith(null);
     expect(host.textContent).toContain('发票.pdf');

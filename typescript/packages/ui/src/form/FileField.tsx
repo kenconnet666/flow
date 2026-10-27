@@ -1,14 +1,14 @@
 /**
  * 附件控件：组件库的 Upload（列表、进度、失败重试、移除、大小与类型检查）接上接入方的 FileSource。
  * 表单的值只是传完了的 `{ id, name, size }`；上传中、失败的只在控件里。在 form.Field 里时数据源、accept、maxCount、maxSize
- * 由字段补上（controls.ts）：
+ * 由字段补上（controls.ts），还有几个没传完也报给字段（提交时不放行，不然没传完的附件会悄悄丢掉）：
  *
  *   <form.Field name="attachments"><FileField /></form.Field>
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { existingUploadFile, Upload, type UploadFile } from '@zerodep-dev/vue-tsx-pro-ui';
-import { watch } from 'vue';
-import type { FileRef, FileSource } from './files';
+import { onBeforeUnmount, watch } from 'vue';
+import { useUploadPending, type FileRef, type FileSource } from './files';
 
 /** FileField 的属性 */
 export interface FileFieldProps {
@@ -46,6 +46,14 @@ export const FileField = _component(
         if (!sameFiles(next, written)) list = toList(next);
       },
     );
+
+    const reportPending = useUploadPending();
+    watch(
+      () => list.filter((file) => file.status === 'selected' || file.status === 'uploading').length,
+      (count) => reportPending?.(count),
+      { immediate: true },
+    );
+    onBeforeUnmount(() => reportPending?.(0));
 
     function update(next: UploadFile[]) {
       list = next;

@@ -31,8 +31,11 @@ test('病假带证明材料：上传、提交，流程详情里能下载', async
   await page.getByRole('option', { name: '病假' }).click();
   await page.getByLabel('天数').fill('3');
   const name = `诊断证明-${Date.now()}.txt`;
+  // 等传完再提交：没传完时提交会被拦下（"附件还在上传"），后端刚启动时第一次上传要慢一些
+  const uploaded = page.waitForResponse((response) => response.url().includes('/demo/files') && response.request().method() === 'POST');
   await page.locator('input[type="file"]').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from('诊断证明的内容') });
-  await page.getByText(name).waitFor();
+  await uploaded;
+  await page.getByText('已上传').waitFor();
   // 标题每次都是"请假：3 天"，从发起的响应里取实例编号直接打开，不在列表里认
   const started = page.waitForResponse((response) => response.url().includes('/flow/commands/start'));
   await page.getByRole('button', { name: '提交', exact: true }).click();

@@ -40,12 +40,13 @@ import {
   type PeopleEntry,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import type Decimal from 'decimal.js';
-import { computed, type VNodeChild } from 'vue';
+import { computed, reactive, type VNodeChild } from 'vue';
 import { Plus, Trash2 } from '@lucide/icons';
 import { useFlowMessages } from '../lang/messages';
 import type { FlowFormContext, FlowFormScope } from './context';
 import { bindControl } from './controls';
 import { defaultControl } from './default-control';
+import { provideUploadPending } from './files';
 import { formPath, toFormState, type FormState } from './values';
 
 /** 一个字段在表单里的值的类型 */
@@ -122,11 +123,14 @@ export function defineFlowForm<const M extends FormManifest>(
   return _component(({ context }: FlowFormComponentProps) => {
     const messages = useFlowMessages();
     const manifest: FormManifest = fields;
+    /** 字段路径 → 还没传完的附件个数（FileField 报来的） */
+    const uploading = reactive(new Map<string, number>());
     const controller = useForm<FormState>({
       initial: toFormState(manifest, context.values),
       validate: async (values) => ({
         ...problemsOf(values),
         ...(await options.validate?.(values as ValuesOf<M>)),
+        ...Object.fromEntries([...uploading.keys()].map((path) => [path, messages.uploading])),
       }),
     });
 
@@ -155,7 +159,12 @@ export function defineFlowForm<const M extends FormManifest>(
       </Form>
     ));
 
-    const FlowField = _component(({ name, children, ...rest }: Omit<FieldProps, 'name'> & { name: string }) => () => {
+    const FlowField = _component(({ name, children, ...rest }: Omit<FieldProps, 'name'> & { name: string }) => {
+      provideUploadPending((count) => (count > 0 ? uploading.set(name, count) : uploading.delete(name)));
+      return () => renderField(name, children, rest);
+    });
+
+    function renderField(name: string, children: VNodeChild, rest: Omit<FieldProps, 'name' | 'children'>) {
       const state = stateOf(name);
       if (!state.visible) return null;
       const field = manifest[manifestPath(name)] ?? columnOf(manifest, name);
@@ -176,7 +185,7 @@ export function defineFlowForm<const M extends FormManifest>(
           })}
         </Field>
       );
-    });
+    }
 
     /** 明细表：一段标题，每行一组列（按列的类型放默认控件），能改时可以加行、删行 */
     const FlowList = _component(({ name }: { name: string }) => () => {
