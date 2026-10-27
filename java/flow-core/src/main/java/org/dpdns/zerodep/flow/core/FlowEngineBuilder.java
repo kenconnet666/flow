@@ -15,16 +15,17 @@ import org.dpdns.zerodep.flow.core.extension.CountersignRule;
 import org.dpdns.zerodep.flow.core.extension.CustomNode;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.extension.FieldType;
-import org.dpdns.zerodep.flow.core.extension.TodoQueryCustomizer;
 import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
+import org.dpdns.zerodep.flow.core.extension.TodoQueryCustomizer;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.identity.ViewPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
@@ -47,6 +48,8 @@ public class FlowEngineBuilder<U extends Actor> {
     };
     private OrgDirectory org;
     private PermissionPolicy<U> permissions = PermissionPolicy.allowAll();
+    /** 不设时是 ViewPolicy.participantsOr(权限)：组装时按最后设的权限算 */
+    private ViewPolicy<U> viewPolicy;
     private Clock clock = Clock.systemUTC();
     private Supplier<Long> tenant = () -> 0L;
     /** 不给时按表里的工作日历算（管理端维护；一份都没建时周一到周五、UTC） */
@@ -75,6 +78,9 @@ public class FlowEngineBuilder<U extends Actor> {
 
     /** 每个操作前的权限判断；默认全部放行 */
     public FlowEngineBuilder<U> permissionPolicy(PermissionPolicy<U> permissions) { this.permissions = permissions; return this; }
+
+    /** 谁能看实例；默认参与过的人，加上有 instances.search 权限的人 */
+    public FlowEngineBuilder<U> viewPolicy(ViewPolicy<U> viewPolicy) { this.viewPolicy = viewPolicy; return this; }
 
     /** 时钟；默认系统时钟（UTC），测试里用固定时钟 */
     public FlowEngineBuilder<U> clock(Clock clock) { this.clock = clock; return this; }
@@ -130,7 +136,8 @@ public class FlowEngineBuilder<U extends Actor> {
         // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
         FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
         return new FlowEngine<>(new EngineContext(db, clock, org, calendar != null ? calendar : new TableWorkCalendar(db, ZoneOffset.UTC), new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
-            new Extensions(resolvers, guards, actions, customNodes, countersignRules, fieldTypes), todoCustomizer, new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions, List.copyOf(interceptors),
+            new Extensions(resolvers, guards, actions, customNodes, countersignRules, fieldTypes), todoCustomizer, new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions,
+            viewPolicy != null ? viewPolicy : ViewPolicy.participantsOr(permissions), List.copyOf(interceptors),
             List.copyOf(jobHandlers));
     }
 }

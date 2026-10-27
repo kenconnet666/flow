@@ -19,6 +19,7 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.identity.ViewPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
@@ -74,7 +75,7 @@ public class FlowAutoConfiguration {
     public FlowEngine flowEngine(BeanFactory beans, FlowProperties properties,
                                  ObjectProvider<FlowSchemaMigration> migration, ObjectProvider<EasyEntityQuery> easyQuery,
                                  ObjectProvider<OrgDirectory> org, ObjectProvider<ActorProvider> actors,
-                                 ObjectProvider<PermissionPolicy> permissions, ObjectProvider<Clock> clock,
+                                 ObjectProvider<PermissionPolicy> permissions, ObjectProvider<ViewPolicy> viewPolicy, ObjectProvider<Clock> clock,
                                  ObjectProvider<WorkCalendar> calendar,
                                  ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners, ObjectProvider<NotificationChannel> channels,
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
@@ -94,6 +95,7 @@ public class FlowAutoConfiguration {
         FlowEngineBuilder builder = FlowEngine.builder(db).orgDirectory(directory);
         actors.ifAvailable(builder::actorProvider);
         permissions.ifAvailable(builder::permissionPolicy);
+        viewPolicy.ifAvailable(builder::viewPolicy);
         clock.ifUnique(builder::clock);
         // 没有自己的日历时按表里的工作日历算（管理端维护），一份都没建时周一到周五
         builder.workCalendar(calendar.getIfAvailable(() -> new TableWorkCalendar(db, ZoneId.of(properties.getCalendar().getZone()))));

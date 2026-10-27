@@ -40,6 +40,7 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.db.FlowEasyQuery;
 import org.dpdns.zerodep.flow.core.db.FlowInterceptors;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.form.FormCode;
 import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
 import org.dpdns.zerodep.flow.core.engine.handler.AdminHandler;
@@ -60,11 +61,12 @@ import org.dpdns.zerodep.flow.core.engine.query.InboxQueries;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries;
 import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
+import org.dpdns.zerodep.flow.core.engine.query.Participation;
 import org.dpdns.zerodep.flow.core.engine.query.ProcessQueries;
 import org.dpdns.zerodep.flow.core.engine.query.StatsQueries;
 import org.dpdns.zerodep.flow.core.engine.query.WorkItemQueries;
 import org.dpdns.zerodep.flow.core.engine.store.Archives;
-import org.dpdns.zerodep.flow.core.engine.store.Instances;
+import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.RequestEntity;
@@ -73,6 +75,7 @@ import org.dpdns.zerodep.flow.core.form.FormContext;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.identity.ViewPolicy;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.core.view.definition.CalendarVO;
 import org.dpdns.zerodep.flow.core.view.definition.DefinitionProblem;
@@ -129,6 +132,7 @@ import java.util.function.Supplier;
 public class FlowEngine<U extends Actor> {
     private final ActorProvider<U> actors;
     private final PermissionPolicy<U> permissions;
+    private final ViewPolicy<U> viewPolicy;
     private final StartHandler starts;
     private final ClaimHandler claims;
     private final CompleteHandler completions;
@@ -150,11 +154,12 @@ public class FlowEngine<U extends Actor> {
     private final EngineContext context;
     private final List<CommandInterceptor<U>> interceptors;
 
-    FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, List<CommandInterceptor<U>> interceptors,
+    FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, ViewPolicy<U> viewPolicy, List<CommandInterceptor<U>> interceptors,
                        List<JobHandler> jobHandlers) {
         this.context = context;
         this.actors = actors;
         this.permissions = permissions;
+        this.viewPolicy = viewPolicy;
         this.interceptors = interceptors;
         this.starts = new StartHandler(context);
         this.claims = new ClaimHandler(context);
@@ -210,7 +215,7 @@ public class FlowEngine<U extends Actor> {
         String processKey = null;
         if (instanceId != null) {
             allow(actor, "instance", String.valueOf(instanceId));
-            processKey = Instances.find(context.getDb(), instanceId).getProcessKey();
+            processKey = requireVisible(actor, instanceId).getProcessKey();
         }
         FormContext ctx = new FormContext(actor, processKey, instanceId, null, instanceId == null);
         return FormCode.action(context, formVersionId, action, args == null ? Map.of() : args, ctx);
@@ -586,6 +591,7 @@ public class FlowEngine<U extends Actor> {
 
     /** 留言：记进流转记录；@ 到的人收到通知（mentioned） */
     public CommandResult comment(U actor, CommentCommand command) {
+        requireVisible(actor, command.getInstanceId());
         return execute(actor, "comment", String.valueOf(command.getInstanceId()), command, collaboration::comment);
     }
 
@@ -816,6 +822,7 @@ public class FlowEngine<U extends Actor> {
     /** 待办详情：待办与实例、这个节点上的表单、能选的处理结果、我能不能认领与处理 */
     public WorkItemView workItem(U actor, Long workItemId) {
         allow(actor, "workItem", String.valueOf(workItemId));
+        requireVisible(actor, WorkItems.find(context.getDb(), workItemId).getInstanceId());
         return workItemQueries.workItem(actor, workItemId);
     }
 
@@ -924,6 +931,7 @@ public class FlowEngine<U extends Actor> {
     /** 实例详情：实例、表单（按流程级的 formView 只读）、全部待办、流转记录、我能不能撤回与催办 */
     public InstanceDetail instance(U actor, Long instanceId) {
         allow(actor, "instance", String.valueOf(instanceId));
+        requireVisible(actor, instanceId);
         return instanceQueries.instance(actor, instanceId);
     }
 
@@ -953,6 +961,13 @@ public class FlowEngine<U extends Actor> {
         CommandInterceptor<U> interceptor = interceptors.get(index);
         CommandInterceptor.Chain<R> rest = chain(index + 1, actor, operation, type, handler);
         return command -> interceptor.intercept(actor, operation, command, rest);
+    }
+
+    /** ViewPolicy 不让看时报 flow.forbidden（原因 not-visible）；实例不存在时报 flow.not-found */
+    private Participation requireVisible(U actor, Long instanceId) {
+        Participation viewing = Participation.of(context, actor, instanceId);
+        if (!viewPolicy.canView(actor, viewing)) throw FlowErrors.forbidden("instance", instanceId, "not-visible");
+        return viewing;
     }
 
     private void allow(U actor, String operation, String target) {
