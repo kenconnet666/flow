@@ -1,16 +1,16 @@
 package org.dpdns.zerodep.flow.core.engine.node;
 
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.data.RunState;
-import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.form.References;
 import org.dpdns.zerodep.flow.core.engine.handler.StartHandler;
+import org.dpdns.zerodep.flow.core.engine.state.RunState;
+import org.dpdns.zerodep.flow.core.engine.state.Variables;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.definition.Ref;
 

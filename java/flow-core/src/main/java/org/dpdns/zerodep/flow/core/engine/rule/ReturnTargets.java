@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.engine.rule;
 
-import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
+import org.dpdns.zerodep.flow.core.engine.state.RunState;
 import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;

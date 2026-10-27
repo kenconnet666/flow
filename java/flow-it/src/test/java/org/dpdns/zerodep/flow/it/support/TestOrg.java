@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.it.support;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
 
 import java.util.Collection;
 import java.util.List;

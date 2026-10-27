@@ -1,10 +1,10 @@
 package org.dpdns.zerodep.flow.example;
 
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
-import org.dpdns.zerodep.flow.core.listener.FlowListener;
-import org.dpdns.zerodep.flow.core.listener.FlowNotice;
-import org.dpdns.zerodep.flow.core.notify.Notification;
-import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
+import org.dpdns.zerodep.flow.core.spi.FlowListener;
+import org.dpdns.zerodep.flow.core.spi.FlowNotice;
+import org.dpdns.zerodep.flow.core.spi.Notification;
+import org.dpdns.zerodep.flow.core.spi.NotificationChannel;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;

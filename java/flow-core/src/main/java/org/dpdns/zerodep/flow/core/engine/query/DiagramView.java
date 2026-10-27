@@ -1,9 +1,9 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
+import org.dpdns.zerodep.flow.core.engine.Extensions;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
-import org.dpdns.zerodep.flow.core.extension.Choice;
-import org.dpdns.zerodep.flow.core.extension.ExtensionInfo;
-import org.dpdns.zerodep.flow.core.extension.Extensions;
+import org.dpdns.zerodep.flow.core.spi.Choice;
+import org.dpdns.zerodep.flow.core.spi.ExtensionInfo;
 import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.instance.ProcessDiagram;

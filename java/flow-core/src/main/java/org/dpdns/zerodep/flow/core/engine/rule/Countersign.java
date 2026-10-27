@@ -1,9 +1,9 @@
 package org.dpdns.zerodep.flow.core.engine.rule;
 
 import lombok.Data;
+import org.dpdns.zerodep.flow.core.engine.Extensions;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.extension.CountersignRule;
-import org.dpdns.zerodep.flow.core.extension.Extensions;
+import org.dpdns.zerodep.flow.core.spi.CountersignRule;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.MultiInstance;
 import org.dpdns.zerodep.flow.model.definition.Outcome;

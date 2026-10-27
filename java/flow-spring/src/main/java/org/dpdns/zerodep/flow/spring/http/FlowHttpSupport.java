@@ -1,13 +1,16 @@
 package org.dpdns.zerodep.flow.spring.http;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.ActorProvider;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -33,7 +36,8 @@ import java.util.function.Supplier;
  * 命令（POST）的请求头带 {@code Idempotency-Key} 时幂等：同一个键再来时返回第一次的响应体，不再做一遍。
  * HTTP 一律 200，成败看响应体的 {@code code}（0008）：{@code ok}，或 {@code flow.} 的业务错误码；返回普通的对象，
  * 写成 typed JSON 由接入方集成的 wire 做（见 {@link ResponseBody}）；
- * 认不出的异常是 {@code flow.internal-error}，并记日志。操作人取引擎的 {@code ActorProvider}；登录与接口的保护由应用的安全框架负责。
+ * 认不出的异常是 {@code flow.internal-error}，并记日志。操作人取 {@link ActorProvider} Bean（用了 Spring Security 时默认取登录的 principal）；
+ * 登录与接口的保护由应用的安全框架负责。
  *
  * <p>接口按路径分在四个控制器里：{@link FlowCommandController}、{@link FlowQueryController}、{@link FlowAdminController}、
  * {@link FlowDesignController}；这里是它们共用的：引擎、回响应体（{@link #respond}）、幂等的命令（{@link #command}）。
@@ -41,11 +45,24 @@ import java.util.function.Supplier;
 abstract class FlowHttpSupport {
     private static final System.Logger LOG = System.getLogger(FlowHttpSupport.class.getName());
 
-    /** 引擎；操作人由它的 ActorProvider 取 */
     protected final FlowEngine<Actor> engine;
+    /** 当前操作人从哪来；用到时才取，没有时报清楚的错 */
+    private final ObjectProvider<ActorProvider<?>> actors;
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    protected FlowHttpSupport(FlowEngine engine) { this.engine = engine; }
+    protected FlowHttpSupport(FlowEngine engine, ObjectProvider<ActorProvider<?>> actors) {
+        this.engine = engine;
+        this.actors = actors;
+    }
+
+    /** 这个请求的操作人 */
+    protected Actor actor() {
+        ActorProvider<?> provider = actors.getIfAvailable();
+        if (provider == null) {
+            throw new IllegalStateException("flow.http needs the current user: declare an ActorProvider bean, or use Spring Security with a principal that implements Actor");
+        }
+        return provider.current();
+    }
 
     /**
      * 命令：请求头带 {@code Idempotency-Key} 时幂等地做（同一个键再来时返回第一次的响应体，见 {@code FlowEngine.idempotent}），
@@ -56,7 +73,7 @@ abstract class FlowHttpSupport {
         if (key == null || key.isBlank()) return respond(action);
         try {
             // 第一次的响应体按 typed JSON 存成文字，再来时读回原来的值（同样交给接入方的 wire 编码）
-            String stored = engine.idempotent(key, name, () -> Json.write(Wire.encode(ResponseBody.of(ApiResult.ok(action.get())))));
+            String stored = engine.idempotent(actor(), key, name, () -> Json.write(Wire.encode(ResponseBody.of(ApiResult.ok(action.get())))));
             @SuppressWarnings("unchecked")
             Map<String, Object> body = (Map<String, Object>) Wire.decode(Json.read(stored));
             return body;

@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.spring;
 
-import org.dpdns.zerodep.flow.core.listener.AfterCommit;
+import org.dpdns.zerodep.flow.core.spi.AfterCommit;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 

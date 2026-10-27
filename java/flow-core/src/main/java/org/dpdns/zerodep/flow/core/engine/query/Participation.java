@@ -10,8 +10,8 @@ import org.dpdns.zerodep.flow.core.entity.CcEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.identity.Viewing;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.Viewing;
 
 import java.util.List;
 

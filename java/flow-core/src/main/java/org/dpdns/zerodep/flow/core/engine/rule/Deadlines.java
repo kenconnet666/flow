@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine.rule;
 
-import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
+import org.dpdns.zerodep.flow.core.spi.WorkCalendar;
 import org.dpdns.zerodep.flow.model.definition.Due;
 import org.dpdns.zerodep.flow.model.definition.Duration;
 import org.dpdns.zerodep.flow.model.definition.Ref;

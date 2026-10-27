@@ -1,8 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
-import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
-import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
@@ -13,7 +11,9 @@ import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
+import org.dpdns.zerodep.flow.core.view.CommandResult;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 
 import java.util.List;

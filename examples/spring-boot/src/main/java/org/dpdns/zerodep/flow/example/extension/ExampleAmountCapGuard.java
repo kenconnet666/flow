@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.example.extension;
 
-import org.dpdns.zerodep.flow.core.extension.ExtensionInfo;
-import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
+import org.dpdns.zerodep.flow.core.spi.ExtensionInfo;
+import org.dpdns.zerodep.flow.core.spi.OutcomeGuard;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

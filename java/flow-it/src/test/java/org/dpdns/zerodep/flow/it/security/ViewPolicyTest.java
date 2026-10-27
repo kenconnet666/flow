@@ -5,7 +5,7 @@ import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
-import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.spi.PermissionPolicy;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;

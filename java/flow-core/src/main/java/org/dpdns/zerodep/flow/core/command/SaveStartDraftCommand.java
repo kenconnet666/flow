@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.command;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 
 /**
  * 发起前存草稿（0006 的 3.1 saveStartDraft）：填了一半先存，下次接着填，再用 {@link StartCommand#getDraftId()} 发起。

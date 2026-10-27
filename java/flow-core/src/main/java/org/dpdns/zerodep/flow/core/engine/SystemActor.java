@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
 
 import java.util.Set;
 

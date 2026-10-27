@@ -2,15 +2,15 @@ package org.dpdns.zerodep.flow.core.engine.assignee;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import lombok.Data;
+import org.dpdns.zerodep.flow.core.engine.Extensions;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.form.RefValues;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
-import org.dpdns.zerodep.flow.core.extension.Extensions;
-import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.PeopleResolver;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.Lane;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;

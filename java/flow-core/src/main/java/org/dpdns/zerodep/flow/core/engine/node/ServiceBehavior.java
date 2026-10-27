@@ -4,7 +4,7 @@ import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.form.RefValues;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
-import org.dpdns.zerodep.flow.core.extension.ServiceAction;
+import org.dpdns.zerodep.flow.core.spi.ServiceAction;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;

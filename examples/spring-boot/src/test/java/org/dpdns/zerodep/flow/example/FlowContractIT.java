@@ -2,7 +2,7 @@ package org.dpdns.zerodep.flow.example;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.FlowEngine;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
 import org.dpdns.zerodep.flow.testkit.FlowContract;
 import org.dpdns.zerodep.flow.testkit.FlowContractTest;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;

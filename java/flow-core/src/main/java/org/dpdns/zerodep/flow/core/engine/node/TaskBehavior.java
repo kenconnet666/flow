@@ -11,7 +11,7 @@ import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;

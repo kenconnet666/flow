@@ -5,7 +5,7 @@ import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.notify.Notification;
+import org.dpdns.zerodep.flow.core.spi.Notification;
 import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;

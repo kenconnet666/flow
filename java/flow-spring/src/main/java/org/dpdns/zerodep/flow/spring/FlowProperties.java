@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.spring;
 
-import org.dpdns.zerodep.flow.core.extension.ExtensionParam;
+import org.dpdns.zerodep.flow.core.spi.ExtensionParam;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;

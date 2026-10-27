@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import lombok.Data;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
@@ -12,7 +12,7 @@ import org.dpdns.zerodep.flow.model.form.FormManifest;
 @Data
 public class LoadedDefinition {
     /** 存着的版本，连同导航 {@code form} */
-    private final ProcessVersionEntity stored;
+    private final DefinitionEntity stored;
     /** 定义的图（节点、连线、泳道按标识查） */
     private final ProcessGraph graph;
     /** 表单的字段清单 */

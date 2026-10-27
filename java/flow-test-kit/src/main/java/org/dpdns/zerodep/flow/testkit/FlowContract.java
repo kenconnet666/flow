@@ -4,8 +4,8 @@ import com.easy.query.api.proxy.client.EasyEntityQuery;
 import lombok.Builder;
 import lombok.Getter;
 import org.dpdns.zerodep.flow.core.FlowEngine;
-import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
 
 /**
  * 契约核对要的东西：接入方组装好的引擎（连的是测试库），同一个 easy-query 与组织架构，加上几个真实存在的样例账号。

@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.command;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 
 /**
  * 暂存（0006 的 3.3 {@code saveDraft}）：填了一半先存，不提交、不推进。存在待办上，再打开时接着填；处理完了就不要了。

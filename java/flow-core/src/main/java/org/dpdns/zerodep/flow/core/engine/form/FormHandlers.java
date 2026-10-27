@@ -3,8 +3,8 @@ package org.dpdns.zerodep.flow.core.engine.form;
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import lombok.Getter;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
-import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
-import org.dpdns.zerodep.flow.core.form.FormHandler;
+import org.dpdns.zerodep.flow.core.spi.FormHandler;
+import org.dpdns.zerodep.flow.core.spi.FormHandlerFactory;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 

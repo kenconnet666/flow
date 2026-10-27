@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.example.extension;
 
-import org.dpdns.zerodep.flow.core.extension.ComputedValue;
-import org.dpdns.zerodep.flow.core.extension.ExtensionInfo;
+import org.dpdns.zerodep.flow.core.spi.ComputedValue;
+import org.dpdns.zerodep.flow.core.spi.ExtensionInfo;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 

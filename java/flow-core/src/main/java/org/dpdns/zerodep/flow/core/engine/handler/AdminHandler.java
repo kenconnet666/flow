@@ -1,7 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
 import org.dpdns.zerodep.flow.core.command.ChangeDataCommand;
-import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
@@ -10,7 +9,6 @@ import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.SuspendCommand;
 import org.dpdns.zerodep.flow.core.command.TerminateCommand;
-import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
@@ -22,14 +20,16 @@ import org.dpdns.zerodep.flow.core.engine.node.CallBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.JobEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.WaitEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
+import org.dpdns.zerodep.flow.core.view.CommandResult;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
@@ -113,7 +113,7 @@ public class AdminHandler {
             InstanceEntity instance = Instances.lock(context.getDb(), command.getInstanceId());
             if (instance.getEndedAt() != null) throw FlowErrors.notActive(instance);
             LoadedDefinition from = definitions.of(instance);
-            Long targetId = context.getDb().queryable(ProcessVersionEntity.class)
+            Long targetId = context.getDb().queryable(DefinitionEntity.class)
                 .where(v -> { v.processKey().eq(instance.getProcessKey()); v.version().eq(command.getVersion()); })
                 .selectColumn(v -> v.id()).firstOrNull();
             if (targetId == null) throw FlowErrors.notFound("definition", instance.getProcessKey() + "@" + command.getVersion());

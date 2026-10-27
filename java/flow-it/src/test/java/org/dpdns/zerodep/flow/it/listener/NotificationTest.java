@@ -2,11 +2,11 @@ package org.dpdns.zerodep.flow.it.listener;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
-import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
+import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
-import org.dpdns.zerodep.flow.core.notify.Notification;
+import org.dpdns.zerodep.flow.core.spi.Notification;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;

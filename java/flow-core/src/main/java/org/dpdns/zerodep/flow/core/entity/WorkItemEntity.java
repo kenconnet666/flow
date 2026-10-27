@@ -10,8 +10,8 @@ import com.easy.query.core.proxy.ProxyEntityAvailable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
-import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
+import org.dpdns.zerodep.flow.core.engine.state.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 

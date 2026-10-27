@@ -4,7 +4,7 @@ import org.dpdns.zerodep.flow.core.command.SaveDesignDraftCommand;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.entity.DraftEntity;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
 import org.dpdns.zerodep.flow.core.view.definition.DesignDraftVO;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;

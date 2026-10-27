@@ -1,9 +1,9 @@
 package org.dpdns.zerodep.flow.it.contract;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
-import org.dpdns.zerodep.flow.core.extension.ExtensionInfo;
-import org.dpdns.zerodep.flow.core.extension.ExtensionParam;
-import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
+import org.dpdns.zerodep.flow.core.spi.ExtensionInfo;
+import org.dpdns.zerodep.flow.core.spi.ExtensionParam;
+import org.dpdns.zerodep.flow.core.spi.PeopleResolver;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;

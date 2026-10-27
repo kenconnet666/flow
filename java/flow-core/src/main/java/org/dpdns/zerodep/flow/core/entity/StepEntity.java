@@ -7,11 +7,11 @@ import com.easy.query.core.proxy.ProxyEntityAvailable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.data.RunState;
-import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
+import org.dpdns.zerodep.flow.core.engine.state.RunState;
+import org.dpdns.zerodep.flow.core.engine.state.Variables;
 import org.dpdns.zerodep.flow.core.entity.proxy.StepEntityProxy;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 
 /**
  * 最近一次处理之前的快照（{@code flow_step}，每个实例只留一行）：处理人撤回刚处理的一步时用它恢复。

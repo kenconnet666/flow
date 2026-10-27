@@ -1,9 +1,9 @@
 package org.dpdns.zerodep.flow.example.extension;
 
-import org.dpdns.zerodep.flow.core.extension.Choice;
-import org.dpdns.zerodep.flow.core.extension.CustomNode;
-import org.dpdns.zerodep.flow.core.extension.ExtensionInfo;
-import org.dpdns.zerodep.flow.core.extension.ExtensionParam;
+import org.dpdns.zerodep.flow.core.spi.Choice;
+import org.dpdns.zerodep.flow.core.spi.CustomNode;
+import org.dpdns.zerodep.flow.core.spi.ExtensionInfo;
+import org.dpdns.zerodep.flow.core.spi.ExtensionParam;
 import org.springframework.stereotype.Component;
 
 /**

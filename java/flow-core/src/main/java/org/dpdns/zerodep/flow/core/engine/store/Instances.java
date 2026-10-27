@@ -1,10 +1,10 @@
 package org.dpdns.zerodep.flow.core.engine.store;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
-import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 
 /**

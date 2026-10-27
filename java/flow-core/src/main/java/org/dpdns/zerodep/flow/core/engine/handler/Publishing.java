@@ -1,19 +1,17 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
-import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
-
-import org.dpdns.zerodep.flow.core.entity.DraftEntity;
-
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.Extensions;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
+import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
+import org.dpdns.zerodep.flow.core.entity.DraftEntity;
 import org.dpdns.zerodep.flow.core.entity.FormEntity;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
-import org.dpdns.zerodep.flow.core.extension.Extensions;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
 import org.dpdns.zerodep.flow.core.view.definition.DefinitionProblem;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.form.FormSummary;
@@ -54,7 +52,7 @@ public class Publishing {
      * 发布一个流程定义（0005 的 JSON 文字）。引用的表单没写版本时定在当前最新的版本上，之后表单再发布也不影响这个流程版本。
      * 校验有错误时报 {@code flow.definition-invalid}，警告不拦。
      */
-    public ProcessVersionEntity publishDefinition(Actor actor, String json, String note) {
+    public DefinitionEntity publishDefinition(Actor actor, String json, String note) {
         ProcessDefinition model = parseDefinition(json);
         DefinitionProblem disabled = disabledForm(model);
         if (disabled != null) {
@@ -71,7 +69,7 @@ public class Publishing {
         return context.transaction(() -> {
             Instant now = context.getClock().instant();
             int version = nextProcessVersion(actor, model, now);
-            ProcessVersionEntity row = new ProcessVersionEntity();
+            DefinitionEntity row = new DefinitionEntity();
             row.setProcessKey(model.getKey());
             row.setVersion(version);
             row.setModel(json);

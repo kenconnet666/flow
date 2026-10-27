@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine.job;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.notify.Notification;
+import org.dpdns.zerodep.flow.core.spi.Notification;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

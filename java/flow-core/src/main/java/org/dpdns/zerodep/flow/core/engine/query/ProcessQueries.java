@@ -1,6 +1,5 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
-import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
@@ -9,10 +8,11 @@ import org.dpdns.zerodep.flow.core.engine.assignee.CandidateRules;
 import org.dpdns.zerodep.flow.core.engine.assignee.NextSteps;
 import org.dpdns.zerodep.flow.core.engine.form.FormCode;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessVersionVO;
 import org.dpdns.zerodep.flow.core.view.definition.StartView;
@@ -82,13 +82,13 @@ public class ProcessQueries {
     /** 流程的全部版本，新的在前 */
     public List<ProcessVersionVO> versions(String processKey) {
         process(processKey);
-        return context.getDb().queryable(ProcessVersionEntity.class).where(v -> v.processKey().eq(processKey)).orderBy(v -> v.version().desc())
+        return context.getDb().queryable(DefinitionEntity.class).where(v -> v.processKey().eq(processKey)).orderBy(v -> v.version().desc())
             .select(ProcessVersionVO.class).toList();
     }
 
     /** 某个版本的定义（0005 的 JSON 文字，发布时的原样）；version 为 null 时取最新的 */
     public String definitionJson(String processKey, Integer version) {
-        return context.getDb().queryable(ProcessVersionEntity.class)
+        return context.getDb().queryable(DefinitionEntity.class)
             .where(v -> { v.processKey().eq(processKey); if (version != null) v.version().eq(version); })
             .orderBy(v -> v.version().desc())
             .selectColumn(v -> v.model())

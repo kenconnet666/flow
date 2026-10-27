@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.example;
 
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

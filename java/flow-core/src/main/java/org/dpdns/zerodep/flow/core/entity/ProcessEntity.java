@@ -4,8 +4,8 @@ import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Navigate;
 import com.easy.query.core.annotation.OrderByProperty;
-import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.annotation.Table;
+import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
 import lombok.Getter;
 import lombok.Setter;
@@ -44,11 +44,11 @@ public class ProcessEntity implements ProxyEntityAvailable<ProcessEntity, Proces
     // ───────── 关系 ─────────
 
     /** 发布过的全部版本，新的在前 */
-    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.processKey, targetProperty = ProcessVersionEntity.Fields.processKey,
-        orderByProps = {@OrderByProperty(property = ProcessVersionEntity.Fields.version, asc = false)})
-    private List<ProcessVersionEntity> versions;
+    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.processKey, targetProperty = DefinitionEntity.Fields.processKey,
+        orderByProps = {@OrderByProperty(property = DefinitionEntity.Fields.version, asc = false)})
+    private List<DefinitionEntity> versions;
 
     /** 最新发布的版本 */
-    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = {Fields.processKey, Fields.latestVersion}, targetProperty = {ProcessVersionEntity.Fields.processKey, ProcessVersionEntity.Fields.version})
-    private ProcessVersionEntity latest;
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = {Fields.processKey, Fields.latestVersion}, targetProperty = {DefinitionEntity.Fields.processKey, DefinitionEntity.Fields.version})
+    private DefinitionEntity latest;
 }

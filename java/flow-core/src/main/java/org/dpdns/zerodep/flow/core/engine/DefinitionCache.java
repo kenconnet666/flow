@@ -2,9 +2,9 @@ package org.dpdns.zerodep.flow.core.engine;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import com.easy.query.api.proxy.entity.select.EntityQueryable;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.proxy.ProcessEntityProxy;
 import org.dpdns.zerodep.flow.model.definition.Definitions;
 import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
@@ -33,7 +33,7 @@ public class DefinitionCache {
     public LoadedDefinition byId(Long definitionId) {
         LoadedDefinition found = loaded.get(definitionId);
         if (found != null) return found;
-        return of(db.queryable(ProcessVersionEntity.class).include(v -> v.form()).whereById(definitionId)
+        return of(db.queryable(DefinitionEntity.class).include(v -> v.form()).whereById(definitionId)
             .singleNotNull(() -> FlowErrors.notFound("definition", definitionId)));
     }
 
@@ -48,11 +48,11 @@ public class DefinitionCache {
         return of(process.getLatest());
     }
 
-    private LoadedDefinition of(ProcessVersionEntity stored) {
+    private LoadedDefinition of(DefinitionEntity stored) {
         return loaded.computeIfAbsent(stored.getId(), id -> load(stored));
     }
 
-    private static LoadedDefinition load(ProcessVersionEntity stored) {
+    private static LoadedDefinition load(DefinitionEntity stored) {
         ProcessGraph graph = ProcessGraph.of(Definitions.parse(stored.getModel()));
         GatewayPairs pairs = GatewayPairs.of(graph.definition());
         if (stored.getFormKey() == null) return new LoadedDefinition(stored, graph, null, pairs);

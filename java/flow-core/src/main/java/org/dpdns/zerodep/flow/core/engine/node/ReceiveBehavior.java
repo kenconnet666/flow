@@ -1,10 +1,10 @@
 package org.dpdns.zerodep.flow.core.engine.node;
 
-import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.WaitEntity;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 
 import java.time.Instant;

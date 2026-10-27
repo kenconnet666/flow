@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.command;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.engine.state.Variables;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 
 import java.util.List;
 import java.util.Map;

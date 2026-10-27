@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.spring.http;
 
-import org.dpdns.zerodep.flow.core.command.CommandResult;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
+import org.dpdns.zerodep.flow.core.view.CommandResult;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 
@@ -35,7 +35,7 @@ class ResponseBody {
     }
 
     /** 发布的流程版本：{@code { id, key, version }}（定义本身就是请求体，不再发回） */
-    static Object of(ProcessVersionEntity definition) {
+    static Object of(DefinitionEntity definition) {
         return Map.of("id", definition.getId(), "key", definition.getProcessKey(), "version", definition.getVersion());
     }
 

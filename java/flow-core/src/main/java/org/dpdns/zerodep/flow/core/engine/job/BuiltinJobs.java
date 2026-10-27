@@ -1,7 +1,5 @@
 package org.dpdns.zerodep.flow.core.engine.job;
 
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
@@ -10,6 +8,7 @@ import org.dpdns.zerodep.flow.core.engine.handler.CompleteHandler;
 import org.dpdns.zerodep.flow.core.engine.node.ReceiveBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.TimerBehavior;
+import org.dpdns.zerodep.flow.core.engine.state.RunState;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -17,7 +16,8 @@ import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.JobEntity;
 import org.dpdns.zerodep.flow.core.entity.WaitEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.extension.JobHandler;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
+import org.dpdns.zerodep.flow.core.spi.JobHandler;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;

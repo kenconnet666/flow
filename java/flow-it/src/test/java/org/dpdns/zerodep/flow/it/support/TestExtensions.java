@@ -1,18 +1,18 @@
 package org.dpdns.zerodep.flow.it.support;
 
 import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
-import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FlowCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
-import org.dpdns.zerodep.flow.core.extension.CountersignRule;
-import org.dpdns.zerodep.flow.core.extension.CustomNode;
-import org.dpdns.zerodep.flow.core.extension.FieldType;
-import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
-import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
-import org.dpdns.zerodep.flow.core.extension.ServiceAction;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.CommandInterceptor;
+import org.dpdns.zerodep.flow.core.spi.CountersignRule;
+import org.dpdns.zerodep.flow.core.spi.CustomNode;
+import org.dpdns.zerodep.flow.core.spi.FieldType;
+import org.dpdns.zerodep.flow.core.spi.OutcomeGuard;
+import org.dpdns.zerodep.flow.core.spi.PeopleResolver;
+import org.dpdns.zerodep.flow.core.spi.ServiceAction;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;

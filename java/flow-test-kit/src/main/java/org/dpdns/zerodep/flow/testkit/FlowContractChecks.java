@@ -5,14 +5,15 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
-import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
+import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.store.Archives;
 import org.dpdns.zerodep.flow.core.entity.CalendarDayEntity;
 import org.dpdns.zerodep.flow.core.entity.CalendarEntity;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.CcEntity;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
 import org.dpdns.zerodep.flow.core.entity.DraftEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
@@ -21,15 +22,15 @@ import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.JobEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.RequestEntity;
 import org.dpdns.zerodep.flow.core.entity.StepEntity;
 import org.dpdns.zerodep.flow.core.entity.WaitEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.extension.Choice;
-import org.dpdns.zerodep.flow.core.extension.ExtensionParam;
-import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.Choice;
+import org.dpdns.zerodep.flow.core.spi.ExtensionParam;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
+import org.dpdns.zerodep.flow.core.view.CommandResult;
 import org.dpdns.zerodep.flow.core.view.definition.ExtensionCatalog;
 import org.dpdns.zerodep.flow.core.view.workitem.TodoItem;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
@@ -80,7 +81,7 @@ public class FlowContractChecks {
     private static void tables(EasyEntityQuery db) {
         Map<String, Runnable> reads = new LinkedHashMap<>();
         reads.put("flow_process", () -> db.queryable(ProcessEntity.class).limit(1).toList());
-        reads.put("flow_definition", () -> db.queryable(ProcessVersionEntity.class).limit(1).toList());
+        reads.put("flow_definition", () -> db.queryable(DefinitionEntity.class).limit(1).toList());
         reads.put("flow_form", () -> db.queryable(FormEntity.class).limit(1).toList());
         reads.put("flow_form_version", () -> db.queryable(FormVersionEntity.class).limit(1).toList());
         reads.put("flow_form_data", () -> db.queryable(FormDataEntity.class).limit(1).toList());
@@ -245,11 +246,10 @@ public class FlowContractChecks {
 
     private static void fail(String message) { throw new AssertionError(message); }
 
-    /** 最里层异常的话；引擎的业务错误带上参数（forbidden 的是哪个操作、什么原因） */
+    /** 失败原因：引擎的业务错误写代号与参数（forbidden 的是哪个操作、什么原因），别的是最里层异常的话 */
     private static String rootMessage(Throwable error) {
         Throwable root = error;
         while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-        if (root instanceof FlowException flow) return flow.getCode().code() + " " + flow.getParams();
-        return root.getMessage() != null ? root.getMessage() : root.getClass().getSimpleName();
+        return root instanceof FlowException flow ? flow.getCode().code() + " " + flow.getParams() : FlowErrors.rootMessage(error);
     }
 }

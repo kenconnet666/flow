@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.example;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
 
 import java.util.Set;
 

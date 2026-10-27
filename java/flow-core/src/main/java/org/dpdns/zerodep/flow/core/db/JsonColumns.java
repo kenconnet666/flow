@@ -2,11 +2,11 @@ package org.dpdns.zerodep.flow.core.db;
 
 import com.easy.query.core.basic.extension.conversion.ValueConverter;
 import com.easy.query.core.metadata.ColumnMetadata;
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.data.RunState;
-import org.dpdns.zerodep.flow.core.data.Variables;
-import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
+import org.dpdns.zerodep.flow.core.engine.state.RunState;
+import org.dpdns.zerodep.flow.core.engine.state.Variables;
+import org.dpdns.zerodep.flow.core.engine.state.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity.CurrentNode;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
 

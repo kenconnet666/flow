@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.spring;
 
-import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.identity.ActorProvider;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.ActorProvider;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.springframework.security.core.Authentication;

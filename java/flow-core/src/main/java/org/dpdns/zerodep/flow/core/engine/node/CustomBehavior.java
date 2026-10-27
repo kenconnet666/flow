@@ -3,7 +3,7 @@ package org.dpdns.zerodep.flow.core.engine.node;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.WaitEntity;
-import org.dpdns.zerodep.flow.core.extension.CustomNode;
+import org.dpdns.zerodep.flow.core.spi.CustomNode;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 
 import java.util.Map;

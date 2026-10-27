@@ -10,7 +10,7 @@ import org.dpdns.zerodep.flow.core.entity.CcEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.core.view.instance.CcItem;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceRefVO;

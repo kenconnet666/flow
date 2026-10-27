@@ -1,10 +1,10 @@
 package org.dpdns.zerodep.flow.it.spring;
 
-import org.dpdns.zerodep.flow.core.identity.ActorProvider;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.ActorProvider;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
-import org.dpdns.zerodep.flow.spring.FlowTenant;
 import org.dpdns.zerodep.flow.it.support.TestUser;
+import org.dpdns.zerodep.flow.spring.FlowTenant;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.context.request.RequestContextHolder;

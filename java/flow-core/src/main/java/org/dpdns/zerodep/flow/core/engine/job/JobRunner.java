@@ -2,9 +2,10 @@ package org.dpdns.zerodep.flow.core.engine.job;
 
 import org.dpdns.zerodep.flow.core.db.FlowInterceptors;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.TenantScope;
 import org.dpdns.zerodep.flow.core.entity.JobEntity;
-import org.dpdns.zerodep.flow.core.extension.JobHandler;
+import org.dpdns.zerodep.flow.core.spi.JobHandler;
 
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
@@ -95,7 +96,7 @@ public class JobRunner {
             });
         } catch (RuntimeException e) {
             int attempts = job.getAttempts() + 1;
-            String error = describe(e);
+            String error = FlowErrors.rootMessage(e);
             LOG.log(System.Logger.Level.WARNING, "flow job " + job.getId() + " (" + job.getKind() + ") failed, attempt " + attempts, e);
             boolean retry = attempts < job.getMaxAttempts();
             Instant again = retry ? now.plus(handler == null ? Duration.ofMinutes(1) : handler.retryDelay(job, attempts)) : null;
@@ -112,15 +113,6 @@ public class JobRunner {
                 .whereById(job.getId()).executeRows();
             if (!retry && handler != null) giveUp(handler, job, error, now);
         }
-    }
-
-    /**
-     * 给管理员看的失败原因：最里层异常的话（动作抛的异常常被包成 flow.extension-failed，外层的话没有用）；没有话时写类名。完整的堆栈在日志里
-     */
-    static String describe(Throwable error) {
-        Throwable root = error;
-        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
-        return root.getMessage() != null ? root.getMessage() : root.getClass().getName();
     }
 
     /** 重试用完的善后（记一笔流转记录……）；它再失败只记日志，作业已经是失败的了 */

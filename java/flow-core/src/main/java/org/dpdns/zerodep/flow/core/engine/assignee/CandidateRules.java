@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine.assignee;
 
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.Ref;
 

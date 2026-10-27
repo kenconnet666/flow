@@ -170,7 +170,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 
 ### 7.1 Java
 
-- `flow-core`：不依赖 Spring。`FlowEngine.builder(dataSourceOrConnections).actorProvider(...).orgDirectory(...).build()`，没给的接口用默认实现。
+- `flow-core`：不依赖 Spring。`FlowEngine.builder(easyQuery).orgDirectory(...).build()`（每个方法传入操作人；当前操作人的 `ActorProvider` 只给 HTTP 接口用，2026-10-27 改），没给的接口用默认实现。
 - `flow-spring`：Spring Boot 自动配置。上面每个接口一个默认 Bean（`@ConditionalOnMissingBean`）；`@FlowResolver("deptLeader")`、`@FlowAction`、`@FlowGuard`、`@FlowListener` 之类的注解注册扩展；多数据源时用 `flow.datasource` 指定引擎用哪个（事务管理器跟着它，0001 第 3 条）。
 - 可选的 HTTP 接口（7.3）：`flow-spring` 里的一组控制器，`flow.http.enabled` 打开，路径前缀可配。
 

@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.engine.form;
 
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.extension.Extensions;
-import org.dpdns.zerodep.flow.core.extension.FieldType;
+import org.dpdns.zerodep.flow.core.engine.Extensions;
+import org.dpdns.zerodep.flow.core.spi.FieldType;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 import org.dpdns.zerodep.flow.model.Values;
 import org.dpdns.zerodep.flow.model.definition.NodeFormAccess;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;

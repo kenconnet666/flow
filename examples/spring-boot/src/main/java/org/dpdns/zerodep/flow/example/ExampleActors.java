@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.example;
 
-import org.dpdns.zerodep.flow.core.identity.ActorProvider;
+import org.dpdns.zerodep.flow.core.spi.ActorProvider;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.springframework.stereotype.Component;

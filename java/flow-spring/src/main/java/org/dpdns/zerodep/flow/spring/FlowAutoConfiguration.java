@@ -3,27 +3,27 @@ package org.dpdns.zerodep.flow.spring;
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
-import org.dpdns.zerodep.flow.core.calendar.TableWorkCalendar;
-import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
-import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
-import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
-import org.dpdns.zerodep.flow.core.extension.JobHandler;
-import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
-import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
-import org.dpdns.zerodep.flow.core.extension.ComputedValue;
-import org.dpdns.zerodep.flow.core.extension.CountersignRule;
-import org.dpdns.zerodep.flow.core.extension.CustomNode;
-import org.dpdns.zerodep.flow.core.extension.FieldType;
-import org.dpdns.zerodep.flow.core.extension.TodoQueryCustomizer;
-import org.dpdns.zerodep.flow.core.extension.ServiceAction;
-import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.identity.ActorProvider;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
-import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
-import org.dpdns.zerodep.flow.core.identity.ViewPolicy;
-import org.dpdns.zerodep.flow.core.listener.AfterCommit;
-import org.dpdns.zerodep.flow.core.listener.FlowListener;
-import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
+import org.dpdns.zerodep.flow.core.engine.TableWorkCalendar;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.ActorProvider;
+import org.dpdns.zerodep.flow.core.spi.AfterCommit;
+import org.dpdns.zerodep.flow.core.spi.CommandInterceptor;
+import org.dpdns.zerodep.flow.core.spi.ComputedValue;
+import org.dpdns.zerodep.flow.core.spi.CountersignRule;
+import org.dpdns.zerodep.flow.core.spi.CustomNode;
+import org.dpdns.zerodep.flow.core.spi.FieldType;
+import org.dpdns.zerodep.flow.core.spi.FlowListener;
+import org.dpdns.zerodep.flow.core.spi.FormHandlerFactory;
+import org.dpdns.zerodep.flow.core.spi.JobHandler;
+import org.dpdns.zerodep.flow.core.spi.NotificationChannel;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.OutcomeGuard;
+import org.dpdns.zerodep.flow.core.spi.PeopleResolver;
+import org.dpdns.zerodep.flow.core.spi.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.spi.ServiceAction;
+import org.dpdns.zerodep.flow.core.spi.TodoQueryCustomizer;
+import org.dpdns.zerodep.flow.core.spi.ViewPolicy;
+import org.dpdns.zerodep.flow.core.spi.WorkCalendar;
 import org.dpdns.zerodep.flow.spring.http.FlowAdminController;
 import org.dpdns.zerodep.flow.spring.http.FlowCommandController;
 import org.dpdns.zerodep.flow.spring.http.FlowDesignController;
@@ -49,7 +49,7 @@ import javax.sql.DataSource;
  *   <li>引入 flow-spring 与一个 MySQL 驱动，打开 easy-query 的 starter（{@code easy-query.enable=true}、{@code easy-query.database=mysql}）：
  *       引擎用它建的 {@code EasyEntityQuery} 读写，事务跟着 Spring 走；</li>
  *   <li>声明一个 {@link OrgDirectory} Bean（接自己的用户、部门、角色；引擎没有默认的组织架构）；</li>
- *   <li>当前操作人：用了 Spring Security 且登录后的 principal 实现了 {@link Actor} 时自动取；否则声明一个 {@link ActorProvider} Bean；</li>
+ *   <li>当前操作人（HTTP 接口用）：用了 Spring Security 且登录后的 principal 实现了 {@link Actor} 时自动取；否则声明一个 {@link ActorProvider} Bean；</li>
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
  * 其余扩展点（权限、时钟、工作日历）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
@@ -75,7 +75,7 @@ public class FlowAutoConfiguration {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public FlowEngine flowEngine(BeanFactory beans, FlowProperties properties,
                                  ObjectProvider<FlowSchemaMigration> migration, ObjectProvider<EasyEntityQuery> easyQuery,
-                                 ObjectProvider<OrgDirectory> org, ObjectProvider<ActorProvider> actors,
+                                 ObjectProvider<OrgDirectory> org,
                                  ObjectProvider<PermissionPolicy> permissions, ObjectProvider<ViewPolicy> viewPolicy, ObjectProvider<FlowTenant> tenant,
                                  ObjectProvider<Clock> clock,
                                  ObjectProvider<WorkCalendar> calendar,
@@ -95,7 +95,6 @@ public class FlowAutoConfiguration {
             throw new IllegalStateException("the flow engine needs one EasyEntityQuery bean: add easy-query's Spring Boot starter and set easy-query.enable=true");
         }
         FlowEngineBuilder builder = FlowEngine.builder(db).orgDirectory(directory);
-        actors.ifAvailable(builder::actorProvider);
         permissions.ifAvailable(builder::permissionPolicy);
         viewPolicy.ifAvailable(builder::viewPolicy);
         tenant.ifAvailable(t -> builder.tenant(t::current));
@@ -169,16 +168,16 @@ public class FlowAutoConfiguration {
     @ConditionalOnProperty(prefix = "flow.http", name = "enabled", havingValue = "true")
     static class Http {
         @Bean
-        FlowCommandController flowCommandController(FlowEngine<?> engine) { return new FlowCommandController(engine); }
+        FlowCommandController flowCommandController(FlowEngine<?> engine, ObjectProvider<ActorProvider<?>> actors) { return new FlowCommandController(engine, actors); }
 
         @Bean
-        FlowQueryController flowQueryController(FlowEngine<?> engine) { return new FlowQueryController(engine); }
+        FlowQueryController flowQueryController(FlowEngine<?> engine, ObjectProvider<ActorProvider<?>> actors) { return new FlowQueryController(engine, actors); }
 
         @Bean
-        FlowAdminController flowAdminController(FlowEngine<?> engine) { return new FlowAdminController(engine); }
+        FlowAdminController flowAdminController(FlowEngine<?> engine, ObjectProvider<ActorProvider<?>> actors) { return new FlowAdminController(engine, actors); }
 
         @Bean
-        FlowDesignController flowDesignController(FlowEngine<?> engine) { return new FlowDesignController(engine); }
+        FlowDesignController flowDesignController(FlowEngine<?> engine, ObjectProvider<ActorProvider<?>> actors) { return new FlowDesignController(engine, actors); }
     }
 
     /** 按名字取 Bean；没写名字时要求只有一个，有几个时报错并说明用哪个配置项指定 */

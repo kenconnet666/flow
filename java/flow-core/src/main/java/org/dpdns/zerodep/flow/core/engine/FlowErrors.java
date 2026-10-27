@@ -51,4 +51,14 @@ public class FlowErrors {
     private static FlowException workItem(FlowErrorCode code, Long workItemId) {
         return new FlowException(code, Map.of("workItem", String.valueOf(workItemId)));
     }
+
+    /**
+     * 给人看的失败原因：最里层异常的话（动作抛的异常常被包成 flow.extension-failed，外层的话没有用）；没有话时写类名。
+     * 作业失败记在 last_error、契约核对的失败信息都用它；完整的堆栈在日志里。
+     */
+    public static String rootMessage(Throwable error) {
+        Throwable root = error;
+        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+        return root.getMessage() != null ? root.getMessage() : root.getClass().getName();
+    }
 }

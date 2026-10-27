@@ -2,7 +2,7 @@ package org.dpdns.zerodep.flow.it.calendar;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.FlowEngine;
-import org.dpdns.zerodep.flow.core.calendar.TableWorkCalendar;
+import org.dpdns.zerodep.flow.core.engine.TableWorkCalendar;
 import org.dpdns.zerodep.flow.core.view.definition.CalendarVO;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestOrg;

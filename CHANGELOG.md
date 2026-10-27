@@ -35,7 +35,11 @@
 | 命令的事务要读已提交 | 在自己的 `@Transactional` 里调命令时写 `isolation = Isolation.READ_COMMITTED`，否则报错 |
 | `ViewPolicy`：实例详情、待办详情、表单的 actions、评论之前问"能不能看" | 默认参与过的人加上有 `instances.search` 权限的人；没收紧过 `PermissionPolicy` 的不受影响 |
 | 多租户在 Spring 里声明 `FlowTenant` Bean | 以前自己组装引擎的可以改回用自动配置 |
-| 建表脚本到 V12（V11 归档表、V12 管理端看全部的索引） | Flyway 照常执行；自己用别的迁移工具的把新脚本按序加进去 |
+| 建表脚本到 V13（V11 归档表、V12 管理端看全部的索引、V13 待办的"代谁处理"） | Flyway 照常执行；自己用别的迁移工具的把新脚本按序加进去 |
+| 接入方实现或用到的接口都搬进 `org.dpdns.zerodep.flow.core.spi`（原来的 `identity`、`extension`、`listener`、`notify`、`form`、`calendar` 包没有了；`FormValues`、`JsonFields`、`CommandInterceptor` 也在这里） | import 改成 `...core.spi.*`；表单后端代码（在线写的 Java）的 import 一样改 |
+| `FlowEngine` 每个方法都要传操作人：去掉了不带操作人、取"当前操作人"的那一半；`FlowEngineBuilder.actorProvider` 没有了 | `engine.start(cmd)` 改成 `engine.start(user, cmd)`；`ActorProvider` Bean 照旧，只给引擎的 HTTP 接口取登录的人 |
+| `CommandResult`、`BatchResult` 搬到 `view` 包；`ProcessVersionEntity` 改名 `DefinitionEntity`（表还是 `flow_definition`） | 改 import 与类名 |
+| 可靠投递的监听、渠道按名字找回：`FlowListener.listenerName()`、`NotificationChannel.channelName()` | 只有一个类同时实现两者、又想自己起名时要覆盖 |
 
 ## 升级说明（以后每一版都按这些）
 

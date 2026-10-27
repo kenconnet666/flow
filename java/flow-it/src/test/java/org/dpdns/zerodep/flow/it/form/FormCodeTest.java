@@ -36,8 +36,8 @@ class FormCodeTest {
 
     /** 后端代码：金额超过 1000 拦下；合计是金额的两倍；每提交一次计数加一，接口能读到计数 */
     private static final String CODE = """
-        import org.dpdns.zerodep.flow.core.data.FormValues;
-        import org.dpdns.zerodep.flow.core.form.*;
+        import org.dpdns.zerodep.flow.core.spi.FormValues;
+        import org.dpdns.zerodep.flow.core.spi.*;
         import java.math.BigDecimal;
         import java.util.Map;
         import java.util.concurrent.atomic.AtomicInteger;
@@ -85,7 +85,7 @@ class FormCodeTest {
 
     @Test
     void 试编译报出行列_编不过的不能发布() {
-        List<FormCompiler.Problem> problems = engine.compileFormCode(ALICE, "public class Bad implements org.dpdns.zerodep.flow.core.form.FormHandler {\n  int x = ;\n}");
+        List<FormCompiler.Problem> problems = engine.compileFormCode(ALICE, "public class Bad implements org.dpdns.zerodep.flow.core.spi.FormHandler {\n  int x = ;\n}");
         assertFalse(problems.isEmpty());
         assertEquals(2, problems.get(0).getLine());
         assertEquals(List.of(), engine.compileFormCode(ALICE, CODE));

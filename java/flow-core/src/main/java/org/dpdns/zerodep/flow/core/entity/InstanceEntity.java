@@ -11,9 +11,9 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
-import org.dpdns.zerodep.flow.core.data.RunState;
-import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
+import org.dpdns.zerodep.flow.core.engine.state.RunState;
+import org.dpdns.zerodep.flow.core.engine.state.Variables;
 import org.dpdns.zerodep.flow.core.entity.proxy.InstanceEntityProxy;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 
@@ -83,8 +83,8 @@ public class InstanceEntity implements ProxyEntityAvailable<InstanceEntity, Inst
     // ───────── 关系 ─────────
 
     /** 按的那个发布版本 */
-    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = Fields.definitionId, targetProperty = ProcessVersionEntity.Fields.id)
-    private ProcessVersionEntity definition;
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = Fields.definitionId, targetProperty = DefinitionEntity.Fields.id)
+    private DefinitionEntity definition;
 
     /** 全部待办，按到达的先后 */
     @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.id, targetProperty = WorkItemEntity.Fields.instanceId,

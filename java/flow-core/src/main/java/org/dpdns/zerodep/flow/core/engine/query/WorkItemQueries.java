@@ -1,7 +1,5 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
@@ -10,17 +8,19 @@ import org.dpdns.zerodep.flow.core.engine.assignee.NextSteps;
 import org.dpdns.zerodep.flow.core.engine.form.References;
 import org.dpdns.zerodep.flow.core.engine.handler.StepWithdrawal;
 import org.dpdns.zerodep.flow.core.engine.rule.ReturnTargets;
+import org.dpdns.zerodep.flow.core.engine.state.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
-import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 import org.dpdns.zerodep.flow.core.view.form.FormView;
 import org.dpdns.zerodep.flow.core.view.workitem.DraftVO;
 import org.dpdns.zerodep.flow.core.view.workitem.NextStep;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
-import org.dpdns.zerodep.flow.core.view.workitem.WorkItemView.OutcomeView;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemView;
+import org.dpdns.zerodep.flow.core.view.workitem.WorkItemView.OutcomeView;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 

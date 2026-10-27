@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.command;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.engine.state.Variables;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 
 /**
  * 管理员改数据（0002 §6"改处理人、改变量"）：改流程变量、表单的值，修正录错的数据。改前改后的值都记进流转记录。

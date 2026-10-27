@@ -3,12 +3,9 @@ package org.dpdns.zerodep.flow.core;
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
-import org.dpdns.zerodep.flow.core.command.BatchResult;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ChangeDataCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
-import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
-import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
@@ -36,7 +33,6 @@ import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
-import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.db.FlowEasyQuery;
 import org.dpdns.zerodep.flow.core.db.FlowInterceptors;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
@@ -59,8 +55,8 @@ import org.dpdns.zerodep.flow.core.engine.job.DeliveryJob;
 import org.dpdns.zerodep.flow.core.engine.job.JobRunner;
 import org.dpdns.zerodep.flow.core.engine.query.FormQueries;
 import org.dpdns.zerodep.flow.core.engine.query.InboxQueries;
-import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries;
+import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
 import org.dpdns.zerodep.flow.core.engine.query.Participation;
 import org.dpdns.zerodep.flow.core.engine.query.ProcessQueries;
@@ -68,20 +64,23 @@ import org.dpdns.zerodep.flow.core.engine.query.StatsQueries;
 import org.dpdns.zerodep.flow.core.engine.query.WorkItemQueries;
 import org.dpdns.zerodep.flow.core.engine.store.Archives;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
+import org.dpdns.zerodep.flow.core.entity.DefinitionEntity;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.RequestEntity;
-import org.dpdns.zerodep.flow.core.extension.JobHandler;
-import org.dpdns.zerodep.flow.core.form.FormContext;
-import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.identity.ActorProvider;
-import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
-import org.dpdns.zerodep.flow.core.identity.ViewPolicy;
+import org.dpdns.zerodep.flow.core.spi.Actor;
+import org.dpdns.zerodep.flow.core.spi.CommandInterceptor;
+import org.dpdns.zerodep.flow.core.spi.FormContext;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
+import org.dpdns.zerodep.flow.core.spi.JobHandler;
+import org.dpdns.zerodep.flow.core.spi.PermissionPolicy;
+import org.dpdns.zerodep.flow.core.spi.ViewPolicy;
+import org.dpdns.zerodep.flow.core.view.BatchResult;
+import org.dpdns.zerodep.flow.core.view.CommandResult;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.core.view.definition.CalendarVO;
 import org.dpdns.zerodep.flow.core.view.definition.DefinitionProblem;
-import org.dpdns.zerodep.flow.core.view.definition.ExtensionCatalog;
 import org.dpdns.zerodep.flow.core.view.definition.DesignDraftVO;
+import org.dpdns.zerodep.flow.core.view.definition.ExtensionCatalog;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessVersionVO;
 import org.dpdns.zerodep.flow.core.view.definition.StartView;
@@ -115,26 +114,26 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
- * 流程引擎的门面（docs/decisions/0006）：接入方只和它打交道。命令改状态，查询读，扩展点由 {@link Builder} 给出。不依赖 Spring。
+ * 流程引擎的门面（docs/decisions/0006）：接入方只和它打交道。命令改状态，查询读，扩展点在 {@link FlowEngineBuilder} 上给，接口都在 {@code spi} 包。
+ * 不依赖 Spring。每个方法的第一个参数是操作人。
  * <pre>{@code
- * FlowEngine<MyUser> engine = FlowEngine.<MyUser>builder(easyEntityQuery).actorProvider(security::currentUser).orgDirectory(org).build();
- * engine.publishForm(new FormPublication("purchase", "采购申请", null, manifestJson, null, null, null, null, null, null));
- * engine.publishDefinition(definitionJson, "第一版");
- * CommandResult started = engine.start(StartCommand.of("purchase", Map.of("amount", "1200.00")));
- * engine.complete(CompleteCommand.of(workItemId, "approve"));
- * Page<TodoItem> todo = engine.todo(1, 20);
+ * FlowEngine<MyUser> engine = FlowEngine.<MyUser>builder(easyEntityQuery).orgDirectory(org).build();
+ * engine.publishForm(admin, new FormPublication("purchase", "采购申请", null, manifestJson, null, null, null, null, null, null));
+ * engine.publishDefinition(admin, definitionJson, "第一版");
+ * CommandResult started = engine.start(alice, StartCommand.of("purchase", Map.of("amount", "1200.00")));
+ * engine.complete(bob, CompleteCommand.of(workItemId, "approve"));
+ * Page<TodoItem> todo = engine.todo(bob, 1, 20);
  * }</pre>
  * <ul>
  *   <li>表由接入方建：执行 flow-core 里的 {@code db/flow/mysql/*.sql}，推荐交给 Flyway（docs/decisions/0007 第 9 节）；</li>
  *   <li>读写用接入方的 easy-query（{@code EasyEntityQuery}）：表是 {@code entity} 包里的实体，接入方也能直接查它们、和自己的表一起查；</li>
  *   <li>每个命令在一个事务里执行（外面已有事务时加入），处理的步骤见各处理类（{@code engine} 包）；</li>
  *   <li>出错时抛带业务错误码的 {@link FlowException}（0008），HTTP 接口写成响应体；</li>
- *   <li>不带操作人的方法取 {@link ActorProvider} 的当前操作人，带 {@code actor} 的给后台任务、系统操作用；每个操作先问 {@link PermissionPolicy}；</li>
+ *   <li>每个命令、查询的第一个参数是操作人（接入方的用户类型）：谁在做由调用方给，HTTP 接口取登录的人，后台任务给系统账号；每个操作先问 {@link PermissionPolicy}；</li>
  *   <li>命令过了权限再过 {@link CommandInterceptor}（审计、业务校验、改参数），和标准处理在同一个事务里。</li>
  * </ul>
  */
 public class FlowEngine<U extends Actor> {
-    private final ActorProvider<U> actors;
     private final PermissionPolicy<U> permissions;
     private final ViewPolicy<U> viewPolicy;
     private final StartHandler starts;
@@ -158,10 +157,9 @@ public class FlowEngine<U extends Actor> {
     private final EngineContext context;
     private final List<CommandInterceptor<U>> interceptors;
 
-    FlowEngine(EngineContext context, ActorProvider<U> actors, PermissionPolicy<U> permissions, ViewPolicy<U> viewPolicy, List<CommandInterceptor<U>> interceptors,
+    FlowEngine(EngineContext context, PermissionPolicy<U> permissions, ViewPolicy<U> viewPolicy, List<CommandInterceptor<U>> interceptors,
                        List<JobHandler> jobHandlers) {
         this.context = context;
-        this.actors = actors;
         this.permissions = permissions;
         this.viewPolicy = viewPolicy;
         this.interceptors = interceptors;
@@ -197,18 +195,10 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 表单的后端代码 ─────────
 
-    /** 试编译表单的后端代码（当前操作人） */
-    public List<FormCompiler.Problem> compileFormCode(String source) { return compileFormCode(actors.current(), source); }
-
     /** 试编译表单的后端代码（Java）：返回编译出的问题（行列从 1 开始），没有问题时是空的（{@code forms.compile}） */
     public List<FormCompiler.Problem> compileFormCode(U actor, String source) {
         allow(actor, "forms.compile", null);
         return new FormCompiler().compile(source == null ? "" : source).getProblems();
-    }
-
-    /** 调表单后端代码给前端的接口（当前操作人） */
-    public Object formAction(Long formVersionId, Long instanceId, String action, Map<String, Object> args) {
-        return formAction(actors.current(), formVersionId, instanceId, action, args);
     }
 
     /**
@@ -228,16 +218,10 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 迁移、进度、统计 ─────────
 
-    /** 迁移实例（当前操作人） */
-    public CommandResult migrate(MigrateCommand command) { return migrate(actors.current(), command); }
-
     /** 管理员把实例迁到流程的另一个版本（见 {@link AdminHandler#migrate}） */
     public CommandResult migrate(U actor, MigrateCommand command) {
         return execute(actor, "migrate", String.valueOf(command.getInstanceId()), command, admin::migrate);
     }
-
-    /** 外部参与方看的进度（当前操作人） */
-    public ProgressView progress(Long instanceId) { return progress(actors.current(), instanceId); }
 
     /** 外部参与方看的进度：环节、处理人、预计答复的时间（{@code progress}，接入方按业务关系放行外部账号） */
     public ProgressView progress(U actor, Long instanceId) {
@@ -245,26 +229,17 @@ public class FlowEngine<U extends Actor> {
         return instanceQueries.progress(instanceId);
     }
 
-    /** 各流程的实例数（当前操作人） */
-    public List<ProcessStats> processStats() { return processStats(actors.current()); }
-
     /** 各流程的实例数：进行中、正常结束、终止与撤回（{@code stats}） */
     public List<ProcessStats> processStats(U actor) {
         allow(actor, "stats", null);
         return stats.processes();
     }
 
-    /** 一个流程各节点的停留与超时（当前操作人） */
-    public List<NodeStats> nodeStats(String processKey, Instant since) { return nodeStats(actors.current(), processKey, since); }
-
     /** 一个流程各人工节点从 since 起：处理了多少、平均停留几小时、超时的比例（{@code stats}） */
     public List<NodeStats> nodeStats(U actor, String processKey, Instant since) {
         allow(actor, "stats", processKey);
         return stats.nodes(processKey, since);
     }
-
-    /** 处理人的工作量（当前操作人） */
-    public List<HandlerStats> handlerStats(Instant since) { return handlerStats(actors.current(), since); }
 
     /** 处理人的工作量：从 since 起处理完的、现在手上打开着的（{@code stats}） */
     public List<HandlerStats> handlerStats(U actor, Instant since) {
@@ -274,26 +249,17 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 工作日历 ─────────
 
-    /** 全部工作日历（当前操作人） */
-    public List<CalendarVO> calendars() { return calendars(actors.current()); }
-
     /** 全部工作日历，连同节假日与调休（{@code calendars.read}） */
     public List<CalendarVO> calendars(U actor) {
         allow(actor, "calendars.read", null);
         return calendarHandler.list();
     }
 
-    /** 保存一份工作日历（当前操作人） */
-    public CalendarVO saveCalendar(CalendarVO calendar) { return saveCalendar(actors.current(), calendar); }
-
     /** 保存一份工作日历：时区、一周哪几天上班、全部特殊日子整份换掉（{@code calendars.save}） */
     public CalendarVO saveCalendar(U actor, CalendarVO calendar) {
         allow(actor, "calendars.save", calendar.getName());
         return calendarHandler.save(calendar);
     }
-
-    /** 删掉一份工作日历（当前操作人） */
-    public void deleteCalendar(String name) { deleteCalendar(actors.current(), name); }
 
     /** 删掉一份工作日历：用它的流程之后按周一到周五算（{@code calendars.delete}） */
     public void deleteCalendar(U actor, String name) {
@@ -303,17 +269,11 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 设计中的草稿 ─────────
 
-    /** 保存草稿（当前操作人），见 {@link #saveDesignDraft(Actor, SaveDesignDraftCommand)} */
-    public DesignDraftVO saveDesignDraft(SaveDesignDraftCommand command) { return saveDesignDraft(actors.current(), command); }
-
     /** 保存流程设计器、表单编辑器的草稿：别人在这之间存过时报 {@code flow.concurrent-modification}（{@code drafts.save}） */
     public DesignDraftVO saveDesignDraft(U actor, SaveDesignDraftCommand command) {
         allow(actor, "drafts.save", command.getKey());
         return drafts.save(actor, command);
     }
-
-    /** 放弃草稿（当前操作人） */
-    public void discardDesignDraft(String kind, String key) { discardDesignDraft(actors.current(), kind, key); }
 
     /** 放弃草稿：删掉，下次打开从已发布的版本开始（{@code drafts.discard}） */
     public void discardDesignDraft(U actor, String kind, String key) {
@@ -321,17 +281,11 @@ public class FlowEngine<U extends Actor> {
         drafts.discard(kind, key);
     }
 
-    /** 一个流程、表单的草稿（当前操作人） */
-    public DesignDraftVO designDraft(String kind, String key) { return designDraft(actors.current(), kind, key); }
-
     /** 一个流程、表单的草稿；没有时为 null（{@code drafts.read}） */
     public DesignDraftVO designDraft(U actor, String kind, String key) {
         allow(actor, "drafts.read", key);
         return drafts.find(kind, key);
     }
-
-    /** 某一种的全部草稿（当前操作人） */
-    public List<DesignDraftVO> designDrafts(String kind) { return designDrafts(actors.current(), kind); }
 
     /** 某一种（process、form）的全部草稿，不带内容：列表上标"有草稿"（{@code drafts.read}） */
     public List<DesignDraftVO> designDrafts(U actor, String kind) {
@@ -341,17 +295,11 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 发布 ─────────
 
-    /** 发布流程定义（当前操作人），见 {@link #publishDefinition(Actor, String, String)} */
-    public ProcessVersionEntity publishDefinition(String json, String note) { return publishDefinition(actors.current(), json, note); }
-
     /** 发布流程定义：校验不通过时报 {@code flow.definition-invalid}，错误明细里是问题列表；版本号由后端给 */
-    public ProcessVersionEntity publishDefinition(U actor, String json, String note) {
+    public DefinitionEntity publishDefinition(U actor, String json, String note) {
         allow(actor, "definitions.publish", null);
         return publishing.publishDefinition(actor, json, note);
     }
-
-    /** 校验定义、不发布（当前操作人） */
-    public List<DefinitionProblem> validateDefinition(String json) { return validateDefinition(actors.current(), json); }
 
     /** 校验一份定义、不发布：错误与警告都列出来（设计、编辑定义时用，{@code definitions.validate}） */
     public List<DefinitionProblem> validateDefinition(U actor, String json) {
@@ -359,17 +307,11 @@ public class FlowEngine<U extends Actor> {
         return publishing.validateDefinition(json);
     }
 
-    /** 停用或启用流程（当前操作人） */
-    public ProcessSummary setProcessActive(String processKey, boolean active) { return setProcessActive(actors.current(), processKey, active); }
-
     /** 停用或启用流程：停用后不能再发起，进行中的照常走完（{@code definitions.status}） */
     public ProcessSummary setProcessActive(U actor, String processKey, boolean active) {
         allow(actor, "definitions.status", processKey);
         return publishing.setStatus(processKey, active);
     }
-
-    /** 流程的全部版本（当前操作人） */
-    public List<ProcessVersionVO> versions(String processKey) { return versions(actors.current(), processKey); }
 
     /** 流程的全部版本，新的在前（{@code definitions.versions}） */
     public List<ProcessVersionVO> versions(U actor, String processKey) {
@@ -377,17 +319,11 @@ public class FlowEngine<U extends Actor> {
         return processQueries.versions(processKey);
     }
 
-    /** 某个版本的定义 JSON（当前操作人） */
-    public String definitionJson(String processKey, Integer version) { return definitionJson(actors.current(), processKey, version); }
-
     /** 某个版本的定义 JSON（发布时的原样）；version 为 null 时取最新的（{@code definitions.read}） */
     public String definitionJson(U actor, String processKey, Integer version) {
         allow(actor, "definitions.read", processKey);
         return processQueries.definitionJson(processKey, version);
     }
-
-    /** 表单列表（当前操作人） */
-    public List<FormSummary> forms() { return forms(actors.current()); }
 
     /** 管理端的表单列表：停用的也在，按分类、名称排（{@code forms.list}） */
     public List<FormSummary> forms(U actor) {
@@ -395,17 +331,11 @@ public class FlowEngine<U extends Actor> {
         return formQueries.forms();
     }
 
-    /** 表单的全部版本（当前操作人） */
-    public List<FormVersionVO> formVersions(String formKey) { return formVersions(actors.current(), formKey); }
-
     /** 表单的全部版本，新的在前（{@code forms.versions}） */
     public List<FormVersionVO> formVersions(U actor, String formKey) {
         allow(actor, "forms.versions", formKey);
         return formQueries.formVersions(formKey);
     }
-
-    /** 用了这张表单的流程（当前操作人） */
-    public List<FormUsage> formUsages(String formKey) { return formUsages(actors.current(), formKey); }
 
     /** 用了这张表单的流程：最新发布的版本引用它的，表单设计器按节点的权限预览时用 */
     public List<FormUsage> formUsages(U actor, String formKey) {
@@ -413,26 +343,17 @@ public class FlowEngine<U extends Actor> {
         return formQueries.usages(formKey);
     }
 
-    /** 表单某个版本的全部内容（当前操作人） */
-    public FormDocument formDocument(String formKey, Integer version) { return formDocument(actors.current(), formKey, version); }
-
     /** 表单某个版本的源码与字段清单（编辑时载入）；version 为 null 时取最新的（{@code forms.read}） */
     public FormDocument formDocument(U actor, String formKey, Integer version) {
         allow(actor, "forms.read", formKey);
         return formQueries.formDocument(formKey, version);
     }
 
-    /** 停用或启用表单（当前操作人） */
-    public FormSummary setFormActive(String formKey, boolean active) { return setFormActive(actors.current(), formKey, active); }
-
     /** 停用或启用表单：停用后新发布的流程不能再选它，已经引用它的照常用（{@code forms.status}） */
     public FormSummary setFormActive(U actor, String formKey, boolean active) {
         allow(actor, "forms.status", formKey);
         return publishing.setFormStatus(formKey, active);
     }
-
-    /** 发布表单（当前操作人） */
-    public FormVersionEntity publishForm(FormPublication form) { return publishForm(actors.current(), form); }
 
     /** 发布表单：字段清单校验不通过时报 {@code flow.validation-failed} */
     public FormVersionEntity publishForm(U actor, FormPublication form) {
@@ -442,24 +363,15 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 命令 ─────────
 
-    /** 发起（当前操作人） */
-    public CommandResult start(StartCommand command) { return start(actors.current(), command); }
-
     /** 发起：按最新发布的版本走（步骤见 {@link StartHandler}） */
     public CommandResult start(U actor, StartCommand command) {
         return execute(actor, "start", command.getKey(), command, starts::handle);
     }
 
-    /** 发起前存草稿（当前操作人） */
-    public InstanceVO saveStartDraft(SaveStartDraftCommand command) { return saveStartDraft(actors.current(), command); }
-
     /** 发起前存草稿：第一次存时建一个 draft 实例，之后整份替换表单的值；发起时 StartCommand 带上 draftId */
     public InstanceVO saveStartDraft(U actor, SaveStartDraftCommand command) {
         return execute(actor, "saveStartDraft", command.getKey(), command, starts::saveDraft);
     }
-
-    /** 放弃发起前的草稿（当前操作人） */
-    public boolean discardStartDraft(Long draftId) { return discardStartDraft(actors.current(), draftId); }
 
     /** 放弃发起前的草稿：删掉它；返回是否删了 */
     public boolean discardStartDraft(U actor, Long draftId) {
@@ -467,57 +379,34 @@ public class FlowEngine<U extends Actor> {
         return starts.discardDraft(actor, draftId);
     }
 
-    /** 认领（当前操作人） */
-    public CommandResult claim(ClaimCommand command) { return claim(actors.current(), command); }
-
     /** 认领收件箱里的待办：先到先得（见 {@link ClaimHandler}） */
     public CommandResult claim(U actor, ClaimCommand command) {
         return execute(actor, "claim", String.valueOf(command.getWorkItemId()), command, claims::handle);
     }
-
-    /** 处理（当前操作人） */
-    public CommandResult complete(CompleteCommand command) { return complete(actors.current(), command); }
 
     /** 处理一个待办（步骤见 {@link CompleteHandler}） */
     public CommandResult complete(U actor, CompleteCommand command) {
         return execute(actor, "complete", String.valueOf(command.getWorkItemId()), command, completions::handle);
     }
 
-    /** 暂存（当前操作人） */
-    public CommandResult saveDraft(SaveDraftCommand command) { return saveDraft(actors.current(), command); }
-
     /** 暂存：填了一半先存在待办上，不提交（见 {@link CompleteHandler#saveDraft}） */
     public CommandResult saveDraft(U actor, SaveDraftCommand command) {
         return execute(actor, "saveDraft", String.valueOf(command.getWorkItemId()), command, completions::saveDraft);
     }
-
-    /** 申请改派（当前操作人） */
-    public CommandResult requestReassign(RequestReassignCommand command) { return requestReassign(actors.current(), command); }
 
     /** 申请改派：负责人指定给我的待办回到他的"待我指定"里（见 {@link CollaborationHandler#requestReassign}） */
     public CommandResult requestReassign(U actor, RequestReassignCommand command) {
         return execute(actor, "requestReassign", String.valueOf(command.getWorkItemId()), command, collaboration::requestReassign);
     }
 
-    /** 管理员改数据（当前操作人） */
-    public CommandResult changeData(ChangeDataCommand command) { return changeData(actors.current(), command); }
-
     /** 管理员改流程变量、表单字段，改前改后记进流转记录（见 {@link AdminHandler#changeData}） */
     public CommandResult changeData(U actor, ChangeDataCommand command) {
         return execute(actor, "changeData", String.valueOf(command.getInstanceId()), command, admin::changeData);
     }
 
-    /** 批量认领（当前操作人） */
-    public List<BatchResult> batchClaim(List<Long> workItemIds) { return batchClaim(actors.current(), workItemIds); }
-
     /** 批量认领：一个一个认领，各自一个事务，没认领到的在结果里带上错误码，不影响别的 */
     public List<BatchResult> batchClaim(U actor, List<Long> workItemIds) {
         return batch(workItemIds, id -> claim(actor, new ClaimCommand(id)));
-    }
-
-    /** 批量处理（当前操作人） */
-    public List<BatchResult> batchComplete(List<Long> workItemIds, String outcome, String comment) {
-        return batchComplete(actors.current(), workItemIds, outcome, comment);
     }
 
     /**
@@ -542,9 +431,6 @@ public class FlowEngine<U extends Actor> {
         return out;
     }
 
-    /** 撤回（当前操作人） */
-    public CommandResult withdraw(WithdrawCommand command) { return withdraw(actors.current(), command); }
-
     /** 发起人撤回整个实例（规则见 {@link WithdrawHandler}） */
     public CommandResult withdraw(U actor, WithdrawCommand command) {
         return execute(actor, "withdraw", String.valueOf(command.getInstanceId()), command, withdrawals::handle);
@@ -552,56 +438,35 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 协作与管理员命令（0006 的 3.1–3.4） ─────────
 
-    /** 转办（当前操作人） */
-    public CommandResult transfer(TransferCommand command) { return transfer(actors.current(), command); }
-
     /** 转办：交给别人，自己不再参与 */
     public CommandResult transfer(U actor, TransferCommand command) {
         return execute(actor, "transfer", String.valueOf(command.getWorkItemId()), command, collaboration::transfer);
     }
-
-    /** 委派（当前操作人） */
-    public CommandResult delegate(DelegateCommand command) { return delegate(actors.current(), command); }
 
     /** 委派：请别人先办，办完回到自己手里 */
     public CommandResult delegate(U actor, DelegateCommand command) {
         return execute(actor, "delegate", String.valueOf(command.getWorkItemId()), command, collaboration::delegate);
     }
 
-    /** 加签（当前操作人） */
-    public CommandResult addSigners(AddSignersCommand command) { return addSigners(actors.current(), command); }
-
     /** 加签：前加签、后加签、并加 */
     public CommandResult addSigners(U actor, AddSignersCommand command) {
         return execute(actor, "addSigners", String.valueOf(command.getWorkItemId()), command, collaboration::addSigners);
     }
-
-    /** 减签（当前操作人） */
-    public CommandResult removeSigners(RemoveSignersCommand command) { return removeSigners(actors.current(), command); }
 
     /** 减签：取消自己加的、还没办的人 */
     public CommandResult removeSigners(U actor, RemoveSignersCommand command) {
         return execute(actor, "removeSigners", String.valueOf(command.getWorkItemId()), command, collaboration::removeSigners);
     }
 
-    /** 退回收件箱（当前操作人） */
-    public CommandResult release(ReleaseCommand command) { return release(actors.current(), command); }
-
     /** 退回收件箱：自己以后不能再认领这一条 */
     public CommandResult release(U actor, ReleaseCommand command) {
         return execute(actor, "release", String.valueOf(command.getWorkItemId()), command, collaboration::release);
     }
 
-    /** 催办（当前操作人） */
-    public CommandResult remind(RemindCommand command) { return remind(actors.current(), command); }
-
     /** 催办：同一个待办一小时内只记一次 */
     public CommandResult remind(U actor, RemindCommand command) {
         return execute(actor, "remind", String.valueOf(command.getInstanceId()), command, collaboration::remind);
     }
-
-    /** 留言（当前操作人） */
-    public CommandResult comment(CommentCommand command) { return comment(actors.current(), command); }
 
     /** 留言：记进流转记录；@ 到的人收到通知（mentioned） */
     public CommandResult comment(U actor, CommentCommand command) {
@@ -609,104 +474,65 @@ public class FlowEngine<U extends Actor> {
         return execute(actor, "comment", String.valueOf(command.getInstanceId()), command, collaboration::comment);
     }
 
-    /** 撤回刚处理的一步（当前操作人） */
-    public CommandResult withdrawStep(WithdrawStepCommand command) { return withdrawStep(actors.current(), command); }
-
     /** 处理人撤回刚处理的一步：下一步还没人动时，待办回到自己手里（条件见 {@link StepWithdrawal}） */
     public CommandResult withdrawStep(U actor, WithdrawStepCommand command) {
         return execute(actor, "withdrawStep", String.valueOf(command.getWorkItemId()), command, stepWithdrawals::withdraw);
     }
-
-    /** 外部事件（当前操作人） */
-    public List<CommandResult> signal(SignalCommand command) { return signal(actors.current(), command); }
 
     /** 外部事件：在等它的实例往下走，返回每个实例这一步的结果；实例不在等时只记一笔（见 {@link SignalHandler}） */
     public List<CommandResult> signal(U actor, SignalCommand command) {
         return execute(actor, "signal", command.getInstanceId() != null ? String.valueOf(command.getInstanceId()) : command.getBusinessKey(), command, signals::signal);
     }
 
-    /** 收件箱负责人指定承办人（当前操作人） */
-    public CommandResult assign(AssignCommand command) { return assign(actors.current(), command); }
-
     /** 收件箱负责人指定承办人：只有等我指定的待办能指定 */
     public CommandResult assign(U actor, AssignCommand command) {
         return execute(actor, "assign", String.valueOf(command.getWorkItemId()), command, collaboration::assign);
     }
-
-    /** 抄送（当前操作人） */
-    public CommandResult cc(CcCommand command) { return cc(actors.current(), command); }
 
     /** 抄送（知会）：每人一条抄送，记进流转记录 */
     public CommandResult cc(U actor, CcCommand command) {
         return execute(actor, "cc", String.valueOf(command.getInstanceId()), command, collaboration::cc);
     }
 
-    /** 读了抄送（当前操作人） */
-    public int readCc(ReadCcCommand command) { return readCc(actors.current(), command); }
-
     /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
     public int readCc(U actor, ReadCcCommand command) {
         return execute(actor, "readCc", String.valueOf(command.getInstanceId()), command, collaboration::readCc);
     }
-
-    /** 打开了自己的待办（当前操作人） */
-    public boolean readWorkItem(ReadWorkItemCommand command) { return readWorkItem(actors.current(), command); }
 
     /** 打开了自己的待办：第一次打开时记下时间，返回是否标了 */
     public boolean readWorkItem(U actor, ReadWorkItemCommand command) {
         return execute(actor, "readWorkItem", String.valueOf(command.getWorkItemId()), command, collaboration::readWorkItem);
     }
 
-    /** 终止（管理员）（当前操作人） */
-    public CommandResult terminate(TerminateCommand command) { return terminate(actors.current(), command); }
-
     /** 终止（管理员）：打开着的待办都取消，实例结束 */
     public CommandResult terminate(U actor, TerminateCommand command) {
         return execute(actor, "terminate", String.valueOf(command.getInstanceId()), command, admin::terminate);
     }
-
-    /** 暂停（管理员）（当前操作人） */
-    public CommandResult suspend(SuspendCommand command) { return suspend(actors.current(), command); }
 
     /** 暂停（管理员）：待办都不能处理，直到恢复 */
     public CommandResult suspend(U actor, SuspendCommand command) {
         return execute(actor, "suspend", String.valueOf(command.getInstanceId()), command, admin::suspend);
     }
 
-    /** 恢复（管理员）（当前操作人） */
-    public CommandResult resume(ResumeCommand command) { return resume(actors.current(), command); }
-
     /** 恢复（管理员） */
     public CommandResult resume(U actor, ResumeCommand command) {
         return execute(actor, "resume", String.valueOf(command.getInstanceId()), command, admin::resume);
     }
-
-    /** 跳转（管理员）（当前操作人） */
-    public CommandResult jump(JumpCommand command) { return jump(actors.current(), command); }
 
     /** 跳转（管理员）：原来的待办取消，从指定的节点重新走 */
     public CommandResult jump(U actor, JumpCommand command) {
         return execute(actor, "jump", String.valueOf(command.getInstanceId()), command, admin::jump);
     }
 
-    /** 改派（管理员、收件箱负责人）（当前操作人） */
-    public CommandResult reassign(ReassignCommand command) { return reassign(actors.current(), command); }
-
     /** 改派（管理员、收件箱负责人）：待办直接落到这个人 */
     public CommandResult reassign(U actor, ReassignCommand command) {
         return execute(actor, "reassign", String.valueOf(command.getWorkItemId()), command, admin::reassign);
     }
 
-    /** 失败的作业重新来过（管理员）（当前操作人） */
-    public boolean retryJob(RetryJobCommand command) { return retryJob(actors.current(), command); }
-
     /** 失败的作业重新来过（管理员）：修好外部系统后让异步的自动节点再做一次 */
     public boolean retryJob(U actor, RetryJobCommand command) {
         return execute(actor, "retryJob", String.valueOf(command.getJobId()), command, admin::retryJob);
     }
-
-    /** 跳过失败的作业（管理员）（当前操作人） */
-    public CommandResult skipJob(SkipJobCommand command) { return skipJob(actors.current(), command); }
 
     /** 跳过失败的作业（管理员）：异步的自动节点不再做动作，按指定的结果往下走 */
     public CommandResult skipJob(U actor, SkipJobCommand command) {
@@ -714,11 +540,6 @@ public class FlowEngine<U extends Actor> {
     }
 
     // ───────── 幂等 ─────────
-
-    /** 幂等地做一个命令（当前操作人），见 {@link #idempotent(Actor, String, String, Supplier)} */
-    public String idempotent(String requestId, String command, Supplier<String> work) {
-        return idempotent(actors.current(), requestId, command, work);
-    }
 
     /**
      * 幂等地做一个命令（0006 第 1 节 {@code requestId}，HTTP 的 {@code Idempotency-Key}）：这个请求编号没做过时做 work，
@@ -809,20 +630,11 @@ public class FlowEngine<U extends Actor> {
 
     // ───────── 查询 ─────────
 
-    /** 我能发起的流程（当前操作人） */
-    public List<StartableProcess> startable() { return startable(actors.current()); }
-
     /** 我能发起的流程：启用着、发起人名单里有我，按分类、名称排 */
     public List<StartableProcess> startable(U actor) {
         allow(actor, "startable", null);
         return processQueries.startable(actor);
     }
-
-    /** 发起页（当前操作人） */
-    public StartView startView(String key) { return startView(actors.current(), key); }
-
-    /** 发起页，接着一份草稿填（当前操作人） */
-    public StartView startView(String key, Long draftId) { return startView(actors.current(), key, draftId); }
 
     /** 发起页：流程与开始节点上的表单 */
     public StartView startView(U actor, String key) { return startView(actor, key, null); }
@@ -833,17 +645,11 @@ public class FlowEngine<U extends Actor> {
         return processQueries.startView(actor, key, draftId);
     }
 
-    /** 我发起前存的草稿（当前操作人） */
-    public List<InstanceVO> startDrafts() { return startDrafts(actors.current()); }
-
     /** 我发起前存的草稿，最后存的在前 */
     public List<InstanceVO> startDrafts(U actor) {
         allow(actor, "startDrafts", String.valueOf(actor.getId()));
         return instanceQueries.startDrafts(actor);
     }
-
-    /** 待办详情（当前操作人） */
-    public WorkItemView workItem(Long workItemId) { return workItem(actors.current(), workItemId); }
 
     /** 待办详情：待办与实例、这个节点上的表单、能选的处理结果、我能不能认领与处理 */
     public WorkItemView workItem(U actor, Long workItemId) {
@@ -851,12 +657,6 @@ public class FlowEngine<U extends Actor> {
         requireVisible(actor, WorkItems.find(context.getDb(), workItemId).getInstanceId());
         return workItemQueries.workItem(actor, workItemId);
     }
-
-    /** 我的待办（当前操作人） */
-    public Page<TodoItem> todo(int page, int size) { return todo(actors.current(), ListFilter.NONE, page, size); }
-
-    /** 我的待办（当前操作人，筛选） */
-    public Page<TodoItem> todo(ListFilter filter, int page, int size) { return todo(actors.current(), filter, page, size); }
 
     /** 我的待办（不筛） */
     public Page<TodoItem> todo(U actor, int page, int size) { return todo(actor, ListFilter.NONE, page, size); }
@@ -867,20 +667,11 @@ public class FlowEngine<U extends Actor> {
         return inbox.todo(actor, filter, page, size);
     }
 
-    /** 等我指定承办人的待办（当前操作人） */
-    public Page<TodoItem> designations(int page, int size) { return designations(actors.current(), page, size); }
-
     /** 等我指定承办人的待办：无人认领超时、我是收件箱负责人（{@code designations}） */
     public Page<TodoItem> designations(U actor, int page, int size) {
         allow(actor, "designations", String.valueOf(actor.getId()));
         return inbox.designations(actor, page, size);
     }
-
-    /** 我已办（当前操作人） */
-    public Page<TodoItem> done(int page, int size) { return done(actors.current(), ListFilter.NONE, page, size); }
-
-    /** 我处理过的待办（当前操作人，筛选） */
-    public Page<TodoItem> done(ListFilter filter, int page, int size) { return done(actors.current(), filter, page, size); }
 
     /** 我处理过的待办（不筛） */
     public Page<TodoItem> done(U actor, int page, int size) { return done(actor, ListFilter.NONE, page, size); }
@@ -891,12 +682,6 @@ public class FlowEngine<U extends Actor> {
         return inbox.done(actor, filter, page, size);
     }
 
-    /** 抄送我的（当前操作人） */
-    public Page<CcItem> ccList(int page, int size) { return ccList(actors.current(), ListFilter.NONE, page, size); }
-
-    /** 抄送我的（当前操作人，筛选） */
-    public Page<CcItem> ccList(ListFilter filter, int page, int size) { return ccList(actors.current(), filter, page, size); }
-
     /** 抄送我的（不筛） */
     public Page<CcItem> ccList(U actor, int page, int size) { return ccList(actor, ListFilter.NONE, page, size); }
 
@@ -906,20 +691,11 @@ public class FlowEngine<U extends Actor> {
         return inbox.ccList(actor, filter, page, size);
     }
 
-    /** 管理端搜实例（当前操作人） */
-    public Page<InstanceVO> instances(InstanceSearch search, int page, int size) { return instances(actors.current(), search, page, size); }
-
     /** 管理端搜实例：按状态、流程、标题、发起人；谁能搜由 PermissionPolicy 定（{@code instances.search}） */
     public Page<InstanceVO> instances(U actor, InstanceSearch search, int page, int size) {
         allow(actor, "instances.search", null);
         return instanceQueries.instances(search, page, size);
     }
-
-    /** 管理端的流程列表（当前操作人） */
-    public List<ProcessSummary> processes() { return processes(actors.current()); }
-
-    /** 接入方注册了哪些扩展（当前操作人） */
-    public ExtensionCatalog extensions() { return extensions(actors.current()); }
 
     /** 接入方注册了哪些扩展：流程设计器按它给下拉、画参数与业务信息的控件（{@code extensions.read}） */
     public ExtensionCatalog extensions(U actor) {
@@ -933,9 +709,6 @@ public class FlowEngine<U extends Actor> {
         return processQueries.processes();
     }
 
-    /** 异常（当前操作人） */
-    public Page<IncidentView> incidents(Long instanceId, int page, int size) { return incidents(actors.current(), instanceId, page, size); }
-
     /**
      * 异常：重试用完的作业，新的在前（{@code incidents}）；instanceId 不为 null 时只看这个实例的。
      * 管理员修好外部系统后 retryJob，或 skipJob 按结果往下走，或终止实例
@@ -945,12 +718,6 @@ public class FlowEngine<U extends Actor> {
         return instanceQueries.incidents(instanceId, page, size);
     }
 
-    /** 我发起的（当前操作人） */
-    public Page<InstanceVO> started(int page, int size) { return started(actors.current(), ListFilter.NONE, page, size); }
-
-    /** 我发起的实例（当前操作人，筛选） */
-    public Page<InstanceVO> started(ListFilter filter, int page, int size) { return started(actors.current(), filter, page, size); }
-
     /** 我发起的实例（不筛） */
     public Page<InstanceVO> started(U actor, int page, int size) { return started(actor, ListFilter.NONE, page, size); }
 
@@ -959,9 +726,6 @@ public class FlowEngine<U extends Actor> {
         allow(actor, "started", String.valueOf(actor.getId()));
         return instanceQueries.started(actor, filter, page, size);
     }
-
-    /** 实例详情（当前操作人） */
-    public InstanceDetail instance(Long instanceId) { return instance(actors.current(), instanceId); }
 
     /** 实例详情：实例、表单（按流程级的 formView 只读）、全部待办、流转记录、我能不能撤回与催办 */
     public InstanceDetail instance(U actor, Long instanceId) {

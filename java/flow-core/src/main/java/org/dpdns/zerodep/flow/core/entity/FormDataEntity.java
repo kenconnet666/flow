@@ -7,9 +7,9 @@ import com.easy.query.core.proxy.ProxyEntityAvailable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
-import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
 import org.dpdns.zerodep.flow.core.entity.proxy.FormDataEntityProxy;
+import org.dpdns.zerodep.flow.core.spi.FormValues;
 
 import java.time.Instant;
 

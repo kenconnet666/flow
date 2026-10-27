@@ -2,11 +2,10 @@ package org.dpdns.zerodep.flow.core.engine;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
-import org.dpdns.zerodep.flow.core.extension.Extensions;
-import org.dpdns.zerodep.flow.core.extension.TodoQueryCustomizer;
-import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
+import org.dpdns.zerodep.flow.core.spi.TodoQueryCustomizer;
+import org.dpdns.zerodep.flow.core.spi.WorkCalendar;
 
 import java.time.Clock;
 import java.util.function.Supplier;

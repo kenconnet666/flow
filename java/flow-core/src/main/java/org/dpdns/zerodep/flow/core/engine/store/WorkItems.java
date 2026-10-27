@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.engine.store;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
-import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
+import org.dpdns.zerodep.flow.core.engine.state.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
