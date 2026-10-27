@@ -43,6 +43,7 @@ import { FlowForm } from '../form/FlowForm';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
 import { FormDesigner } from './form-designer/FormDesigner';
+import { formPreviews } from './form-designer/previews';
 import { FormServerCode } from './FormServerCode';
 import { useFlowMessages } from '../lang/messages';
 
@@ -123,6 +124,8 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     serverSource = saved.serverSource ?? '';
   }
 
+  // 预览时能按哪些流程节点的权限看（新表单还没被流程用）
+  const previews = useRequest((k: string | null, signal) => (k ? formPreviews(flow, k, signal) : Promise.resolve([])), { params: () => formKey ?? null });
   const versions = useRequest((k: string | null, signal) => (k ? flow.formVersions(k, signal) : Promise.resolve([])), {
     params: () => formKey ?? null,
   });
@@ -320,6 +323,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
             onUndo={() => editor?.undo()}
             onRedo={() => editor?.redo()}
             {...(people ? { people } : {})}
+            {...(previews.data ? { previews: previews.data } : {})}
           />
         )}
         {/* 设计时代码编辑器藏起来但不卸载：设计操作派发进它，撤销历史只有它一个 */}

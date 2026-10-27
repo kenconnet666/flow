@@ -237,5 +237,5 @@
    成熟可用还要补的（用户同意继续做，只做 MySQL）：
    作业积压、失败重试、归档进度的指标（2026-10-27 完成：engine.ops() 与 FlowMetrics）；CHANGELOG 与升级说明（2026-10-27 完成：CHANGELOG.md）。
 1. 表单设计器余下的：标签页 Tabs（组件库的 Tabs 要 TabList、Tab、TabPanel 三层，设计器要能认整组）、明细表 form.List（2026-10-27 完成：代码表单里一行 <form.List name="lines" />，设计器面板里有"明细表"、属性面板改列）、附件控件（2026-10-27 完成：FileField 包组件库的 Upload，接入方 provideFlowFiles 给上传与打开；示例后端 ExampleFiles）；
-   编译放 Worker（`createCompileClient`，flow-ui 是库，`?worker` 的导入要由应用的 Vite 给，需要设计一个传入口）；预览时套用某个流程节点的权限（要先有"哪些流程用了这张表单"的查询）。
+   编译放 Worker（`createCompileClient`，flow-ui 是库，`?worker` 的导入要由应用的 Vite 给，需要设计一个传入口）；预览时套用某个流程节点的权限（2026-10-27 完成：/queries/forms/{key}/usages，设计器预览里"按节点看"）。
 2. 发布 json-wire、vue-tsx-pro 0.2 到 npm / Maven（用户手动），之后本仓库从 `link:` 换成版本号。

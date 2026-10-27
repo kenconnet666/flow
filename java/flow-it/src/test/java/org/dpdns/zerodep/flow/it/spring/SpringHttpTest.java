@@ -68,6 +68,9 @@ class SpringHttpTest {
             Files.readString(scenarios.resolve("processes/purchase.json"), StandardCharsets.UTF_8));
         assertEquals(1L, ((Number) data(process).get("version")).longValue());
         assertEquals("flow.definition-invalid", call(post("/flow/definitions/publish"), "1001", "{\"key\":\"x\"}").get("code"));
+        // 表单设计器按节点预览：哪些流程（最新版本）用了这张表单
+        Map<String, Object> usages = call(get("/flow/queries/forms/purchase-form/usages"), "1001", null);
+        assertEquals("purchase", first(usages.get("data")).get("processKey"));
     }
 
     @Test

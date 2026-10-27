@@ -9,6 +9,7 @@ export { FlowDefinitionEditor, type FlowDefinitionEditorProps } from './FlowDefi
 export { FlowDesigner, type FlowDesignerProps } from './process-designer/FlowDesigner';
 export { FlowFormEditor, type FlowFormEditorProps } from './FlowFormEditor';
 export { FormDesigner, type FormDesignerProps } from './form-designer/FormDesigner';
+export { formPreviews, type FormPreview } from './form-designer/previews';
 export { FlowFormList, type FlowFormListProps } from './FlowFormList';
 export { FlowIncidentList, type FlowIncidentListProps } from './FlowIncidentList';
 export { FlowInstanceMonitor, type FlowInstanceMonitorProps } from './FlowInstanceMonitor';

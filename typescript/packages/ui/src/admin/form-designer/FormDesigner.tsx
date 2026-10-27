@@ -18,6 +18,7 @@ import {
   Card,
   Flex,
   IconButton,
+  Select,
   Separator,
   Small,
   Splitter,
@@ -54,6 +55,7 @@ import {
   type TextEdit,
 } from '../../form-tools';
 import type { FlowFormHandle } from '../../form/context';
+import type { FormPreview } from './previews';
 import { FlowForm } from '../../form/FlowForm';
 import { useFormDesignerMessages } from '../../lang/form-designer-messages';
 import { dropAt, nodeAt, px, rectOf, type Drop, type Rect } from './canvas';
@@ -71,6 +73,8 @@ export interface FormDesignerProps {
   people?: PeopleSource;
   /** 表单代码还能导入的模块（业务组件），同 FlowForm */
   modules?: Readonly<Record<string, unknown>>;
+  /** 能按哪些流程节点的权限预览（formPreviews 取）；不给时预览里全部能改 */
+  previews?: readonly FormPreview[];
 }
 
 /** 设计、预览（能填）、只读预览 */
@@ -104,12 +108,14 @@ const FIELD_ITEMS: readonly { type: FieldType; control: string; module?: string 
 const BUILTIN_GROUPS = new Set(['layout', 'display', 'field']);
 
 /** 表单设计器 */
-export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people, modules }: FormDesignerProps) => {
+export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people, modules, previews }: FormDesignerProps) => {
   const messages = useFormDesignerMessages();
   const confirm = useConfirm();
   let design = _state.raw<FormDesign | null>(null);
   let syntax = _state<string | null>(null);
   let mode = _state<Mode>('design');
+  /** 预览时按哪个节点的权限；null 时全部能改 */
+  let previewAs = _state<string | null>(null);
   // 不做成状态：只在下次重新编译时取一次
   let handle: FlowFormHandle | null = null;
   let selected = _state<string | null>(null);
@@ -139,11 +145,12 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
   const view = computed(() => {
     if (!design || design.fields.some((f) => !f.definition)) return null;
     const manifest: FormManifest = Object.fromEntries(design.fields.map((f) => [f.name, f.definition!]));
+    const node = mode === 'design' ? undefined : previews?.find((p) => p.key === previewAs);
     return {
       manifest,
       values: handle?.values() ?? {},
-      access: { default: 'editable' as const },
-      start: true,
+      access: node?.access ?? { default: 'editable' as const },
+      start: node?.start ?? true,
       compiled: null,
       source: mode === 'design' ? designSource(source, design) : source,
     };
@@ -453,6 +460,17 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
           <ToggleItem value="preview" icon={Eye}>{messages.preview}</ToggleItem>
           <ToggleItem value="readonly" icon={EyeOff}>{messages.previewReadonly}</ToggleItem>
         </ToggleGroup>
+        {mode !== 'design' && previews && previews.length > 0 && (
+          <Select
+            size="sm"
+            aria-label={messages.previewAs}
+            placeholder={messages.previewAsAll}
+            items={previews.map((p) => ({ value: p.key, label: p.label }))}
+            _value={previewAs}
+            clearable
+            style={{ width: '16rem' }}
+          />
+        )}
       </Toolbar>
       {syntax && <Alert tone="warning">{messages.syntaxError(syntax)}</Alert>}
       {warnings().map((w) => (

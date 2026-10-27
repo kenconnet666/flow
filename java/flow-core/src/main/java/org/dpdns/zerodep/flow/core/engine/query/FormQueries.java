@@ -7,8 +7,10 @@ import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.entity.FormEntity;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
+import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
 import org.dpdns.zerodep.flow.core.view.form.FormDocument;
 import org.dpdns.zerodep.flow.core.view.form.FormSummary;
+import org.dpdns.zerodep.flow.core.view.form.FormUsage;
 import org.dpdns.zerodep.flow.core.view.form.FormVersionVO;
 import org.dpdns.zerodep.flow.core.view.form.FormView;
 import org.dpdns.zerodep.flow.model.definition.NodeFormAccess;
@@ -36,6 +38,13 @@ public class FormQueries {
     public List<FormSummary> forms() {
         return context.getDb().queryable(FormEntity.class).orderBy(f -> { f.category().asc(); f.name().asc(); }).toList().stream()
             .map(f -> new FormSummary(f.getFormKey(), f.getName(), f.getCategory(), f.getStatus(), f.getLatestVersion())).toList();
+    }
+
+    /** 最新发布的版本引用了这张表单的流程，按名称排 */
+    public List<FormUsage> usages(String formKey) {
+        form(formKey);
+        return context.getDb().queryable(ProcessEntity.class).where(p -> p.latest().formKey().eq(formKey)).orderBy(p -> p.name().asc())
+            .toList().stream().map(p -> new FormUsage(p.getProcessKey(), p.getName(), p.getLatestVersion())).toList();
     }
 
     /** 表单的全部版本，新的在前 */

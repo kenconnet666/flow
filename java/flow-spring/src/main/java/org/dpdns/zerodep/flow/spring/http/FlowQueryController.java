@@ -83,6 +83,12 @@ public class FlowQueryController extends FlowHttpSupport {
         return respond(() -> engine.formVersions(key));
     }
 
+    /** 用了这张表单的流程（最新发布的版本引用它的） */
+    @GetMapping("/queries/forms/{key}/usages")
+    public Map<String, Object> formUsages(@PathVariable("key") String key) {
+        return respond(() -> engine.formUsages(key));
+    }
+
     /** 表单某个版本的源码与字段清单（version 不写取最新的） */
     @GetMapping("/queries/forms/{key}/document")
     public Map<String, Object> formDocument(@PathVariable("key") String key, @RequestParam(name = "version", required = false) Integer version) {

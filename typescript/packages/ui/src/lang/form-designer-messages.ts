@@ -10,6 +10,9 @@ export interface FlowFormDesignerMessages {
   readonly preview: string;
   /** 只读预览：看审批人、抄送人打开时的样子 */
   readonly previewReadonly: string;
+  /** 预览时按哪个流程节点的权限 */
+  readonly previewAs: string;
+  readonly previewAsAll: string;
   readonly undo: string;
   readonly redo: string;
   readonly remove: string;
@@ -73,6 +76,8 @@ export const flowFormDesignerMessages: MessageTable<FlowFormDesignerMessages> = 
     design: '设计',
     preview: '预览',
     previewReadonly: '只读预览',
+    previewAs: '按节点看',
+    previewAsAll: '不按节点（都能改）',
     undo: '撤销',
     redo: '重做',
     remove: '删除',
@@ -139,6 +144,8 @@ export const flowFormDesignerMessages: MessageTable<FlowFormDesignerMessages> = 
     design: 'Design',
     preview: 'Preview',
     previewReadonly: 'Read-only preview',
+    previewAs: 'View as node',
+    previewAsAll: 'No node (all editable)',
     undo: 'Undo',
     redo: 'Redo',
     remove: 'Delete',

@@ -365,6 +365,13 @@ export interface FormSummary {
 }
 
 /** 表单版本列表的一行 */
+/** 用了某张表单的流程（最新发布的版本引用它） */
+export interface FormUsage {
+  readonly processKey: string;
+  readonly processName: string;
+  readonly version: number;
+}
+
 export interface FormVersion {
   readonly version: number;
   readonly note: string | null;

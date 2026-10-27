@@ -86,6 +86,7 @@ import org.dpdns.zerodep.flow.core.view.definition.StartView;
 import org.dpdns.zerodep.flow.core.view.definition.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.form.FormDocument;
 import org.dpdns.zerodep.flow.core.view.form.FormSummary;
+import org.dpdns.zerodep.flow.core.view.form.FormUsage;
 import org.dpdns.zerodep.flow.core.view.form.FormVersionVO;
 import org.dpdns.zerodep.flow.core.view.instance.CcItem;
 import org.dpdns.zerodep.flow.core.view.instance.IncidentView;
@@ -398,6 +399,15 @@ public class FlowEngine<U extends Actor> {
     public List<FormVersionVO> formVersions(U actor, String formKey) {
         allow(actor, "forms.versions", formKey);
         return formQueries.formVersions(formKey);
+    }
+
+    /** 用了这张表单的流程（当前操作人） */
+    public List<FormUsage> formUsages(String formKey) { return formUsages(actors.current(), formKey); }
+
+    /** 用了这张表单的流程：最新发布的版本引用它的，表单设计器按节点的权限预览时用 */
+    public List<FormUsage> formUsages(U actor, String formKey) {
+        allow(actor, "forms.read", formKey);
+        return formQueries.usages(formKey);
     }
 
     /** 表单某个版本的全部内容（当前操作人） */

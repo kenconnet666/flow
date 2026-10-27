@@ -21,6 +21,7 @@ import type {
   FormDocument,
   FormPublication,
   FormSummary,
+  FormUsage,
   FormVersion,
   Incident,
   InstanceSearch,
@@ -151,6 +152,8 @@ export interface FlowClient {
   forms(signal?: AbortSignal): Promise<readonly FormSummary[]>;
   /** 表单的全部版本，新的在前 */
   formVersions(formKey: string, signal?: AbortSignal): Promise<readonly FormVersion[]>;
+  /** 用了这张表单的流程（表单设计器按节点的权限预览） */
+  formUsages(formKey: string, signal?: AbortSignal): Promise<readonly FormUsage[]>;
   /** 表单某个版本的源码与字段清单；version 不给时取最新的 */
   formDocument(formKey: string, version?: number, signal?: AbortSignal): Promise<FormDocument>;
   /** 发布表单：清单不合规则时报 flow.validation-failed */
@@ -289,6 +292,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     setProcessActive: (processKey, active) => post(`/definitions/${active ? 'enable' : 'disable'}`, { key: processKey }),
     forms: (signal) => get('/queries/forms', signal),
     formVersions: (formKey, signal) => get(`/queries/forms/${seg(formKey)}/versions`, signal),
+    formUsages: (formKey, signal) => get(`/queries/forms/${seg(formKey)}/usages`, signal),
     formDocument: (formKey, version, signal) =>
       get(`/queries/forms/${seg(formKey)}/document`, signal, { version }),
     publishForm: (form) => post('/forms/publish', form),
