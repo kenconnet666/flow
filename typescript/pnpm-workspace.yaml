@@ -20,5 +20,7 @@ catalog:
   '@internationalized/date': 3.12.4
   vite: 8.3.4
   vitest: 5.0.5
+  # 示例的端到端测试（apps/demo/e2e）只用库、不用 @playwright/test；版本同 vue-tsx-pro，浏览器共用本机装好的
+  playwright: 1.64.1
   happy-dom: 21.0.3
   '@types/node': 24.19.2

@@ -18,7 +18,7 @@ Vue 3 前端组件（审批、流程图、流程与表单设计器，建在 vue-
 | `java/flow-it` | 连真实 MySQL 的测试：场景用例（`spec/scenarios`）、并发、多租户、谁能看实例、归档、数据量探针 |
 | `typescript/packages/model` | 模型包的 TypeScript 版 |
 | `typescript/packages/ui` | 前端组件（`@zerodep-dev/flow-ui`） |
-| `typescript/apps/demo` | 示例前端 |
+| `typescript/apps/demo` | 示例前端；`e2e/` 是端到端测试（Playwright，Chromium） |
 | `examples/spring-boot` | 示例后端 |
 | `spec/scenarios` | 前后端共用的场景用例（流程、表单、一步步的命令与期望） |
 | `docs/decisions` | 设计决定（0001–0008） |
@@ -34,6 +34,7 @@ FLOW_MYSQL_DATABASE=flow_demo . infra/mysql/live-env.sh && ./mvnw -pl examples/s
 cd typescript && pnpm install
 pnpm -C apps/demo seed                            # 给示例后端发布采购、请假两个流程与表单
 pnpm -C apps/demo dev                             # 示例前端 http://localhost:5180，/flow 转到 8080
+pnpm -C apps/demo e2e                             # 端到端测试：真实浏览器点示例前端（上面两个都起着）
 ```
 
 现在的进度、已定的取舍与还没做的在 [HANDOFF.md](HANDOFF.md)。

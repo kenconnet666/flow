@@ -8,7 +8,8 @@
     "dev": "vite --configLoader native",
     "build": "vite build --configLoader native",
     "typecheck": "tsc -p .",
-    "seed": "node seed/seed.ts"
+    "seed": "node seed/seed.ts",
+    "e2e": "node --test \"e2e/**/*.test.ts\""
   },
   "dependencies": {
     "@internationalized/date": "catalog:",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "7.1.0-dev.20261023.1",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "playwright": "catalog:"
   }
 }
