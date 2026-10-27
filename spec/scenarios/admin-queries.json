@@ -17,6 +17,10 @@
     { "as": "admin", "command": "instances", "args": { "keyword": "椅" },
       "expect": { "total": 1, "rows": [{ "title": "采购申请：椅子", "status": "terminated" }] } },
     { "as": "admin", "command": "instances", "expect": { "total": 3 } },
+    { "as": "admin", "command": "instances", "args": { "sort": "-status" }, "expect": { "rows": [{ "status": "terminated" }, { "status": "active" }, { "status": "active" }] } },
+    { "as": "admin", "command": "instances", "args": { "sort": "processKey,-title" },
+      "expect": { "rows": [{ "processKey": "notice" }, { "title": "采购申请：椅子" }, { "title": "采购申请：办公桌" }] } },
+    { "as": "admin", "command": "instances", "args": { "sort": "startedBy" }, "expect": { "error": { "code": "flow.validation-failed" } } },
     { "as": "admin", "command": "processes",
       "expect": { "processes": [
         { "key": "notice", "name": "发文审批", "status": "active", "latestVersion": 1 },

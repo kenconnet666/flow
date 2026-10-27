@@ -7,7 +7,8 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * 一页数据，同 vue-tsx-pro 的 {@code TablePage}：{@code { rows, total, page, size, totalPages }}，页码从 1 开始。
+ * 一页数据，同 vue-tsx-pro 的 {@code TablePage}：{@code { rows, total, page, pageSize, totalPages }}，页码从 1 开始；
+ * 名字与请求参数（{@code page}、{@code pageSize}）一致。
  * 条数是 int：编码成 typed JSON 时是普通的 JSON 数字（Long 会写成 bigint 的文字）。
  */
 @Data
@@ -17,15 +18,15 @@ public class Page<T> {
     /** 不分页时满足条件的总行数 */
     private final int total;
     private final int page;
-    private final int size;
+    private final int pageSize;
     private final int totalPages;
 
-    public Page(List<T> rows, int total, int page, int size, int totalPages) {
+    public Page(List<T> rows, int total, int page, int pageSize, int totalPages) {
         rows = List.copyOf(rows);
         this.rows = rows;
         this.total = total;
         this.page = page;
-        this.size = size;
+        this.pageSize = pageSize;
         this.totalPages = totalPages;
     }
 
@@ -41,6 +42,6 @@ public class Page<T> {
 
     /** 每一行换个样子 */
     public <R> Page<R> map(Function<T, R> mapper) {
-        return new Page<>(rows.stream().map(mapper).toList(), total, page, size, totalPages);
+        return new Page<>(rows.stream().map(mapper).toList(), total, page, pageSize, totalPages);
     }
 }

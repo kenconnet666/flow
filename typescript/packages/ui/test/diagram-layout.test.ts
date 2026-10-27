@@ -1,4 +1,4 @@
-// 流程图的自动排版：按步数分列；退回的线、绕回去的线不算步数；画过布局的节点用自己的位置
+// 流程图的自动排版（算法本身在组件库的 layoutLayers 里测）：退回的线不算步数；节点按类型的大小；画过布局的节点用自己的位置
 import { describe, expect, it } from 'vitest';
 import type { ProcessDiagram } from '../src/client/types';
 import { layoutDiagram } from '../src/runtime/diagram-layout';

@@ -1,6 +1,7 @@
 /**
  * 引擎 HTTP 接口的客户端（0006 的 7.3）：一个命令一个方法，结果的类型在 types.ts。建在组件库的请求层上：
- * 响应体按 0008 拆包（出错时抛带业务错误码的 HttpError），typed JSON 还原（编号是 bigint）。
+ * 响应体按 0008 拆包（出错时抛带业务错误码的 HttpError），typed JSON 还原（编号是 bigint）；地址栏参数里的 null、undefined
+ * 由请求层略过，bigint、日期由它写成文字，这里不再处理。
  *
  *   const flow = createFlowClient(createHttpClient({ headers: { … } }));
  *   provideFlowClient(flow);                     // 应用根上给一次，流程组件里 useFlowClient() 取
@@ -9,7 +10,7 @@
  * 不给时组件取 `createFlowClient(useHttp())`：用组件库配置里的请求客户端，前缀 /flow。
  */
 import type { CcItem, Id, ProcessInstance, TodoItem } from '@zerodep-dev/flow-model';
-import { useHttp, type HttpClient, type TablePage } from '@zerodep-dev/vue-tsx-pro-ui';
+import { formatSorts, scopeHttp, useHttp, type HttpClient, type QueryValue, type SortState, type TablePage } from '@zerodep-dev/vue-tsx-pro-ui';
 import { inject, provide, type InjectionKey } from 'vue';
 import type {
   AddSignersCommand,
@@ -59,17 +60,17 @@ import type {
   WorkItemView,
 } from './types';
 
-/** 一页：同 query 的表格接口 */
+/** 一页：组件库表格的 TablePage，加上页码、每页条数、总页数（后端的 Page） */
 export interface FlowPage<T> extends TablePage<T> {
   readonly page: number;
-  readonly size: number;
+  readonly pageSize: number;
+  readonly totalPages: number;
 }
 
 /** 一页待办 */
 export type TodoPage = FlowPage<TodoItem>;
 
-/** 分页的参数 */
-/** 我已办、我发起的、抄送我的的筛选：流程、起止时刻（ISO） */
+/** 我的待办、我已办、我发起的、抄送我的的筛选：流程、起止时刻（ISO）、接入方的参数 */
 export interface ListQuery {
   readonly processKey?: string;
   readonly from?: string;
@@ -78,15 +79,20 @@ export interface ListQuery {
   readonly business?: Readonly<Record<string, string>>;
 }
 
+/** 分页与排序的参数：同组件库表格的请求（useTableQuery） */
 export interface PageQuery {
   readonly page: number;
   readonly pageSize: number;
+  /**
+   * 排序：直接给组件库表格的 q.sorts，发出去时写成 formatSorts 的文字（`-startedAt,title`）；空的是默认顺序。
+   * 后端每个列表只认自己的几列（我发起的、管理端搜实例、我已办、抄送我的；我的待办不排）
+   */
+  readonly sorts?: readonly SortState[];
 }
 
-/** 列表查询的参数：接入方的筛选参数展开成 biz.名字 */
-function listParams({ business, ...rest }: PageQuery & ListQuery): Record<string, string | number> {
-  const out: Record<string, string | number> = {};
-  for (const [name, value] of Object.entries(rest)) if (value !== undefined) out[name] = value;
+/** 列表查询的参数：接入方的筛选参数展开成 biz.名字（后端的 TodoQueryCustomizer 收到去掉前缀的） */
+function listParams({ business, sorts, ...rest }: PageQuery & ListQuery): Record<string, QueryValue> {
+  const out: Record<string, QueryValue> = { ...rest, ...(sorts?.length ? { sort: formatSorts(sorts) } : {}) };
   for (const [name, value] of Object.entries(business ?? {})) out[`biz.${name}`] = value;
   return out;
 }
@@ -239,12 +245,15 @@ export interface FlowClientOptions {
 
 /** 在一个请求客户端上建引擎的客户端 */
 export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowClientOptions = {}): FlowClient {
-  const get = <T>(path: string, signal?: AbortSignal, query?: Record<string, number | string>) =>
-    http.request<T>({ url: prefix + path, ...(signal ? { signal } : {}), ...(query ? { query } : {}) });
-  const post = <T>(path: string, body: unknown) => http.request<T>({ url: prefix + path, method: 'POST', body });
+  const api = scopeHttp(http, prefix);
+  const get = <T>(path: string, signal?: AbortSignal, query?: Readonly<Record<string, QueryValue>>) =>
+    api.get<T>(path, { ...(signal ? { signal } : {}), ...(query ? { query } : {}) });
+  const post = <T>(path: string, body: unknown) => api.post<T>(path, body);
+  /** 地址里的一段（流程、表单的标识可能有斜杠以外的特殊字） */
+  const seg = encodeURIComponent;
   return {
     startable: (signal) => get('/queries/startable', signal),
-    startView: (key, signal, draftId) => get(`/queries/start/${encodeURIComponent(key)}`, signal, draftId == null ? {} : { draftId: String(draftId) }),
+    startView: (key, signal, draftId) => get(`/queries/start/${seg(key)}`, signal, { draftId }),
     saveStartDraft: (command) => post('/commands/save-start-draft', command),
     discardStartDraft: (draftId) => post('/commands/discard-start-draft', { draftId }),
     startDrafts: (signal) => get('/queries/start-drafts', signal),
@@ -253,34 +262,33 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     designations: ({ page, pageSize }, signal) => get('/queries/designations', signal, { page, pageSize }),
     started: (query, signal) => get('/queries/started', signal, listParams(query)),
     ccList: (query, signal) => get('/queries/cc', signal, listParams(query)),
-    instances: ({ page, pageSize, ...search }, signal) => {
-      // 空的条件不发：后端按"不限"处理
-      const filters = Object.fromEntries(Object.entries(search).filter(([, v]) => v != null && v !== '')) as Record<string, string>;
-      return get('/queries/instances', signal, { page, pageSize, ...filters });
+    instances: ({ page, pageSize, sorts, ...search }, signal) => {
+      // 空的文字也不发（null、undefined 请求层会略过）：后端按"不限"处理
+      const filters = Object.fromEntries(Object.entries(search).filter(([, v]) => v !== '')) as Record<string, QueryValue>;
+      return get('/queries/instances', signal, { ...listParams({ page, pageSize, ...(sorts ? { sorts } : {}) }), ...filters });
     },
     processes: (signal) => get('/queries/processes', signal),
     incidents: ({ page, pageSize, instanceId }, signal) =>
-      get('/queries/incidents', signal, { page, pageSize, ...(instanceId == null ? {} : { instanceId: String(instanceId) }) }),
-    versions: (processKey, signal) => get(`/queries/processes/${encodeURIComponent(processKey)}/versions`, signal),
+      get('/queries/incidents', signal, { page, pageSize, instanceId }),
+    versions: (processKey, signal) => get(`/queries/processes/${seg(processKey)}/versions`, signal),
     compileFormCode: (source) => post('/forms/compile', { source }),
     formAction: (command) => post('/forms/actions', command),
-    designDraft: (kind, key, signal) => get(`/queries/drafts/${kind}/${encodeURIComponent(key)}`, signal),
+    designDraft: (kind, key, signal) => get(`/queries/drafts/${kind}/${seg(key)}`, signal),
     designDrafts: (kind, signal) => get(`/queries/drafts/${kind}`, signal),
     saveDesignDraft: (command) => post('/drafts/save', command),
     discardDesignDraft: async (kind, key) => {
       await post('/drafts/discard', { kind, key });
     },
     definitionJson: (processKey, version, signal) =>
-      get(`/queries/processes/${encodeURIComponent(processKey)}/definition`, signal, version == null ? {} : { version }),
+      get(`/queries/processes/${seg(processKey)}/definition`, signal, { version }),
     // 定义的原文按文字发（不经 JSON 序列化）：写错的 JSON 也让后端报出位置
-    validateDefinition: (json) => http.request({ url: prefix + '/definitions/validate', method: 'POST', body: json }),
-    publishDefinition: (json, note) =>
-      http.request({ url: prefix + '/definitions/publish', method: 'POST', body: json, ...(note ? { query: { note } } : {}) }),
+    validateDefinition: (json) => post('/definitions/validate', json),
+    publishDefinition: (json, note) => api.post('/definitions/publish', json, { query: { note } }),
     setProcessActive: (processKey, active) => post(`/definitions/${active ? 'enable' : 'disable'}`, { key: processKey }),
     forms: (signal) => get('/queries/forms', signal),
-    formVersions: (formKey, signal) => get(`/queries/forms/${encodeURIComponent(formKey)}/versions`, signal),
+    formVersions: (formKey, signal) => get(`/queries/forms/${seg(formKey)}/versions`, signal),
     formDocument: (formKey, version, signal) =>
-      get(`/queries/forms/${encodeURIComponent(formKey)}/document`, signal, version == null ? {} : { version }),
+      get(`/queries/forms/${seg(formKey)}/document`, signal, { version }),
     publishForm: (form) => post('/forms/publish', form),
     setFormActive: (formKey, active) => post(`/forms/${active ? 'enable' : 'disable'}`, { key: formKey }),
     workItem: (id, signal) => get(`/queries/work-items/${id}`, signal),
@@ -298,8 +306,8 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     migrate: (command) => post('/admin/migrate', command),
     progress: (instanceId, signal) => get(`/queries/instances/${instanceId}/progress`, signal),
     processStats: (signal) => get('/queries/stats/processes', signal),
-    nodeStats: (processKey, since, signal) => get('/queries/stats/nodes', signal, { processKey, ...(since ? { since } : {}) }),
-    handlerStats: (since, signal) => get('/queries/stats/handlers', signal, { ...(since ? { since } : {}) }),
+    nodeStats: (processKey, since, signal) => get('/queries/stats/nodes', signal, { processKey, since }),
+    handlerStats: (since, signal) => get('/queries/stats/handlers', signal, { since }),
     calendars: (signal) => get('/queries/calendars', signal),
     saveCalendar: (calendar) => post('/calendars/save', calendar),
     deleteCalendar: async (name) => {

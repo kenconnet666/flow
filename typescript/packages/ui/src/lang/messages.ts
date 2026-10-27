@@ -62,9 +62,8 @@ export interface FlowMessages {
   readonly startDrafts: string;
   readonly continueDraft: string;
   readonly draftSavedAt: (at: string) => string;
-  /** 列表筛选的起止日期 */
-  readonly dateFrom: string;
-  readonly dateTo: string;
+  /** 列表筛选的日期区间 */
+  readonly dateRange: string;
   /** 工作日历 */
   readonly calendars: string;
   readonly calendarsHint: string;
@@ -613,8 +612,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     continueDraft: '接着填',
     draftSavedAt: (at) => `存于 ${at}`,
     formNotPublished: '表单发布之后才能调后端代码的接口',
-    dateFrom: '从',
-    dateTo: '到',
+    dateRange: '时间',
     calendars: '工作日历',
     calendarsHint: '时限写成工作日时按它算。流程定义的 settings.calendar 写日历的名字，不写用 default；一份都没建时按周一到周五算。',
     calendarPick: '改哪一份',
@@ -870,8 +868,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     continueDraft: 'Continue',
     draftSavedAt: (at) => `Saved ${at}`,
     formNotPublished: 'The form backend code can be called once the form is published',
-    dateFrom: 'From',
-    dateTo: 'To',
+    dateRange: 'Date',
     calendars: 'Work calendars',
     calendarsHint: 'Deadlines in workdays use them. A process names its calendar in settings.calendar (default when missing); with none, Monday to Friday.',
     calendarPick: 'Edit',

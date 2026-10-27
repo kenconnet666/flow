@@ -33,6 +33,7 @@ import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 
 import java.util.List;
+import java.util.Set;
 
 /** 实例的查询：管理端搜实例、我发起的、实例详情、异常（重试用完的作业）。 */
 public class InstanceQueries {
@@ -57,7 +58,14 @@ public class InstanceQueries {
         private final String keyword;
         /** 发起人 */
         private final Long startedBy;
+        /** 排序：能按 {@link #SEARCH_SORTS} 里的列排 */
+        private final SortOrder sort;
     }
+
+    /** 管理端搜实例能排的列 */
+    public static final Set<String> SEARCH_SORTS = Set.of("startedAt", "endedAt", "title", "status", "processKey", "priority");
+    /** 我发起的能排的列 */
+    public static final Set<String> STARTED_SORTS = Set.of("startedAt", "endedAt", "title", "status");
 
     /** 管理端搜实例：按发起时间从新到旧；有状态、流程时走（租户, 状态, 流程, 发起时间）的索引 */
     public Page<InstanceVO> instances(InstanceSearch search, int page, int size) {
@@ -69,6 +77,7 @@ public class InstanceQueries {
                 if (search.getKeyword() != null && !search.getKeyword().isBlank()) i.title().like(search.getKeyword().trim());
                 if (search.getStartedBy() != null) i.startedBy().eq(search.getStartedBy());
             })
+            .orderByObject(!search.getSort().isEmpty(), search.getSort().allow(SEARCH_SORTS))
             .orderBy(i -> { i.startedAt().desc(); i.id().desc(); })
             .select(InstanceVO.class).toPageResult(page, size), page, size);
     }
@@ -113,6 +122,7 @@ public class InstanceQueries {
                 if (filter.getFrom() != null) i.startedAt().ge(filter.getFrom());
                 if (filter.getTo() != null) i.startedAt().lt(filter.getTo());
             })
+            .orderByObject(!filter.getSort().isEmpty(), filter.getSort().allow(STARTED_SORTS))
             .orderBy(i -> { i.startedAt().desc(); i.id().desc(); })
             .select(InstanceVO.class).toPageResult(page, size), page, size);
     }

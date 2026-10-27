@@ -44,7 +44,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
   const query = useTableQuery(
     (q, signal) =>
       list === 'done'
-        ? flow.done({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters), ...(business ? { business } : {}) }, signal)
+        ? flow.done({ page: q.page, pageSize: q.pageSize, sorts: q.sorts, ...listFilterParams(q.filters), ...(business ? { business } : {}) }, signal)
         : list === 'todo'
           ? flow.todo({ page: q.page, pageSize: q.pageSize, ...(business ? { business } : {}) }, signal)
           : flow.designations({ page: q.page, pageSize: q.pageSize }, signal),
@@ -126,6 +126,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
       header: messages.columnCompletedAt,
       width: 180,
       type: 'dateTime',
+      sortable: true,
       value: (item) => item.completedAt,
     },
   ];

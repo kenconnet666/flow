@@ -210,6 +210,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   async function reloadDraft() {
     const latest = await draft.reload();
     if (latest?.content) showDraft(latest.content);
+    draft.ready();
   }
 
   /** 换写法：清单换成设计、代码时按清单生成一份；代码换回清单时用代码里取出的清单（代码丢掉） */

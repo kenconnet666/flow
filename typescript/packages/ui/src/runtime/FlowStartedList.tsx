@@ -31,7 +31,7 @@ export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const filterFields = useListFilters();
-  const query = useTableQuery((q, signal) => flow.started({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters) }, signal), {
+  const query = useTableQuery((q, signal) => flow.started({ page: q.page, pageSize: q.pageSize, sorts: q.sorts, ...listFilterParams(q.filters) }, signal), {
     pageSize,
     filters: { ...BLANK_LIST_FILTERS },
   });
@@ -40,6 +40,7 @@ export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20
     {
       key: 'title',
       header: messages.columnTitle,
+      sortable: true,
       value: (instance) => instance.title ?? instance.processKey,
       cell: (instance) => (
         <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), onOpen(instance))}>
@@ -50,6 +51,7 @@ export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20
     {
       key: 'status',
       header: messages.columnStatus,
+      sortable: true,
       width: 100,
       value: (instance) => instance.status,
       cell: (instance) => <Badge tone={statusTone(instance.status)}>{messages.status[instance.status] ?? instance.status}</Badge>,
@@ -63,6 +65,7 @@ export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20
     {
       key: 'startedAt',
       header: messages.startedAt,
+      sortable: true,
       width: 180,
       type: 'dateTime',
       value: (instance) => instance.startedAt,

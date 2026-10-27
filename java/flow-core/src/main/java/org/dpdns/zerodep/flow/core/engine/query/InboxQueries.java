@@ -26,6 +26,11 @@ public class InboxQueries {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
+    /** 我已办能排的列 */
+    public static final Set<String> DONE_SORTS = Set.of("completedAt", "createdAt", "nodeName");
+    /** 抄送我的能排的列 */
+    public static final Set<String> CC_SORTS = Set.of("createdAt", "readAt");
+
     public InboxQueries(EngineContext context) {
         this.context = context;
         this.definitions = context.getDefinitions();
@@ -102,6 +107,7 @@ public class InboxQueries {
                 if (filter.getFrom() != null) w.completedAt().ge(filter.getFrom());
                 if (filter.getTo() != null) w.completedAt().lt(filter.getTo());
             })
+            .orderByObject(!filter.getSort().isEmpty(), filter.getSort().allow(DONE_SORTS))
             .orderBy(w -> { w.completedAt().desc(); w.id().desc(); })
             .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
         rows.getRows().forEach(this::labelOutcome);
@@ -134,6 +140,7 @@ public class InboxQueries {
                 if (filter.getFrom() != null) c.createdAt().ge(filter.getFrom());
                 if (filter.getTo() != null) c.createdAt().lt(filter.getTo());
             })
+            .orderByObject(!filter.getSort().isEmpty(), filter.getSort().allow(CC_SORTS))
             .orderBy(c -> { c.readAt().desc(true, OrderByModeEnum.NULLS_FIRST); c.createdAt().desc(); c.id().desc(); })
             .selectAutoInclude(CcItem.class).toPageResult(page, size), page, size);
     }

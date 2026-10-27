@@ -37,6 +37,7 @@ import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
+import org.dpdns.zerodep.flow.core.engine.query.SortOrder;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.it.scenario.Scenario.Step;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
@@ -131,11 +132,11 @@ class ScenarioRunner {
                 case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.id("instance"), args.text("reason"))));
                 case "startable" -> wire(Map.of("processes", engine.startable(actor)));
                 case "startView" -> view(engine.startView(actor, args.text("key"), args.id("draft")));
-                case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("size", 20)));
+                case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("pageSize", 20)));
                 case "workItem" -> view(engine.workItem(actor, args.id("workItem")));
-                case "done" -> page(engine.done(actor, args.filter(), args.number("page", 1), args.number("size", 20)));
+                case "done" -> page(engine.done(actor, args.filter(), args.number("page", 1), args.number("pageSize", 20)));
                 case "instances" -> page(engine.instances(actor, new InstanceSearch(args.text("status"), args.text("processKey"),
-                    args.text("keyword"), args.id("startedBy")), args.number("page", 1), args.number("size", 20)));
+                    args.text("keyword"), args.id("startedBy"), SortOrder.parse(args.text("sort"))), args.number("page", 1), args.number("pageSize", 20)));
                 case "validateDefinition" -> wire(Map.of("problems", engine.validateDefinition(actor, Json.write(args.raw("definition")))));
                 case "disableProcess" -> view(engine.setProcessActive(actor, args.text("key"), false));
                 case "enableProcess" -> view(engine.setProcessActive(actor, args.text("key"), true));
@@ -151,8 +152,8 @@ class ScenarioRunner {
                     yield wire(Map.of("id", form.getId(), "key", form.getFormKey(), "version", form.getVersion()));   // 同 HTTP 接口的响应
                 }
                 case "processes" -> wire(Map.of("processes", engine.processes(actor)));
-                case "incidents" -> page(engine.incidents(actor, args.id("instance"), args.number("page", 1), args.number("size", 20)));
-                case "started" -> page(engine.started(actor, args.filter(), args.number("page", 1), args.number("size", 20)));
+                case "incidents" -> page(engine.incidents(actor, args.id("instance"), args.number("page", 1), args.number("pageSize", 20)));
+                case "started" -> page(engine.started(actor, args.filter(), args.number("page", 1), args.number("pageSize", 20)));
                 case "instance" -> view(engine.instance(actor, args.id("instance")));
                 case "transfer" -> commandResult(engine.transfer(actor, new TransferCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
                 case "delegate" -> commandResult(engine.delegate(actor, new DelegateCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
@@ -170,13 +171,13 @@ class ScenarioRunner {
                 case "batchClaim" -> wire(Map.of("results", engine.batchClaim(actor, args.ids("workItems"))));
                 case "batchComplete" -> wire(Map.of("results", engine.batchComplete(actor, args.ids("workItems"), args.text("outcome"), args.text("comment"))));
                 case "changeData" -> commandResult(engine.changeData(actor, new ChangeDataCommand(args.id("instance"), Variables.of(args.map("variables")), FormValues.of(args.map("form")), args.text("reason"))));
-                case "designations" -> page(engine.designations(actor, args.number("page", 1), args.number("size", 20)));
+                case "designations" -> page(engine.designations(actor, args.number("page", 1), args.number("pageSize", 20)));
                 case "retryJob" -> Map.of("revived", engine.retryJob(actor, new RetryJobCommand(args.id("job"))));
                 case "skipJob" -> commandResult(engine.skipJob(actor, new SkipJobCommand(args.id("job"), args.text("outcome"), args.text("reason"))));
                 case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
                 case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));
                 case "readWorkItem" -> Map.of("read", engine.readWorkItem(actor, new ReadWorkItemCommand(args.id("workItem"))));
-                case "ccList" -> page(engine.ccList(actor, args.filter(), args.number("page", 1), args.number("size", 20)));
+                case "ccList" -> page(engine.ccList(actor, args.filter(), args.number("page", 1), args.number("pageSize", 20)));
                 case "terminate" -> commandResult(engine.terminate(actor, new TerminateCommand(args.id("instance"), args.text("reason"))));
                 case "suspend" -> commandResult(engine.suspend(actor, new SuspendCommand(args.id("instance"), args.text("reason"))));
                 case "resume" -> commandResult(engine.resume(actor, new ResumeCommand(args.id("instance"))));
@@ -288,7 +289,8 @@ class ScenarioRunner {
         ListFilter filter() {
             String from = text("from");
             String to = text("to");
-            return new ListFilter(text("processKey"), from == null ? null : Instant.parse(from), to == null ? null : Instant.parse(to));
+            return new ListFilter(text("processKey"), from == null ? null : Instant.parse(from), to == null ? null : Instant.parse(to), Map.of(),
+                SortOrder.parse(text("sort")));
         }
 
         /** 一串编号 */

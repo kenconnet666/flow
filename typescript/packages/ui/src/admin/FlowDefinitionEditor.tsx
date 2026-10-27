@@ -165,6 +165,7 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
   async function reloadDraft() {
     const latest = await draft.reload();
     if (latest?.content) show(latest.content);
+    draft.ready();
   }
 
   /** 换写法：设计 → JSON 按定义排版；JSON → 设计要读得出 JSON，读不出时留在 JSON 并提示 */

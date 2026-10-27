@@ -31,7 +31,7 @@ export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, tit
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const filterFields = useListFilters();
-  const query = useTableQuery((q, signal) => flow.ccList({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters) }, signal), {
+  const query = useTableQuery((q, signal) => flow.ccList({ page: q.page, pageSize: q.pageSize, sorts: q.sorts, ...listFilterParams(q.filters) }, signal), {
     pageSize,
     filters: { ...BLANK_LIST_FILTERS },
   });
@@ -70,7 +70,7 @@ export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, tit
       value: (item) => item.instance?.status ?? '',
       cell: (item) => item.instance && <Badge tone={statusTone(item.instance.status)}>{messages.status[item.instance.status] ?? item.instance.status}</Badge>,
     },
-    { key: 'createdAt', header: messages.columnCcAt, width: 170, type: 'dateTime', value: (item) => item.createdAt },
+    { key: 'createdAt', header: messages.columnCcAt, width: 170, type: 'dateTime', sortable: true, value: (item) => item.createdAt },
   ];
 
   return () => (

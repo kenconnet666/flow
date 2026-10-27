@@ -37,11 +37,11 @@
 | `withdrawStep` | `workItem`、`reason` | 同上（处理人撤回刚处理的一步） |
 | `startable` | — | `processes`（每项 `{ key, name, category, version }`） |
 | `startView` | `key`，或 `draft`（接着草稿填） | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null）、`picks` |
-| `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行是待办本身，加上经导航读出的 `instance: { id, definitionId, title, summary, status }` 与 `outcomeLabel`） |
+| `todo`、`done` | `page`（默认 1）、`pageSize`（默认 20）；`done` 还有 `processKey`、`from`、`to`、`sort`（`-completedAt` 这样，见组件库的 formatSorts） | `total`、`rows`（每行是待办本身，加上经导航读出的 `instance: { id, definitionId, title, summary, status }` 与 `outcomeLabel`） |
 | `started` | 同上 | `total`、`rows`（每行是实例） |
-| `instances` | `status`、`processKey`、`keyword`、`startedBy`、`page`、`size` | 同上（管理端搜实例） |
+| `instances` | `status`、`processKey`、`keyword`、`startedBy`、`sort`、`page`、`pageSize` | 同上（管理端搜实例） |
 | `processes` | — | `processes`（每项 `{ key, name, category, status, latestVersion }`） |
-| `incidents` | `instance`（不写时看全部）、`page`、`size` | `total`、`rows`（异常：重试用完的作业，带节点、能不能跳过、能选的结果） |
+| `incidents` | `instance`（不写时看全部）、`page`、`pageSize` | `total`、`rows`（异常：重试用完的作业，带节点、能不能跳过、能选的结果） |
 | `workItem` | `workItem` | `workItem`、`instance`、`form`、`outcomes`、`claimable`、`completable`、`actions` |
 | `instance` | `instance` | `instance`、`form`（同发起页的 form，按流程级 formView 只读）、`workItems`（全部待办）、`timeline`、`actions` |
 | `transfer`、`delegate`、`reassign` | `workItem`、`user`、`reason` | 同 `start` |
@@ -53,13 +53,13 @@
 | `cc` | `instance`、`users`、`message` | 同 `start` |
 | `readCc` | `instance` | `read`（标了几条） |
 | `readWorkItem` | `workItem` | `read`（是否标了：只有处理人第一次打开时为 true） |
-| `ccList` | `page`、`size` | `total`、`rows`（每行是抄送本身，加上经导航读出的 `instance`） |
+| `ccList` | `page`、`pageSize`、`sort` | `total`、`rows`（每行是抄送本身，加上经导航读出的 `instance`） |
 | `terminate`、`suspend` | `instance`、`reason` | 同 `start` |
 | `resume` | `instance` | 同 `start` |
 | `jump` | `instance`、`node`、`reason` | 同 `start` |
 | `signal` | `instance` 或 `businessKey`、`event`、`outcome`、`data` | `results`（每个往下走或记了一笔的实例这一步的结果，同 `start`） |
 | `assign` | `workItem`、`user` | 同 `start`（收件箱负责人指定承办人） |
-| `designations` | `page`、`size` | 同 `todo`（等我指定承办人的） |
+| `designations` | `page`、`pageSize` | 同 `todo`（等我指定承办人的） |
 | `retryJob` | `job`（作业编号，`job.failed` 的 data 里有） | `revived` |
 | `skipJob` | `job`、`outcome`、`reason` | 同 `complete`（跳过失败的作业，按结果往下走） |
 | `runJobs` | `at`：把时钟拨到这一刻（不能往回拨），做到期的作业；这一步不写 `as` | `ran`（做了几个作业） |

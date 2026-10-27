@@ -3,6 +3,7 @@ package org.dpdns.zerodep.flow.spring.http;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
+import org.dpdns.zerodep.flow.core.engine.query.SortOrder;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
 import org.dpdns.zerodep.flow.model.error.FlowException;
@@ -338,25 +339,20 @@ public class FlowHttpController {
         return respond(() -> engine.startView(key, draftId));
     }
 
-    /** 我的待办；参数名同 vue-tsx-pro 的表格请求（page、pageSize） */
+    /** 我的待办；参数名同 vue-tsx-pro 的表格请求（page、pageSize），筛选见 {@link #filter}（不支持排序） */
     @GetMapping("/queries/todo")
     public Map<String, Object> todo(@RequestParam(name = "page", defaultValue = "1") int page,
                                        @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
-                                       @RequestParam(name = "processKey", required = false) String processKey,
                                        @RequestParam Map<String, String> query) {
-        return respond(() -> engine.todo(new ListFilter(processKey, null, null, business(query)), page, pageSize));
+        return respond(() -> engine.todo(filter(query), page, pageSize));
     }
 
     /** 我已办 */
     @GetMapping("/queries/done")
     public Map<String, Object> done(@RequestParam(name = "page", defaultValue = "1") int page,
                                        @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
-                                       @RequestParam(name = "processKey", required = false) String processKey,
-                                       @RequestParam(name = "from", required = false) String from,
-                                       @RequestParam(name = "to", required = false) String to,
                                        @RequestParam Map<String, String> query) {
-        ListFilter filter = filter(processKey, from, to);
-        return respond(() -> engine.done(new ListFilter(filter.getProcessKey(), filter.getFrom(), filter.getTo(), business(query)), page, pageSize));
+        return respond(() -> engine.done(filter(query), page, pageSize));
     }
 
     /** 外部事件：{@code { instanceId 或 businessKey, event, outcome, data }}，返回 {@code { results: [每个往下走的实例这一步的结果] }} */
@@ -371,9 +367,10 @@ public class FlowHttpController {
                                         @RequestParam(name = "processKey", required = false) String processKey,
                                         @RequestParam(name = "keyword", required = false) String keyword,
                                         @RequestParam(name = "startedBy", required = false) Long startedBy,
+                                        @RequestParam(name = "sort", required = false) String sort,
                                         @RequestParam(name = "page", defaultValue = "1") int page,
                                         @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-        return respond(() -> engine.instances(new InstanceSearch(status, processKey, keyword, startedBy), page, pageSize));
+        return respond(() -> engine.instances(new InstanceSearch(status, processKey, keyword, startedBy, SortOrder.parse(sort)), page, pageSize));
     }
 
     /** 校验定义、不发布：请求体是 0005 的定义 JSON，返回 {@code { problems: [...] }} */
@@ -443,10 +440,8 @@ public class FlowHttpController {
     @GetMapping("/queries/cc")
     public Map<String, Object> ccList(@RequestParam(name = "page", defaultValue = "1") int page,
                                        @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
-                                       @RequestParam(name = "processKey", required = false) String processKey,
-                                       @RequestParam(name = "from", required = false) String from,
-                                       @RequestParam(name = "to", required = false) String to) {
-        return respond(() -> engine.ccList(filter(processKey, from, to), page, pageSize));
+                                       @RequestParam Map<String, String> query) {
+        return respond(() -> engine.ccList(filter(query), page, pageSize));
     }
 
     /** 抄送：{@code { instanceId, users, message }} */
@@ -483,23 +478,24 @@ public class FlowHttpController {
     @GetMapping("/queries/started")
     public Map<String, Object> started(@RequestParam(name = "page", defaultValue = "1") int page,
                                        @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
-                                       @RequestParam(name = "processKey", required = false) String processKey,
-                                       @RequestParam(name = "from", required = false) String from,
-                                       @RequestParam(name = "to", required = false) String to) {
-        return respond(() -> engine.started(filter(processKey, from, to), page, pageSize));
+                                       @RequestParam Map<String, String> query) {
+        return respond(() -> engine.started(filter(query), page, pageSize));
     }
 
-    /** 列表的筛选：时刻写成 ISO 的文字（2026-10-01T00:00:00Z） */
-    /** 查询串里 {@code biz.} 开头的参数去掉前缀：接入方自己的筛选（TodoQueryCustomizer） */
-    private static Map<String, String> business(Map<String, String> query) {
-        Map<String, String> out = new LinkedHashMap<>();
-        query.forEach((name, value) -> { if (name.startsWith("biz.")) out.put(name.substring("biz.".length()), value); });
-        return out;
+    /**
+     * 列表的筛选与排序，都在查询串里：{@code processKey}；{@code from}、{@code to} 是 ISO 的时刻（2026-10-01T00:00:00Z）；
+     * {@code sort} 同组件库 formatSorts 的写法（{@code -startedAt,title}）；{@code biz.} 开头的去掉前缀交给接入方（TodoQueryCustomizer）
+     */
+    private static ListFilter filter(Map<String, String> query) {
+        Map<String, String> business = new LinkedHashMap<>();
+        query.forEach((name, value) -> { if (name.startsWith("biz.")) business.put(name.substring("biz.".length()), value); });
+        return new ListFilter(blankToNull(query.get("processKey")), instant(query.get("from")), instant(query.get("to")), business,
+            SortOrder.parse(query.get("sort")));
     }
 
-    private static ListFilter filter(String processKey, String from, String to) {
-        return new ListFilter(processKey, from == null || from.isBlank() ? null : Instant.parse(from), to == null || to.isBlank() ? null : Instant.parse(to));
-    }
+    private static Instant instant(String text) { return text == null || text.isBlank() ? null : Instant.parse(text); }
+
+    private static String blankToNull(String text) { return text == null || text.isBlank() ? null : text; }
 
     /** 待办详情：表单、处理结果、我能不能认领与处理 */
     @GetMapping("/queries/work-items/{id}")

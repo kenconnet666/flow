@@ -6,7 +6,7 @@
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Button, Flex, Small, useFormat } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useFlowMessages } from '../lang/messages';
-import type { DesignDraftStatus } from './design-draft';
+import { conflictWith, type DesignDraftStatus } from './design-draft';
 
 /** DraftBanner 的属性 */
 export interface DraftBannerProps {
@@ -31,7 +31,7 @@ export const DraftBanner = _component(({ opened, status, onDiscard, onReload }: 
       {status.state === 'conflict' && (
         <Alert tone="warning">
           <Flex gap="sm" align="center" wrap>
-            {messages.draftConflict(status.conflictWith)}
+            {messages.draftConflict(conflictWith(status))}
             <Button size="sm" variant="outline" onClick={onReload}>{messages.reloadDraft}</Button>
           </Flex>
         </Alert>

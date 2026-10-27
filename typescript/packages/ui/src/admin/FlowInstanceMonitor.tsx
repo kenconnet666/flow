@@ -6,8 +6,7 @@
  */
 import type { ProcessInstance } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import {
-  Badge,
+import { Badge,
   Field,
   Link,
   Select,
@@ -43,7 +42,7 @@ export const FlowInstanceMonitor = _component(({ onOpen, pageSize = 20 }: FlowIn
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const processes = useRequest((_: undefined, signal) => flow.processes(signal));
-  const query = useTableQuery((q, signal) => flow.instances({ page: q.page, pageSize: q.pageSize, ...q.filters }, signal), {
+  const query = useTableQuery((q, signal) => flow.instances({ page: q.page, pageSize: q.pageSize, sorts: q.sorts, ...q.filters }, signal), {
     pageSize,
     filters: { ...BLANK },
   });
@@ -56,6 +55,7 @@ export const FlowInstanceMonitor = _component(({ onOpen, pageSize = 20 }: FlowIn
     {
       key: 'title',
       header: messages.columnTitle,
+      sortable: true,
       value: (instance) => instance.title ?? instance.processKey,
       cell: (instance) => (
         <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), onOpen(instance))}>
@@ -63,17 +63,18 @@ export const FlowInstanceMonitor = _component(({ onOpen, pageSize = 20 }: FlowIn
         </Link>
       ),
     },
-    { key: 'process', header: messages.columnProcess, width: 120, value: (instance) => processName(instance.processKey) },
+    { key: 'processKey', header: messages.columnProcess, width: 120, sortable: true, value: (instance) => processName(instance.processKey) },
     {
       key: 'status',
       header: messages.columnStatus,
+      sortable: true,
       width: 100,
       value: (instance) => instance.status,
       cell: (instance) => <Badge tone={statusTone(instance.status)}>{messages.status[instance.status] ?? instance.status}</Badge>,
     },
     { key: 'current', header: messages.columnCurrent, width: 160, value: (instance) => instance.current.map((c) => c.name ?? c.node).join('、') },
     { key: 'startedBy', header: messages.startedBy, width: 100, value: (instance) => instance.startedByName ?? '' },
-    { key: 'startedAt', header: messages.startedAt, width: 170, type: 'dateTime', value: (instance) => instance.startedAt },
+    { key: 'startedAt', header: messages.startedAt, width: 170, type: 'dateTime', sortable: true, value: (instance) => instance.startedAt },
   ];
 
   return () => (
