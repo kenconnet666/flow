@@ -16,6 +16,7 @@ import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDesignDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
@@ -75,6 +76,11 @@ class RequestBody {
     /** {@code { workItemId, outcome, comment, form, picks, returnTarget }} */
     CompleteCommand complete() {
         return new CompleteCommand(id("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")), picks(), text("returnTarget"));
+    }
+
+    /** {@code { kind, key, name, content, baseVersion, rev }} */
+    SaveDesignDraftCommand saveDesignDraft() {
+        return new SaveDesignDraftCommand(text("kind"), text("key"), text("name"), text("content"), integer("baseVersion"), integer("rev"));
     }
 
     /** {@code { workItemId, form, comment }} */
@@ -153,7 +159,7 @@ class RequestBody {
             text("clientCompiled"), text("compilerVersion"), text("serverLanguage"), text("serverSource"), text("note"));
     }
 
-    private String text(String name) {
+    String text(String name) {
         Object value = fields.get(name);
         if (value == null || value instanceof String) return (String) value;
         throw invalid(name, "expected-text");
@@ -194,6 +200,14 @@ class RequestBody {
         List<Long> out = new ArrayList<>();
         for (Object item : items) out.add(idOf(name, item));
         return out;
+    }
+
+    /** 可空的整数（版本号这类）：没写时为 null */
+    private Integer integer(String name) {
+        Object value = fields.get(name);
+        if (value == null) return null;
+        if (value instanceof Number n) return n.intValue();
+        throw invalid(name, "expected-number");
     }
 
     private int number(String name) {

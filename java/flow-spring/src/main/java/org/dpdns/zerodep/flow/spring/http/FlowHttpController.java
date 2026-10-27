@@ -159,6 +159,34 @@ public class FlowHttpController {
         return command("forms/enable", () -> engine.setFormActive(RequestBody.parse(body).key(), true));
     }
 
+    /** 保存设计中的草稿：{@code { kind, key, name, content, baseVersion, rev }}；别人先存过时报 flow.concurrent-modification */
+    @PostMapping("/drafts/save")
+    public Map<String, Object> saveDesignDraft(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("drafts/save", () -> engine.saveDesignDraft(RequestBody.parse(body).saveDesignDraft()));
+    }
+
+    /** 放弃草稿：{@code { kind, key }} */
+    @PostMapping("/drafts/discard")
+    public Map<String, Object> discardDesignDraft(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        RequestBody request = RequestBody.parse(body);
+        return command("drafts/discard", () -> {
+            engine.discardDesignDraft(request.text("kind"), request.key());
+            return Map.of();
+        });
+    }
+
+    /** 一个流程、表单的草稿；没有时 data 为 null */
+    @GetMapping("/queries/drafts/{kind}/{key}")
+    public Map<String, Object> designDraft(@PathVariable("kind") String kind, @PathVariable("key") String key) {
+        return respond(() -> engine.designDraft(kind, key));
+    }
+
+    /** 某一种的全部草稿（不带内容） */
+    @GetMapping("/queries/drafts/{kind}")
+    public Map<String, Object> designDrafts(@PathVariable("kind") String kind) {
+        return respond(() -> engine.designDrafts(kind));
+    }
+
     /** 管理端的表单列表 */
     @GetMapping("/queries/forms")
     public Map<String, Object> forms() {

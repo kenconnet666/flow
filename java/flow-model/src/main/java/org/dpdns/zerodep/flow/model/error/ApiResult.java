@@ -30,7 +30,7 @@ public class ApiResult<T> {
     /** 失败的响应：{@link FlowException} 用它的码，其余是 {@code flow.internal-error} */
     public static <T> ApiResult<T> fail(Throwable error) {
         if (error instanceof FlowException flow) {
-            return new ApiResult<>(flow.code().code(), flow.getMessage(), flow.params(), flow.errors().isEmpty() ? null : flow.errors(), null);
+            return new ApiResult<>(flow.getCode().code(), flow.getMessage(), flow.getParams(), flow.getErrors().isEmpty() ? null : flow.getErrors(), null);
         }
         return new ApiResult<>(FlowErrorCode.INTERNAL_ERROR.code(), error.getMessage(), null, null, null);
     }

@@ -25,6 +25,9 @@ import type {
   InstanceSearch,
   ProcessSummary,
   PublishedDefinition,
+  DesignDraft,
+  DraftKind,
+  SaveDesignDraftCommand,
   PublishedForm,
   SignalCommand,
   SkipJobCommand,
@@ -84,6 +87,14 @@ export interface FlowClient {
   versions(processKey: string, signal?: AbortSignal): Promise<readonly DefinitionVersion[]>;
   /** 某个版本的定义（发布时的原文）；version 不给时取最新的 */
   definitionJson(processKey: string, version?: number, signal?: AbortSignal): Promise<{ readonly json: string }>;
+  /** 设计中的草稿；没有时为 null */
+  designDraft(kind: DraftKind, key: string, signal?: AbortSignal): Promise<DesignDraft | null>;
+  /** 某一种的全部草稿（不带内容）：列表上标"有草稿" */
+  designDrafts(kind: DraftKind, signal?: AbortSignal): Promise<readonly DesignDraft[]>;
+  /** 保存草稿，返回存好的（带新的 rev） */
+  saveDesignDraft(command: SaveDesignDraftCommand): Promise<DesignDraft>;
+  /** 放弃草稿 */
+  discardDesignDraft(kind: DraftKind, key: string): Promise<void>;
   /** 校验定义、不发布：错误与警告都列出来；json 是定义的原文（写错了也照样发，后端报 malformed） */
   validateDefinition(json: string): Promise<{ readonly problems: readonly DefinitionProblem[] }>;
   /** 发布定义：有错误时报 flow.definition-invalid，明细是问题列表 */
@@ -184,6 +195,12 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     incidents: ({ page, pageSize, instanceId }, signal) =>
       get('/queries/incidents', signal, { page, pageSize, ...(instanceId == null ? {} : { instanceId: String(instanceId) }) }),
     versions: (processKey, signal) => get(`/queries/processes/${encodeURIComponent(processKey)}/versions`, signal),
+    designDraft: (kind, key, signal) => get(`/queries/drafts/${kind}/${encodeURIComponent(key)}`, signal),
+    designDrafts: (kind, signal) => get(`/queries/drafts/${kind}`, signal),
+    saveDesignDraft: (command) => post('/drafts/save', command),
+    discardDesignDraft: async (kind, key) => {
+      await post('/drafts/discard', { kind, key });
+    },
     definitionJson: (processKey, version, signal) =>
       get(`/queries/processes/${encodeURIComponent(processKey)}/definition`, signal, version == null ? {} : { version }),
     // 定义的原文按文字发（不经 JSON 序列化）：写错的 JSON 也让后端报出位置

@@ -4,6 +4,7 @@
  *   - 设计：表单设计器（FormDesigner）里拖组件、改属性，改的是下面那份代码；
  *   - 代码：写表单的 TSX（defineFields + defineFlowForm），字段清单从代码里取出（不执行代码）。
  * 设计与代码是同一份源码、同一个代码编辑器（设计时藏起来但不卸载），撤销重做只有代码编辑器的一个历史（0004 的 3.1）。
+ * 改了停一会儿自动存成草稿（写法、清单、源码，design-draft.ts），再打开时接着草稿改；发布后草稿就没了。
  * 边改边看：清单的问题（字段名、类型、属性……）随改随列出，没问题时右边的预览跟着变；发布定一个新版本。
  * 打开已有的表单时载入最新版本，也能载入以前的某个版本；新建时给一个最小的骨架。发布时只存源码，审批页在浏览器里编译。
  *
@@ -33,6 +34,8 @@ import { useFlowClient } from '../client/flow-client';
 import type { PublishedForm } from '../client/types';
 import { applyEdits } from '../form-tools/design/edit';
 import { FlowForm } from '../form/FlowForm';
+import { DraftBanner } from './DraftBanner';
+import { useDesignDraft } from './design-draft';
 import { FormDesigner } from './form-designer/FormDesigner';
 import { useFlowMessages } from '../lang/messages';
 
@@ -78,6 +81,27 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   let notice = _state<string | null>(null);
   let busy = _state<string | null>(null);
   let editor: CodeEditorHandle | undefined;
+  /** 编辑器里是哪个已发布的版本（或基于它的草稿）；新建时为 null */
+  let baseVersion = _state<number | null>(null);
+  let openedDraft = _state<{ by: string | null; at: Date } | null>(null);
+
+  /** 草稿里存的：写法、清单的文字、源码 */
+  const draftContent = () => JSON.stringify({ mode, manifestText, source });
+  const draft = useDesignDraft({
+    kind: 'form',
+    key: () => (formKey ?? key.trim()) || null,
+    name: () => name,
+    content: draftContent,
+    baseVersion: () => baseVersion,
+  });
+
+  /** 换上草稿里的内容 */
+  function showDraft(content: string) {
+    const saved = JSON.parse(content) as { mode: Mode; manifestText: string; source: string };
+    mode = saved.mode;
+    manifestText = saved.manifestText;
+    source = saved.source;
+  }
 
   const versions = useRequest((k: string | null, signal) => (k ? flow.formVersions(k, signal) : Promise.resolve([])), {
     params: () => formKey ?? null,
@@ -117,9 +141,12 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     { immediate: true },
   );
 
-  /** 载入一个版本（不给时最新的） */
-  async function load(version?: number) {
-    if (!formKey) return;
+  /** 载入一个版本（不给时最新的）；打开时（withDraft）有草稿就接着草稿改 */
+  async function load(version?: number, withDraft = false) {
+    if (!formKey) {
+      draft.ready();
+      return;
+    }
     failure = null;
     try {
       const doc = await flow.formDocument(formKey, version);
@@ -128,11 +155,32 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       manifestText = JSON.stringify(JSON.parse(doc.manifest), null, 2);
       source = doc.clientSource ?? '';
       mode = doc.clientSource ? 'design' : 'manifest';
+      baseVersion = doc.version;
+      const opened = withDraft ? await draft.open() : null;
+      if (opened?.content) {
+        showDraft(opened.content);
+        baseVersion = opened.baseVersion;
+        openedDraft = { by: opened.updatedByName, at: opened.updatedAt.toDate() };
+      }
+      draft.ready();
     } catch (error) {
       failure = errorText(error);
     }
   }
-  void load();
+  void load(undefined, true);
+
+  /** 放弃草稿：回到最新发布的版本 */
+  async function discardDraft() {
+    await draft.discard();
+    openedDraft = null;
+    await load();
+  }
+
+  /** 别人先存了草稿：载入他的，接着改 */
+  async function reloadDraft() {
+    const latest = await draft.reload();
+    if (latest?.content) showDraft(latest.content);
+  }
 
   /** 换写法：清单换成设计、代码时按清单生成一份；代码换回清单时用代码里取出的清单（代码丢掉） */
   async function switchMode(next: Mode) {
@@ -164,6 +212,9 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       });
       note = '';
       notice = messages.published(result.version);
+      draft.published();
+      openedDraft = null;
+      baseVersion = result.version;
       await versions.refresh();
       onPublished?.(result);
     } catch (error) {
@@ -178,6 +229,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       <Flex direction="column" gap="md">
         {failure && <Alert tone="danger" onClose={() => (failure = null)}>{failure}</Alert>}
         {notice && <Alert tone="success" onClose={() => (notice = null)}>{notice}</Alert>}
+        <DraftBanner opened={openedDraft} status={draft.status} onDiscard={discardDraft} onReload={reloadDraft} />
         <Flex gap="md" wrap align="end">
           <Field label={messages.columnKey} required>
             <TextField _value={key} disabled={formKey != null} />

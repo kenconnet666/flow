@@ -43,11 +43,11 @@ public class FlowException extends RuntimeException {
     }
 
     /** 业务错误码 */
-    public FlowErrorCode code() { return code; }
+    public FlowErrorCode getCode() { return code; }
 
     /** 文案里要填的参数 */
-    public Map<String, String> params() { return params; }
+    public Map<String, String> getParams() { return params; }
 
     /** 按字段、按问题的明细 */
-    public List<ErrorDetail> errors() { return errors; }
+    public List<ErrorDetail> getErrors() { return errors; }
 }

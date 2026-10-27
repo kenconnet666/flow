@@ -20,7 +20,10 @@ import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDesignDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
+import org.dpdns.zerodep.flow.core.engine.handler.DesignDraftHandler;
+import org.dpdns.zerodep.flow.core.view.definition.DesignDraftVO;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
@@ -115,6 +118,7 @@ public class FlowEngine<U extends Actor> {
     private final SignalHandler signals;
     private final StepWithdrawal stepWithdrawals;
     private final Publishing publishing;
+    private final DesignDraftHandler drafts;
     private final ProcessQueries processQueries;
     private final FormQueries formQueries;
     private final InboxQueries inbox;
@@ -139,6 +143,7 @@ public class FlowEngine<U extends Actor> {
         this.signals = new SignalHandler(context);
         this.stepWithdrawals = new StepWithdrawal(context);
         this.publishing = new Publishing(context);
+        this.drafts = new DesignDraftHandler(context);
         this.processQueries = new ProcessQueries(context);
         this.formQueries = new FormQueries(context);
         this.inbox = new InboxQueries(context);
@@ -155,6 +160,44 @@ public class FlowEngine<U extends Actor> {
      * {@link FlowEngineBuilder#build} 时把引擎的表要的转换器与拦截器装上去（{@link FlowEasyQuery#install}）。
      */
     public static <U extends Actor> FlowEngineBuilder<U> builder(EasyEntityQuery db) { return new FlowEngineBuilder<>(db); }
+
+    // ───────── 设计中的草稿 ─────────
+
+    /** 保存草稿（当前操作人），见 {@link #saveDesignDraft(Actor, SaveDesignDraftCommand)} */
+    public DesignDraftVO saveDesignDraft(SaveDesignDraftCommand command) { return saveDesignDraft(actors.current(), command); }
+
+    /** 保存流程设计器、表单编辑器的草稿：别人在这之间存过时报 {@code flow.concurrent-modification}（{@code drafts.save}） */
+    public DesignDraftVO saveDesignDraft(U actor, SaveDesignDraftCommand command) {
+        allow(actor, "drafts.save", command.getKey());
+        return drafts.save(actor, command);
+    }
+
+    /** 放弃草稿（当前操作人） */
+    public void discardDesignDraft(String kind, String key) { discardDesignDraft(actors.current(), kind, key); }
+
+    /** 放弃草稿：删掉，下次打开从已发布的版本开始（{@code drafts.discard}） */
+    public void discardDesignDraft(U actor, String kind, String key) {
+        allow(actor, "drafts.discard", key);
+        drafts.discard(kind, key);
+    }
+
+    /** 一个流程、表单的草稿（当前操作人） */
+    public DesignDraftVO designDraft(String kind, String key) { return designDraft(actors.current(), kind, key); }
+
+    /** 一个流程、表单的草稿；没有时为 null（{@code drafts.read}） */
+    public DesignDraftVO designDraft(U actor, String kind, String key) {
+        allow(actor, "drafts.read", key);
+        return drafts.find(kind, key);
+    }
+
+    /** 某一种的全部草稿（当前操作人） */
+    public List<DesignDraftVO> designDrafts(String kind) { return designDrafts(actors.current(), kind); }
+
+    /** 某一种（process、form）的全部草稿，不带内容：列表上标"有草稿"（{@code drafts.read}） */
+    public List<DesignDraftVO> designDrafts(U actor, String kind) {
+        allow(actor, "drafts.read", null);
+        return drafts.list(kind);
+    }
 
     // ───────── 发布 ─────────
 

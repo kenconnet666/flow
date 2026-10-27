@@ -87,7 +87,7 @@ class ScenarioRunner {
             try {
                 engine.publishDefinition(ADMIN, process, null);
             } catch (FlowException e) {
-                throw new AssertionError("publishing a process failed: " + e.errors(), e);   // 定义写错了：列出问题代号与位置
+                throw new AssertionError("publishing a process failed: " + e.getErrors(), e);   // 定义写错了：列出问题代号与位置
             }
         }
         List<Step> steps = scenario.getSteps();
@@ -176,9 +176,9 @@ class ScenarioRunner {
             };
         } catch (FlowException e) {
             Map<String, Object> error = new LinkedHashMap<>();
-            error.put("code", e.code().code());
-            error.put("params", e.params());
-            error.put("errors", e.errors());
+            error.put("code", e.getCode().code());
+            error.put("params", e.getParams());
+            error.put("errors", e.getErrors());
             return Map.of("error", wire(error));
         }
     }

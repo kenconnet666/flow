@@ -47,6 +47,14 @@ export interface FlowMessages {
   readonly submit: string;
   /** 暂存：填了一半先存 */
   readonly saveDraft: string;
+  /** 设计中的草稿（流程、表单编辑器） */
+  readonly draftOpened: (by: string | null, time: string) => string;
+  readonly discardDraft: string;
+  readonly draftSaving: string;
+  readonly designDraftSaved: (time: string) => string;
+  readonly draftSaveFailed: string;
+  readonly draftConflict: (by: string | null) => string;
+  readonly reloadDraft: string;
   readonly draftSaved: (time: string) => string;
   /** 流转记录 */
   readonly timeline: string;
@@ -418,6 +426,13 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: '取消',
     submit: '提交',
     saveDraft: '暂存',
+    draftOpened: (by, time) => `接着${by ?? ''}在 ${time} 存的草稿改（还没发布）`,
+    discardDraft: '放弃草稿',
+    draftSaving: '正在保存草稿…',
+    designDraftSaved: (time) => `草稿已保存（${time}）`,
+    draftSaveFailed: '草稿没保存上，稍后会再试',
+    draftConflict: (by) => `${by ?? '别人'}刚保存过这份草稿，你后来的改动没有保存。`,
+    reloadDraft: '载入最新的草稿',
     draftSaved: (time) => `已暂存（${time}）`,
     timeline: '流转记录',
     status: { active: '进行中', suspended: '已暂停', completed: '已完成', terminated: '已终止', withdrawn: '已撤回' },
@@ -582,6 +597,13 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: 'Cancel',
     submit: 'Submit',
     saveDraft: 'Save draft',
+    draftOpened: (by, time) => `Continuing the draft ${by ? `saved by ${by} ` : ''}at ${time} (not published yet)`,
+    discardDraft: 'Discard draft',
+    draftSaving: 'Saving the draft…',
+    designDraftSaved: (time) => `Draft saved (${time})`,
+    draftSaveFailed: 'The draft was not saved; it will be retried',
+    draftConflict: (by) => `${by ?? 'Someone else'} saved this draft just now; your later changes were not saved.`,
+    reloadDraft: 'Load the latest draft',
     draftSaved: (time) => `Draft saved (${time})`,
     timeline: 'History',
     status: { active: 'In progress', suspended: 'Suspended', completed: 'Completed', terminated: 'Terminated', withdrawn: 'Withdrawn' },

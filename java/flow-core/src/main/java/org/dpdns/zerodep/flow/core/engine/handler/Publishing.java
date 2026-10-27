@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
+import org.dpdns.zerodep.flow.core.entity.DraftEntity;
+
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
@@ -38,8 +40,12 @@ import java.util.Map;
  */
 public class Publishing {
     private final EngineContext context;
+    private final DesignDraftHandler drafts;
 
-    public Publishing(EngineContext context) { this.context = context; }
+    public Publishing(EngineContext context) {
+        this.context = context;
+        this.drafts = new DesignDraftHandler(context);
+    }
 
     /**
      * 发布一个流程定义（0005 的 JSON 文字）。引用的表单没写版本时定在当前最新的版本上，之后表单再发布也不影响这个流程版本。
@@ -73,6 +79,8 @@ public class Publishing {
             row.setPublishedByName(actor.getName());
             row.setPublishedAt(now);
             context.getDb().insertable(row).executeRows(true);
+            // 发布了，设计中的草稿就不再要
+            drafts.delete(DraftEntity.PROCESS, model.getKey());
             return row;
         });
     }
@@ -192,6 +200,7 @@ public class Publishing {
             row.setPublishedByName(actor.getName());
             row.setPublishedAt(now);
             context.getDb().insertable(row).executeRows(true);
+            drafts.delete(DraftEntity.FORM, form.getKey());
             return row;
         });
     }

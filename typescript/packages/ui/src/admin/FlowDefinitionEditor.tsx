@@ -4,6 +4,7 @@
  *   - JSON：在代码编辑器里直接改，设计器没做成面板的设置（提醒、通知、泳道……）在这里写。
  * 换写法时互相转：设计换到 JSON 时按当前的定义排版；JSON 换回设计时要是合法的 JSON。"校验"交给后端列出错误与警告（不发布），
  * "发布"定一个新版本。打开已有的流程时载入最新版本，也能载入以前的某个版本再改；新建时给一个最小的骨架。
+ * 改了停一会儿自动存成草稿（design-draft.ts），再打开时接着草稿改，可以放弃草稿；发布后草稿就没了。
  *
  *   <FlowDefinitionEditor processKey={key} people={peopleSource} onPublished={(result) => toaster.success(…)} />
  */
@@ -32,6 +33,8 @@ import { useFlowClient } from '../client/flow-client';
 import type { DefinitionProblem, PublishedDefinition } from '../client/types';
 import { useDesignerMessages } from '../lang/process-designer-messages';
 import { useFlowMessages } from '../lang/messages';
+import { DraftBanner } from './DraftBanner';
+import { useDesignDraft } from './design-draft';
 import { FlowDesigner } from './process-designer/FlowDesigner';
 
 /** FlowDefinitionEditor 的属性 */
@@ -81,9 +84,21 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
   let failure = _state<string | null>(null);
   let notice = _state<string | null>(null);
   let busy = _state<string | null>(null);
+  /** 编辑器里是哪个已发布的版本（或基于它的草稿）；新建时为 null */
+  let baseVersion = _state<number | null>(null);
+  /** 打开时接着的草稿是谁、什么时候存的 */
+  let openedDraft = _state<{ by: string | null; at: Date } | null>(null);
 
   /** 现在写的这一份的 JSON 文字：设计时按定义排版，JSON 时就是编辑器里的字 */
   const currentJson = () => (mode === 'design' ? pretty(definition) : text);
+
+  const draft = useDesignDraft({
+    kind: 'process',
+    key: () => processKey ?? (definition.key || null),
+    name: () => definition.name ?? '',
+    content: currentJson,
+    baseVersion: () => baseVersion,
+  });
 
   // 改了就不再是上次校验的那一份：校验结果收起来
   watch(
@@ -95,26 +110,56 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
     params: () => processKey ?? null,
   });
 
-  /** 载入一个版本（不给时最新的）；不是合法的定义 JSON 时只能在 JSON 里改 */
-  async function load(version?: number) {
-    if (!processKey) return;
+  /** 编辑器换上一份 JSON：不是合法的定义 JSON 时只能在 JSON 里改 */
+  function show(json: string) {
+    try {
+      definition = JSON.parse(json) as ProcessDefinition;
+      text = pretty(definition);
+    } catch {
+      text = json;
+      mode = 'json';
+    }
+  }
+
+  /**
+   * 载入一个版本（不给时最新的）。打开时（不给版本）有草稿就接着草稿改；挑了某个版本时载入那个版本，改了存成新的草稿
+   */
+  async function load(version?: number, withDraft = false) {
+    if (!processKey) {
+      draft.ready();
+      return;
+    }
     failure = null;
     problems = null;
     try {
-      const json = (await flow.definitionJson(processKey, version)).json;
-      try {
-        definition = JSON.parse(json) as ProcessDefinition;
-        text = pretty(definition);
-      } catch {
-        text = json;
-        mode = 'json';
+      show((await flow.definitionJson(processKey, version)).json);
+      baseVersion = version ?? versions.data?.[0]?.version ?? null;
+      const opened = withDraft ? await draft.open() : null;
+      if (opened?.content) {
+        show(opened.content);
+        baseVersion = opened.baseVersion;
+        openedDraft = { by: opened.updatedByName, at: opened.updatedAt.toDate() };
       }
       loaded = true;
+      draft.ready();
     } catch (error) {
       failure = errorText(error);
     }
   }
-  void load();
+  void load(undefined, true);
+
+  /** 放弃草稿：回到最新发布的版本 */
+  async function discardDraft() {
+    await draft.discard();
+    openedDraft = null;
+    await load();
+  }
+
+  /** 别人先存了草稿：载入他的，接着改 */
+  async function reloadDraft() {
+    const latest = await draft.reload();
+    if (latest?.content) show(latest.content);
+  }
 
   /** 换写法：设计 → JSON 按定义排版；JSON → 设计要读得出 JSON，读不出时留在 JSON 并提示 */
   function switchMode(next: Mode) {
@@ -155,6 +200,9 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
       problems = null;
       note = '';
       notice = messages.published(result.version);
+      draft.published();
+      openedDraft = null;
+      baseVersion = result.version;
       await versions.refresh();
       onPublished?.(result);
     } catch (error) {
@@ -185,6 +233,7 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
       <Flex direction="column" gap="md">
         {failure && <Alert tone="danger" onClose={() => (failure = null)}>{failure}</Alert>}
         {notice && <Alert tone="success" onClose={() => (notice = null)}>{notice}</Alert>}
+        <DraftBanner opened={openedDraft} status={draft.status} onDiscard={discardDraft} onReload={reloadDraft} />
         <Flex gap="md" align="end" justify="between" wrap>
           <Tabs _value={mode} onUpdate:_value={(next: string) => switchMode(next as Mode)}>
             <TabList aria-label={messages.definitionEditor}>

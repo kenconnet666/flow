@@ -204,6 +204,36 @@ export interface DefinitionVersion {
   readonly formVersion: number | null;
 }
 
+/** 设计中的草稿（流程设计器、表单编辑器自动保存，发布后删掉） */
+export interface DesignDraft {
+  readonly kind: DraftKind;
+  readonly targetKey: string;
+  readonly name: string | null;
+  /** 设计器的内容：流程是定义的 JSON，表单是源码与清单；列表里不带（为 null） */
+  readonly content: string | null;
+  /** 基于哪个已发布的版本改的；新建的为 null */
+  readonly baseVersion: number | null;
+  /** 版本：下次保存时带上，别人先存过时保存报 flow.concurrent-modification */
+  readonly rev: number;
+  readonly updatedBy: Id | null;
+  readonly updatedByName: string | null;
+  readonly updatedAt: Moment;
+}
+
+/** 草稿是哪一种 */
+export type DraftKind = 'process' | 'form';
+
+/** 保存草稿 */
+export interface SaveDesignDraftCommand {
+  readonly kind: DraftKind;
+  readonly key: string;
+  readonly name?: string;
+  readonly content: string;
+  readonly baseVersion?: number | null;
+  /** 上次读到、存到的版本；第一次保存不写 */
+  readonly rev?: number | null;
+}
+
 /** 发布的结果 */
 export interface PublishedDefinition {
   readonly id: Id;
