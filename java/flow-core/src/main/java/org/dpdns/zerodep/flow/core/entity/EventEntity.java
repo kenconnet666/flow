@@ -96,6 +96,8 @@ public class EventEntity implements ProxyEntityAvailable<EventEntity, EventEntit
     public static final String NODE_ENTERED = "node.entered";
     /** 离开节点 */
     public static final String NODE_LEFT = "node.left";
+    /** 自动跳过（0005 的 2.1 autoSkip）：outcome 是按哪个结果走的，data 里是本该处理的人 userId、userName 与原因 reason（sameAsPrevious、initiator） */
+    public static final String NODE_SKIPPED = "node.skipped";
 
     @Column(primaryKey = true, generatedKey = true)
     private Long id;

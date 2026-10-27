@@ -14,6 +14,7 @@ import org.dpdns.zerodep.flow.core.entity.WaitEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
 import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.notify.Notification;
 import org.dpdns.zerodep.flow.core.view.FlowEventVO;
 import org.dpdns.zerodep.flow.core.view.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.WorkItemVO;
@@ -475,7 +476,40 @@ final class Execution {
             handleEmptyAssignee(task);
             return;
         }
+        String skip = skipReason(task, arrival, who);
+        if (skip != null) {
+            Long user = who.directUser();
+            addEvent(EventEntity.NODE_SKIPPED, task, null, approveOutcome(task), null, null,
+                Map.of("reason", skip, "userId", user, "userName", context.org().userName(user)));
+            leave(task.id(), approveOutcome(task));
+            return;
+        }
         createWorkItem(task, arrival, who, null, null);
+    }
+
+    /**
+     * 自动跳过（0005 的 2.1 {@code autoSkip}，节点上写的盖过流程级的）：顺着流转到达、直接落到一个人、节点有"同意"的结果时，
+     * 这个人就是上一步的处理人（{@code sameAsPrevious}）或发起人（{@code initiator}）就不生成待办，按"同意"往下走。
+     * 退回、重新提交、提级、跳转来的不跳过：那是要这个人再看一次。会签节点不跳过。返回跳过的原因，不跳过时为 null。
+     */
+    private String skipReason(ProcessNode.Task task, String arrival, Assignees who) {
+        if (!("start".equals(arrival) || "forward".equals(arrival)) || !who.isDirect() || approveOutcome(task) == null) return null;
+        Map<String, Object> rules = task.info().autoSkip().isEmpty() ? graph.definition().settings().autoSkip() : task.info().autoSkip();
+        Long user = who.directUser();
+        if (Boolean.TRUE.equals(rules.get("initiator")) && user.equals(instance.getStartedBy())) return "initiator";
+        if (Boolean.TRUE.equals(rules.get("sameAsPrevious")) && user.equals(previousHandler())) return "sameAsPrevious";
+        return null;
+    }
+
+    /** 上一步的处理人：这个实例最近处理完的待办的处理人；还没人处理过时是发起人（发起算第一步） */
+    private Long previousHandler() {
+        Long last = WorkItems.lastCompletedBy(context.db(), instance.getId(), null);
+        return last != null ? last : instance.getStartedBy();
+    }
+
+    /** 节点上第一个"同意"类的结果；没有时为 null */
+    private static String approveOutcome(ProcessNode.Task task) {
+        return task.outcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::key).findFirst().orElse(null);
     }
 
     /**
@@ -663,8 +697,7 @@ final class Execution {
     private void handleEmptyAssignee(ProcessNode.Task task) {
         String rule = task.info().emptyAssignee() != null ? task.info().emptyAssignee() : graph.definition().settings().emptyAssignee();
         if ("autoPass".equals(rule)) {
-            String outcome = task.outcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::key).findFirst().orElse(null);
-            leave(task.id(), outcome);
+            leave(task.id(), approveOutcome(task));
             return;
         }
         List<Long> admins = "admin".equals(rule) ? context.org().administrators() : List.of();
@@ -766,7 +799,7 @@ final class Execution {
 
     /**
      * 只写流转记录（不改实例的命令：认领、催办、留言、抄送）：写库后按编号读回（附加数据按 JSON 的数，同以后查到的一致），
-     * 交给监听（事务内的马上调，提交后的记下）。
+     * 交给监听（事务内的马上调，提交后的记下），算出要发的通知（提交后交给渠道）。
      */
     void publish() {
         if (pending.isEmpty()) return;
@@ -776,6 +809,10 @@ final class Execution {
         List<FlowEventVO> saved = context.db().queryable(EventEntity.class).where(e -> e.id().in(ids)).orderBy(e -> e.id().asc())
             .select(FlowEventVO.class).toList();
         events.addAll(saved);
-        context.dispatcher().published(saved, view(), graph);
+        InstanceVO current = view();
+        List<Notification> notifications = context.dispatcher().notifies()
+            ? Notifications.plan(saved, context, graph, current, sources -> assignees.people(sources, instance, this::read).stream().map(AssigneeResolver.Participant::user).toList())
+            : List.of();
+        context.dispatcher().published(saved, current, graph, notifications);
     }
 }

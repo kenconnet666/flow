@@ -62,6 +62,7 @@ import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
+import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
 import org.dpdns.zerodep.flow.core.view.CcItem;
 import org.dpdns.zerodep.flow.core.view.DefinitionProblem;
 import org.dpdns.zerodep.flow.core.view.FormDocument;
@@ -659,6 +660,7 @@ public final class FlowEngine<U extends Actor> {
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
         private final List<FlowListener> listeners = new ArrayList<>();
+        private final List<NotificationChannel> channels = new ArrayList<>();
         private final List<CommandInterceptor<U>> interceptors = new ArrayList<>();
         private AfterCommit afterCommit = AfterCommit.immediately();
         private final List<PeopleResolver> resolvers = new ArrayList<>();
@@ -700,6 +702,9 @@ public final class FlowEngine<U extends Actor> {
         /** 注册一个监听：发通知、同步业务表、审计（{@link FlowListener}） */
         public Builder<U> listener(FlowListener listener) { this.listeners.add(listener); return this; }
 
+        /** 注册一个通知的渠道（站内信、邮件……，{@link NotificationChannel}）：待办到达、催办、到期、超时、抄送、被退回、流程结束时发 */
+        public Builder<U> channel(NotificationChannel channel) { this.channels.add(channel); return this; }
+
         /** 提交后的监听怎么排：默认引擎的事务做完马上调；命令会加入外面的事务时换成那个事务的提交后回调 */
         public Builder<U> afterCommit(AfterCommit afterCommit) { this.afterCommit = afterCommit; return this; }
 
@@ -711,7 +716,7 @@ public final class FlowEngine<U extends Actor> {
             if (org == null) throw new IllegalStateException("an OrgDirectory is required: the engine has no default organisation");
             // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
             FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
-            return new FlowEngine<>(new EngineContext(db, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
+            return new FlowEngine<>(new EngineContext(db, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
                 new Extensions(resolvers, guards, actions), new DefinitionCache(db)), actors, permissions, List.copyOf(interceptors),
                 List.copyOf(jobHandlers));
         }

@@ -14,6 +14,7 @@ import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
+import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
 import org.dpdns.zerodep.flow.spring.http.FlowHttpController;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -63,7 +64,7 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<OrgDirectory> org, ObjectProvider<ActorProvider> actors,
                                  ObjectProvider<PermissionPolicy> permissions, ObjectProvider<Clock> clock,
                                  ObjectProvider<WorkCalendar> calendar,
-                                 ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners,
+                                 ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners, ObjectProvider<NotificationChannel> channels,
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
                                  ObjectProvider<OutcomeGuard> guards, ObjectProvider<ServiceAction> actions,
                                  ObjectProvider<CommandInterceptor> interceptors) {
@@ -83,6 +84,7 @@ public class FlowAutoConfiguration {
         builder.workCalendar(calendar.getIfAvailable(() -> WorkCalendar.weekdays(ZoneId.of(properties.getCalendar().getZone()))));
         jobHandlers.orderedStream().forEach(builder::jobHandler);
         listeners.orderedStream().forEach(builder::listener);
+        channels.orderedStream().forEach(builder::channel);
         interceptors.orderedStream().forEach(builder::interceptor);
         resolvers.orderedStream().forEach(builder::resolver);
         guards.orderedStream().forEach(builder::guard);

@@ -55,6 +55,11 @@ public final class Definitions {
         return formAccess(tree, "$");
     }
 
+    /** 读处理人来源的列表（通知的 {@code to} 这类写在原样 JSON 里的来源） */
+    public static List<AssigneeSource> parseSources(Object tree) {
+        return list(tree, "$", Definitions::source);
+    }
+
     /** 读连线的副作用列表 */
     public static List<ProcessEdge.Effect> parseEffects(Object tree) {
         return list(tree, "$", Definitions::effect);

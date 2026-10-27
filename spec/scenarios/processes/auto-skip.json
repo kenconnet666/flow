@@ -1,0 +1,25 @@
+{
+  "key": "auto-skip",
+  "name": "自动跳过",
+  "title": "自动跳过",
+  "settings": { "autoSkip": { "sameAsPrevious": true, "initiator": true } },
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "confirm", "type": "task", "name": "发起人确认", "assignees": [{ "initiator": true }],
+      "outcomes": [{ "key": "ok", "label": "确认" }] },
+    { "id": "review", "type": "task", "name": "初审", "assignees": [{ "user": 1003 }],
+      "outcomes": [{ "key": "ok", "label": "同意" }] },
+    { "id": "approve", "type": "task", "name": "复审", "assignees": [{ "user": 1003 }],
+      "outcomes": [{ "key": "ok", "label": "同意" }] },
+    { "id": "final", "type": "task", "name": "终审", "assignees": [{ "user": 1003 }], "autoSkip": { "sameAsPrevious": false },
+      "outcomes": [{ "key": "ok", "label": "同意" }] },
+    { "id": "end", "type": "end", "name": "结束" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "confirm" },
+    { "id": "e2", "from": "confirm", "to": "review", "outcome": "ok" },
+    { "id": "e3", "from": "review", "to": "approve", "outcome": "ok" },
+    { "id": "e4", "from": "approve", "to": "final", "outcome": "ok" },
+    { "id": "e5", "from": "final", "to": "end", "outcome": "ok" }
+  ]
+}

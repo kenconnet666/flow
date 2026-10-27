@@ -158,10 +158,10 @@ final class WorkItems {
             .executeRows() == 1;
     }
 
-    /** 某个节点最后一次是谁处理的（{@code sameAs}、退回）；没处理过时为 null */
+    /** 某个节点最后一次是谁处理的（{@code sameAs}、退回）；node 为 null 时是整个实例最近处理完的那一个；没处理过时为 null */
     static Long lastCompletedBy(EasyEntityQuery db, Long instanceId, String node) {
         return db.queryable(WorkItemEntity.class)
-            .where(w -> { w.instanceId().eq(instanceId); w.node().eq(node); w.state().eq(WorkItemEntity.DONE); })
+            .where(w -> { w.instanceId().eq(instanceId); if (node != null) w.node().eq(node); w.state().eq(WorkItemEntity.DONE); })
             .orderBy(w -> { w.completedAt().desc(); w.id().desc(); })
             .selectColumn(w -> w.completedBy()).firstOrNull();
     }

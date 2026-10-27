@@ -272,6 +272,7 @@ const zhEvents: Record<string, string> = {
   'signal.received': '收到事件',
   'signal.ignored': '收到不在等的事件',
   'node.overdue': '等待超时',
+  'node.skipped': '自动跳过',
   'job.failed': '自动处理失败',
   'job.skipped': '跳过自动处理',
   'instance.suspended': '暂停',
@@ -305,6 +306,7 @@ const enEvents: Record<string, string> = {
   'signal.received': 'Event received at',
   'signal.ignored': 'Event ignored',
   'node.overdue': 'Timed out at',
+  'node.skipped': 'Skipped automatically at',
   'job.failed': 'Automatic step failed at',
   'job.skipped': 'Skipped automatic step',
   'instance.suspended': 'Suspended',
@@ -313,7 +315,7 @@ const enEvents: Record<string, string> = {
 };
 
 /** 标题后面接节点名的实例级事件（"跳转到 财务复核""收到事件 等对方盖章"） */
-const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'job.failed', 'job.skipped']);
+const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'node.skipped', 'job.failed', 'job.skipped']);
 
 /** 定义的问题代号（0005 第 7 节）的中文说明 */
 const zhProblemTexts: Record<string, (p: Readonly<Record<string, string>>) => string> = {
