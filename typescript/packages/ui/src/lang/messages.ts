@@ -234,6 +234,8 @@ export interface FlowMessages {
   readonly publish: string;
   readonly publishNote: string;
   readonly published: (version: number) => string;
+  /** 发布时撞了别人的：标识已被占用（key-taken），或打开后别人又发布过（newer-version） */
+  readonly publishConflict: (reason: 'key-taken' | 'newer-version', latest: number, by: string | null) => string;
   readonly noProblems: string;
   readonly problemAt: (where: string) => string;
   /** 0005 第 7 节的问题代号的说明；认不出的显示代号 */

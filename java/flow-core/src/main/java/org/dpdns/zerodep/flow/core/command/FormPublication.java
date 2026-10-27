@@ -25,4 +25,6 @@ public class FormPublication {
     private final String serverSource;
     /** 发布说明 */
     private final String note;
+    /** 编辑时看到的最新版本：新建时 0，不核对时 null，已经不是最新的时不发布 */
+    private Integer expectedLatest;
 }

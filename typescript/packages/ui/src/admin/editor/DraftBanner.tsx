@@ -7,6 +7,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Button, Flex, Small, useFormat } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useFlowMessages } from '../../lang/messages';
 import { conflictWith, type DesignDraftStatus } from './design-draft';
+import { publishConflictText } from './publish-guard';
 
 /** DraftBanner 的属性 */
 export interface DraftBannerProps {
@@ -46,7 +47,7 @@ export const DraftBanner = _component(({ opened, status, onDiscard, onReload }: 
       )}
       {status.state === 'saving' && <Small tone="muted">{messages.draftSaving}</Small>}
       {status.state === 'saved' && status.saved && <Small tone="muted">{messages.designDraftSaved(time(status.saved.updatedAt.toDate()))}</Small>}
-      {status.state === 'failed' && <Small tone="danger">{messages.draftSaveFailed}</Small>}
+      {status.state === 'failed' && <Small tone="danger">{publishConflictText(status.error, messages) ?? messages.draftSaveFailed}</Small>}
     </>
   );
 });

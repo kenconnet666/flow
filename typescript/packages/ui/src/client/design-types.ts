@@ -175,6 +175,8 @@ export interface FormPublication {
   readonly serverLanguage?: 'java';
   readonly serverSource?: string;
   readonly note?: string;
+  /** 编辑时看到的最新版本（新建时 0）；已经不是最新的时不发布，不给时不核对 */
+  readonly expectedLatest?: number;
 }
 
 /** 试编译后端代码报出的一个问题：行列从 1 开始 */

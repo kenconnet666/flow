@@ -43,6 +43,7 @@ import { useFormCompiler } from '../../form/compiler';
 import { FlowForm } from '../../form/FlowForm';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
+import { publishConflictText, usePublishGuard } from './publish-guard';
 import { FormDesigner } from '../form-designer/FormDesigner';
 import { formPreviews } from '../form-designer/previews';
 import { FormServerCode } from './FormServerCode';
@@ -134,6 +135,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   const versions = useRequest((k: string | null, signal) => (k ? flow.formVersions(k, signal) : Promise.resolve([])), {
     params: () => formKey ?? null,
   });
+  const guard = usePublishGuard(!formKey, () => versions.data);
 
   /** 分析当前写的东西：读出清单（JSON 或从代码里取）再按模型包的规则校验 */
   async function analyze(): Promise<Analysis> {
@@ -250,7 +252,9 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         ...(compiled ? { clientSource: source, ...compiled } : {}),
         ...(serverSource.trim() ? { serverLanguage: 'java' as const, serverSource } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
+        expectedLatest: guard.expected(),
       });
+      guard.published(result.version);
       note = '';
       notice = messages.published(result.version);
       draft.published();
@@ -270,7 +274,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         }));
         panel = 'server';
       } else {
-        failure = errorText(error);
+        failure = publishConflictText(error, messages) ?? errorText(error);
       }
     } finally {
       busy = null;

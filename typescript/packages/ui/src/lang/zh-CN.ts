@@ -370,6 +370,10 @@ export const zhCN: FlowMessages = {
   publish: '发布',
   publishNote: '发布说明',
   published: (version) => `已发布第 ${version} 版`,
+  publishConflict: (reason, latest, by) =>
+    reason === 'key-taken'
+      ? `这个标识已经被用了（${by ? `${by} 发布的` : ''}第 ${latest} 版）。换一个标识，或者在列表里打开它再改`
+      : `你打开之后${by ? ` ${by} ` : '别人'}又发布了第 ${latest} 版，没有覆盖。先"对比"看看差别，或者载入最新版本再改`,
   noProblems: '没有问题，可以发布',
   problemAt: (where) => `位置：${where}`,
   problem: (code, params) => problemText(zhProblemTexts, code, params),

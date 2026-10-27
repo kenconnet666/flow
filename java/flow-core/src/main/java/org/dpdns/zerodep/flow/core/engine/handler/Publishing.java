@@ -42,17 +42,20 @@ import java.util.Map;
 public class Publishing {
     private final EngineContext context;
     private final DesignDraftHandler drafts;
+    private final LatestVersions latestVersions;
 
     public Publishing(EngineContext context) {
         this.context = context;
         this.drafts = new DesignDraftHandler(context);
+        this.latestVersions = new LatestVersions(context);
     }
 
     /**
      * 发布一个流程定义（0005 的 JSON 文字）。引用的表单没写版本时定在当前最新的版本上，之后表单再发布也不影响这个流程版本。
      * 校验有错误时报 {@code flow.definition-invalid}，警告不拦。
+     * expectedLatest 是编辑时看到的最新版本（新建时 0），已经不是最新的时不发布（{@link LatestVersions}）；null 不核对。
      */
-    public DefinitionEntity publishDefinition(Actor actor, String json, String note) {
+    public DefinitionEntity publishDefinition(Actor actor, String json, String note, Integer expectedLatest) {
         ProcessDefinition model = parseDefinition(json);
         DefinitionProblem disabled = disabledForm(model);
         if (disabled != null) {
@@ -68,6 +71,7 @@ public class Publishing {
         }
         return context.transaction(() -> {
             Instant now = context.getClock().instant();
+            latestVersions.check(DraftEntity.PROCESS, model.getKey(), expectedLatest);
             int version = nextProcessVersion(actor, model, now);
             DefinitionEntity row = new DefinitionEntity();
             row.setProcessKey(model.getKey());
@@ -190,6 +194,7 @@ public class Publishing {
         }
         return context.transaction(() -> {
             Instant now = context.getClock().instant();
+            latestVersions.check(DraftEntity.FORM, form.getKey(), form.getExpectedLatest());
             FormVersionEntity row = new FormVersionEntity();
             row.setFormKey(form.getKey());
             row.setVersion(nextFormVersion(actor, form, now));

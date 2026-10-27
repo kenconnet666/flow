@@ -42,7 +42,8 @@ export function useDesignDraft(options: DesignDraftOptions) {
   const autosave = useAutosave<DesignDraft>({
     content: options.content,
     enabled: () => options.key() != null,
-    isConflict: (error) => error instanceof HttpError && error.code === 'flow.concurrent-modification',
+    // 新建时填了已发布的标识（reason=key-taken）不算草稿冲突：不停下自动保存，换个标识就接着存
+    isConflict: (error) => error instanceof HttpError && error.code === 'flow.concurrent-modification' && error.params['reason'] !== 'key-taken',
     save: async (content) => {
       const key = options.key()!;
       if (revKey !== null && revKey !== key) {

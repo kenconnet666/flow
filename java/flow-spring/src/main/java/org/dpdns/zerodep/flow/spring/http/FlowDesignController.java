@@ -17,11 +17,12 @@ import java.util.Map;
 public class FlowDesignController extends FlowHttpSupport {
     public FlowDesignController(FlowEngine<?> engine, ObjectProvider<ActorProvider<?>> actors) { super(engine, actors); }
 
-    /** 发布流程定义：请求体就是 0005 的定义 JSON，发布说明放在参数 note 里 */
+    /** 发布流程定义：请求体就是 0005 的定义 JSON，发布说明放在参数 note 里，编辑时看到的最新版本放在 expectedLatest 里（不给不核对） */
     @PostMapping("/definitions/publish")
     public Map<String, Object> publishDefinition(@org.springframework.web.bind.annotation.RequestBody(required = false) String body,
-                                                    @RequestParam(name = "note", required = false) String note) {
-        return command("definitions/publish", () -> ResponseBody.of(engine.publishDefinition(actor(), body, note)));
+                                                    @RequestParam(name = "note", required = false) String note,
+                                                    @RequestParam(name = "expectedLatest", required = false) Integer expectedLatest) {
+        return command("definitions/publish", () -> ResponseBody.of(engine.publishDefinition(actor(), body, note, expectedLatest)));
     }
 
     /** 停用表单：{@code { key }} */

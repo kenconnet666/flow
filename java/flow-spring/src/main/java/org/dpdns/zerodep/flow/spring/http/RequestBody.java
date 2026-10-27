@@ -211,8 +211,10 @@ class RequestBody {
 
     /** {@code { key, name, category, manifest, clientSource, clientCompiled, compilerVersion, serverLanguage, serverSource, note }}；manifest 是对象 */
     FormPublication formPublication() {
-        return new FormPublication(text("key"), text("name"), text("category"), Json.write(object("manifest")), text("clientSource"),
+        FormPublication form = new FormPublication(text("key"), text("name"), text("category"), Json.write(object("manifest")), text("clientSource"),
             text("clientCompiled"), text("compilerVersion"), text("serverLanguage"), text("serverSource"), text("note"));
+        form.setExpectedLatest(integer("expectedLatest"));
+        return form;
     }
 
     String text(String name) {

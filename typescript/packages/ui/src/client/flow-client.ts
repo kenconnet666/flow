@@ -148,7 +148,8 @@ export interface FlowClient {
   /** 校验定义、不发布：错误与警告都列出来；json 是定义的原文（写错了也照样发，后端报 malformed） */
   validateDefinition(json: string): Promise<{ readonly problems: readonly DefinitionProblem[] }>;
   /** 发布定义：有错误时报 flow.definition-invalid，明细是问题列表 */
-  publishDefinition(json: string, note?: string): Promise<PublishedDefinition>;
+  /** expectedLatest：编辑时看到的最新版本（新建时 0），已经不是最新的时不发布；不给时不核对 */
+  publishDefinition(json: string, note?: string, expectedLatest?: number): Promise<PublishedDefinition>;
   /** 停用或启用流程 */
   setProcessActive(processKey: string, active: boolean): Promise<ProcessSummary>;
   /** 管理端的表单列表（停用的也在） */
@@ -292,7 +293,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
       get(`/queries/processes/${seg(processKey)}/definition`, signal, { version }),
     // 定义的原文按文字发（不经 JSON 序列化）：写错的 JSON 也让后端报出位置
     validateDefinition: (json) => post('/definitions/validate', json),
-    publishDefinition: (json, note) => api.post('/definitions/publish', json, { query: { note } }),
+    publishDefinition: (json, note, expectedLatest) => api.post('/definitions/publish', json, { query: { note, expectedLatest } }),
     setProcessActive: (processKey, active) => post(`/definitions/${active ? 'enable' : 'disable'}`, { key: processKey }),
     forms: (signal) => get('/queries/forms', signal),
     formVersions: (formKey, signal) => get(`/queries/forms/${seg(formKey)}/versions`, signal),

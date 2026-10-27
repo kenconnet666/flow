@@ -297,8 +297,16 @@ public class FlowEngine<U extends Actor> {
 
     /** 发布流程定义：校验不通过时报 {@code flow.definition-invalid}，错误明细里是问题列表；版本号由后端给 */
     public DefinitionEntity publishDefinition(U actor, String json, String note) {
+        return publishDefinition(actor, json, note, null);
+    }
+
+    /**
+     * 发布流程定义，并核对编辑时看到的最新版本：新建时给 0（标识已被占用就不发布），改已有的给打开时最新的版本号（这期间别人又发布过就不发布），
+     * 都报 {@code flow.concurrent-modification}，参数 reason 是 {@code key-taken} 或 {@code newer-version}，带着 latest 与 publishedBy
+     */
+    public DefinitionEntity publishDefinition(U actor, String json, String note, Integer expectedLatest) {
         allow(actor, "definitions.publish", null);
-        return publishing.publishDefinition(actor, json, note);
+        return publishing.publishDefinition(actor, json, note, expectedLatest);
     }
 
     /** 校验一份定义、不发布：错误与警告都列出来（设计、编辑定义时用，{@code definitions.validate}） */

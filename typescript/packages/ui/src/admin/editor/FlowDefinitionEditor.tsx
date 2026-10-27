@@ -37,6 +37,7 @@ import { useFlowMessages } from '../../lang/messages';
 import { DefinitionDiffView } from './DefinitionDiffView';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
+import { publishConflictText, usePublishGuard } from './publish-guard';
 import { defaultOutcomes } from '../process-designer/editing';
 import { FlowDesigner } from '../process-designer/FlowDesigner';
 
@@ -121,6 +122,7 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
   const versions = useRequest((key: string | null, signal) => (key ? flow.versions(key, signal) : Promise.resolve([])), {
     params: () => processKey ?? null,
   });
+  const guard = usePublishGuard(!processKey, () => versions.data);
 
   /** 编辑器换上一份 JSON：不是合法的定义 JSON 时只能在 JSON 里改 */
   function show(json: string) {
@@ -145,7 +147,8 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
     problems = null;
     try {
       show((await flow.definitionJson(processKey, version)).json);
-      baseVersion = version ?? versions.data?.[0]?.version ?? null;
+      // 版本列表可能还没读回来：基于的版本不能是 null（后端当新建，标识已被占用不让存草稿）
+      baseVersion = version ?? (versions.data ?? (await flow.versions(processKey)))[0]?.version ?? null;
       const opened = withDraft ? await draft.open() : null;
       if (opened?.content) {
         show(opened.content);
@@ -209,7 +212,8 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
     failure = null;
     notice = null;
     try {
-      const result = await flow.publishDefinition(currentJson(), note.trim() || undefined);
+      const result = await flow.publishDefinition(currentJson(), note.trim() || undefined, guard.expected());
+      guard.published(result.version);
       problems = null;
       note = '';
       notice = messages.published(result.version);
@@ -231,7 +235,7 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
           params: (d.params ?? {}) as Record<string, string>,
         }));
       } else {
-        failure = errorText(error);
+        failure = publishConflictText(error, messages) ?? errorText(error);
       }
     } finally {
       busy = null;

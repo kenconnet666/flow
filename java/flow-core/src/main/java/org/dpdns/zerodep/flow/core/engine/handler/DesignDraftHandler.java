@@ -25,9 +25,11 @@ public class DesignDraftHandler {
     private static final List<String> KINDS = List.of(DraftEntity.PROCESS, DraftEntity.FORM);
 
     private final EngineContext context;
+    private final LatestVersions latestVersions;
 
     public DesignDraftHandler(EngineContext context) {
         this.context = context;
+        this.latestVersions = new LatestVersions(context);
     }
 
     /** 保存，返回存好的（带新的 rev） */
@@ -35,6 +37,8 @@ public class DesignDraftHandler {
         if (!KINDS.contains(command.getKind())) throw FlowErrors.invalid("kind", "unknown");
         if (command.getKey() == null || command.getKey().isBlank()) throw FlowErrors.invalid("key", "required");
         if (command.getContent() == null) throw FlowErrors.invalid("content", "required");
+        // 新建的（不基于哪个版本）不能存到已发布的流程、表单名下：新建时填了别人的标识，打开那个流程的人会载入这份草稿
+        if (command.getBaseVersion() == null) latestVersions.check(command.getKind(), command.getKey(), 0);
         return context.transaction(() -> {
             DesignDraftVO existing = find(command.getKind(), command.getKey());
             if (existing == null) insert(actor, command);

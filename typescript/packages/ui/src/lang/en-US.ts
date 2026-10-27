@@ -307,6 +307,10 @@ export const enUS: FlowMessages = {
   publish: 'Publish',
   publishNote: 'Release note',
   published: (version) => `Published version ${version}`,
+  publishConflict: (reason, latest, by) =>
+    reason === 'key-taken'
+      ? `This key is already taken (version ${latest}${by ? ` published by ${by}` : ''}). Use another key, or open it from the list`
+      : `${by ?? 'Someone'} published version ${latest} after you opened this; nothing was overwritten. Compare, or load the latest version first`,
   noProblems: 'No problems; ready to publish',
   problemAt: (where) => `At ${where}`,
   problem: (code, params) => problemText(enProblemTexts, code, params),
