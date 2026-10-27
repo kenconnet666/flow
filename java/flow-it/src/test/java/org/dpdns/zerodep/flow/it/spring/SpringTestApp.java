@@ -3,6 +3,7 @@ package org.dpdns.zerodep.flow.it.spring;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
+import org.dpdns.zerodep.flow.spring.FlowTenant;
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,16 @@ public class SpringTestApp {
         1001L, new TestUser(1001L, "林小满", Set.of(), Set.of()),
         1002L, new TestUser(1002L, "周启航", Set.of(), Set.of(1L)),
         1004L, new TestUser(1004L, "总经理", Set.of(), Set.of()));
+
+    /** 多租户：请求头 X-Tenant，不带时 0（和不开多租户一样）；不在请求里时也是 0 */
+    @Bean
+    FlowTenant flowTenant() {
+        return () -> {
+            if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) return 0L;
+            String header = attributes.getRequest().getHeader("X-Tenant");
+            return header == null ? 0L : Long.valueOf(header);
+        };
+    }
 
     @Bean
     OrgDirectory orgDirectory() {

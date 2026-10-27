@@ -75,7 +75,8 @@ public class FlowAutoConfiguration {
     public FlowEngine flowEngine(BeanFactory beans, FlowProperties properties,
                                  ObjectProvider<FlowSchemaMigration> migration, ObjectProvider<EasyEntityQuery> easyQuery,
                                  ObjectProvider<OrgDirectory> org, ObjectProvider<ActorProvider> actors,
-                                 ObjectProvider<PermissionPolicy> permissions, ObjectProvider<ViewPolicy> viewPolicy, ObjectProvider<Clock> clock,
+                                 ObjectProvider<PermissionPolicy> permissions, ObjectProvider<ViewPolicy> viewPolicy, ObjectProvider<FlowTenant> tenant,
+                                 ObjectProvider<Clock> clock,
                                  ObjectProvider<WorkCalendar> calendar,
                                  ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners, ObjectProvider<NotificationChannel> channels,
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
@@ -96,6 +97,7 @@ public class FlowAutoConfiguration {
         actors.ifAvailable(builder::actorProvider);
         permissions.ifAvailable(builder::permissionPolicy);
         viewPolicy.ifAvailable(builder::viewPolicy);
+        tenant.ifAvailable(t -> builder.tenant(t::current));
         clock.ifUnique(builder::clock);
         // 没有自己的日历时按表里的工作日历算（管理端维护），一份都没建时周一到周五
         builder.workCalendar(calendar.getIfAvailable(() -> new TableWorkCalendar(db, ZoneId.of(properties.getCalendar().getZone()))));

@@ -124,6 +124,18 @@ class SpringHttpTest {
             call(post("/flow/commands/complete").header("Idempotency-Key", "k-1"), "1002", body).get("code"));
     }
 
+    @Test
+    void 声明了FlowTenant时按请求的租户隔开() throws Exception {
+        Map<String, Object> started = call(post("/flow/commands/start"), "1001",
+            "{\"key\":\"purchase\",\"form\":{\"title\":\"台灯\",\"amount\":\"80.00\"},\"$types\":{\"form.amount\":\"decimal\"}}");
+        String instance = (String) ((Map<?, ?>) data(started).get("instance")).get("id");
+
+        Map<String, Object> otherTodo = call(get("/flow/queries/todo").param("page", "1").param("pageSize", "10").header("X-Tenant", "7"), "1002", null);
+        assertEquals(0L, ((Number) data(otherTodo).get("total")).longValue());
+        assertEquals("flow.not-found", call(get("/flow/queries/instances/" + instance).header("X-Tenant", "7"), "1001", null).get("code"));
+        assertEquals("ok", call(get("/flow/queries/instances/" + instance), "1001", null).get("code"));
+    }
+
     /** 发一个请求：断言 HTTP 是 200，返回响应体 */
     @SuppressWarnings("unchecked")
     private Map<String, Object> call(MockHttpServletRequestBuilder request, String user, String body) throws Exception {

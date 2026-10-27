@@ -1,6 +1,6 @@
 # Spring Boot 示例
 
-一个最小的 Spring Boot 应用接上流程引擎：引入 `flow-spring`，写组织架构与当前操作人，在 `application.yml` 里打开建表与 HTTP 接口。
+一个最小的 Spring Boot 应用接上流程引擎（接进自己的项目看 [docs/integration.md](../../docs/integration.md)）：引入 `flow-spring`，写组织架构与当前操作人，在 `application.yml` 里打开建表与 HTTP 接口。
 
 ## 应用要写的
 
