@@ -1,0 +1,8 @@
+{
+  "key": "money-form",
+  "name": "外币报销单",
+  "manifest": {
+    "title": { "label": "事由", "type": "text", "required": true },
+    "cost": { "label": "金额", "type": "money", "required": true, "currencies": ["CNY", "USD"] }
+  }
+}

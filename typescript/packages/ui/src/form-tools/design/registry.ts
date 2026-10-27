@@ -148,6 +148,14 @@ export function findFormComponent(module: string, name: string): FormComponent |
   return formComponents().find((c) => c.module === module && c.name === name);
 }
 
+/**
+ * 接入方登记的组件声明了能当这种字段的控件（`field: ['money']`）：这个类型就是接入方注册的字段类型，
+ * 字段清单的校验认得它（后端另有同名的 FieldType 查值）
+ */
+export function isRegisteredFieldType(type: string): boolean {
+  return registered.some((c) => c.field?.includes(type));
+}
+
 /** 一个字段能用的控件，第一个是默认的 */
 export function controlsFor(field: FieldDefinition): readonly FormComponent[] {
   return formComponents().filter((c) => c.field?.includes(field.type) && (c.fits?.(field) ?? true));

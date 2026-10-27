@@ -1,0 +1,15 @@
+{
+  "key": "money",
+  "name": "外币报销",
+  "form": { "key": "money-form" },
+  "title": "外币报销：{form.title}",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "check", "type": "task", "name": "财务审核", "assignees": [{ "user": 1002 }], "outcomes": [{ "key": "ok", "label": "通过" }] },
+    { "id": "end", "type": "end", "name": "结束", "result": "paid" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "check" },
+    { "id": "e2", "from": "check", "to": "end", "outcome": "ok" }
+  ]
+}

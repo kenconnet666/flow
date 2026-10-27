@@ -182,7 +182,7 @@ public class Publishing {
     public FormVersionEntity publishForm(Actor actor, FormPublication form) {
         FormManifest manifest = parseManifest(form.getManifest());
         checkBackendCode(form);
-        List<Problem> errors = errorsOnly(ManifestValidator.validate(manifest, ManifestValidator.BUILTIN_TYPES::contains));
+        List<Problem> errors = errorsOnly(ManifestValidator.validate(manifest, context.getExtensions()::hasFieldType));
         if (!errors.isEmpty()) {
             throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form manifest has " + errors.size() + " error(s)",
                 errors.stream().map(ErrorDetail::of).toList());

@@ -92,7 +92,7 @@ public class CompleteHandler {
             FormValues stored = Instances.form(context.getDb(), instance.getId());
             Execution run = new Execution(context, actor, now, definition, instance, stored, instance.getRev());
             if (definition.hasForm()) {
-                run.setForm(FormSubmission.merge(definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read));
+                run.setForm(FormSubmission.merge(context.getExtensions(), definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read));
                 run.setForm(FormCode.submit(run, definition, task.getId(), false, run.getForm()));
                 Instances.saveForm(context.getDb(), instance.getId(), run.getForm());
             }
@@ -133,7 +133,7 @@ public class CompleteHandler {
             FormValues stored = Instances.form(context.getDb(), instance.getId());
             Execution run = new Execution(context, actor, context.getClock().instant(), definition, instance, stored, instance.getRev());
             FormValues form = definition.hasForm()
-                ? FormSubmission.draft(definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read)
+                ? FormSubmission.draft(context.getExtensions(), definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read)
                 : FormValues.empty();
             String comment = command.getComment() == null || command.getComment().isBlank() ? null : command.getComment();
             WorkItemDraft draft = new WorkItemDraft(form, comment, run.getNow());

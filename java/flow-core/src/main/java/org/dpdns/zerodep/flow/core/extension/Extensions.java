@@ -9,27 +9,29 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * 接入方按名字注册的扩展（0006 第 6 节"业务"一行）：处理人解析器、提交前的守卫、自动节点的动作、自定义节点类型、会签的完成规则。
+ * 接入方按名字注册的扩展（0006 第 6 节"业务"一行）：处理人解析器、提交前的守卫、自动节点的动作、自定义节点类型、会签的完成规则、表单字段类型。
  * 同名的后注册的换掉先注册的。定义里写了没注册的名字，发布时就报 {@code extension-unknown}；万一用到（换了注册后旧版本的实例）报
  * {@code flow.extension-failed}。
  */
 public class Extensions {
     /** 什么也没注册 */
-    public static final Extensions NONE = new Extensions(List.of(), List.of(), List.of(), List.of(), List.of());
+    public static final Extensions NONE = new Extensions(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
 
     private final Map<String, PeopleResolver> resolvers;
     private final Map<String, OutcomeGuard> guards;
     private final Map<String, ServiceAction> actions;
     private final Map<String, CustomNode> nodes;
     private final Map<String, CountersignRule> countersignRules;
+    private final Map<String, FieldType> fieldTypes;
 
     public Extensions(List<PeopleResolver> resolvers, List<OutcomeGuard> guards, List<ServiceAction> actions, List<CustomNode> nodes,
-                      List<CountersignRule> countersignRules) {
+                      List<CountersignRule> countersignRules, List<FieldType> fieldTypes) {
         this.resolvers = byName(resolvers, PeopleResolver::name);
         this.guards = byName(guards, OutcomeGuard::name);
         this.actions = byName(actions, ServiceAction::name);
         this.nodes = byName(nodes, CustomNode::type);
         this.countersignRules = byName(countersignRules, CountersignRule::name);
+        this.fieldTypes = byName(fieldTypes, FieldType::name);
     }
 
     /** 处理人解析器 */
@@ -46,6 +48,12 @@ public class Extensions {
 
     /** 会签的完成规则 */
     public CountersignRule countersignRule(String name) { return find(countersignRules, "completion", name); }
+
+    /** 注册的表单字段类型；没注册时为 null（内置类型都不在这里） */
+    public FieldType fieldType(String name) { return fieldTypes.get(name); }
+
+    /** 注册了这个表单字段类型没有 */
+    public boolean hasFieldType(String name) { return fieldTypes.containsKey(name); }
 
     /** 注册了这个自定义节点类型没有 */
     public boolean hasNode(String type) { return nodes.containsKey(type); }

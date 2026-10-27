@@ -154,7 +154,9 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         return { manifest: null, problems: [{ text: messages.syntaxError((error as Error).message), ...(loc ? { at: { line: loc.line, column: loc.column + 1 } } : {}) }] };
       }
     }
-    const problems = validateManifest(manifest).map((p) => ({ text: `${messages.problem(p.code, toTexts(p.params))}${p.field ? `（${p.field}）` : ''}` }));
+    // 接入方登记的组件声明过的字段类型也认得（registerFormComponent 的 field）
+    const { isRegisteredFieldType } = await import('../form-tools');
+    const problems = validateManifest(manifest, { isFieldType: isRegisteredFieldType }).map((p) => ({ text: `${messages.problem(p.code, toTexts(p.params))}${p.field ? `（${p.field}）` : ''}` }));
     return { manifest: problems.length ? null : manifest, problems };
   }
 

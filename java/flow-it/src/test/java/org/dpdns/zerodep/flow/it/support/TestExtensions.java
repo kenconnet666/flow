@@ -8,6 +8,7 @@ import org.dpdns.zerodep.flow.core.command.FlowCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.extension.CountersignRule;
 import org.dpdns.zerodep.flow.core.extension.CustomNode;
+import org.dpdns.zerodep.flow.core.extension.FieldType;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
@@ -32,6 +33,7 @@ import java.util.function.Function;
  *   <li>动作 {@code explode}：总是失败（演示同步回滚与异步重试用完）；</li>
  *   <li>自定义节点 {@code x-stamp}：写了 {@code wait} 时停下来等那个事件，否则当场做完、记流程变量 {@code stampedBy}；</li>
  *   <li>会签规则 {@code first-two}：两人同意就按 {@code ok} 结束，有人不同意就按 {@code no} 结束；</li>
+ *   <li>字段类型 {@code money}：值是 {@code { amount, currency }}，币种要在字段的 {@code currencies} 里；</li>
  *   <li>命令拦截器：意见是"拦下"的处理拦下（{@code comment: blocked}）；留言里的"敏感词"换成"***"（改参数）；
  *       业务编号是 {@code rollback-after} 的发起做完之后再拦（{@code businessKey: rolled-back}），整个回滚。</li>
  * </ul>
@@ -78,6 +80,14 @@ public class TestExtensions {
                 @Override public String decide(Context context) {
                     if ("no".equals(context.getChosen())) return "no";
                     return context.getItems().stream().filter(i -> "ok".equals(i.getOutcome())).count() >= 2 ? "ok" : null;
+                }
+            })
+            .fieldType(new FieldType() {
+                @Override public String name() { return "money"; }
+
+                @Override public List<String> check(Map<String, Object> attributes, Object value) {
+                    if (!(value instanceof Map<?, ?> money) || !(money.get("currency") instanceof String currency)) return List.of("type");
+                    return attributes.get("currencies") instanceof List<?> allowed && !allowed.contains(currency) ? List.of("currency") : List.of();
                 }
             })
             .interceptor(new CommandInterceptor<U>() {

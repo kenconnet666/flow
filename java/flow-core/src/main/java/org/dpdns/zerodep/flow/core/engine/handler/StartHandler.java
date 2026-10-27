@@ -162,7 +162,7 @@ public class StartHandler {
             if (launch.isFullForm()) {
                 run.setForm(FormValues.of(definition.getManifest().typed(launch.getForm().asMap())));
             } else {
-                run.setForm(FormSubmission.merge(definition.getManifest(), start.getForm(), true, drafted, launch.getForm(), run::read));
+                run.setForm(FormSubmission.merge(context.getExtensions(), definition.getManifest(), start.getForm(), true, drafted, launch.getForm(), run::read));
                 // 表单的后端代码：校验、计算、写业务表（子流程按定义的 input 发起，不经它）
                 run.setForm(FormCode.submit(run, definition, start.getId(), true, run.getForm()));
             }
@@ -194,7 +194,7 @@ public class StartHandler {
             else context.getDb().updatable(draft).executeRows();
             if (definition.hasForm()) {
                 Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.getId() : null;
-                FormValues form = FormSubmission.draft(definition.getManifest(), definition.getGraph().start().getForm(), true,
+                FormValues form = FormSubmission.draft(context.getExtensions(), definition.getManifest(), definition.getGraph().start().getForm(), true,
                     FormValues.empty(), command.getForm() == null ? FormValues.empty() : command.getForm(), read);
                 saveFormData(draft.getId(), definition.form().getId(), form);
             }

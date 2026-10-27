@@ -38,6 +38,7 @@ export { printComponent, printField } from './design/print';
 export {
   controlsFor,
   findFormComponent,
+  isRegisteredFieldType,
   formComponents,
   registerFormComponent,
   FORM_MODULE,

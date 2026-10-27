@@ -9,6 +9,8 @@ import {
   extractFields,
   findNode,
   formComponents,
+  isRegisteredFieldType,
+  registerFormComponent,
   insertNode,
   moveNode,
   parseDesign,
@@ -206,5 +208,16 @@ describe('codeFromManifest', () => {
     expect(printComponent(component('FormSection'))).toBe('<FormSection title="分组"></FormSection>');
     expect(printComponent(component('Text'))).toBe('<Text>说明文字</Text>');
     expect(printComponent(component('Separator'))).toBe('<Separator />');
+  });
+});
+
+describe('接入方的字段类型', () => {
+  it('登记的组件声明了 field 的类型，清单校验就认得', async () => {
+    const { validateManifest } = await import('@zerodep-dev/flow-model');
+    const manifest = { cost: { label: '金额', type: 'money' } };
+    expect(validateManifest(manifest, { isFieldType: isRegisteredFieldType }).map((p) => p.code)).toEqual(['field-type-unknown']);
+    registerFormComponent({ name: 'MoneyField', module: '@host/money', label: '外币金额', group: '业务', field: ['money'] });
+    expect(isRegisteredFieldType('money')).toBe(true);
+    expect(validateManifest(manifest, { isFieldType: isRegisteredFieldType })).toEqual([]);
   });
 });

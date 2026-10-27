@@ -1,0 +1,20 @@
+{
+  "name": "接入方注册的字段类型（money：带币种的金额，币种要在清单的 currencies 里）：清单认得它，提交、暂存时按它的规则查",
+  "forms": ["forms/money-form.json"],
+  "processes": ["processes/money.json"],
+  "clock": "2026-10-27T11:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航" }
+  },
+  "steps": [
+    { "as": "alice", "command": "start", "args": { "key": "money", "form": { "title": "出差", "cost": { "amount": "120.00", "currency": "EUR" } } },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "cost", "code": "currency" }] } } },
+    { "as": "alice", "command": "start", "args": { "key": "money", "form": { "title": "出差", "cost": "120" } },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "cost", "code": "type" }] } } },
+    { "as": "alice", "command": "saveStartDraft", "args": { "key": "money", "form": { "cost": { "amount": "1.00", "currency": "JPY" } } },
+      "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "cost", "code": "currency" }] } } },
+    { "as": "alice", "command": "start", "args": { "key": "money", "form": { "title": "出差", "cost": { "amount": "120.00", "currency": "USD" } } },
+      "expect": { "instance": { "status": "active", "title": "外币报销：出差" } } }
+  ]
+}
