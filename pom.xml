@@ -145,7 +145,8 @@
                     <version>${surefire.version}</version>
                     <configuration>
                         <argLine>-Xmx512m -Dfile.encoding=UTF-8</argLine>
-                        <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
+                        <!-- 实库测试整套要 4～5 分钟（场景用例占一半），库被别的进程占着时更慢：只防卡死，给到 10 分钟 -->
+                        <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
                     </configuration>
                 </plugin>
                 <plugin>
