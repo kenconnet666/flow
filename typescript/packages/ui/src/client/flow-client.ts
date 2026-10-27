@@ -75,6 +75,8 @@ export interface ListQuery {
   readonly processKey?: string;
   readonly from?: string;
   readonly to?: string;
+  /** 只看已归档的（我已办、我发起的、抄送我的） */
+  readonly archived?: boolean;
   /** 接入方自己的筛选参数（后端的 TodoQueryCustomizer 收到，只对我的待办、我已办）：发成查询串里 biz. 开头的参数 */
   readonly business?: Readonly<Record<string, string>>;
 }

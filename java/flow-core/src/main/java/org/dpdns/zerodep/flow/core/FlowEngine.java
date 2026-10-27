@@ -18,7 +18,6 @@ import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
-import org.dpdns.zerodep.flow.core.command.SaveStartDraftCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
@@ -28,6 +27,7 @@ import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDesignDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
+import org.dpdns.zerodep.flow.core.command.SaveStartDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
@@ -63,6 +63,7 @@ import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
 import org.dpdns.zerodep.flow.core.engine.query.ProcessQueries;
 import org.dpdns.zerodep.flow.core.engine.query.StatsQueries;
 import org.dpdns.zerodep.flow.core.engine.query.WorkItemQueries;
+import org.dpdns.zerodep.flow.core.engine.store.Archives;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
@@ -750,6 +751,28 @@ public class FlowEngine<U extends Actor> {
             .noInterceptor(FlowInterceptors.TENANT)
             .where(r -> r.createdAt().lt(cutoff))
             .executeRows());
+    }
+
+    // ───────── 归档 ─────────
+
+    /** 归档一批搬多少个实例：一批一个事务 */
+    private static final int ARCHIVE_BATCH = 200;
+
+    /**
+     * 归档（0007 第 6 节，全部租户）：结束超过 olderThan 的实例连同待办、流转记录、表单的值、抄送搬进 {@code *_archive}，
+     * 一批一个事务，搬到没有为止；返回搬了几个实例。之后实例详情照样打开（读归档表），我已办、我发起的要带 archived 看。
+     * Spring Boot 里打开 {@code flow.archive.enabled} 后由 {@code FlowJobPoller} 每小时调一次（{@code flow.archive.after}）。
+     */
+    public int archive(Duration olderThan) {
+        Instant now = context.getClock().instant();
+        Instant before = now.minus(olderThan);
+        int total = 0;
+        int moved;
+        do {
+            moved = context.transaction(() -> Archives.archiveBatch(context.getDb(), before, ARCHIVE_BATCH, now));
+            total += moved;
+        } while (moved == ARCHIVE_BATCH);
+        return total;
     }
 
     // ───────── 查询 ─────────

@@ -66,6 +66,8 @@ export interface FlowMessages {
   readonly draftSavedAt: (at: string) => string;
   /** 列表筛选的日期区间 */
   readonly dateRange: string;
+  /** 列表筛选：只看已归档的 */
+  readonly archivedOnly: string;
   /** 工作日历 */
   readonly calendars: string;
   readonly calendarsHint: string;

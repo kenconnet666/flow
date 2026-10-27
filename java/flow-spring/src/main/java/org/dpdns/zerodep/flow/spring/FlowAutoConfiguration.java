@@ -130,7 +130,9 @@ public class FlowAutoConfiguration {
     @ConditionalOnProperty(prefix = "flow.jobs", name = "enabled", havingValue = "true", matchIfMissing = true)
     @SuppressWarnings("rawtypes")
     public FlowJobPoller flowJobPoller(FlowEngine engine, FlowProperties properties) {
-        return new FlowJobPoller(engine, properties.getJobs().getInterval(), properties.getIdempotency().getRetention());
+        FlowProperties.Archive archive = properties.getArchive();
+        return new FlowJobPoller(engine, properties.getJobs().getInterval(), properties.getIdempotency().getRetention(),
+            archive.isEnabled() ? archive.getAfter() : null);
     }
 
     /** 用了 Spring Security、应用没给 {@link ActorProvider} 时：当前操作人取登录的 principal */

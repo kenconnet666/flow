@@ -225,6 +225,7 @@ export const zhCN: FlowMessages = {
   draftSavedAt: (at) => `存于 ${at}`,
   formNotPublished: '表单发布之后才能调后端代码的接口',
   dateRange: '时间',
+  archivedOnly: '只看已归档',
   calendars: '工作日历',
   calendarsHint: '时限写成工作日时按它算。流程定义的 settings.calendar 写日历的名字，不写用 default；一份都没建时按周一到周五算。',
   calendarPick: '改哪一份',

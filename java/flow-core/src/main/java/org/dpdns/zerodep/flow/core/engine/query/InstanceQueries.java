@@ -1,18 +1,22 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
+import com.easy.query.api.proxy.client.EasyEntityQuery;
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.form.References;
 import org.dpdns.zerodep.flow.core.engine.handler.AdminHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.WithdrawHandler;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.store.Archives;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.JobEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
@@ -114,7 +118,7 @@ public class InstanceQueries {
     }
 
     public Page<InstanceVO> started(Actor actor, ListFilter filter, int page, int size) {
-        return Page.of(context.getDb().queryable(InstanceEntity.class)
+        return Page.of(Archives.from(context.getDb(), InstanceEntity.class, filter.isArchived())
             .where(i -> {
                 i.startedBy().eq(actor.getId());
                 i.status().ne(InstanceEntity.DRAFT);
@@ -133,14 +137,23 @@ public class InstanceQueries {
      * 流程变量是引擎推进用的，只给流程管理员看。
      */
     public InstanceDetail instance(Actor actor, Long instanceId) {
-        InstanceEntity instance = Instances.find(context.getDb(), instanceId);
+        EasyEntityQuery db = context.getDb();
+        // 热表里没有时看归档表：结束得早、已经归档的实例照样能打开（同样的样子，什么都不能再做）
+        InstanceEntity hot = db.queryable(InstanceEntity.class).whereById(instanceId).singleOrNull();
+        boolean archived = hot == null;
+        InstanceEntity instance = archived
+            ? Archives.query(db, InstanceEntity.class).whereById(instanceId).singleNotNull(() -> FlowErrors.notFound("instance", instanceId))
+            : hot;
         LoadedDefinition definition = definitions.of(instance);
-        FormValues stored = Instances.form(context.getDb(), instanceId);
+        FormDataEntity data = Archives.from(db, FormDataEntity.class, archived).whereById(instanceId).singleOrNull();
+        FormValues stored = data == null ? FormValues.empty() : data.getValues();
         FormView form = definition.hasForm()
             ? forms.formView(definition, new NodeFormAccess(FieldAccess.READONLY, definition.model().getSettings().getFormView()), false, stored,
                 name -> References.read(name, instance, stored))
             : null;
-        List<WorkItemVO> items = WorkItems.ofInstance(context.getDb(), instanceId);
+        List<WorkItemVO> items = Archives.from(db, WorkItemEntity.class, archived).where(w -> w.instanceId().eq(instanceId))
+            .orderBy(w -> { w.createdAt().asc(); w.id().asc(); })
+            .select(WorkItemVO.class).toList();
         boolean starterOfActive = actor.getId().equals(instance.getStartedBy()) && InstanceEntity.ACTIVE.equals(instance.getStatus());
         InstanceDetail.Actions actions = new InstanceDetail.Actions(
             starterOfActive && WithdrawHandler.allowed(definition, items),
@@ -148,10 +161,10 @@ public class InstanceQueries {
         List<InstanceDetail.NodeRef> nodes = definition.model().getNodes().stream()
             .filter(n -> !(n instanceof ProcessNode.Start) && !(n instanceof ProcessNode.Gateway))
             .map(n -> new InstanceDetail.NodeRef(n.getId(), n.getName(), n.getType())).toList();
-        List<FlowEventVO> timeline = context.getDb().queryable(EventEntity.class).where(e -> e.instanceId().eq(instanceId))
+        List<FlowEventVO> timeline = Archives.from(db, EventEntity.class, archived).where(e -> e.instanceId().eq(instanceId))
             .orderBy(e -> { e.instanceRev().asc(); e.id().asc(); })
             .select(FlowEventVO.class).toList();
-        InstanceVO view = Instances.view(context.getDb(), instanceId);
+        InstanceVO view = Archives.from(db, InstanceEntity.class, archived).whereById(instanceId).select(InstanceVO.class).singleNotNull();
         ProcessDiagram diagram = DiagramView.of(definition.model(), view, timeline);
         return new InstanceDetail(view, form, items, timeline, actions, nodes, diagram, variablesFor(actor, definition, instance));
     }

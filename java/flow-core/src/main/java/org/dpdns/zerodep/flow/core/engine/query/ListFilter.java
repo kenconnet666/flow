@@ -1,17 +1,23 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 
 import java.time.Instant;
 import java.util.Map;
 
-/** 我的待办、我已办、我发起的、抄送我的的筛选条件（0002 §9）与排序：不写的不限、按列表的默认顺序 */
+/**
+ * 我的待办、我已办、我发起的、抄送我的的筛选条件（0002 §9）与排序：不写的不限、按列表的默认顺序。
+ *
+ * <pre>
+ *   ListFilter.builder().processKey("purchase").from(start).sort(SortOrder.parse("-startedAt")).build()
+ * </pre>
+ */
 @Getter
-@AllArgsConstructor
+@Builder
 public class ListFilter {
     /** 不筛 */
-    public static final ListFilter NONE = new ListFilter(null, null, null, Map.of(), SortOrder.NONE);
+    public static final ListFilter NONE = builder().build();
 
     /** 流程 */
     private final String processKey;
@@ -20,15 +26,13 @@ public class ListFilter {
     /** 到这一刻之前（不含） */
     private final Instant to;
     /** 接入方自己的筛选参数，交给 {@code TodoQueryCustomizer}（只对我的待办、我已办）；没有时是空的 */
-    private final Map<String, String> business;
+    @Builder.Default
+    private final Map<String, String> business = Map.of();
     /** 排序（我的待办两段合并，不支持；其余列表各认自己的几列） */
-    private final SortOrder sort;
-
-    /** 不带接入方参数、不排序 */
-    public ListFilter(String processKey, Instant from, Instant to) { this(processKey, from, to, Map.of(), SortOrder.NONE); }
-
-    /** 不排序 */
-    public ListFilter(String processKey, Instant from, Instant to, Map<String, String> business) { this(processKey, from, to, business, SortOrder.NONE); }
+    @Builder.Default
+    private final SortOrder sort = SortOrder.NONE;
+    /** 只看已归档的（我已办、我发起的；0007 第 6 节）：归档表里的行，没有归档时是空的 */
+    private final boolean archived;
 
     /** 写了流程 */
     public boolean hasProcess() { return processKey != null && !processKey.isBlank(); }

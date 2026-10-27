@@ -289,8 +289,8 @@ class ScenarioRunner {
         ListFilter filter() {
             String from = text("from");
             String to = text("to");
-            return new ListFilter(text("processKey"), from == null ? null : Instant.parse(from), to == null ? null : Instant.parse(to), Map.of(),
-                SortOrder.parse(text("sort")));
+            return ListFilter.builder().processKey(text("processKey")).from(from == null ? null : Instant.parse(from)).to(to == null ? null : Instant.parse(to))
+                .sort(SortOrder.parse(text("sort"))).archived(Boolean.TRUE.equals(values.get("archived"))).build();
         }
 
         /** 一串编号 */

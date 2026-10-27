@@ -4,13 +4,16 @@ import com.easy.query.api.proxy.entity.select.EntityQueryable;
 import com.easy.query.core.func.def.enums.OrderByModeEnum;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.store.Archives;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.CcEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.core.view.instance.CcItem;
+import org.dpdns.zerodep.flow.core.view.instance.InstanceRefVO;
 import org.dpdns.zerodep.flow.core.view.workitem.TodoItem;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 
@@ -20,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** 收件箱一侧的列表（0006 第 4 节）：我的待办、我已办、等我指定的、抄送我的。行都是带上实例的对象树（{@code selectAutoInclude}）。 */
 public class InboxQueries {
@@ -99,7 +103,7 @@ public class InboxQueries {
 
     /** 我处理过的：按处理时间从新到旧，每行带实例与处理结果的名字 */
     public Page<TodoItem> done(Actor actor, ListFilter filter, int page, int size) {
-        Page<TodoItem> rows = Page.of(context.getDb().queryable(WorkItemEntity.class)
+        Page<TodoItem> rows = Page.of(Archives.from(context.getDb(), WorkItemEntity.class, filter.isArchived())
             .where(w -> {
                 w.completedBy().eq(actor.getId());
                 w.state().eq(WorkItemEntity.DONE);
@@ -110,9 +114,24 @@ public class InboxQueries {
             .orderByObject(!filter.getSort().isEmpty(), filter.getSort().allow(DONE_SORTS))
             .orderBy(w -> { w.completedAt().desc(); w.id().desc(); })
             .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
+        if (filter.isArchived()) attachArchivedInstances(rows.getRows());
         rows.getRows().forEach(this::labelOutcome);
         addBusiness(actor, rows.getRows());
         return rows;
+    }
+
+    /** 归档的待办经导航取不到实例（导航指着热表）：按编号从归档表一次读来补上 */
+    private void attachArchivedInstances(List<TodoItem> rows) {
+        Map<Long, InstanceRefVO> byId = archivedInstances(rows.stream().map(TodoItem::getInstanceId).toList());
+        for (TodoItem row : rows) row.setInstance(byId.get(row.getInstanceId()));
+    }
+
+    /** 归档表里的这些实例：编号 → 列表行上带的样子 */
+    private Map<Long, InstanceRefVO> archivedInstances(List<Long> ids) {
+        List<Long> distinct = ids.stream().distinct().toList();
+        if (distinct.isEmpty()) return Map.of();
+        return Archives.query(context.getDb(), InstanceEntity.class).where(i -> i.id().in(distinct))
+            .select(InstanceRefVO.class).toList().stream().collect(Collectors.toMap(InstanceRefVO::getId, i -> i));
     }
 
     /** 等我指定承办人的待办（无人认领超时、我是收件箱负责人），每行带实例 */
@@ -132,16 +151,26 @@ public class InboxQueries {
 
     /** 抄送我的：未读在前，已读的按读的时间从新到旧，同样的按抄送时间从新到旧；每行带实例 */
     public Page<CcItem> ccList(Actor actor, ListFilter filter, int page, int size) {
-        return Page.of(context.getDb().queryable(CcEntity.class)
+        boolean archived = filter.isArchived();
+        Page<CcItem> rows = Page.of(Archives.from(context.getDb(), CcEntity.class, archived)
             .where(c -> {
                 c.recipientId().eq(actor.getId());
-                // 抄送上没有流程标识：沿导航 instance 隐式连表
-                if (filter.hasProcess()) c.instance().processKey().eq(filter.getProcessKey());
+                // 抄送上没有流程标识：沿导航 instance 隐式连表；归档的抄送导航指着热表，改用子查询连归档的实例
+                if (filter.hasProcess() && !archived) c.instance().processKey().eq(filter.getProcessKey());
+                if (filter.hasProcess() && archived) {
+                    c.expression().exists(() -> Archives.query(context.getDb(), InstanceEntity.class)
+                        .where(i -> { i.id().eq(c.instanceId()); i.processKey().eq(filter.getProcessKey()); }));
+                }
                 if (filter.getFrom() != null) c.createdAt().ge(filter.getFrom());
                 if (filter.getTo() != null) c.createdAt().lt(filter.getTo());
             })
             .orderByObject(!filter.getSort().isEmpty(), filter.getSort().allow(CC_SORTS))
             .orderBy(c -> { c.readAt().desc(true, OrderByModeEnum.NULLS_FIRST); c.createdAt().desc(); c.id().desc(); })
             .selectAutoInclude(CcItem.class).toPageResult(page, size), page, size);
+        if (archived) {
+            Map<Long, InstanceRefVO> instances = archivedInstances(rows.getRows().stream().map(CcItem::getInstanceId).toList());
+            for (CcItem row : rows.getRows()) row.setInstance(instances.get(row.getInstanceId()));
+        }
+        return rows;
     }
 }

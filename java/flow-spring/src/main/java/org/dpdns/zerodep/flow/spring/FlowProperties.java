@@ -43,6 +43,9 @@ public class FlowProperties {
     /** 命令的幂等记录 */
     private final Idempotency idempotency = new Idempotency();
 
+    /** 归档 */
+    private final Archive archive = new Archive();
+
     public String getDatasource() { return datasource; }
 
     public void setDatasource(String datasource) { this.datasource = datasource; }
@@ -58,6 +61,25 @@ public class FlowProperties {
     public Calendar getCalendar() { return calendar; }
 
     public Idempotency getIdempotency() { return idempotency; }
+
+    public Archive getArchive() { return archive; }
+
+    /** 归档（0007 第 6 节）：结束超过 after 的实例搬进 *_archive，热表一直小。默认关：量不大时用不着 */
+    public static class Archive {
+        /** 默认关 */
+        private boolean enabled;
+
+        /** 结束多久之后归档，默认 180 天 */
+        private Duration after = Duration.ofDays(180);
+
+        public boolean isEnabled() { return enabled; }
+
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public Duration getAfter() { return after; }
+
+        public void setAfter(Duration after) { this.after = after; }
+    }
 
     /**
      * 启动时用 Flyway 执行引擎的建表脚本（docs/decisions/0007 第 9 节）。和应用自己的 Flyway 分开：自己的脚本位置、自己的历史表。

@@ -73,14 +73,14 @@ class TodoCustomizerTest {
         engine.start(ALICE, StartCommand.of("memo", Map.of()));
 
         assertEquals(3, engine.todo(BOB, 1, 20).getTotal());
-        Page<TodoItem> orders = engine.todo(BOB, new ListFilter(null, null, null, Map.of("keyPrefix", "PO-")), 1, 20);
+        Page<TodoItem> orders = engine.todo(BOB, ListFilter.builder().business(Map.of("keyPrefix", "PO-")).build(), 1, 20);
         assertEquals(1, orders.getTotal());
         assertEquals(Map.of("orderNo", "PO-1"), orders.getRows().get(0).getBusiness());
         assertNull(engine.todo(BOB, 1, 20).getRows().stream().filter(r -> r.getInstance().getBusinessKey() == null).findFirst().orElseThrow().getBusiness(),
             "没有单号的行不补");
 
         engine.complete(BOB, CompleteCommand.of(sales.getCreated().get(0).getId(), "ok"));
-        Page<TodoItem> done = engine.done(BOB, new ListFilter(null, null, null, Map.of("keyPrefix", "SO-")), 1, 20);
+        Page<TodoItem> done = engine.done(BOB, ListFilter.builder().business(Map.of("keyPrefix", "SO-")).build(), 1, 20);
         assertEquals(1, done.getTotal());
         assertEquals(Map.of("orderNo", "SO-2"), done.getRows().get(0).getBusiness());
     }

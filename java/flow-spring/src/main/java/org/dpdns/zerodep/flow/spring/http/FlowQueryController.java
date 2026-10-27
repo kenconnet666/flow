@@ -180,13 +180,13 @@ public class FlowQueryController extends FlowHttpSupport {
 
     /**
      * 列表的筛选与排序，都在查询串里：{@code processKey}；{@code from}、{@code to} 是 ISO 的时刻（2026-10-01T00:00:00Z）；
-     * {@code sort} 同组件库 formatSorts 的写法（{@code -startedAt,title}）；{@code biz.} 开头的去掉前缀交给接入方（TodoQueryCustomizer）
+     * {@code sort} 同组件库 formatSorts 的写法（{@code -startedAt,title}）；{@code archived=true} 只看已归档的；{@code biz.} 开头的去掉前缀交给接入方（TodoQueryCustomizer）
      */
     private static ListFilter filter(Map<String, String> query) {
         Map<String, String> business = new LinkedHashMap<>();
         query.forEach((name, value) -> { if (name.startsWith("biz.")) business.put(name.substring("biz.".length()), value); });
-        return new ListFilter(blankToNull(query.get("processKey")), instant(query.get("from")), instant(query.get("to")), business,
-            SortOrder.parse(query.get("sort")));
+        return ListFilter.builder().processKey(blankToNull(query.get("processKey"))).from(instant(query.get("from"))).to(instant(query.get("to")))
+            .business(business).sort(SortOrder.parse(query.get("sort"))).archived("true".equals(query.get("archived"))).build();
     }
 
     private static Instant instant(String text) { return text == null || text.isBlank() ? null : Instant.parse(text); }
