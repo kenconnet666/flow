@@ -16,7 +16,7 @@
     { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
       "expect": { "timeline": ["instance.started", "node.left", "node.entered", "workItem.created",
         { "type": "workItem.unclaimed", "data": { "designatorName": "总经理" } }] } },
-    { "as": "boss", "command": "designations", "expect": { "total": 1, "rows": [{ "workItem": { "node": "fix" }, "title": "报修" }] } },
+    { "as": "boss", "command": "designations", "expect": { "total": 1, "rows": [{ "node": "fix", "instance": {"title": "报修"} }] } },
     { "as": "boss", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
       "expect": { "completable": false, "actions": { "assign": true } } },
     { "as": "carol", "command": "assign", "args": { "workItem": "$start.workItems[0]", "user": 1003 },

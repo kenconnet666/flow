@@ -1,7 +1,7 @@
 /**
  * 抄送我的：未读在前，服务端分页。点标题时先标成已读，再交给使用方打开（多半是流程详情）。
  *
- *   <FlowCcList onOpen={(item) => router.push(`/instances/${item.cc.instanceId}`)} />
+ *   <FlowCcList onOpen={(item) => router.push(`/instances/${item.instanceId}`)} />
  *
  * 抄送人一列：手动抄送的是抄送人，抄送节点的是节点名。业务摘要列由使用方经 columns 加。
  */
@@ -36,7 +36,7 @@ export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, tit
 
   async function open(item: CcItem) {
     // 标已读失败（网络抖动）不拦着打开：下次进列表还是未读
-    if (!item.cc.readAt) await flow.readCc(item.cc.instanceId).catch(() => undefined);
+    if (!item.readAt) await flow.readCc(item.instanceId).catch(() => undefined);
     onOpen(item);
   }
 
@@ -44,13 +44,13 @@ export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, tit
     {
       key: 'title',
       header: messages.columnTitle,
-      value: (item) => item.title ?? '',
+      value: (item) => item.instance?.title ?? '',
       cell: (item) => (
         <Flex gap="xs" align="center">
           <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), void open(item))}>
-            {item.title ?? String(item.cc.instanceId)}
+            {item.instance?.title ?? String(item.instanceId)}
           </Link>
-          {!item.cc.readAt && <Badge tone="accent">{messages.unread}</Badge>}
+          {!item.readAt && <Badge tone="accent">{messages.unread}</Badge>}
         </Flex>
       ),
     },
@@ -58,24 +58,24 @@ export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, tit
       key: 'from',
       header: messages.columnCcFrom,
       width: 120,
-      value: (item) => item.cc.fromUserName ?? item.cc.nodeName ?? messages.system,
+      value: (item) => item.fromUserName ?? item.nodeName ?? messages.system,
     },
-    { key: 'message', header: messages.columnMessage, value: (item) => item.cc.message ?? '' },
+    { key: 'message', header: messages.columnMessage, value: (item) => item.message ?? '' },
     {
       key: 'status',
       header: messages.columnStatus,
       width: 100,
-      value: (item) => item.status ?? '',
-      cell: (item) => item.status && <Badge tone={statusTone(item.status)}>{messages.status[item.status] ?? item.status}</Badge>,
+      value: (item) => item.instance?.status ?? '',
+      cell: (item) => item.instance && <Badge tone={statusTone(item.instance.status)}>{messages.status[item.instance.status] ?? item.instance.status}</Badge>,
     },
-    { key: 'createdAt', header: messages.columnCcAt, width: 170, type: 'dateTime', value: (item) => new Date(item.cc.createdAt) },
+    { key: 'createdAt', header: messages.columnCcAt, width: 170, type: 'dateTime', value: (item) => item.createdAt },
   ];
 
   return () => (
     <QueryTable
       query={query}
       columns={[...defaults(), ...columns]}
-      getKey={(item) => String(item.cc.id)}
+      getKey={(item) => String(item.id)}
       title={title ?? messages.ccList}
     />
   );

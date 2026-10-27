@@ -13,7 +13,7 @@
     { "command": "runJobs", "args": { "at": "2026-10-26T09:59:59Z" }, "expect": { "ran": 0 } },
     { "command": "runJobs", "args": { "at": "2026-10-26T10:00:00Z" }, "expect": { "ran": 1 } },
     { "as": "bob", "command": "todo",
-      "expect": { "total": 1, "rows": [{ "workItem": { "node": "review", "assignment": "pool", "dueAt": "2026-10-26T14:00:00Z" } }] } },
+      "expect": { "total": 1, "rows": [{ "node": "review", "assignment": "pool", "dueAt": "2026-10-26T14:00:00Z" }] } },
     { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
       "expect": { "instance": { "current": [{ "node": "review", "name": "财务确认" }] } } },
     { "command": "runJobs", "args": { "at": "2026-10-26T11:00:00Z" }, "expect": { "ran": 1 } },

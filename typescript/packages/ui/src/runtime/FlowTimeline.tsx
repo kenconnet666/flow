@@ -95,7 +95,7 @@ export const FlowTimeline = _component(({ events }: FlowTimelineProps) => {
             // 处理结果显示名字（引擎存的快照），没有时显示键
             title: messages.event(event.type, event.nodeName ?? event.node, outcomeLabel(event) ?? event.outcome),
             actor: event.actorName ?? messages.system,
-            dateTime: event.at,
+            dateTime: event.at.toAbsoluteString(),
             time: format.date(event.at, { dateStyle: 'medium', timeStyle: 'short' }),
             // 交给了谁、加了谁（引擎存的名字快照），再接意见、说明
             description: [messages.eventDetail(event.type, event.data ?? {}), event.comment].filter(Boolean).join(' · ') || undefined,

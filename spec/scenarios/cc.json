@@ -14,9 +14,7 @@
     { "as": "boss", "command": "cc", "args": { "instance": "$start.instance", "users": [1003], "message": "知会一下" },
       "expect": { "events": [{ "type": "instance.cc", "actorId": "1004", "comment": "知会一下", "data": { "userNames": ["沈若水"] } }] } },
     { "as": "carol", "command": "ccList",
-      "expect": { "total": 1, "rows": [{
-        "cc": { "node": null, "recipientId": "1003", "fromUserId": "1004", "fromUserName": "总经理", "message": "知会一下", "readAt": null },
-        "title": "发文审批", "status": "active" }] } },
+      "expect": { "total": 1, "rows": [{ "node": null, "recipientId": "1003", "fromUserId": "1004", "fromUserName": "总经理", "message": "知会一下", "readAt": null, "instance": {"title": "发文审批", "status": "active"} }] } },
     { "as": "boss", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "sign" },
       "expect": {
         "instance": { "status": "completed", "result": "signed" },
@@ -26,12 +24,11 @@
           "node.left", "node.entered", "instance.finished"
         ] } },
     { "as": "alice", "command": "ccList",
-      "expect": { "total": 1, "rows": [{
-        "cc": { "node": "notify", "nodeName": "分发", "fromUserId": null, "message": "已签发" }, "status": "completed" }] } },
+      "expect": { "total": 1, "rows": [{ "node": "notify", "nodeName": "分发", "fromUserId": null, "message": "已签发", "instance": {"status": "completed"} }] } },
     { "as": "han", "command": "ccList", "expect": { "total": 1 } },
     { "as": "carol", "command": "readCc", "args": { "instance": "$start.instance" }, "expect": { "read": 1 } },
     { "as": "carol", "command": "readCc", "args": { "instance": "$start.instance" }, "expect": { "read": 0 } },
-    { "as": "carol", "command": "ccList", "expect": { "rows": [{ "cc": { "readAt": "2026-10-26T08:00:00Z" } }] } },
+    { "as": "carol", "command": "ccList", "expect": { "rows": [{ "readAt": "2026-10-26T08:00:00Z" }] } },
     { "as": "boss", "command": "cc", "args": { "instance": "$start.instance", "users": [] },
       "expect": { "error": { "code": "flow.validation-failed" } } }
   ]

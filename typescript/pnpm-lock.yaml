@@ -96,6 +96,9 @@ importers:
 
   packages/model:
     dependencies:
+      '@internationalized/date':
+        specifier: 'catalog:'
+        version: 3.12.4
       '@zerodep-dev/json-wire':
         specifier: link:../../../../json-wire/typescript/packages/json-wire
         version: link:../../../../json-wire/typescript/packages/json-wire

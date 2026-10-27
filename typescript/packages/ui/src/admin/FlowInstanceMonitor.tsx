@@ -73,7 +73,7 @@ export const FlowInstanceMonitor = _component(({ onOpen, pageSize = 20 }: FlowIn
     },
     { key: 'current', header: messages.columnCurrent, width: 160, value: (instance) => instance.current.map((c) => c.name ?? c.node).join('、') },
     { key: 'startedBy', header: messages.startedBy, width: 100, value: (instance) => instance.startedByName ?? '' },
-    { key: 'startedAt', header: messages.startedAt, width: 170, type: 'dateTime', value: (instance) => new Date(instance.startedAt) },
+    { key: 'startedAt', header: messages.startedAt, width: 170, type: 'dateTime', value: (instance) => instance.startedAt },
   ];
 
   return () => (

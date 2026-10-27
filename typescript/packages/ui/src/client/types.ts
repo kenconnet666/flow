@@ -6,6 +6,7 @@ import type {
   FlowEvent,
   FormManifest,
   Id,
+  Moment,
   NodeFormAccess,
   ProcessInstance,
   WorkItem,
@@ -183,7 +184,7 @@ export interface DefinitionVersion {
   readonly version: number;
   readonly note: string | null;
   readonly publishedByName: string | null;
-  readonly publishedAt: string;
+  readonly publishedAt: Moment;
   readonly formKey: string | null;
   readonly formVersion: number | null;
 }
@@ -210,7 +211,7 @@ export interface FormVersion {
   readonly version: number;
   readonly note: string | null;
   readonly publishedByName: string | null;
-  readonly publishedAt: string;
+  readonly publishedAt: Moment;
 }
 
 /** 表单某个版本的全部内容（编辑时载入） */
@@ -269,7 +270,7 @@ export interface Incident {
   /** 最后一次失败的原因 */
   readonly error: string | null;
   /** 最后一次尝试的时间 */
-  readonly failedAt: string;
+  readonly failedAt: Moment;
   /** 能跳过、按结果往下走（自动节点的动作，实例还停在那里） */
   readonly skippable: boolean;
   /** 跳过时能选的结果；空的时不用选 */

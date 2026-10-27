@@ -1,10 +1,17 @@
 package org.dpdns.zerodep.flow.core.view;
 
-import java.util.Map;
+import com.easy.query.core.annotation.Navigate;
+import com.easy.query.core.enums.RelationTypeEnum;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
- * "抄送我的"的一行（0006 第 4 节的 {@code cc}）：抄送，加上它所在实例的标题、摘要列与状态（同待办列表的行）。
- *
- * @param status 实例的状态
+ * "抄送我的"的一行（0006 第 4 节的 {@code cc}）：抄送本身，加上经导航一起读出的实例（{@code selectAutoInclude(CcItem.class)}）。
  */
-public record CcItem(CcVO cc, String title, Map<String, Object> summary, String status) { }
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class CcItem extends CcVO {
+    /** 所在的实例 */
+    @Navigate(value = RelationTypeEnum.ManyToOne)
+    private InstanceRefVO instance;
+}

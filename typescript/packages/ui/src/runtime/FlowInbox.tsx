@@ -2,8 +2,8 @@
  * 待办列表：我的待办（落到我的，加上我能认领的，按到达时间从新到旧）或我已办（按处理时间从新到旧），
  * 服务端分页（组件库的 QueryTable + useTableQuery）。
  *
- *   <FlowInbox onOpen={(item) => router.push(`/work-items/${item.workItem.id}`)} />
- *   <FlowInbox list="done" onOpen={(item) => router.push(`/instances/${item.workItem.instanceId}`)} />
+ *   <FlowInbox onOpen={(item) => router.push(`/work-items/${item.id}`)} />
+ *   <FlowInbox list="done" onOpen={(item) => router.push(`/instances/${item.instanceId}`)} />
  *
  * 标题列是打开的入口；我的待办里等认领的显示"待认领"、过了截止时间的标"已超时"，我已办里是处理结果与流程现在的状态。
  * 业务摘要列（实例上的 summary）由使用方经 columns 加。
@@ -44,10 +44,10 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
   const titleColumn = (): DataTableColumn<TodoItem> => ({
     key: 'title',
     header: messages.columnTitle,
-    value: (item) => item.title ?? item.workItem.processKey,
+    value: (item) => item.instance?.title ?? item.processKey,
     cell: (item) => (
       <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), onOpen(item))}>
-        {item.title ?? item.workItem.processKey}
+        {item.instance?.title ?? item.processKey}
       </Link>
     ),
   });
@@ -55,7 +55,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     key: 'node',
     header: messages.columnNode,
     width: 120,
-    value: (item) => item.workItem.nodeName ?? item.workItem.node,
+    value: (item) => item.nodeName ?? item.node,
   });
 
   const todoColumns = (): DataTableColumn<TodoItem>[] => [
@@ -65,28 +65,28 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
       key: 'assignee',
       header: messages.columnAssignee,
       width: 100,
-      value: (item) => item.workItem.assigneeName ?? '',
+      value: (item) => item.assigneeName ?? '',
       cell: (item) =>
-        item.workItem.assignment === 'pool' ? <Badge tone="warning">{messages.pool}</Badge> : item.workItem.assigneeName,
+        item.assignment === 'pool' ? <Badge tone="warning">{messages.pool}</Badge> : item.assigneeName,
     },
     {
       key: 'createdAt',
       header: messages.columnArrivedAt,
       width: 170,
       type: 'dateTime',
-      value: (item) => new Date(item.workItem.createdAt),
+      value: (item) => item.createdAt,
     },
     {
       key: 'dueAt',
       header: messages.columnDue,
       width: 190,
-      value: (item) => (item.workItem.dueAt ? new Date(item.workItem.dueAt) : null),
+      value: (item) => item.dueAt,
       // 过了截止时间的标红：时刻按浏览器的时区显示
       cell: (item) =>
-        item.workItem.dueAt && (
+        item.dueAt && (
           <Flex gap="xs" align="center" wrap>
-            {format.date(item.workItem.dueAt, { dateStyle: 'medium', timeStyle: 'short' })}
-            {Date.parse(item.workItem.dueAt) < Date.now() && <Badge tone="danger">{messages.overdue}</Badge>}
+            {format.date(item.dueAt, { dateStyle: 'medium', timeStyle: 'short' })}
+            {item.dueAt.toDate().getTime() < Date.now() && <Badge tone="danger">{messages.overdue}</Badge>}
           </Flex>
         ),
     },
@@ -96,20 +96,20 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     titleColumn(),
     nodeColumn(),
     // 隐式的结果（加签、委派办完）没有名字，显示键
-    { key: 'outcome', header: messages.columnOutcome, width: 120, value: (item) => item.outcomeLabel ?? item.workItem.outcome ?? '' },
+    { key: 'outcome', header: messages.columnOutcome, width: 120, value: (item) => item.outcomeLabel ?? item.outcome ?? '' },
     {
       key: 'status',
       header: messages.columnStatus,
       width: 100,
-      value: (item) => item.status ?? '',
-      cell: (item) => item.status && <Badge tone={statusTone(item.status)}>{messages.status[item.status] ?? item.status}</Badge>,
+      value: (item) => item.instance?.status ?? '',
+      cell: (item) => item.instance && <Badge tone={statusTone(item.instance.status)}>{messages.status[item.instance.status] ?? item.instance.status}</Badge>,
     },
     {
       key: 'completedAt',
       header: messages.columnCompletedAt,
       width: 180,
       type: 'dateTime',
-      value: (item) => (item.workItem.completedAt ? new Date(item.workItem.completedAt) : null),
+      value: (item) => item.completedAt,
     },
   ];
 
@@ -117,7 +117,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     <QueryTable
       query={query}
       columns={[...(list === 'done' ? doneColumns() : todoColumns()), ...columns]}
-      getKey={(item) => String(item.workItem.id)}
+      getKey={(item) => String(item.id)}
       title={title ?? (list === 'done' ? messages.doneList : list === 'designations' ? messages.designationList : messages.inbox)}
     />
   );

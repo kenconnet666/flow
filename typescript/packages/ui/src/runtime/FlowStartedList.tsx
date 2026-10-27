@@ -63,7 +63,7 @@ export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20
       header: messages.startedAt,
       width: 180,
       type: 'dateTime',
-      value: (instance) => new Date(instance.startedAt),
+      value: (instance) => instance.startedAt,
     },
   ];
 

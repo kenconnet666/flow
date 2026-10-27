@@ -34,7 +34,7 @@
 | `withdrawStep` | `workItem`、`reason` | 同上（处理人撤回刚处理的一步） |
 | `startable` | — | `processes`（每项 `{ key, name, category, version }`） |
 | `startView` | `key` | `process`、`form`（`{ key, version, manifest, access, start, values, … }`，没有表单时为 null）、`picks` |
-| `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行 `{ workItem, title, summary, status, outcomeLabel }`） |
+| `todo`、`done` | `page`（默认 1）、`size`（默认 20） | `total`、`rows`（每行是待办本身，加上经导航读出的 `instance: { id, definitionId, title, summary, status }` 与 `outcomeLabel`） |
 | `started` | 同上 | `total`、`rows`（每行是实例） |
 | `instances` | `status`、`processKey`、`keyword`、`startedBy`、`page`、`size` | 同上（管理端搜实例） |
 | `processes` | — | `processes`（每项 `{ key, name, category, status, latestVersion }`） |
@@ -49,7 +49,7 @@
 | `comment` | `instance`、`text` | 同 `start` |
 | `cc` | `instance`、`users`、`message` | 同 `start` |
 | `readCc` | `instance` | `read`（标了几条） |
-| `ccList` | `page`、`size` | `total`、`rows`（每行 `{ cc, title, summary, status }`） |
+| `ccList` | `page`、`size` | `total`、`rows`（每行是抄送本身，加上经导航读出的 `instance`） |
 | `terminate`、`suspend` | `instance`、`reason` | 同 `start` |
 | `resume` | `instance` | 同 `start` |
 | `jump` | `instance`、`node`、`reason` | 同 `start` |

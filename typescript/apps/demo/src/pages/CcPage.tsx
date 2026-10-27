@@ -7,5 +7,5 @@ import { useRouter } from 'vue-router';
 
 export const CcPage = _component(() => {
   const router = useRouter();
-  return () => <FlowCcList onOpen={(item) => void router.push(`/instances/${item.cc.instanceId}`)} />;
+  return () => <FlowCcList onOpen={(item) => void router.push(`/instances/${item.instanceId}`)} />;
 });

@@ -1,11 +1,8 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import com.easy.query.api.proxy.entity.select.EntityQueryable;
-import com.easy.query.core.annotation.Column;
 import com.easy.query.core.func.def.enums.OrderByModeEnum;
-import lombok.Data;
 import org.dpdns.zerodep.flow.core.data.FormValues;
-import org.dpdns.zerodep.flow.core.db.JsonColumns;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.CcEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -19,7 +16,6 @@ import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.view.CcItem;
-import org.dpdns.zerodep.flow.core.view.CcVO;
 import org.dpdns.zerodep.flow.core.view.FlowEventVO;
 import org.dpdns.zerodep.flow.core.view.FormDocument;
 import org.dpdns.zerodep.flow.core.view.FormSummary;
@@ -50,7 +46,6 @@ import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,7 +56,8 @@ import java.util.stream.Collectors;
 
 /**
  * 查询（0006 第 4 节）：发起列表与发起页、收件箱与待办详情、实例详情、已办、我发起的、抄送、管理端的列表。
- * 列表直接按 VO 读（{@code select(WorkItemVO.class)}），行上要带实例的标题、摘要列时再按编号一次读回（{@link InstanceBrief}）。
+ * 列表按 VO 读（{@code select(InstanceVO.class)}）；行上要带实例的（待办、抄送）按对象树读：
+ * {@code selectAutoInclude(TodoItem.class)} 把导航 {@code instance} 一起读出。
  */
 public final class Queries {
     private final EngineContext context;
@@ -81,17 +77,6 @@ public final class Queries {
      * @param startedBy  发起人
      */
     public record InstanceSearch(String status, String processKey, String keyword, Long startedBy) { }
-
-    /** 列表行上要带的实例信息（按编号一次读回）；definitionId 用来找处理结果的名字 */
-    @Data
-    public static class InstanceBrief {
-        private Long id;
-        private Long definitionId;
-        private String title;
-        @Column(conversion = JsonColumns.ObjectJson.class)
-        private Map<String, Object> summary;
-        private String status;
-    }
 
     /** 我能发起的流程：启用着、发起人名单里有我（名单只认写死的值），按分类、名称排 */
     public List<StartableProcess> startable(Actor actor) {
@@ -118,7 +103,7 @@ public final class Queries {
 
     /**
      * 我的待办：落到我的，加上我、我的角色、部门或扩展种类（{@link Actor#groups()}）能认领的（我没被排除），按到达时间从新到旧；
-     * 每行带上实例的标题与摘要列（0006 第 4 节"待办的业务摘要列"）。
+     * 每行带上实例（标题、摘要列与状态，0006 第 4 节"待办的业务摘要列"）。
      * <p>分两段查（0007 第 4 节），各取前"偏移 + 页长"条再合并：落到我的走（租户, 处理人, 状态, 到达时间）的索引；
      * 我能认领的（没有处理人、候选里有我所在的、我没被排除）从候选的覆盖索引进。第二段要求没有处理人，两段不会重叠。
      */
@@ -132,12 +117,11 @@ public final class Queries {
         long mine = assignedTo(me).count();
         long claimable = claimableBy(me, memberships).count();
         int head = page * size;
-        List<WorkItemVO> rows = new ArrayList<>();
-        rows.addAll(assignedTo(me).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).select(WorkItemVO.class).toList());
-        rows.addAll(claimableBy(me, memberships).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).select(WorkItemVO.class).toList());
-        rows.sort(Comparator.comparing(WorkItemVO::getCreatedAt).thenComparing(WorkItemVO::getId).reversed());
-        List<WorkItemVO> slice = rows.stream().skip((long) (page - 1) * size).limit(size).toList();
-        return withInstances(Page.of(slice, mine + claimable, page, size));
+        List<TodoItem> rows = new ArrayList<>();
+        rows.addAll(assignedTo(me).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).selectAutoInclude(TodoItem.class).toList());
+        rows.addAll(claimableBy(me, memberships).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).selectAutoInclude(TodoItem.class).toList());
+        rows.sort(Comparator.comparing(TodoItem::getCreatedAt).thenComparing(TodoItem::getId).reversed());
+        return Page.of(rows.stream().skip((long) (page - 1) * size).limit(size).toList(), mine + claimable, page, size);
     }
 
     /** 落到我的、打开着的 */
@@ -157,57 +141,37 @@ public final class Queries {
         });
     }
 
-    /** 我处理过的：按处理时间从新到旧，每行带实例的标题与摘要列（同收件箱的行） */
+    /** 我处理过的：按处理时间从新到旧，每行带实例与处理结果的名字 */
     public Page<TodoItem> done(Actor actor, int page, int size) {
-        return withInstances(Page.of(context.db().queryable(WorkItemEntity.class)
+        Page<TodoItem> rows = Page.of(context.db().queryable(WorkItemEntity.class)
             .where(w -> { w.completedBy().eq(actor.id()); w.state().eq(WorkItemEntity.DONE); })
             .orderBy(w -> { w.completedAt().desc(); w.id().desc(); })
-            .select(WorkItemVO.class).toPageResult(page, size), page, size));
+            .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
+        rows.rows().forEach(this::labelOutcome);
+        return rows;
     }
 
-    /** 等我指定承办人的待办（无人认领超时、我是收件箱负责人），每行带实例的标题与摘要列 */
+    /** 等我指定承办人的待办（无人认领超时、我是收件箱负责人），每行带实例 */
     public Page<TodoItem> designations(Actor actor, int page, int size) {
-        return withInstances(Page.of(context.db().queryable(WorkItemEntity.class)
+        return Page.of(context.db().queryable(WorkItemEntity.class)
             .where(w -> { w.designatorId().eq(actor.id()); w.needsDesignation().eq(true); w.state().eq(WorkItemEntity.OPEN); })
             .orderBy(w -> { w.createdAt().desc(); w.id().desc(); })
-            .select(WorkItemVO.class).toPageResult(page, size), page, size));
+            .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
     }
 
-    /** 待办列表的每一行带上实例的标题、摘要列与状态（0006 第 4 节"待办的业务摘要列"），处理过的再带上结果的名字 */
-    private Page<TodoItem> withInstances(Page<WorkItemVO> items) {
-        Map<Long, InstanceBrief> instances = briefs(items.rows().stream().map(WorkItemVO::getInstanceId).toList());
-        return items.map(item -> {
-            InstanceBrief instance = instances.get(item.getInstanceId());
-            if (instance == null) return new TodoItem(item, null, Map.of(), null, null);
-            return new TodoItem(item, instance.getTitle(), instance.getSummary(), instance.getStatus(), outcomeLabel(instance, item));
-        });
+    /** 处理过的行带上结果的名字：按实例的定义版本找节点上的 outcome；隐式的结果（加签办完）没有名字 */
+    private void labelOutcome(TodoItem item) {
+        if (item.getOutcome() == null || item.getInstance() == null) return;
+        if (!(definitions.byId(item.getInstance().getDefinitionId()).graph().node(item.getNode()) instanceof ProcessNode.Task task)) return;
+        task.outcomes().stream().filter(o -> o.key().equals(item.getOutcome())).findFirst().ifPresent(o -> item.setOutcomeLabel(o.label()));
     }
 
-    /** 一批实例的标题、摘要列与状态，按编号 */
-    private Map<Long, InstanceBrief> briefs(Collection<Long> ids) {
-        if (ids.isEmpty()) return Map.of();
-        return context.db().queryable(InstanceEntity.class).where(i -> i.id().in(ids)).select(InstanceBrief.class).toList().stream()
-            .collect(Collectors.toMap(InstanceBrief::getId, Function.identity()));
-    }
-
-    /** 处理结果的名字：按实例的定义版本找节点上的 outcome；还没处理、隐式的结果（加签办完）时为 null */
-    private String outcomeLabel(InstanceBrief instance, WorkItemVO item) {
-        if (item.getOutcome() == null) return null;
-        if (!(definitions.byId(instance.getDefinitionId()).graph().node(item.getNode()) instanceof ProcessNode.Task task)) return null;
-        return task.outcomes().stream().filter(o -> o.key().equals(item.getOutcome())).map(Outcome::label).findFirst().orElse(null);
-    }
-
-    /** 抄送我的：未读在前，已读的按读的时间从新到旧，同样的按抄送时间从新到旧；每行带实例的标题、摘要列与状态 */
+    /** 抄送我的：未读在前，已读的按读的时间从新到旧，同样的按抄送时间从新到旧；每行带实例 */
     public Page<CcItem> ccList(Actor actor, int page, int size) {
-        Page<CcVO> ccs = Page.of(context.db().queryable(CcEntity.class)
+        return Page.of(context.db().queryable(CcEntity.class)
             .where(c -> c.recipientId().eq(actor.id()))
             .orderBy(c -> { c.readAt().desc(true, OrderByModeEnum.NULLS_FIRST); c.createdAt().desc(); c.id().desc(); })
-            .select(CcVO.class).toPageResult(page, size), page, size);
-        Map<Long, InstanceBrief> instances = briefs(ccs.rows().stream().map(CcVO::getInstanceId).toList());
-        return ccs.map(cc -> {
-            InstanceBrief instance = instances.get(cc.getInstanceId());
-            return instance == null ? new CcItem(cc, null, Map.of(), null) : new CcItem(cc, instance.getTitle(), instance.getSummary(), instance.getStatus());
-        });
+            .selectAutoInclude(CcItem.class).toPageResult(page, size), page, size);
     }
 
     /** 管理端搜实例：按发起时间从新到旧；有状态、流程时走（租户, 状态, 流程, 发起时间）的索引 */

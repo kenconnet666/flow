@@ -2,11 +2,15 @@
  * 运行时的形状（0006 第 4 节）：命令与查询返回给前端的实例、待办、流转记录，两个后端相同（Java 的 model.runtime）。
  *
  * 编号是数据库自增的 BIGINT：线上是 typed JSON 的 bigint（文字加 `$types`），前端的请求层还原成 `bigint`；
- * 接入方组织表的编号（处理人、发起人）同样是 `bigint`。时间是带 `Z` 的 ISO 8601 文字。
+ * 接入方组织表的编号（处理人、发起人）同样是 `bigint`。时刻是 timestamptz，请求层（`wire: { dates: 'objects' }`）还原成 `ZonedDateTime`。
  */
+import type { ZonedDateTime } from '@internationalized/date';
 
 /** 数据库自增的编号 */
 export type Id = bigint;
+
+/** 时刻：线上是 timestamptz（带 Z 的 UTC），前端是 ZonedDateTime */
+export type Moment = ZonedDateTime;
 
 /** 实例的状态 */
 export type InstanceStatus = 'active' | 'suspended' | 'completed' | 'terminated' | 'withdrawn';
@@ -41,8 +45,8 @@ export interface ProcessInstance {
   readonly startedBy: Id | null;
   /** 发起人的名字（快照） */
   readonly startedByName: string | null;
-  readonly startedAt: string;
-  readonly endedAt: string | null;
+  readonly startedAt: Moment;
+  readonly endedAt: Moment | null;
   /** 调用它的父实例（调用流程）；不是子流程时为 null */
   readonly parentInstanceId: Id | null;
 }
@@ -88,9 +92,9 @@ export interface WorkItem {
   readonly parentItemId: Id | null;
   /** 怎样加进来的：delegate 委派、before 前加签、after 后加签、parallel 并加 */
   readonly addMode: 'delegate' | 'before' | 'after' | 'parallel' | null;
-  readonly createdAt: string;
-  readonly claimedAt: string | null;
-  readonly dueAt: string | null;
+  readonly createdAt: Moment;
+  readonly claimedAt: Moment | null;
+  readonly dueAt: Moment | null;
   /** 处理结果 */
   readonly outcome: string | null;
   /** 意见 */
@@ -99,7 +103,7 @@ export interface WorkItem {
   readonly completedBy: Id | null;
   readonly completedByName: string | null;
   /** 处理时间；取消的待办是取消的时间 */
-  readonly completedAt: string | null;
+  readonly completedAt: Moment | null;
 }
 
 /** 一条流转记录 */
@@ -119,19 +123,26 @@ export interface FlowEvent {
   /** 操作人；引擎自己推进时为 null */
   readonly actorId: Id | null;
   readonly actorName: string | null;
-  readonly at: string;
+  readonly at: Moment;
   /** 意见、原因 */
   readonly comment: string | null;
   readonly data: Readonly<Record<string, unknown>> | null;
 }
 
-/** 待办列表（我的待办、我已办）的一行：待办加实例的标题、摘要列与状态 */
-export interface TodoItem {
-  readonly workItem: WorkItem;
+/** 列表的一行上带的实例（后端经导航一起读出）：标题、摘要列与状态 */
+export interface InstanceRef {
+  readonly id: Id;
+  /** 按哪个发布的版本走 */
+  readonly definitionId: Id;
   readonly title: string | null;
-  readonly summary: Readonly<Record<string, unknown>>;
-  /** 实例的状态 */
-  readonly status: string | null;
+  /** 待办列表的摘要列：{ 引用名: 值 } */
+  readonly summary: Readonly<Record<string, unknown>> | null;
+  readonly status: InstanceStatus;
+}
+
+/** 待办列表（我的待办、我已办、待我指定）的一行：待办本身，加上它所在的实例 */
+export interface TodoItem extends WorkItem {
+  readonly instance: InstanceRef | null;
   /** 处理结果的名字；还没处理时为 null */
   readonly outcomeLabel: string | null;
 }
@@ -150,17 +161,14 @@ export interface Cc {
   readonly fromUserName: string | null;
   /** 附言 */
   readonly message: string | null;
-  readonly createdAt: string;
+  readonly createdAt: Moment;
   /** 读的时间；没读时为 null */
-  readonly readAt: string | null;
+  readonly readAt: Moment | null;
 }
 
-/** "抄送我的"的一行：抄送加实例的标题、摘要列与状态 */
-export interface CcItem {
-  readonly cc: Cc;
-  readonly title: string | null;
-  readonly summary: Readonly<Record<string, unknown>>;
-  readonly status: string | null;
+/** "抄送我的"的一行：抄送本身，加上它所在的实例 */
+export interface CcItem extends Cc {
+  readonly instance: InstanceRef | null;
 }
 
 /** 流转记录的种类（同 Java 的 FlowEvent 常量）；接入方监听、前端显示时按它认 */
