@@ -46,12 +46,28 @@ export interface FormView {
 }
 
 /** 发起页 */
+/** 预测的下一步：选了某个结果（或发起）后流程会停在哪里，按现在的值算，不跑自动节点 */
+export interface NextStep {
+  readonly node: string;
+  readonly nodeName: string | null;
+  /** task、service、call、receive、timer、end…… */
+  readonly type: string;
+  /** 看得出来的处理人名字（指定的人、发起人、同某节点的上一位处理人） */
+  readonly handlers: readonly string[];
+  /** 进收件箱等人认领 */
+  readonly inbox: boolean;
+  /** 要在提交时选处理人；不用选时为 null */
+  readonly pick: PickView | null;
+}
+
 export interface StartView {
   readonly process: StartableProcess;
   /** 开始节点上的表单；流程没有表单时为 null */
   readonly form: FormView | null;
   /** 发起时要选处理人的第一步 */
   readonly picks: readonly PickView[];
+  /** 发起后流程会停在哪里 */
+  readonly next: readonly NextStep[];
 }
 
 /** 提交时要选处理人的下一步（0005 的 5.6） */
@@ -76,6 +92,8 @@ export interface OutcomeView {
   readonly confirm: boolean;
   /** 选了这个结果后要选处理人的下一步 */
   readonly picks: readonly PickView[];
+  /** 选了这个结果后流程会停在哪里；我不能处理时是空的 */
+  readonly next: readonly NextStep[];
   /** 退回时能选的节点（结果写了 target: "choose"）；别的结果是空的 */
   readonly targets: readonly ReturnTarget[];
 }

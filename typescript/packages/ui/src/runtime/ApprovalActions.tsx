@@ -15,6 +15,7 @@ import {
   Popconfirm,
   Radio,
   RadioGroup,
+  Small,
   Textarea,
   type PeopleSource,
   type PopoverTriggerProps,
@@ -23,6 +24,7 @@ import {
 import type { Id } from '@zerodep-dev/flow-model';
 import type { OutcomeView } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
+import { describeNext } from './next-steps';
 import { PickDialog } from './PickDialog';
 
 /** ApprovalActions 的属性 */
@@ -119,6 +121,14 @@ export const ApprovalActions = _component(
             ),
           )}
         </Flex>
+        {outcomes.some((o) => o.next.length > 0) && (
+          <Flex direction="column">
+            {outcomes.map((o) => {
+              const where = describeNext(o.next, messages);
+              return where && <Small key={o.key} tone="muted">{messages.nextAfterOutcome(o.label, where)}</Small>;
+            })}
+          </Flex>
+        )}
         {returning && (
           <Dialog
             _open={returnOpen}

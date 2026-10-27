@@ -14,6 +14,7 @@ import {
   Flex,
   HttpError,
   Skeleton,
+  Small,
   Text,
   useErrorMessage,
   useRequest,
@@ -24,6 +25,7 @@ import type { CommandResult } from '../client/types';
 import type { FlowFormHandle } from '../form/context';
 import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
+import { describeNext } from './next-steps';
 import { PickDialog } from './PickDialog';
 
 /** StartForm 的属性 */
@@ -127,6 +129,7 @@ export const StartForm = _component(({ processKey, people, modules, businessKey,
           ) : (
             <Text tone="muted">{messages.noForm}</Text>
           )}
+          {describeNext(data.next, messages) && <Small tone="muted">{messages.nextAfterSubmit(describeNext(data.next, messages)!)}</Small>}
           <Flex gap="sm">
             <Button loading={busy === 'submit'} disabled={busy != null} onClick={submit}>
               {messages.submit}

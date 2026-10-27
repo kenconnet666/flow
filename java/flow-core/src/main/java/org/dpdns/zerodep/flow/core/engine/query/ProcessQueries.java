@@ -6,7 +6,7 @@ import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.assignee.CandidateRules;
-import org.dpdns.zerodep.flow.core.engine.assignee.PickPreview;
+import org.dpdns.zerodep.flow.core.engine.assignee.NextSteps;
 import org.dpdns.zerodep.flow.core.engine.form.FormCode;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
@@ -18,7 +18,7 @@ import org.dpdns.zerodep.flow.core.view.definition.ProcessVersionVO;
 import org.dpdns.zerodep.flow.core.view.definition.StartView;
 import org.dpdns.zerodep.flow.core.view.definition.StartableProcess;
 import org.dpdns.zerodep.flow.core.view.form.FormView;
-import org.dpdns.zerodep.flow.core.view.workitem.PickView;
+import org.dpdns.zerodep.flow.core.view.workitem.NextStep;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,8 +69,8 @@ public class ProcessQueries {
         FormView form = definition.hasForm()
             ? forms.formView(definition, definition.getGraph().start().getForm(), true, initial, read)
             : null;
-        List<PickView> picks = new PickPreview(definition.getGraph(), context).after(definition.getGraph().start().getId(), null, read);
-        return new StartView(new StartableProcess(processKey, process.getName(), process.getCategory(), process.getLatestVersion()), form, picks);
+        List<NextStep> next = new NextSteps(definition.getGraph(), context, actor.getId(), null).after(definition.getGraph().start().getId(), null, read);
+        return new StartView(new StartableProcess(processKey, process.getName(), process.getCategory(), process.getLatestVersion()), form, NextSteps.picks(next), next);
     }
 
     /** 管理端的流程列表：全部流程（停用的也在），按分类、名称排 */

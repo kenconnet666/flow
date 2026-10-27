@@ -51,6 +51,12 @@ export interface FlowMessages {
   readonly submit: string;
   /** 暂存：填了一半先存 */
   readonly saveDraft: string;
+  /** 预测的下一步 */
+  readonly nextAfterSubmit: (where: string) => string;
+  readonly nextAfterOutcome: (label: string, where: string) => string;
+  readonly nextInbox: string;
+  readonly nextPick: string;
+  readonly nextEnd: (result: string) => string;
   /** 发起前的草稿 */
   readonly startDraftSaved: string;
   readonly startDrafts: string;
@@ -597,6 +603,11 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: '取消',
     submit: '提交',
     saveDraft: '暂存',
+    nextAfterSubmit: (where) => `提交后到：${where}`,
+    nextAfterOutcome: (label, where) => `${label} → ${where}`,
+    nextInbox: '进收件箱',
+    nextPick: '提交时选人',
+    nextEnd: (result) => `结束：${result}`,
     startDraftSaved: '草稿已存，下次在"发起"页的"我的草稿"里接着填',
     startDrafts: '我的草稿',
     continueDraft: '接着填',
@@ -849,6 +860,11 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: 'Cancel',
     submit: 'Submit',
     saveDraft: 'Save draft',
+    nextAfterSubmit: (where) => `Next: ${where}`,
+    nextAfterOutcome: (label, where) => `${label} → ${where}`,
+    nextInbox: 'to the inbox',
+    nextPick: 'you choose',
+    nextEnd: (result) => `Ends: ${result}`,
     startDraftSaved: 'Draft saved; continue it later from My drafts on the start page',
     startDrafts: 'My drafts',
     continueDraft: 'Continue',

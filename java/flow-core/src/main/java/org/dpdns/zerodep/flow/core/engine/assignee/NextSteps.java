@@ -1,7 +1,9 @@
 package org.dpdns.zerodep.flow.core.engine.assignee;
 
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
+import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
+import org.dpdns.zerodep.flow.core.view.workitem.NextStep;
 import org.dpdns.zerodep.flow.core.view.workitem.PickView;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
@@ -20,43 +22,70 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * 审批面板要为哪些下一步显示选人框（0005 的 5.6）：从一个节点按某个结果、用现在的值往下走，穿过网关与抄送节点，
- * 到人工节点为止；处理人来源里有 {@code pick} 的就是要选的。能选的人按 {@code from} 展开（指定的人、角色、部门、扩展的种类）；
- * 没写 from、或写了要看实例才知道的来源（解析器、发起人……）时不限，提交时引擎再核对。
+ * 预测下一步（0006 的 predict、0005 的 5.6）：从一个节点按某个结果、用现在的值往下走，穿过网关与抄送节点，
+ * 停在第一批要等的节点（人工、自动、调用流程、等事件、定时、结束）。审批面板拿它显示"提交后到哪里、交给谁"，
+ * 以及哪些下一步要选人（{@link #picks}）。
+ * <p>
+ * 能选的人按 {@code pick.from} 展开（指定的人、角色、部门、扩展的种类）；没写 from、或写了要看实例才知道的来源时不限，提交时引擎再核对。
  */
-public class PickPreview {
+public class NextSteps {
     private final ProcessGraph graph;
     private final EngineContext context;
+    /** 实例的发起人（发起页上是操作人自己） */
+    private final Long starterId;
+    /** 实例；发起页上还没有，为 null（"同某节点的处理人"就看不出来） */
+    private final Long instanceId;
 
-    public PickPreview(ProcessGraph graph, EngineContext context) {
+    public NextSteps(ProcessGraph graph, EngineContext context, Long starterId, Long instanceId) {
         this.graph = graph;
         this.context = context;
+        this.starterId = starterId;
+        this.instanceId = instanceId;
     }
 
-    /** 从 nodeId 按 outcome 往下走会到的、要选人的节点，按先后 */
-    public List<PickView> after(String nodeId, String outcome, Function<String, Object> read) {
-        Map<String, PickView> out = new LinkedHashMap<>();
+    /** 从 nodeId 按 outcome 往下走会停下的节点，按先后 */
+    public List<NextStep> after(String nodeId, String outcome, Function<String, Object> read) {
+        Map<String, NextStep> out = new LinkedHashMap<>();
         Set<String> seen = new HashSet<>();
         for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, outcome, read)) visit(edge.getTo(), read, out, seen);
         return List.copyOf(out.values());
     }
 
-    private void visit(String nodeId, Function<String, Object> read, Map<String, PickView> out, Set<String> seen) {
-        if (!seen.add(nodeId)) return;
-        ProcessNode node = graph.node(nodeId);
-        if (node instanceof ProcessNode.Task task) {
-            List<AssigneeSource> sources = task.getMulti() != null ? task.getMulti().participantSources() : task.getAssignees();
-            for (AssigneeSource source : sources) {
-                if (source instanceof AssigneeSource.Pick pick) out.putIfAbsent(task.getId(), view(task, pick));
-            }
-        } else if (node instanceof ProcessNode.Gateway || node instanceof ProcessNode.Cc) {
-            for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, null, read)) visit(edge.getTo(), read, out, seen);
-        }
+    /** 下一步里要选处理人的那些 */
+    public static List<PickView> picks(List<NextStep> steps) {
+        return steps.stream().map(NextStep::getPick).filter(p -> p != null).toList();
     }
 
-    private PickView view(ProcessNode.Task task, AssigneeSource.Pick pick) {
-        return new PickView(task.getId(), task.getName(), pick.getMax(), candidates(pick.getFrom()));
+    private void visit(String nodeId, Function<String, Object> read, Map<String, NextStep> out, Set<String> seen) {
+        if (!seen.add(nodeId)) return;
+        ProcessNode node = graph.node(nodeId);
+        if (node instanceof ProcessNode.Gateway || node instanceof ProcessNode.Cc) {
+            for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, null, read)) visit(edge.getTo(), read, out, seen);
+            return;
+        }
+        out.put(nodeId, node instanceof ProcessNode.Task task ? taskStep(task)
+            : new NextStep(node.getId(), node.getName(), node.getType(), List.of(), false, null));
     }
+
+    private NextStep taskStep(ProcessNode.Task task) {
+        List<AssigneeSource> sources = task.getMulti() != null ? task.getMulti().participantSources() : task.getAssignees();
+        Set<String> handlers = new LinkedHashSet<>();
+        boolean inbox = false;
+        PickView pick = null;
+        for (AssigneeSource source : sources) {
+            if (source instanceof AssigneeSource.Pick p) pick = new PickView(task.getId(), task.getName(), p.getMax(), candidates(p.getFrom()));
+            else if (source.isInbox()) inbox = true;
+            else if (source instanceof AssigneeSource.User user && !(user.getUser() instanceof Ref)) OrgIds.all(user.getUser()).forEach(id -> handlers.add(name(id)));
+            else if (source instanceof AssigneeSource.Initiator && starterId != null) handlers.add(name(starterId));
+            else if (source instanceof AssigneeSource.SameAs same && instanceId != null) {
+                Long last = WorkItems.lastCompletedBy(context.getDb(), instanceId, same.getNode());
+                if (last != null) handlers.add(name(last));
+            }
+        }
+        return new NextStep(task.getId(), task.getName(), task.getType(), List.copyOf(handlers), inbox, pick);
+    }
+
+    private String name(Long userId) { return context.getOrg().userName(userId); }
 
     /** from 展开成人；没写、或写了要看实例才知道的来源时为 null（不限） */
     private List<PickView.Candidate> candidates(List<AssigneeSource> from) {
@@ -76,7 +105,7 @@ public class PickPreview {
             }
         }
         List<PickView.Candidate> out = new ArrayList<>();
-        for (Long id : users) out.add(new PickView.Candidate(id, context.getOrg().userName(id)));
+        for (Long id : users) out.add(new PickView.Candidate(id, name(id)));
         return out;
     }
 }

@@ -6,7 +6,7 @@ import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.assignee.CandidateRules;
-import org.dpdns.zerodep.flow.core.engine.assignee.PickPreview;
+import org.dpdns.zerodep.flow.core.engine.assignee.NextSteps;
 import org.dpdns.zerodep.flow.core.engine.form.References;
 import org.dpdns.zerodep.flow.core.engine.handler.StepWithdrawal;
 import org.dpdns.zerodep.flow.core.engine.rule.ReturnTargets;
@@ -17,7 +17,7 @@ import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.view.form.FormView;
 import org.dpdns.zerodep.flow.core.view.workitem.DraftVO;
-import org.dpdns.zerodep.flow.core.view.workitem.PickView;
+import org.dpdns.zerodep.flow.core.view.workitem.NextStep;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemView.OutcomeView;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemView;
@@ -63,7 +63,7 @@ public class WorkItemQueries {
         FormValues shown = draft == null ? stored : stored.with(draft.getForm());
         FormView form = definition.hasForm() ? forms.formView(definition, task.getForm(), false, shown, read) : null;
         boolean completable = open && (mine || candidate);
-        PickPreview preview = new PickPreview(definition.getGraph(), context);
+        NextSteps preview = new NextSteps(definition.getGraph(), context, instance.getStartedBy(), instance.getId());
         List<WorkItemView.ReturnTarget> targets = completable && task.getOutcomes().stream().anyMatch(Outcome::choosesTarget)
             ? returnTargets(definition, instance, item.getNode()) : List.of();
         // 选节点的退回在没有能退回的节点时（还在第一个人工节点上）不给：点了也做不成
@@ -86,9 +86,9 @@ public class WorkItemQueries {
     }
 
     /** 处理结果给前端的样子：没写意见要求时是 {@code none}（不收意见，0005 的人工节点） */
-    private static OutcomeView outcomeView(Outcome outcome, List<PickView> picks, List<WorkItemView.ReturnTarget> targets) {
+    private static OutcomeView outcomeView(Outcome outcome, List<NextStep> next, List<WorkItemView.ReturnTarget> targets) {
         return new OutcomeView(outcome.getKey(), outcome.getLabel(), outcome.kindOrDefault(), outcome.getComment() == null ? "none" : outcome.getComment(),
-            outcome.isConfirm(), picks, targets);
+            outcome.isConfirm(), NextSteps.picks(next), next, targets);
     }
 
     /** 退回时能选的节点，带上次在那里处理的人（取这个节点最近处理完的待办） */

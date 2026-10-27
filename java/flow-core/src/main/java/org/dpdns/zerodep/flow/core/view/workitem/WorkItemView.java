@@ -60,6 +60,8 @@ public class WorkItemView {
         private final boolean confirm;
         /** 选了这个结果后要选处理人的下一步（0005 的 5.6）；我不能处理时是空的 */
         private final List<PickView> picks;
+        /** 选了这个结果后流程会停在哪里（预测，0006 的 predict）；我不能处理时是空的 */
+        private final List<NextStep> next;
         /** 退回时能选的节点（结果写了 {@code target: "choose"}）；别的结果、我不能处理时是空的 */
         private final List<ReturnTarget> targets;
     }

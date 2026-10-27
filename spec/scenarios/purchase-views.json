@@ -6,7 +6,8 @@
   "actors": {
     "alice": { "id": 1001, "name": "林小满" },
     "bob": { "id": 1002, "name": "周启航", "roles": [1] },
-    "carol": { "id": 1003, "name": "沈若水" }
+    "carol": { "id": 1003, "name": "沈若水" },
+    "boss": { "id": 1004, "name": "总经理" }
   },
   "steps": [
     { "as": "alice", "command": "startable",
@@ -17,7 +18,8 @@
         "form": { "key": "purchase-form", "version": 1, "start": true,
           "access": { "default": "editable", "fields": { "note": "hidden" } },
           "manifest": { "title": { "label": "标题", "type": "text", "required": true }, "quantity": { "type": "number", "min": 1 } },
-          "values": {} }
+          "values": {} },
+        "next": [{ "node": "review", "nodeName": "财务复核", "type": "task", "handlers": [], "inbox": true, "pick": null }]
       } },
     { "as": "alice", "command": "startView", "args": { "key": "nowhere" }, "expect": { "error": { "code": "flow.not-found" } } },
     { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "办公桌", "amount": "12000.00", "quantity": 3 } } },
@@ -28,8 +30,10 @@
         "form": { "start": false, "access": { "default": "readonly", "fields": { "note": "editable" } },
           "values": { "title": "办公桌", "amount": "12000.00", "quantity": 3 } },
         "outcomes": [
-          { "key": "pass", "label": "通过", "kind": "approve", "comment": "none", "confirm": false },
-          { "key": "reject", "label": "否决", "kind": "reject", "comment": "required", "confirm": false }
+          { "key": "pass", "label": "通过", "kind": "approve", "comment": "none", "confirm": false,
+            "next": [{ "node": "approve", "nodeName": "总经理审批", "type": "task", "handlers": ["总经理"], "inbox": false }] },
+          { "key": "reject", "label": "否决", "kind": "reject", "comment": "required", "confirm": false,
+            "next": [{ "node": "rejected", "nodeName": "否决", "type": "end", "handlers": [] }] }
         ],
         "claimable": true, "completable": true,
         "actions": { "transfer": true, "delegate": true, "addSigners": true, "release": false, "assign": false }
