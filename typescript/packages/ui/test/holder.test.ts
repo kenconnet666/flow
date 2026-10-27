@@ -3,7 +3,7 @@ import type { WorkItem } from '@zerodep-dev/flow-model';
 import { describe, expect, it } from 'vitest';
 import { enUS } from '../src/lang/en-US';
 import { zhCN } from '../src/lang/zh-CN';
-import { holderName } from '../src/runtime/holder';
+import { holderName } from '../src/runtime/parts/holder';
 
 const item = (assigneeName: string | null, onBehalfOfName: string | null = null) => ({ assigneeName, onBehalfOfName }) as WorkItem;
 
