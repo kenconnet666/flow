@@ -6,6 +6,9 @@ import { browserCompile, vueTsxPro, workspaceSource } from '@zerodep-dev/vue-tsx
 export default defineConfig({
   plugins: [workspaceSource(), ...vueTsxPro(), browserCompile()],
   resolve: { dedupe: ['vue', 'vue-router', '@internationalized/date', 'decimal.js', 'zod'] },
+  // json-wire 是 link: 进来的（工程外），不预构建时它 import 的 decimal.js、@internationalized/date 按它自己的目录解析成另一份，
+  // instanceof 对不上：一起预构建，与应用共用一份
+  optimizeDeps: { include: ['@zerodep-dev/json-wire'] },
   server: {
     port: 5180,
     strictPort: true,

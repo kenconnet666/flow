@@ -27,6 +27,7 @@ import {
   type PeopleEntry,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { Plus, Trash2 } from '@lucide/icons';
+import Decimal from 'decimal.js';
 import { CalendarDateTime, getLocalTimeZone, toZoned, type ZonedDateTime } from '@internationalized/date';
 import type { VNodeChild } from 'vue';
 import { useFlowMessages, type FlowMessages } from '../lang/messages';
@@ -75,13 +76,17 @@ function fieldOf(
 function controlOf(form: FlowFormApi<FormManifest>, context: FlowFormScope, path: string, field: FieldDefinition): VNodeChild {
   switch (field.type) {
     case 'number':
-      return <NumberField min={numberOf(field.min)} max={numberOf(field.max)} step={field.integer ? 1 : undefined} />;
+      // NumberField 失焦时把值对齐到步长（默认 1）：不是整数的字段给一个足够细的步长
+      return <NumberField min={numberOf(field.min)} max={numberOf(field.max)} step={field.integer ? 1 : 0.000001} />;
     case 'decimal':
-      // 按清单的小数位显示（12,000.00），输入时同样限到这么多位
+      // 按清单的小数位显示（12,000.00）、对齐到这么多位；没写小数位时不限（步长细到 Decimal 的精度）
       return field.scale === undefined ? (
-        <NumberField />
+        <NumberField step={new Decimal('1e-20')} />
       ) : (
-        <NumberField format={{ minimumFractionDigits: field.scale, maximumFractionDigits: field.scale }} />
+        <NumberField
+          step={new Decimal(`1e-${field.scale}`)}
+          format={{ minimumFractionDigits: field.scale, maximumFractionDigits: field.scale }}
+        />
       );
     case 'boolean':
       return <Switch />;
