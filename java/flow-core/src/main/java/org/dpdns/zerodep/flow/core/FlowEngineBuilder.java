@@ -15,6 +15,7 @@ import org.dpdns.zerodep.flow.core.extension.CountersignRule;
 import org.dpdns.zerodep.flow.core.extension.CustomNode;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.extension.FieldType;
+import org.dpdns.zerodep.flow.core.extension.TodoQueryCustomizer;
 import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
@@ -62,6 +63,7 @@ public class FlowEngineBuilder<U extends Actor> {
     private final List<CustomNode> customNodes = new ArrayList<>();
     private final List<CountersignRule> countersignRules = new ArrayList<>();
     private final List<FieldType> fieldTypes = new ArrayList<>();
+    private TodoQueryCustomizer todoCustomizer = TodoQueryCustomizer.NONE;
 
     FlowEngineBuilder(EasyEntityQuery db) { this.db = Objects.requireNonNull(db, "db"); }
 
@@ -101,6 +103,9 @@ public class FlowEngineBuilder<U extends Actor> {
     /** 注册一种表单字段类型（清单里 {@code "type": 名字}，{@link FieldType}） */
     public FlowEngineBuilder<U> fieldType(FieldType type) { this.fieldTypes.add(type); return this; }
 
+    /** 待办列表连接入方自己的表：加条件、补业务列（{@link TodoQueryCustomizer}）；默认不连 */
+    public FlowEngineBuilder<U> todoQueryCustomizer(TodoQueryCustomizer customizer) { this.todoCustomizer = customizer; return this; }
+
     /** 注册一个命令拦截器：审计、业务校验、改参数、换掉某个命令的标准行为（{@link CommandInterceptor}）；先注册的在外层 */
     public FlowEngineBuilder<U> interceptor(CommandInterceptor<U> interceptor) { this.interceptors.add(interceptor); return this; }
 
@@ -125,7 +130,7 @@ public class FlowEngineBuilder<U extends Actor> {
         // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
         FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
         return new FlowEngine<>(new EngineContext(db, clock, org, calendar != null ? calendar : new TableWorkCalendar(db, ZoneOffset.UTC), new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
-            new Extensions(resolvers, guards, actions, customNodes, countersignRules, fieldTypes), new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions, List.copyOf(interceptors),
+            new Extensions(resolvers, guards, actions, customNodes, countersignRules, fieldTypes), todoCustomizer, new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions, List.copyOf(interceptors),
             List.copyOf(jobHandlers));
     }
 }

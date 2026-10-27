@@ -13,6 +13,7 @@ import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
 import org.dpdns.zerodep.flow.core.extension.CountersignRule;
 import org.dpdns.zerodep.flow.core.extension.CustomNode;
 import org.dpdns.zerodep.flow.core.extension.FieldType;
+import org.dpdns.zerodep.flow.core.extension.TodoQueryCustomizer;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
@@ -76,7 +77,7 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
                                  ObjectProvider<OutcomeGuard> guards, ObjectProvider<ServiceAction> actions,
                                  ObjectProvider<CustomNode> customNodes, ObjectProvider<CountersignRule> countersignRules,
-                                 ObjectProvider<FieldType> fieldTypes,
+                                 ObjectProvider<FieldType> fieldTypes, ObjectProvider<TodoQueryCustomizer> todoCustomizer,
                                  ObjectProvider<CommandInterceptor> interceptors, ObjectProvider<FormHandlerFactory> formHandlerFactory) {
         migration.ifAvailable(m -> { });
         OrgDirectory directory = org.getIfAvailable();
@@ -103,6 +104,7 @@ public class FlowAutoConfiguration {
         customNodes.orderedStream().forEach(builder::customNode);
         countersignRules.orderedStream().forEach(builder::countersignRule);
         fieldTypes.orderedStream().forEach(builder::fieldType);
+        todoCustomizer.ifUnique(builder::todoQueryCustomizer);
         builder.afterCommit(afterCommit.getIfAvailable(SpringAfterCommit::new));
         // 表单的后端代码按 Bean 创建：里面的 @Autowired 照常注入接入方的 Bean
         builder.formHandlerFactory(formHandlerFactory.getIfAvailable(() -> beans instanceof AutowireCapableBeanFactory autowire

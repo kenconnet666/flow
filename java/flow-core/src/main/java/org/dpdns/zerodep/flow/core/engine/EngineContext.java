@@ -1,11 +1,11 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
-
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
+import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
+import org.dpdns.zerodep.flow.core.extension.TodoQueryCustomizer;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 
 import java.time.Clock;
@@ -24,8 +24,10 @@ public class EngineContext {
     private final WorkCalendar calendar;
     /** 把写下的流转记录交给监听，管着引擎的事务边界 */
     private final EventDispatcher dispatcher;
-    /** 接入方按名字注册的解析器、守卫、动作 */
+    /** 接入方按名字注册的扩展：解析器、守卫、动作、自定义节点、会签规则、字段类型 */
     private final Extensions extensions;
+    /** 待办列表连接入方的表（默认不连） */
+    private final TodoQueryCustomizer todoCustomizer;
     /** 发布的版本，解析一次就记住 */
     private final DefinitionCache definitions;
     /** 表单版本的后端代码，用到时编译、记住 */

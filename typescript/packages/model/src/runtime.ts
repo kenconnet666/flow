@@ -137,6 +137,8 @@ export interface InstanceRef {
   /** 按哪个发布的版本走 */
   readonly definitionId: Id;
   readonly title: string | null;
+  /** 业务单号 */
+  readonly businessKey: string | null;
   /** 待办列表的摘要列：{ 引用名: 值 } */
   readonly summary: Readonly<Record<string, unknown>> | null;
   readonly status: InstanceStatus;
@@ -147,6 +149,8 @@ export interface TodoItem extends WorkItem {
   readonly instance: InstanceRef | null;
   /** 处理结果的名字；还没处理时为 null */
   readonly outcomeLabel: string | null;
+  /** 接入方补的业务列（后端的 TodoQueryCustomizer）；没补时为 null */
+  readonly business: Readonly<Record<string, unknown>> | null;
 }
 
 /** 一条抄送：抄送节点或处理人手动抄送给一个人 */

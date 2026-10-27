@@ -74,11 +74,21 @@ export interface ListQuery {
   readonly processKey?: string;
   readonly from?: string;
   readonly to?: string;
+  /** 接入方自己的筛选参数（后端的 TodoQueryCustomizer 收到，只对我的待办、我已办）：发成查询串里 biz. 开头的参数 */
+  readonly business?: Readonly<Record<string, string>>;
 }
 
 export interface PageQuery {
   readonly page: number;
   readonly pageSize: number;
+}
+
+/** 列表查询的参数：接入方的筛选参数展开成 biz.名字 */
+function listParams({ business, ...rest }: PageQuery & ListQuery): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  for (const [name, value] of Object.entries(rest)) if (value !== undefined) out[name] = value;
+  for (const [name, value] of Object.entries(business ?? {})) out[`biz.${name}`] = value;
+  return out;
 }
 
 /** 引擎接口的全部方法 */
@@ -94,7 +104,7 @@ export interface FlowClient {
   /** 我发起前存的草稿，最后存的在前 */
   startDrafts(signal?: AbortSignal): Promise<readonly ProcessInstance[]>;
   /** 我的待办 */
-  todo(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
+  todo(query: PageQuery & Pick<ListQuery, 'processKey' | 'business'>, signal?: AbortSignal): Promise<TodoPage>;
   /** 等我指定承办人的（没人认领、我是收件箱负责人） */
   designations(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 我已办：按处理时间从新到旧 */
@@ -238,11 +248,11 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     saveStartDraft: (command) => post('/commands/save-start-draft', command),
     discardStartDraft: (draftId) => post('/commands/discard-start-draft', { draftId }),
     startDrafts: (signal) => get('/queries/start-drafts', signal),
-    todo: ({ page, pageSize }, signal) => get('/queries/todo', signal, { page, pageSize }),
-    done: (query, signal) => get('/queries/done', signal, { ...query }),
+    todo: (query, signal) => get('/queries/todo', signal, listParams(query)),
+    done: (query, signal) => get('/queries/done', signal, listParams(query)),
     designations: ({ page, pageSize }, signal) => get('/queries/designations', signal, { page, pageSize }),
-    started: (query, signal) => get('/queries/started', signal, { ...query }),
-    ccList: (query, signal) => get('/queries/cc', signal, { ...query }),
+    started: (query, signal) => get('/queries/started', signal, listParams(query)),
+    ccList: (query, signal) => get('/queries/cc', signal, listParams(query)),
     instances: ({ page, pageSize, ...search }, signal) => {
       // 空的条件不发：后端按"不限"处理
       const filters = Object.fromEntries(Object.entries(search).filter(([, v]) => v != null && v !== '')) as Record<string, string>;

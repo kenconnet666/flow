@@ -11,6 +11,7 @@
 import type { TodoItem } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Badge, Button, Flex, Link, Small, useFormat, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
+import { watch } from 'vue';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
@@ -29,10 +30,12 @@ export interface FlowInboxProps {
   pageSize?: number;
   /** 标题；默认"我的待办"或"我已办" */
   title?: string;
+  /** 接入方自己的筛选参数（后端的 TodoQueryCustomizer 收到，只对我的待办、我已办）；变了重新查 */
+  business?: Readonly<Record<string, string>>;
 }
 
 /** 待办列表 */
-export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], pageSize = 20, title }: FlowInboxProps) => {
+export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], pageSize = 20, title, business }: FlowInboxProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const format = useFormat();
@@ -41,9 +44,15 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
   const query = useTableQuery(
     (q, signal) =>
       list === 'done'
-        ? flow.done({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters) }, signal)
-        : flow[list]({ page: q.page, pageSize: q.pageSize }, signal),
+        ? flow.done({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters), ...(business ? { business } : {}) }, signal)
+        : list === 'todo'
+          ? flow.todo({ page: q.page, pageSize: q.pageSize, ...(business ? { business } : {}) }, signal)
+          : flow.designations({ page: q.page, pageSize: q.pageSize }, signal),
     { pageSize, filters: { ...BLANK_LIST_FILTERS } },
+  );
+  watch(
+    () => JSON.stringify(business ?? {}),
+    () => void query.refresh(),
   );
 
   const titleColumn = (): DataTableColumn<TodoItem> => ({

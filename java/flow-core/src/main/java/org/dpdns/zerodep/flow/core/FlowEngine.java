@@ -797,12 +797,18 @@ public class FlowEngine<U extends Actor> {
     }
 
     /** 我的待办（当前操作人） */
-    public Page<TodoItem> todo(int page, int size) { return todo(actors.current(), page, size); }
+    public Page<TodoItem> todo(int page, int size) { return todo(actors.current(), ListFilter.NONE, page, size); }
 
-    /** 我的待办：落到我的，加上我能认领的；按到达时间从新到旧，带实例的标题与摘要列 */
-    public Page<TodoItem> todo(U actor, int page, int size) {
+    /** 我的待办（当前操作人，筛选） */
+    public Page<TodoItem> todo(ListFilter filter, int page, int size) { return todo(actors.current(), filter, page, size); }
+
+    /** 我的待办（不筛） */
+    public Page<TodoItem> todo(U actor, int page, int size) { return todo(actor, ListFilter.NONE, page, size); }
+
+    /** 我的待办：落到我的，加上我能认领的；按到达时间从新到旧，带实例的标题与摘要列；能按流程与接入方的参数筛（TodoQueryCustomizer） */
+    public Page<TodoItem> todo(U actor, ListFilter filter, int page, int size) {
         allow(actor, "todo", String.valueOf(actor.getId()));
-        return inbox.todo(actor, page, size);
+        return inbox.todo(actor, filter, page, size);
     }
 
     /** 等我指定承办人的待办（当前操作人） */

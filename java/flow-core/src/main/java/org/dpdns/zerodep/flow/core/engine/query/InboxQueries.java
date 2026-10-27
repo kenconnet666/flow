@@ -37,31 +37,52 @@ public class InboxQueries {
      * <p>分两段查（0007 第 4 节），各取前"偏移 + 页长"条再合并：落到我的走（租户, 处理人, 状态, 到达时间）的索引；
      * 我能认领的（没有处理人、候选里有我所在的、我没被排除）从候选的覆盖索引进。第二段要求没有处理人，两段不会重叠。
      */
-    public Page<TodoItem> todo(Actor actor, int page, int size) {
+    public Page<TodoItem> todo(Actor actor, ListFilter filter, int page, int size) {
         if (page < 1 || size < 1) throw new IllegalArgumentException("page and size start at 1");
         Map<String, Set<Long>> memberships = new LinkedHashMap<>(actor.getGroups());
         memberships.put(CandidateEntity.USER, Set.of(actor.getId()));
         memberships.put(CandidateEntity.ROLE, actor.getRoles());
         memberships.put(CandidateEntity.DEPARTMENT, actor.getDepartments());
         Long me = actor.getId();
-        long mine = assignedTo(me).count();
-        long claimable = claimableBy(me, memberships).count();
+        long mine = assignedTo(actor, filter).count();
+        long claimable = claimableBy(actor, filter, memberships).count();
         int head = page * size;
         List<TodoItem> rows = new ArrayList<>();
-        rows.addAll(assignedTo(me).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).selectAutoInclude(TodoItem.class).toList());
-        rows.addAll(claimableBy(me, memberships).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).selectAutoInclude(TodoItem.class).toList());
+        rows.addAll(assignedTo(actor, filter).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).selectAutoInclude(TodoItem.class).toList());
+        rows.addAll(claimableBy(actor, filter, memberships).orderBy(w -> { w.createdAt().desc(); w.id().desc(); }).limit(head).selectAutoInclude(TodoItem.class).toList());
         rows.sort(Comparator.comparing(TodoItem::getCreatedAt).thenComparing(TodoItem::getId).reversed());
-        return Page.of(rows.stream().skip((long) (page - 1) * size).limit(size).toList(), mine + claimable, page, size);
+        List<TodoItem> shown = rows.stream().skip((long) (page - 1) * size).limit(size).toList();
+        addBusiness(actor, shown);
+        return Page.of(shown, mine + claimable, page, size);
+    }
+
+    /** 两段、我已办都要的条件：流程，加上接入方的 */
+    private void common(Actor actor, ListFilter filter, WorkItemEntityProxy w) {
+        if (filter.hasProcess()) w.processKey().eq(filter.getProcessKey());
+        context.getTodoCustomizer().filter(actor, filter.getBusiness(), w);
+    }
+
+    /** 接入方补的业务列 */
+    private void addBusiness(Actor actor, List<TodoItem> rows) {
+        if (rows.isEmpty()) return;
+        Map<Long, Map<String, Object>> columns = context.getTodoCustomizer().columns(actor, rows);
+        for (TodoItem row : rows) row.setBusiness(columns.get(row.getId()));
     }
 
     /** 落到我的、打开着的 */
-    private EntityQueryable<WorkItemEntityProxy, WorkItemEntity> assignedTo(Long me) {
-        return context.getDb().queryable(WorkItemEntity.class).where(w -> { w.assigneeId().eq(me); w.state().eq(WorkItemEntity.OPEN); });
+    private EntityQueryable<WorkItemEntityProxy, WorkItemEntity> assignedTo(Actor actor, ListFilter filter) {
+        return context.getDb().queryable(WorkItemEntity.class).where(w -> {
+            w.assigneeId().eq(actor.getId());
+            w.state().eq(WorkItemEntity.OPEN);
+            common(actor, filter, w);
+        });
     }
 
     /** 收件箱里我能认领的：候选里有我、我的角色、部门或扩展种类，而且我没被排除 */
-    private EntityQueryable<WorkItemEntityProxy, WorkItemEntity> claimableBy(Long me, Map<String, Set<Long>> memberships) {
+    private EntityQueryable<WorkItemEntityProxy, WorkItemEntity> claimableBy(Actor actor, ListFilter filter, Map<String, Set<Long>> memberships) {
+        Long me = actor.getId();
         return context.getDb().queryable(WorkItemEntity.class).where(w -> {
+            common(actor, filter, w);
             w.assigneeId().isNull();
             w.state().eq(WorkItemEntity.OPEN);
             w.candidates().any(c -> c.or(() -> memberships.forEach((kind, ids) -> {
@@ -77,13 +98,14 @@ public class InboxQueries {
             .where(w -> {
                 w.completedBy().eq(actor.getId());
                 w.state().eq(WorkItemEntity.DONE);
-                if (filter.hasProcess()) w.processKey().eq(filter.getProcessKey());
+                common(actor, filter, w);
                 if (filter.getFrom() != null) w.completedAt().ge(filter.getFrom());
                 if (filter.getTo() != null) w.completedAt().lt(filter.getTo());
             })
             .orderBy(w -> { w.completedAt().desc(); w.id().desc(); })
             .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
         rows.getRows().forEach(this::labelOutcome);
+        addBusiness(actor, rows.getRows());
         return rows;
     }
 

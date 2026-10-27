@@ -18,6 +18,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -340,8 +341,10 @@ public class FlowHttpController {
     /** 我的待办；参数名同 vue-tsx-pro 的表格请求（page、pageSize） */
     @GetMapping("/queries/todo")
     public Map<String, Object> todo(@RequestParam(name = "page", defaultValue = "1") int page,
-                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-        return respond(() -> engine.todo(page, pageSize));
+                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+                                       @RequestParam(name = "processKey", required = false) String processKey,
+                                       @RequestParam Map<String, String> query) {
+        return respond(() -> engine.todo(new ListFilter(processKey, null, null, business(query)), page, pageSize));
     }
 
     /** 我已办 */
@@ -350,8 +353,10 @@ public class FlowHttpController {
                                        @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
                                        @RequestParam(name = "processKey", required = false) String processKey,
                                        @RequestParam(name = "from", required = false) String from,
-                                       @RequestParam(name = "to", required = false) String to) {
-        return respond(() -> engine.done(filter(processKey, from, to), page, pageSize));
+                                       @RequestParam(name = "to", required = false) String to,
+                                       @RequestParam Map<String, String> query) {
+        ListFilter filter = filter(processKey, from, to);
+        return respond(() -> engine.done(new ListFilter(filter.getProcessKey(), filter.getFrom(), filter.getTo(), business(query)), page, pageSize));
     }
 
     /** 外部事件：{@code { instanceId 或 businessKey, event, outcome, data }}，返回 {@code { results: [每个往下走的实例这一步的结果] }} */
@@ -485,6 +490,13 @@ public class FlowHttpController {
     }
 
     /** 列表的筛选：时刻写成 ISO 的文字（2026-10-01T00:00:00Z） */
+    /** 查询串里 {@code biz.} 开头的参数去掉前缀：接入方自己的筛选（TodoQueryCustomizer） */
+    private static Map<String, String> business(Map<String, String> query) {
+        Map<String, String> out = new LinkedHashMap<>();
+        query.forEach((name, value) -> { if (name.startsWith("biz.")) out.put(name.substring("biz.".length()), value); });
+        return out;
+    }
+
     private static ListFilter filter(String processKey, String from, String to) {
         return new ListFilter(processKey, from == null || from.isBlank() ? null : Instant.parse(from), to == null || to.isBlank() ? null : Instant.parse(to));
     }
