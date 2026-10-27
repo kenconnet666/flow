@@ -6,7 +6,8 @@
   "actors": {
     "alice": { "id": 1001, "name": "林小满" },
     "carol": { "id": 1003, "name": "沈若水" },
-    "boss": { "id": 1004, "name": "总经理" }
+    "boss": { "id": 1004, "name": "总经理" },
+    "admin": { "id": 1000, "name": "管理员" }
   },
   "steps": [
     { "id": "a", "as": "alice", "command": "start",
@@ -24,7 +25,11 @@
     { "as": "carol", "command": "complete", "args": { "workItem": "$a.workItems[1]", "outcome": "done" },
       "expect": { "instance": { "status": "completed" }, "workItems": [{ "node": "decide", "assigneeId": "1004" }] } },
     { "as": "alice", "command": "instance", "args": { "instance": "$a.instance" },
-      "expect": { "instance": { "status": "active", "current": [{ "node": "decide" }] } } },
+      "expect": { "instance": { "status": "active", "current": [{ "node": "decide" }] }, "variables": null } },
+    { "as": "admin", "command": "instance", "args": { "instance": "$a.instance" },
+      "expect": { "variables": [
+        { "name": "suppliers", "type": "list", "value": [{ "name": "供应商甲", "amount": "100.00" }, { "name": "供应商乙", "amount": "120.00" }] },
+        { "name": "prices", "type": "list" } ] } },
     { "as": "alice", "command": "started", "expect": { "total": 3 } },
 
     { "id": "b", "as": "alice", "command": "start", "args": { "key": "sourcing-check", "form": { "title": "订书机", "amount": "0.00" } } },

@@ -23,6 +23,8 @@ public class InstanceDetail {
     private final List<NodeRef> nodes;
     /** 流程图：节点走到哪了、连线走过没有 */
     private final ProcessDiagram diagram;
+    /** 流程变量，按定义里声明的先后：只给流程管理员（{@code OrgDirectory.administrators}），别人是 null（0002 第 9 节） */
+    private final List<VariableVO> variables;
 
     /** 一个节点。 */
     @Data

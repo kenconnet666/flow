@@ -231,6 +231,17 @@ export interface InstanceDetail {
   readonly nodes: readonly { readonly node: string; readonly name: string | null; readonly type: string }[];
   /** 流程图：节点走到哪了、连线走过没有 */
   readonly diagram: ProcessDiagram;
+  /** 流程变量，按定义里声明的先后：只给流程管理员，别人是 null */
+  readonly variables: readonly VariableView[] | null;
+}
+
+/** 实例上的一个流程变量 */
+export interface VariableView {
+  readonly name: string;
+  readonly label: string | null;
+  readonly type: string;
+  /** 现在的值（typed JSON 还原的强类型）；没有值时为 null */
+  readonly value: unknown;
 }
 
 /** 流程图：实例按的那个版本的节点与连线，加上走到哪了 */

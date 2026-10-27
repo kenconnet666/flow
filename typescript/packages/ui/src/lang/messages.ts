@@ -23,6 +23,8 @@ export interface FlowMessages {
   readonly startedAt: string;
   /** 在收件箱里等认领 */
   readonly pool: string;
+  /** 实例详情里的流程变量（只给流程管理员） */
+  readonly variables: string;
   /** 落到我身上、还没打开过的待办 */
   readonly newItem: string;
   /** 过了截止时间 */
@@ -574,6 +576,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     startedAt: '发起时间',
     pool: '待认领',
     newItem: '新',
+    variables: '流程变量',
     overdue: '已超时',
     open: '办理',
     claim: '认领',
@@ -819,6 +822,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     startedAt: 'Started at',
     pool: 'Unclaimed',
     newItem: 'New',
+    variables: 'Process variables',
     overdue: 'Overdue',
     open: 'Open',
     claim: 'Claim',

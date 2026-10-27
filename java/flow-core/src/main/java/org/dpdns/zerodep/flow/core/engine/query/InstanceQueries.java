@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.core.engine.query;
 
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
@@ -24,6 +25,7 @@ import org.dpdns.zerodep.flow.core.view.instance.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.instance.ProcessDiagram;
 import org.dpdns.zerodep.flow.core.view.instance.ProgressView;
+import org.dpdns.zerodep.flow.core.view.instance.VariableVO;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.FieldAccess;
 import org.dpdns.zerodep.flow.model.definition.NodeFormAccess;
@@ -108,6 +110,7 @@ public class InstanceQueries {
     /**
      * 实例详情：实例、表单、全部待办、流转记录，以及我能不能撤回、催办。
      * 表单都只读，按流程级的 {@code formView} 去掉隐藏的字段（0004 的 4.3、0005 的 2.1）：在待办里看的人走待办详情。
+     * 流程变量是引擎推进用的，只给流程管理员看。
      */
     public InstanceDetail instance(Actor actor, Long instanceId) {
         InstanceEntity instance = Instances.find(context.getDb(), instanceId);
@@ -130,7 +133,16 @@ public class InstanceQueries {
             .select(FlowEventVO.class).toList();
         InstanceVO view = Instances.view(context.getDb(), instanceId);
         ProcessDiagram diagram = DiagramView.of(definition.model(), view, timeline);
-        return new InstanceDetail(view, form, items, timeline, actions, nodes, diagram);
+        return new InstanceDetail(view, form, items, timeline, actions, nodes, diagram, variablesFor(actor, definition, instance));
+    }
+
+    /** 流程管理员看到的流程变量；别人是 null */
+    private List<VariableVO> variablesFor(Actor actor, LoadedDefinition definition, InstanceEntity instance) {
+        if (!context.getOrg().administrators().contains(actor.getId())) return null;
+        Variables values = instance.getVariables() == null ? Variables.empty() : instance.getVariables();
+        return definition.model().getVariables().stream()
+            .map(v -> new VariableVO(v.getName(), v.getLabel(), v.getType(), values.get(v.getName())))
+            .toList();
     }
 
     /** 异常：重试用完的作业，新的在前；instanceId 不为 null 时只看这个实例的 */

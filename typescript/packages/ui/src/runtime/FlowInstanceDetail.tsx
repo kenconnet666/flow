@@ -1,6 +1,7 @@
 /**
  * 流程详情（发起人看进度、从我已办里打开）：实例的概要、当前在谁手里、只读的表单、流转记录，
- * 以及撤回、催办（引擎说我能做时）、抄送（给了挑人的数据来源时）与留言；管理端打开时（admin）多一块管理员操作与这个实例的异常。
+ * 以及撤回、催办（引擎说我能做时）、抄送（给了挑人的数据来源时）与留言；管理端打开时（admin）多一块管理员操作、这个实例的异常，
+ * 以及流程变量（引擎只给流程管理员）。
  *
  *   <FlowInstanceDetail id={instanceId} people={peopleSource} onChange={(result) => …} />
  *
@@ -196,6 +197,15 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
                 </Flex>
               </Alert>
             )}
+            {admin && (data.variables?.length ?? 0) > 0 && (
+              <Flex direction="column" gap="xs">
+                <Text weight="medium">{messages.variables}</Text>
+                <Descriptions
+                  columns="auto"
+                  items={data.variables!.map((v) => ({ key: v.name, label: v.label ?? v.name, value: displayValue(v.value) }))}
+                />
+              </Flex>
+            )}
           </Flex>
         </Card>
         {people && (
@@ -242,3 +252,13 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
     );
   };
 });
+
+/** 流程变量的值给人看：强类型的值（Decimal、日期）有自己的 toString，列表与对象写成 JSON */
+function displayValue(value: unknown): string {
+  if (value == null) return '—';
+  if (typeof value !== 'object') return String(value);
+  if (Array.isArray(value) || Object.getPrototypeOf(value) === Object.prototype) {
+    return JSON.stringify(value, (_key, inner: unknown) => (typeof inner === 'bigint' ? inner.toString() : inner));
+  }
+  return String(value);
+}
