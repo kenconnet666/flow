@@ -206,8 +206,8 @@ public class StartHandler {
     public boolean discardDraft(Actor actor, Long draftId) {
         return context.transaction(() -> {
             InstanceEntity draft = ownDraft(actor, draftId);
-            context.getDb().deletable(FormDataEntity.class).whereById(draft.getId()).executeRows();
-            return context.getDb().deletable(InstanceEntity.class)
+            context.getDb().deletable(FormDataEntity.class).allowDeleteStatement(true).whereById(draft.getId()).executeRows();
+            return context.getDb().deletable(InstanceEntity.class).allowDeleteStatement(true)
                 .where(i -> { i.id().eq(draft.getId()); i.status().eq(InstanceEntity.DRAFT); })
                 .executeRows() == 1;
         });
