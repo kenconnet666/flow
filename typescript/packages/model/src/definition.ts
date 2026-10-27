@@ -368,6 +368,8 @@ export interface ProcessLayout {
 
 /** 一个流程（一个版本） */
 export interface ProcessDefinition {
+  /** 格式版本（schema.ts）；不写时是第 1 版 */
+  readonly schema?: number;
   readonly key: string;
   readonly name: string;
   readonly description?: string;

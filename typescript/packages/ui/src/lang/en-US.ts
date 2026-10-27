@@ -120,6 +120,7 @@ const enProblemTexts: Record<ProblemCode, ProblemText> = {
   'call-unknown-process': () => 'The called process does not exist or is disabled',
   'extension-unknown': (p) => `${p['kind'] ?? 'Extension'} ${p['name'] ?? ''} is not registered`,
   'due-unknown-calendar': () => 'The work calendar does not exist',
+  'schema-newer': (p) => `The definition is in format ${p['schema'] ?? '?'}, newer than this flow version; upgrade flow first`,
   'server-code-disabled': () => 'Backend code for forms is turned off here (flow.forms.server-code)',
 };
 
@@ -139,6 +140,7 @@ export const enUS: FlowMessages = {
   startedBy: 'Started by',
   startedAt: 'Started at',
   pool: 'Unclaimed',
+  uploading: 'Files are still uploading; submit when they finish',
   onBehalfOf: (assignee, principal) => `${assignee} (for ${principal})`,
   newItem: 'New',
   variables: 'Process variables',
@@ -331,6 +333,10 @@ export const enUS: FlowMessages = {
   incidentOutcome: 'Continue with outcome',
   incidentRetried: 'Queued again; it runs shortly',
   incidentSkipped: 'Skipped; the process moved on',
+  incidentDelivery: 'Delivery (outbox)',
+  incidentDiscard: 'Give up',
+  incidentDiscardTitle: 'Give up delivering: this batch will not reach the listener or channel',
+  incidentDiscarded: 'Delivery given up',
   incidentResumeFirst: 'The process was suspended by this failure: resume it first, then retry or skip',
   returnTargetTitle: 'Return to which step',
   returnTargetTo: (handler) => `Goes back to ${handler}`,

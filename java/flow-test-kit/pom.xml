@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.dpdns.zerodep</groupId>
+        <artifactId>flow-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+    <artifactId>flow-test-kit</artifactId>
+    <name>flow-test-kit</name>
+    <description>Contract checks for applications that embed the workflow engine: tables, organisation directory, extension declarations and a smoke run, as JUnit dynamic tests.</description>
+    <properties>
+        <automatic.module.name>org.dpdns.zerodep.flow.testkit</automatic.module.name>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.dpdns.zerodep</groupId>
+            <artifactId>flow-core</artifactId>
+        </dependency>
+        <!-- 接入方在自己的测试里用：JUnit 由接入方的测试依赖带进来，这里只编译用 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>

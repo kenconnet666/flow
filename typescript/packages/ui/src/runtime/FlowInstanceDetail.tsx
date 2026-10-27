@@ -36,7 +36,7 @@ import { useFlowMessages } from '../lang/messages';
 import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
 import { holderName } from './holder';
-import { IncidentActions } from './IncidentActions';
+import { IncidentActions, incidentDoneText, isDelivery, type IncidentAction } from './IncidentActions';
 import { InstanceAdminActions } from './InstanceAdminActions';
 import { statusTone } from './status';
 
@@ -113,9 +113,9 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
   }
 
   /** 异常重试、跳过之后：提示，刷新详情与异常 */
-  async function incidentDone(kind: 'retry' | 'skip') {
+  async function incidentDone(kind: IncidentAction) {
     failure = null;
-    notice = kind === 'retry' ? messages.incidentRetried : messages.incidentSkipped;
+    notice = incidentDoneText(kind, messages);
     await Promise.all([detail.refresh(), incidents.refresh()]);
   }
 
@@ -189,10 +189,10 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
                 <Flex direction="column" gap="xs">
                   {incidents.data!.rows.map((row) => (
                     <Flex key={String(row.jobId)} gap="sm" align="center" wrap>
-                      <Text weight="medium">{row.nodeName ?? row.node ?? row.kind}</Text>
+                      <Text weight="medium">{row.nodeName ?? row.node ?? (isDelivery(row) ? messages.incidentDelivery : row.kind)}</Text>
                       <Text tone="muted">{row.error ?? ''}</Text>
-                      {/* 暂停时重试、跳过都做不成：先恢复 */}
-                      {instance.status === 'active' && (
+                      {/* 暂停时自动节点的重试、跳过都做不成：先恢复；发件箱的投递与实例的状态无关（结束了也要投） */}
+                      {(instance.status === 'active' || isDelivery(row)) && (
                         <IncidentActions incident={row} onDone={incidentDone} onError={(message) => ((failure = message), (notice = null))} />
                       )}
                     </Flex>

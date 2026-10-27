@@ -10,7 +10,7 @@ import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import type { Incident } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
-import { IncidentActions } from '../runtime/IncidentActions';
+import { IncidentActions, incidentDoneText, isDelivery, type IncidentAction } from '../runtime/IncidentActions';
 
 /** FlowIncidentList 的属性 */
 export interface FlowIncidentListProps {
@@ -29,9 +29,9 @@ export const FlowIncidentList = _component(({ onOpen, pageSize = 20 }: FlowIncid
   let failure = _state<string | null>(null);
   const query = useTableQuery((q, signal) => flow.incidents({ page: q.page, pageSize: q.pageSize }, signal), { pageSize, filters: {} });
 
-  function done(kind: 'retry' | 'skip') {
+  function done(kind: IncidentAction) {
     failure = null;
-    notice = kind === 'retry' ? messages.incidentRetried : messages.incidentSkipped;
+    notice = incidentDoneText(kind, messages);
     void query.refresh();
   }
 
@@ -46,7 +46,7 @@ export const FlowIncidentList = _component(({ onOpen, pageSize = 20 }: FlowIncid
         </Link>
       ),
     },
-    { key: 'node', header: messages.columnNode, width: 120, value: (row) => row.nodeName ?? row.node ?? '' },
+    { key: 'node', header: messages.columnNode, width: 120, value: (row) => row.nodeName ?? row.node ?? (isDelivery(row) ? messages.incidentDelivery : '') },
     {
       key: 'error',
       header: messages.columnError,

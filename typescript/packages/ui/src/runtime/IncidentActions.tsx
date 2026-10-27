@@ -8,29 +8,40 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Button, Dialog, Field, Flex, Select, Textarea, useErrorMessage } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useFlowClient } from '../client/flow-client';
 import type { Incident } from '../client/types';
-import { useFlowMessages } from '../lang/messages';
+import { useFlowMessages, type FlowMessages } from '../lang/messages';
 
 /** IncidentActions 的属性 */
 export interface IncidentActionsProps {
   /** 异常 */
   incident: Incident;
   /** 做完了：retry 重新排队了（稍后自动执行），skip 已按结果往下走 */
-  onDone: (kind: 'retry' | 'skip') => void;
+  onDone: (kind: IncidentAction) => void;
   /** 出错了（文案已按错误码翻好） */
   onError: (message: string) => void;
 }
 
 /** 异常上的管理员操作 */
+/** 对一个异常做了什么：重试、跳过（自动节点按结果往下走）、放弃投递（发件箱的投递） */
+export type IncidentAction = 'retry' | 'skip' | 'discard';
+
+/** 发件箱的投递失败（后端的 DeliveryJob）：没有节点，"跳过"就是放弃投递 */
+export const isDelivery = (incident: Incident) => incident.kind === 'deliver';
+
+/** 做完之后的提示 */
+export function incidentDoneText(kind: IncidentAction, messages: FlowMessages): string {
+  return kind === 'retry' ? messages.incidentRetried : kind === 'discard' ? messages.incidentDiscarded : messages.incidentSkipped;
+}
+
 export const IncidentActions = _component(({ incident, onDone, onError }: IncidentActionsProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const errorText = useErrorMessage();
-  let busy = _state<'retry' | 'skip' | null>(null);
+  let busy = _state<IncidentAction | null>(null);
   let skipOpen = _state(false);
   let outcome = _state<string | null>(null);
   let reason = _state('');
 
-  async function run(kind: 'retry' | 'skip', action: () => Promise<unknown>): Promise<boolean> {
+  async function run(kind: IncidentAction, action: () => Promise<unknown>): Promise<boolean> {
     busy = kind;
     try {
       await action();
@@ -53,7 +64,7 @@ export const IncidentActions = _component(({ incident, onDone, onError }: Incide
   // 出边上写了结果时要选一个；只有一条没写结果的出边时不用选
   const needsOutcome = () => incident.outcomes.length > 0;
   const skip = () =>
-    run('skip', () =>
+    run(isDelivery(incident) ? 'discard' : 'skip', () =>
       flow.skipJob({
         jobId: incident.jobId,
         ...(outcome ? { outcome } : {}),
@@ -68,16 +79,16 @@ export const IncidentActions = _component(({ incident, onDone, onError }: Incide
       </Button>
       {incident.skippable && (
         <Button size="sm" variant="ghost" disabled={busy != null} onClick={openSkip}>
-          {messages.incidentSkip}
+          {isDelivery(incident) ? messages.incidentDiscard : messages.incidentSkip}
         </Button>
       )}
       <Dialog
         _open={skipOpen}
-        title={messages.incidentSkipTitle(incident.nodeName ?? incident.node ?? '')}
+        title={isDelivery(incident) ? messages.incidentDiscardTitle : messages.incidentSkipTitle(incident.nodeName ?? incident.node ?? '')}
         confirmText={messages.confirm}
         cancelText={messages.cancel}
         onConfirm={skip}
-        propsConfirm={{ disabled: needsOutcome() && !outcome, loading: busy === 'skip' }}
+        propsConfirm={{ disabled: needsOutcome() && !outcome, loading: busy === 'skip' || busy === 'discard' }}
       >
         <Flex direction="column" gap="md">
           {needsOutcome() && (

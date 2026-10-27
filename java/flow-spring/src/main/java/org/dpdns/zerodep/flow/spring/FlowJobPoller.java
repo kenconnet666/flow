@@ -6,13 +6,14 @@ import org.springframework.context.SmartLifecycle;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 定时做到期的作业（定时节点、超时、提醒、无人认领）：应用启动后每隔 {@code flow.jobs.interval} 调一次 {@code engine.runDueJobs()}，
- * 一批做满了接着做，直到没有到期的。多个实例同时跑不会重复做（引擎抢占作业）。顺带每小时做一次维护：删过期的幂等记录
+ * 一批做满了接着做，直到没有到期的。多个实例同时跑不会重复做（引擎抢占作业）。发件箱写了要可靠投递的作业时，提交后马上做一轮。顺带每小时做一次维护：删过期的幂等记录
  * （{@code engine.purgeRequests}，留 {@code flow.idempotency.retention}），打开了归档时搬一次（{@code engine.archive}，
  * {@code flow.archive.after}）；几个实例同时做也无妨（搬过的行已经不在热表里）。
  * <p>交给已有的调度平台时设 {@code flow.jobs.enabled=false}，由平台定时调 {@code engine.runDueJobs()}、{@code engine.purgeRequests(...)}
@@ -56,6 +57,18 @@ public class FlowJobPoller implements SmartLifecycle {
         running = true;
         long millis = interval.toMillis();
         scheduler.scheduleWithFixedDelay(this::poll, millis, millis, TimeUnit.MILLISECONDS);
+        // 发件箱写了要投的：提交后马上做一轮，不等下一个间隔（同一个线程上排队，不会和定时的那轮同时做）
+        engine.onOutbox(this::wakeUp);
+    }
+
+    /** 马上做一轮；正在停的时候丢掉（作业留在表里，下次启动的轮询会投） */
+    private void wakeUp() {
+        if (!running) return;
+        try {
+            scheduler.execute(this::poll);
+        } catch (RejectedExecutionException stopping) {
+            LOG.log(System.Logger.Level.DEBUG, "flow job poller is stopping; outbox jobs wait for the next start");
+        }
     }
 
     /** 做到没有到期的为止；数据库暂时连不上这类错误记日志，下一轮再试 */

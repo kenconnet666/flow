@@ -55,6 +55,7 @@ import org.dpdns.zerodep.flow.core.engine.handler.StartHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.StepWithdrawal;
 import org.dpdns.zerodep.flow.core.engine.handler.WithdrawHandler;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.job.DeliveryJob;
 import org.dpdns.zerodep.flow.core.engine.job.JobRunner;
 import org.dpdns.zerodep.flow.core.engine.query.FormQueries;
 import org.dpdns.zerodep.flow.core.engine.query.InboxQueries;
@@ -183,6 +184,7 @@ public class FlowEngine<U extends Actor> {
         this.instanceQueries = new InstanceQueries(context);
         // 内置的作业在前，接入方注册的在后：同一种时接入方的换掉内置的
         List<JobHandler> handlers = new ArrayList<>(new BuiltinJobs(context, completions).handlers());
+        handlers.add(new DeliveryJob(context));
         handlers.addAll(jobHandlers);
         this.jobs = new JobRunner(context, handlers);
     }
@@ -757,6 +759,12 @@ public class FlowEngine<U extends Actor> {
      * 交给已有的调度平台时关掉默认的、由平台调它。几个进程同时调不会重复做（{@link JobRunner}）。
      */
     public int runDueJobs() { return jobs.runDue(); }
+
+    /**
+     * 发件箱写了要可靠投递的作业、事务提交之后调 wakeUp：作业轮询登记它自己，马上来投，不用等下一轮。只有一个，后登记的换掉先登记的。
+     * wakeUp 要快、不能抛错（在提交后的回调里调），一般是往自己的线程池里丢一个"做一轮"。
+     */
+    public void onOutbox(Runnable wakeUp) { context.getDispatcher().onOutbox(wakeUp); }
 
     /**
      * 删掉过期的幂等记录（{@code flow_request}，全部租户）：早于 olderThan 之前的请求编号不再认，同一个编号再来会当新请求做。

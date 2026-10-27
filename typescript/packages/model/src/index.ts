@@ -5,6 +5,7 @@
 export * from './values.js';
 export * from './condition.js';
 export * from './definition.js';
+export * from './schema.js';
 export * from './graph.js';
 export * from './gateway-pairs.js';
 export * from './manifest.js';

@@ -9,7 +9,9 @@ import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.engine.assignee.AssigneeResolver;
 import org.dpdns.zerodep.flow.core.engine.form.References;
+import org.dpdns.zerodep.flow.core.engine.job.DeliveryJob;
 import org.dpdns.zerodep.flow.core.engine.job.JobRunner;
+import org.dpdns.zerodep.flow.core.engine.job.OutboxEntry;
 import org.dpdns.zerodep.flow.core.engine.node.CallBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.CcBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.CustomBehavior;
@@ -298,10 +300,10 @@ public class Execution {
     public void finish(String status, String result, String eventType, String comment) {
         cancelItems(WorkItems.cancelOpen(context.getDb(), instance.getId(), now));
         instance.end(status, result, now);
-        // 还没做的作业、等待、撤回用的快照都不再要（失败的作业留着给管理员看）
+        // 还没做的作业、等待、撤回用的快照都不再要（失败的作业留着给管理员看；发件箱的投递还要做）
         Long id = instance.getId();
         context.getDb().deletable(JobEntity.class).allowDeleteStatement(true)
-            .where(j -> { j.instanceId().eq(id); j.state().eq(JobEntity.PENDING); }).executeRows();
+            .where(j -> { j.instanceId().eq(id); j.state().eq(JobEntity.PENDING); j.kind().ne(DeliveryJob.KIND); }).executeRows();
         context.getDb().deletable(WaitEntity.class).allowDeleteStatement(true).where(w -> w.instanceId().eq(id)).executeRows();
         context.getDb().deletable(StepEntity.class).allowDeleteStatement(true).where(st -> st.instanceId().eq(id)).executeRows();
         addEvent(eventType, null, null, result, null, comment);
@@ -394,5 +396,9 @@ public class Execution {
             ? Notifications.plan(saved, context, graph, current, sources -> assignees.peopleOf(sources, instance, this::read))
             : List.of();
         context.getDispatcher().published(saved, current, graph, notifications);
+        // 发件箱：要可靠投的，和记录同一个事务记成作业，马上到期（提交后作业轮询被叫醒来投）
+        for (OutboxEntry entry : context.getDispatcher().outbox(saved, current, graph, notifications)) {
+            schedule(DeliveryJob.KIND, null, now, entry.toPayload(), DeliveryJob.MAX_ATTEMPTS);
+        }
     }
 }

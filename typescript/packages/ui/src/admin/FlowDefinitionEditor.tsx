@@ -9,7 +9,7 @@
  *
  *   <FlowDefinitionEditor processKey={key} people={peopleSource} onPublished={(result) => toaster.success(…)} />
  */
-import { diffProcess, type ProcessDefinition, type ProcessDiff } from '@zerodep-dev/flow-model';
+import { DEFINITION_SCHEMA, diffProcess, parseDefinition, type ProcessDefinition, type ProcessDiff } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
@@ -54,6 +54,7 @@ type Mode = 'design' | 'json';
 
 /** 新建时的骨架：一个人工节点，通过就结束 */
 const SKELETON: ProcessDefinition = {
+  schema: DEFINITION_SCHEMA,
   key: 'new-process',
   name: '新流程',
   nodes: [
@@ -119,7 +120,7 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
   /** 编辑器换上一份 JSON：不是合法的定义 JSON 时只能在 JSON 里改 */
   function show(json: string) {
     try {
-      definition = JSON.parse(json) as ProcessDefinition;
+      definition = parseDefinition(json);
       text = pretty(definition);
     } catch {
       text = json;
@@ -175,7 +176,7 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
       text = pretty(definition);
     } else {
       try {
-        definition = JSON.parse(text) as ProcessDefinition;
+        definition = parseDefinition(text);
       } catch (error) {
         failure = messages.jsonInvalid((error as Error).message);
         return;
@@ -239,8 +240,8 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
     busy = 'compare';
     failure = null;
     try {
-      const published = JSON.parse((await flow.definitionJson(processKey, version)).json) as ProcessDefinition;
-      diff = { version, result: diffProcess(published, JSON.parse(currentJson()) as ProcessDefinition) };
+      const published = parseDefinition((await flow.definitionJson(processKey, version)).json);
+      diff = { version, result: diffProcess(published, parseDefinition(currentJson())) };
     } catch (error) {
       failure = error instanceof SyntaxError ? messages.jsonInvalid(error.message) : errorText(error);
     } finally {

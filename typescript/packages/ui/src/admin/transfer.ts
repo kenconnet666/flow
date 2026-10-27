@@ -8,7 +8,7 @@
  *   await transfer.publish(json, { key: 'leave-copy', name: '请假（副本）' });
  */
 import { downloadFile } from '@zerodep-dev/vue-tsx-pro-ui';
-import type { FormManifest, ProcessDefinition } from '@zerodep-dev/flow-model';
+import { parseDefinition, type FormManifest } from '@zerodep-dev/flow-model';
 import type { FlowClient } from '../client/flow-client';
 import type { FormPublication } from '../client/types';
 
@@ -31,7 +31,7 @@ export function processTransfer(flow: FlowClient): Transfer {
   return {
     exportJson: async (key) => (await flow.definitionJson(key)).json,
     publish: (json, rename, note) => {
-      const definition = JSON.parse(json) as ProcessDefinition;
+      const definition = parseDefinition(json);
       return flow.publishDefinition(JSON.stringify(rename ? { ...definition, ...rename } : definition), note);
     },
   };

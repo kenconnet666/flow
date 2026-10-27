@@ -25,6 +25,8 @@ export interface FlowMessages {
   readonly startedAt: string;
   /** 在收件箱里等认领 */
   readonly pool: string;
+  /** 附件还没传完就提交 */
+  readonly uploading: string;
   /** 代理人代不在岗的人处理：处理人一栏写的 */
   readonly onBehalfOf: (assignee: string, principal: string) => string;
   /** 实例详情里的流程变量（只给流程管理员） */
@@ -261,6 +263,11 @@ export interface FlowMessages {
   readonly incidentOutcome: string;
   readonly incidentRetried: string;
   readonly incidentSkipped: string;
+  /** 发件箱的投递（作业 deliver）失败：没有节点，环节一栏写它；跳过叫"放弃投递" */
+  readonly incidentDelivery: string;
+  readonly incidentDiscard: string;
+  readonly incidentDiscardTitle: string;
+  readonly incidentDiscarded: string;
   /** 实例因为异常暂停了（onFailure: error） */
   readonly incidentResumeFirst: string;
   /** 退回时选退回到哪一步 */

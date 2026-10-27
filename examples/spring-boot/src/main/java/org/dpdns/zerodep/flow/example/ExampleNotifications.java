@@ -11,7 +11,8 @@ import java.util.Set;
 
 /**
  * 示例的通知渠道：引擎算好发给谁、哪种、用哪个模板，这里打一行日志代替。真实应用在这里发站内信、邮件、企业微信……
- * 提交后才调，发失败不影响流转。自动处理失败（{@code job.failed}）不在标准的通知里，示例另外听这一种，通知管理员。
+ * 走发件箱（{@link #reliable()}）：要发的通知和流转记录同一个事务记下，提交后马上发，发失败按作业的规则重试、用完进异常处理，
+ * 邮件服务一时不可用也不丢。自动处理失败（{@code job.failed}）不在标准的通知里，示例另外听这一种，通知管理员。
  */
 @Component
 public class ExampleNotifications implements NotificationChannel, FlowListener {
@@ -35,6 +36,9 @@ public class ExampleNotifications implements NotificationChannel, FlowListener {
         String template = notification.getTemplate() == null ? "" : "（模板 " + notification.getTemplate() + "）";
         LOG.log(System.Logger.Level.INFO, "[通知] 发给 " + notification.getRecipients() + "：" + text + template);
     }
+
+    @Override
+    public boolean reliable() { return true; }
 
     @Override
     public Set<String> types() { return Set.of(EventEntity.JOB_FAILED); }

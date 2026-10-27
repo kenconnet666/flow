@@ -26,7 +26,7 @@
 
 ```bash
 cd json-wire && ./mvnw -q install -DskipTests
-cd ../flow && ./mvnw -q install -DskipTests -pl java/flow-model,java/flow-core,java/flow-spring -am
+cd ../flow && ./mvnw -q install -DskipTests -pl java/flow-model,java/flow-core,java/flow-spring,java/flow-test-kit -am
 ```
 
 项目的 `pom.xml`：
@@ -49,6 +49,12 @@ cd ../flow && ./mvnw -q install -DskipTests -pl java/flow-model,java/flow-core,j
 </dependency>
 <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-mysql</artifactId></dependency>
 <dependency><groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId></dependency>
+<dependency>                      <!-- 契约核对（1.10），只在测试里用 -->
+  <groupId>org.dpdns.zerodep</groupId>
+  <artifactId>flow-test-kit</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <scope>test</scope>
+</dependency>
 ```
 
 `flow-spring` 已经带了 easy-query 的 Spring Boot starter（`sql-springboot-starter`，排除了它自带的旧版 Spring Boot），由它建 `EasyEntityQuery` Bean，引擎就用这一个；数据源、事务跟着你的 Spring 配置走。
@@ -178,7 +184,7 @@ public class AppUser implements Actor {
 | `FieldType` | 表单的自定义字段类型的后端校验 |
 | `TodoQueryCustomizer` | 待办连业务表筛选、带出业务列 |
 | `CommandInterceptor` | 命令前后（审计、改参数），与命令同一个事务 |
-| `FlowListener` | 监听流转记录：事务内可拒绝，提交后发消息 |
+| `FlowListener` | 监听流转记录：事务内可拒绝，提交后发消息；`RELIABLE` 走发件箱（见下） |
 | `NotificationChannel` | 通知怎么发（站内信、邮件、企业微信） |
 | `WorkCalendar` | 自己的工作日历（默认读管理端维护的 `flow_calendar`） |
 
@@ -198,9 +204,43 @@ public class LeaderResolver implements PeopleResolver {
 }
 ```
 
+**可靠投递（发件箱）**：往消息队列、外部系统同步，或者通知一条都不能丢时，监听的 `phase()` 返回 `RELIABLE`、
+渠道的 `reliable()` 返回 true。要投的内容和流转记录在同一个事务里记成作业，提交后马上投（Spring 里作业轮询被叫醒；
+自己调度时等你下一次调 `runDueJobs`），投失败按 1、4、9、16 分钟重试，五次都失败进管理端的"异常处理"，可以重试或放弃投递。
+进程挂了、外部系统一时不可用都不丢；代价是"至少一次"：同一条可能收到两次，按 `notice.getEvent().getId()` 去重。
+可靠的监听、渠道按名字找回（`listenerName()`、`channelName()`，默认类名），名字不能重复，改了类名时还没投完的会失败、进异常处理。
+
 **节点的业务信息**：单据停在哪个节点时业务表上显示什么状态、算哪个环节的超时……这类每个节点要配、引擎不解释的值写在节点的 `meta` 里。
 在 `application.yml` 的 `flow.designer.node-meta` 声明有哪些字段（同上面参数的写法：键、显示名、类型、选项），设计器的节点面板就多一块
 "业务信息"；你的 `FlowListener` 在事务内读到达节点的 `meta` 同步业务表。示例见 `examples/spring-boot` 的 application.yml 与 `extension` 包。
+
+### 1.10 契约核对（flow-test-kit）
+
+接到自己的项目里以后，用 `flow-test-kit` 核对接得对不对：在自己的测试里继承 `FlowContractTest`，连测试库，给几个真实的账号：
+
+```java
+@SpringBootTest
+class FlowContractIT extends FlowContractTest<AppUser> {
+    @Autowired FlowEngine<AppUser> engine;
+    @Autowired EasyEntityQuery easyQuery;      // 引擎用的那一个
+    @Autowired OrgDirectory org;
+
+    @Override
+    protected FlowContract<AppUser> contract() {
+        return FlowContract.<AppUser>builder().engine(engine).db(easyQuery).org(org)
+            .admin(管理员).starter(能发起的人).role(某个角色的编号).member(这个角色的一个成员).build();
+    }
+}
+```
+
+逐项核对：
+- 引擎的表都在、列对得上，也就是建表脚本执行到了最新；
+- 组织架构查得到名字，角色的成员在 `OrgDirectory.members` 和 `Actor.getRoles()` 两边一致，有流程管理员；
+- 注册的扩展声明（`info()`）写得对；
+- 冒烟：用你的组织架构和权限走一单，发起、成员在待办里看到、认领、处理、走完，跑完把冒烟流程停用。
+
+哪一项不过，失败信息里写着哪里不对、怎么改。上线前、升级引擎后各跑一次。示例见 `examples/spring-boot` 的 `FlowContractIT`
+（设了 `FLOW_MYSQL_URL` 才跑）。
 
 ## 2. 前端
 
@@ -319,6 +359,7 @@ provideFormCompiler(createCompileClient(() => new CompileWorker()));   // 根组
 
 ## 3. 上线前核对
 
+- [ ] `flow-test-kit` 的契约核对全部通过（1.10）
 - [ ] 数据库是 MySQL 8，账号有建表权限（或者表由你的迁移工具建好）；`transaction_isolation` 是 READ-COMMITTED，或者只靠引擎自己开事务
 - [ ] `OrgDirectory` 的 `administrators()`、`members()` 接好了（会签、抄送按角色或部门时要）
 - [ ] 当前操作人从登录信息取，不是示例里的请求头

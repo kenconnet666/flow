@@ -2,7 +2,7 @@
  * 按流程节点的权限预览表单：用了这张表单的流程（最新发布的版本）里，开始节点与人工节点上写的字段权限（0005 的节点 form）。
  * 表单设计器的预览里选一个，就按它隐藏、只读、必填，看审批人在那一步看到的样子。
  */
-import type { NodeFormAccess, ProcessDefinition } from '@zerodep-dev/flow-model';
+import { parseDefinition, type NodeFormAccess } from '@zerodep-dev/flow-model';
 import type { FlowClient } from '../../client/flow-client';
 
 /** 一个能按它预览的节点 */
@@ -20,7 +20,7 @@ export interface FormPreview {
 export async function formPreviews(flow: FlowClient, formKey: string, signal?: AbortSignal): Promise<FormPreview[]> {
   const usages = await flow.formUsages(formKey, signal);
   const definitions = await Promise.all(
-    usages.map(async (usage) => ({ usage, definition: JSON.parse((await flow.definitionJson(usage.processKey, usage.version, signal)).json) as ProcessDefinition })),
+    usages.map(async (usage) => ({ usage, definition: parseDefinition((await flow.definitionJson(usage.processKey, usage.version, signal)).json) })),
   );
   return definitions.flatMap(({ usage, definition }) =>
     definition.nodes

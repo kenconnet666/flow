@@ -119,6 +119,7 @@ export const zhProblemTexts = {
   'call-unknown-process': () => '调用的流程不存在或已停用',
   'extension-unknown': (p) => `${p['kind'] ?? '扩展'} ${p['name'] ?? ''} 没有注册`,
   'due-unknown-calendar': () => '工作日历不存在',
+  'schema-newer': (p) => `定义是第 ${p['schema'] ?? '?'} 版的格式，比这里的流程引擎新，先升级引擎`,
   'server-code-disabled': () => '这个系统关掉了在线写表单的后端代码（flow.forms.server-code）',
 } satisfies Record<string, ProblemText>;
 
@@ -182,6 +183,7 @@ const enProblemTexts: Record<keyof typeof zhProblemTexts, ProblemText> = {
   'call-unknown-process': () => 'The called process does not exist or is disabled',
   'extension-unknown': (p) => `${p['kind'] ?? 'Extension'} ${p['name'] ?? ''} is not registered`,
   'due-unknown-calendar': () => 'The work calendar does not exist',
+  'schema-newer': (p) => `The definition is in format ${p['schema'] ?? '?'}, newer than this flow version; upgrade flow first`,
   'server-code-disabled': () => 'Backend code for forms is turned off here (flow.forms.server-code)',
 };
 
@@ -201,6 +203,7 @@ export const zhCN: FlowMessages = {
   startedBy: '发起人',
   startedAt: '发起时间',
   pool: '待认领',
+  uploading: '附件还在上传，传完再提交',
   onBehalfOf: (assignee, principal) => `${assignee}（代 ${principal}）`,
   newItem: '新',
   variables: '流程变量',
@@ -393,6 +396,10 @@ export const zhCN: FlowMessages = {
   incidentOutcome: '走哪个结果',
   incidentRetried: '已重新排队，稍后自动执行',
   incidentSkipped: '已跳过，流程往下走了',
+  incidentDelivery: '投递（发件箱）',
+  incidentDiscard: '放弃投递',
+  incidentDiscardTitle: '放弃投递：这一批记录、通知不再发给监听或渠道',
+  incidentDiscarded: '已放弃投递',
   incidentResumeFirst: '流程因为这个异常暂停了：先恢复，再重试或跳过',
   returnTargetTitle: '退回到哪一步',
   returnTargetTo: (handler) => `退回给 ${handler}`,

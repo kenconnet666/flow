@@ -27,6 +27,8 @@
         <module>java/flow-model</module>
         <module>java/flow-core</module>
         <module>java/flow-spring</module>
+        <!-- 给接入方的契约核对：在自己的测试里继承 FlowContractTest -->
+        <module>java/flow-test-kit</module>
         <module>java/flow-it</module>
         <!-- 示例项目也在构建里：CI 编译它，保证示例跟得上引擎 -->
         <module>examples/spring-boot</module>
@@ -112,6 +114,11 @@
             <dependency>
                 <groupId>org.dpdns.zerodep</groupId>
                 <artifactId>flow-spring</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dpdns.zerodep</groupId>
+                <artifactId>flow-test-kit</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

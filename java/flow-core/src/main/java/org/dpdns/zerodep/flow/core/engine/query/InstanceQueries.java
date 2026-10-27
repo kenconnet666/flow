@@ -12,6 +12,7 @@ import org.dpdns.zerodep.flow.core.engine.form.References;
 import org.dpdns.zerodep.flow.core.engine.handler.AdminHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.WithdrawHandler;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.job.DeliveryJob;
 import org.dpdns.zerodep.flow.core.engine.store.Archives;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
@@ -199,8 +200,9 @@ public class InstanceQueries {
         }
         ProcessGraph graph = definitions.of(instance).getGraph();
         ProcessNode target = graph.node(node);
-        boolean skippable = BuiltinJobs.ACTION.equals(job.getKind()) && instance.getEndedAt() == null
-            && BuiltinJobs.stillWaiting(job, instance.getState());
+        // 发件箱的投递总能放弃；自动节点要实例还停在那个节点上
+        boolean skippable = DeliveryJob.KIND.equals(job.getKind())
+            || BuiltinJobs.ACTION.equals(job.getKind()) && instance.getEndedAt() == null && BuiltinJobs.stillWaiting(job, instance.getState());
         return new IncidentView(job.getId(), job.getKind(), instance.getId(), instance.getTitle(), instance.getProcessKey(), node,
             target == null ? null : target.getName(), job.getAttempts(), job.getLastError(), job.getDueAt(), skippable,
             node == null ? List.of() : AdminHandler.skipOutcomes(graph, node));

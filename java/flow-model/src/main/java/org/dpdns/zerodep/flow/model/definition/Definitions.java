@@ -15,6 +15,7 @@ import java.util.function.BiFunction;
  * 从 JSON 读流程定义：{@code Json.read} 读出来的 Map、List 树 → {@link ProcessDefinition}。只查形状（该是对象的是对象、该有的键有），
  * 内容对不对交给校验（{@code ProcessValidator}）；类型不认识的节点读成 {@link ProcessNode.Custom}，由校验报出来。
  * 形状不对时报 IllegalArgumentException，消息里带路径（{@code $.nodes[2].outcomes[0].key: must be a string}）。
+ * 旧格式的定义先按 {@link DefinitionSchema} 升到当前格式再读，比引擎还新的报错。
  * <pre>{@code
  * ProcessDefinition definition = Definitions.parse(Json.read(text));
  * }</pre>
@@ -31,9 +32,9 @@ public class Definitions {
         return parse(Json.read(json));
     }
 
-    /** 读 JSON 树 */
+    /** 读 JSON 树；旧格式的先升到当前格式（{@link DefinitionSchema}） */
     public static ProcessDefinition parse(Object tree) {
-        Map<?, ?> map = object(tree, "$");
+        Map<?, ?> map = DefinitionSchema.upgrade(object(tree, "$"));
         Map<?, ?> form = optObject(map.get("form"), "$.form");
         return new ProcessDefinition(
             string(map, "key", "$"), string(map, "name", "$"), optString(map, "description", "$"), optString(map, "category", "$"),

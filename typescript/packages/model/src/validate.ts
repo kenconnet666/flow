@@ -22,6 +22,7 @@ import {
   type TaskNode,
 } from './definition.js';
 import { gatewayPairs } from './gateway-pairs.js';
+import { DEFINITION_SCHEMA } from './schema.js';
 import { processGraph, type ProcessGraph } from './graph.js';
 import { manifestField, type FormManifest } from './manifest.js';
 
@@ -77,6 +78,7 @@ export function validateProcess(definition: ProcessDefinition, context: Validati
     problems.push({ code, severity: WARNINGS.has(code) ? 'warning' : 'error', ...at, ...(params ? { params } : {}) });
   const graph = processGraph(definition);
 
+  if (typeof definition.schema === 'number' && definition.schema > DEFINITION_SCHEMA) report('schema-newer', {}, { schema: definition.schema });
   checkIdentities(definition, report);
   checkStartAndEnd(definition, graph, report);
   checkEdges(definition, graph, report);

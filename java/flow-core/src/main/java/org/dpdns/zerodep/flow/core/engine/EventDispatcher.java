@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.core.engine;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.db.FlowEasyQuery;
+import org.dpdns.zerodep.flow.core.engine.job.OutboxEntry;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.listener.FlowNotice;
@@ -13,8 +14,11 @@ import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -22,7 +26,9 @@ import java.util.function.Supplier;
  * 并且管着引擎的事务边界：
  * <ul>
  *   <li>写记录时（{@link #published}）：事务内的监听马上调，抛错整个命令回滚；提交后的监听先记在这个线程上；</li>
- *   <li>引擎最外层的事务做完时（{@link #transaction}）：记下的监听与通知交给 {@link AfterCommit} 去调；事务回滚了就丢掉。</li>
+ *   <li>引擎最外层的事务做完时（{@link #transaction}）：记下的监听与通知交给 {@link AfterCommit} 去调；事务回滚了就丢掉；</li>
+ *   <li>可靠投递的监听与渠道（发件箱）：写记录时由 {@link #outbox} 算出要投的内容，调用方在同一个事务里记成作业（{@code DeliveryJob}），
+ *       提交后叫醒作业轮询（{@link #onOutbox}）马上投；投递本身在作业里做，失败重试。</li>
  * </ul>
  * 作业里调处理类会嵌套事务：只在最外层做完时发。
  */
@@ -31,8 +37,14 @@ public class EventDispatcher {
 
     private final List<FlowListener> inTransaction;
     private final List<FlowListener> afterCommit;
+    /** 提交后马上发的渠道 */
     private final List<NotificationChannel> channels;
+    /** 可靠投递的监听、渠道，按名字（作业里记的是名字） */
+    private final Map<String, FlowListener> reliableListeners;
+    private final Map<String, NotificationChannel> reliableChannels;
     private final AfterCommit scheduler;
+    /** 写了发件箱的作业、事务提交后叫醒谁马上投；默认没人（等下一轮作业轮询） */
+    private volatile Runnable outboxWakeUp = () -> { };
     /** 这个线程上正在做的引擎事务：嵌套几层，提交后要发的通知 */
     private final ThreadLocal<Pending> pending = ThreadLocal.withInitial(Pending::new);
 
@@ -40,10 +52,12 @@ public class EventDispatcher {
         int depth;
         final List<FlowNotice> notices = new ArrayList<>();
         final List<Notification> notifications = new ArrayList<>();
+        boolean outboxWritten;
 
         void clear() {
             notices.clear();
             notifications.clear();
+            outboxWritten = false;
         }
     }
 
@@ -55,12 +69,60 @@ public class EventDispatcher {
     public EventDispatcher(List<FlowListener> listeners, List<NotificationChannel> channels, AfterCommit scheduler) {
         this.inTransaction = listeners.stream().filter(l -> l.phase() == FlowListener.Phase.IN_TRANSACTION).toList();
         this.afterCommit = listeners.stream().filter(l -> l.phase() == FlowListener.Phase.AFTER_COMMIT).toList();
-        this.channels = List.copyOf(channels);
+        this.channels = channels.stream().filter(c -> !c.reliable()).toList();
+        this.reliableListeners = byName(listeners.stream().filter(l -> l.phase() == FlowListener.Phase.RELIABLE).toList(), FlowListener::listenerName, "listener");
+        this.reliableChannels = byName(channels.stream().filter(NotificationChannel::reliable).toList(), NotificationChannel::channelName, "notification channel");
         this.scheduler = scheduler;
     }
 
+    /** 可靠投递的按名字登记：作业里记的是名字，重启后按它找回，所以名字不能重复 */
+    private static <T> Map<String, T> byName(List<T> items, Function<T, String> nameOf, String what) {
+        Map<String, T> out = new LinkedHashMap<>();
+        for (T item : items) {
+            String name = nameOf.apply(item);
+            if (out.putIfAbsent(name, item) != null) throw new IllegalArgumentException("two reliable " + what + "s are named '" + name + "'");
+        }
+        return Collections.unmodifiableMap(out);
+    }
+
     /** 有没有通知的渠道：没有时不用算通知 */
-    boolean notifies() { return !channels.isEmpty(); }
+    boolean notifies() { return !channels.isEmpty() || !reliableChannels.isEmpty(); }
+
+    /** 写了发件箱的作业、事务提交后叫醒谁马上投（作业轮询登记它自己）；不登记时等下一轮轮询 */
+    public void onOutbox(Runnable wakeUp) { this.outboxWakeUp = wakeUp; }
+
+    /** 按名字找可靠投递的监听；找不到（改了名字、去掉了）时报错，作业失败、进异常处理 */
+    public FlowListener reliableListener(String name) {
+        FlowListener found = reliableListeners.get(name);
+        if (found == null) throw new IllegalStateException("no reliable flow listener is named '" + name + "'");
+        return found;
+    }
+
+    /** 按名字找可靠投递的渠道；找不到时报错 */
+    public NotificationChannel reliableChannel(String name) {
+        NotificationChannel found = reliableChannels.get(name);
+        if (found == null) throw new IllegalStateException("no reliable notification channel is named '" + name + "'");
+        return found;
+    }
+
+    /**
+     * 发件箱：这一步写下的记录与通知里，要可靠投给谁、投什么——每个监听一份（它要听的记录的编号），每个渠道一份（全部通知）。
+     * 调用方在同一个事务里把每一份记成一个作业；记了就在提交后叫醒作业轮询。
+     */
+    public List<OutboxEntry> outbox(List<FlowEventVO> events, InstanceVO instance, ProcessGraph graph, List<Notification> notifications) {
+        List<OutboxEntry> out = new ArrayList<>();
+        for (FlowListener listener : reliableListeners.values()) {
+            List<Long> ids = events.stream()
+                .filter(e -> accepts(listener, new FlowNotice(e, instance, metaOf(graph, e.getNode()))))
+                .map(FlowEventVO::getId).toList();
+            if (!ids.isEmpty()) out.add(OutboxEntry.forListener(listener.listenerName(), ids));
+        }
+        if (!notifications.isEmpty()) {
+            for (NotificationChannel channel : reliableChannels.values()) out.add(OutboxEntry.forChannel(channel.channelName(), notifications));
+        }
+        if (!out.isEmpty()) pending.get().outboxWritten = true;
+        return out;
+    }
 
     /** 在引擎的事务里做；最外层做完（提交了）发提交后的通知，出错时丢掉 */
     <T> T transaction(EasyEntityQuery db, Supplier<T> work) {
@@ -92,13 +154,15 @@ public class EventDispatcher {
     }
 
     private void deliverLater(Pending current) {
-        if (current.notices.isEmpty() && current.notifications.isEmpty()) return;
+        if (current.notices.isEmpty() && current.notifications.isEmpty() && !current.outboxWritten) return;
         List<FlowNotice> ready = List.copyOf(current.notices);
         List<Notification> toSend = List.copyOf(current.notifications);
+        boolean wakeUp = current.outboxWritten;
         current.clear();
         scheduler.run(() -> {
             deliver(ready);
             send(toSend);
+            if (wakeUp) outboxWakeUp.run();
         });
     }
 
@@ -134,7 +198,8 @@ public class EventDispatcher {
             && (listener.processes().isEmpty() || listener.processes().contains(notice.getInstance().getProcessKey()));
     }
 
-    private static Map<String, Object> metaOf(ProcessGraph graph, String nodeId) {
+    /** 事件所在节点的 meta（给监听的 FlowNotice 用）；不在节点上、节点不在了时是空的 */
+    public static Map<String, Object> metaOf(ProcessGraph graph, String nodeId) {
         if (nodeId == null) return Map.of();
         ProcessNode node = graph.node(nodeId);
         return node == null ? Map.of() : node.getInfo().getMeta();

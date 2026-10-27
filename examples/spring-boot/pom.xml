@@ -67,6 +67,17 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- 契约核对（FlowContractIT）：连了库（设了 FLOW_MYSQL_URL）才跑 -->
+        <dependency>
+            <groupId>org.dpdns.zerodep</groupId>
+            <artifactId>flow-test-kit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

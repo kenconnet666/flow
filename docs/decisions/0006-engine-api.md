@@ -124,7 +124,8 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | `job.failed` | 作业重试用完 |
 
 - 每个事件都写一条流转记录（0001 的 `flow_event`）。
-- 监听分两种：**事务内**（`@FlowListener(phase = IN_TRANSACTION)` / `on(event, fn, { phase: 'inTransaction' })`）可以拒绝（抛错整个回滚）、可以同事务写业务表；**提交后**（`AFTER_COMMIT`）发通知、发消息队列，失败不影响流转。
+- 监听分三种（2026-10-27 加了第三种）：**可靠**（`RELIABLE`，发件箱）的和流转记录同一个事务记成作业，提交后投，失败重试、用完进异常处理，至少一次；
+  通知渠道 `reliable()` 为 true 时同样走发件箱。另外两种：**事务内**（`@FlowListener(phase = IN_TRANSACTION)` / `on(event, fn, { phase: 'inTransaction' })`）可以拒绝（抛错整个回滚）、可以同事务写业务表；**提交后**（`AFTER_COMMIT`）发通知、发消息队列，失败不影响流转。
 - 监听按流程 `key`、节点、事件种类过滤；节点上的 `meta`（0005）随事件给出。
 
 ## 6. 扩展点与可替换的部分（已定，用户 2026-10-26）

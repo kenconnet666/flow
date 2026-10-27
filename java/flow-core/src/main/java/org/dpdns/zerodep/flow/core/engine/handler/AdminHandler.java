@@ -17,6 +17,7 @@ import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.job.DeliveryJob;
 import org.dpdns.zerodep.flow.core.engine.node.CallBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
@@ -225,12 +226,17 @@ public class AdminHandler {
     }
 
     /**
-     * 跳过失败的作业：异步的自动节点不再做动作，按指定的结果往下走，作业删掉。只有自动节点的作业能跳过，
+     * 跳过失败的作业：发件箱的投递（{@code deliver}）放弃投、作业删掉，实例不动（结束了也行）；
+     * 异步的自动节点不再做动作，按指定的结果往下走，作业删掉。只有这两种作业能跳过，自动节点的
      * 实例要进行中（暂停的先恢复）、还停在那个节点的那一轮上；结果要是节点出边上写的，不填时要有一条没写结果的出边。
      */
     public CommandResult skipJob(Actor actor, SkipJobCommand command) {
         JobEntity job = context.getDb().queryable(JobEntity.class).where(j -> { j.id().eq(command.getJobId()); j.state().eq(JobEntity.FAILED); })
             .singleNotNull(() -> FlowErrors.notFound("job", command.getJobId()));
+        if (DeliveryJob.KIND.equals(job.getKind())) {
+            context.getDb().deletable(JobEntity.class).allowDeleteStatement(true).whereById(job.getId()).executeRows();
+            return new CommandResult(Instances.view(context.getDb(), job.getInstanceId()), List.of(), List.of(), List.of());
+        }
         if (!BuiltinJobs.ACTION.equals(job.getKind())) throw FlowErrors.invalid("jobId", "not-skippable");
         String outcome = command.getOutcome() == null || command.getOutcome().isBlank() ? null : command.getOutcome();
         return onInstance(actor, job.getInstanceId(), true, (run, instance) -> {

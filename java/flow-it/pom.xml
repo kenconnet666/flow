@@ -34,6 +34,11 @@
             <artifactId>flow-spring</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.dpdns.zerodep</groupId>
+            <artifactId>flow-test-kit</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- 引擎的指标（FlowMetrics）：flow-spring 里是可选的 -->
         <dependency>
             <groupId>io.micrometer</groupId>

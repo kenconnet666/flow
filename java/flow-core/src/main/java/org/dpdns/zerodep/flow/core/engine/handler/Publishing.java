@@ -17,6 +17,7 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.view.definition.DefinitionProblem;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.form.FormSummary;
+import org.dpdns.zerodep.flow.model.definition.DefinitionSchema;
 import org.dpdns.zerodep.flow.model.definition.Definitions;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
@@ -124,6 +125,8 @@ public class Publishing {
         ProcessDefinition model;
         try {
             model = Definitions.parse(json);
+        } catch (DefinitionSchema.Newer e) {
+            return List.of(new DefinitionProblem("schema-newer", "error", null, null, null, null, Map.of("schema", String.valueOf(e.getVersion()))));
         } catch (IllegalArgumentException e) {
             return List.of(new DefinitionProblem("malformed", "error", null, null, null, null, Map.of("reason", String.valueOf(e.getMessage()))));
         }
@@ -258,6 +261,9 @@ public class Publishing {
     private static ProcessDefinition parseDefinition(String json) {
         try {
             return Definitions.parse(json);
+        } catch (DefinitionSchema.Newer e) {
+            throw new FlowException(FlowErrorCode.DEFINITION_INVALID, e.getMessage(), List.of(new ErrorDetail("schema-newer", null, null, null, null,
+                Map.of("schema", String.valueOf(e.getVersion())))));
         } catch (IllegalArgumentException e) {
             throw new FlowException(FlowErrorCode.DEFINITION_INVALID, e.getMessage(), List.of(new ErrorDetail("malformed", null, null, null, null,
                 Map.of("reason", String.valueOf(e.getMessage())))));

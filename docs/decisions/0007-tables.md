@@ -219,7 +219,7 @@
 | 列 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | ID | |
-| `kind` | `VARCHAR(32)` | `overdue`、`remind`、`unclaimed`、`timer`、`action`（异步动作）、`archive`……接入方可以加（0006 的 `JobHandler`） |
+| `kind` | `VARCHAR(32)` | `overdue`、`remind`、`unclaimed`、`timer`、`action`（异步动作）、`deliver`（发件箱的投递：实例结束时不删）……接入方可以加（0006 的 `JobHandler`） |
 | `instance_id`、`work_item_id` | ID | 实例结束、待办处理完时按它们取消 |
 | `due_at` | TIME | |
 | `payload` | JSON | |
