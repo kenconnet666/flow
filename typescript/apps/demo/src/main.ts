@@ -50,6 +50,8 @@ const router = createRouter({
     { path: '/admin/forms/:key', component: FormEditPage },
     { path: '/instances/:id', component: InstancePage },
     { path: '/progress/:id', component: ProgressPage },
+    // 打错的地址回到发起页，不留一页空白
+    { path: '/:unknown(.*)*', redirect: '/' },
   ],
 });
 
