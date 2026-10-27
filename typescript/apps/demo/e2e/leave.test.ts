@@ -33,12 +33,13 @@ test('病假带证明材料：上传、提交，流程详情里能下载', async
   const name = `诊断证明-${Date.now()}.txt`;
   await page.locator('input[type="file"]').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from('诊断证明的内容') });
   await page.getByText(name).waitFor();
+  // 标题每次都是"请假：3 天"，从发起的响应里取实例编号直接打开，不在列表里认
+  const started = page.waitForResponse((response) => response.url().includes('/flow/commands/start'));
   await page.getByRole('button', { name: '提交', exact: true }).click();
+  const body = (await (await started).json()) as { data: { instance: { id: string } } };
   await page.waitForURL('**/inbox');
 
-  await page.goto(`${BASE}/started`);
-  await page.getByRole('link', { name: '请假：3 天' }).first().click();
-  await page.waitForURL('**/instances/*');
+  await page.goto(`${BASE}/instances/${body.data.instance.id}`);
   const link = page.getByRole('link', { name });
   const href = await link.getAttribute('href');
   assert.ok(href?.startsWith('/demo/files/'), href ?? 'no link');
