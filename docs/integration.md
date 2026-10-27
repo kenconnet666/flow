@@ -280,7 +280,7 @@ provideFlowFiles({
 ### 2.5 业务表单
 
 表单在管理端的表单设计器里画（字段、明细表、附件、布局、节点上的字段权限、前后端代码），发布后流程节点引用它；不用写前端代码。
-代码表单里明细表写 `<form.List name="lines" />`，附件写 `<form.Field name="proof"><FileField /></form.Field>`。
+代码表单里明细表写 `<form.List name="lines" />`，标签页写 `<FormTabs>` 包几个 `<FormSection title="…">`，附件写 `<form.Field name="proof"><FileField /></form.Field>`。
 要连业务表时用表单的后端代码（`FormHandler`）或 `TodoQueryCustomizer`（0004）。
 
 ## 3. 上线前核对

@@ -88,6 +88,8 @@ const BUILTIN: readonly FormComponent[] = [
     ],
   },
   { name: 'Separator', module: UI_MODULE, label: '分割线', group: 'layout' },
+  // 标签页：往里拖分组，每个分组一页（流程组件库自己的，组件库的 Tabs 要三层，设计器里不好拖）
+  { name: 'FormTabs', module: FORM_MODULE, label: '标签页', group: 'layout', container: true },
   {
     name: 'Text', module: UI_MODULE, label: '文字', group: 'display', content: '说明文字',
     props: [

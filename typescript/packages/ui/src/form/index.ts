@@ -17,4 +17,5 @@ export {
 export { FileField, type FileFieldProps } from './FileField';
 export { provideFlowFiles, useFlowFiles, type FileRef, type FileSource } from './files';
 export { FlowForm, flowFormModules, type FlowFormProps } from './FlowForm';
+export { FormTabs, type FormTabsProps } from './FormTabs';
 export { emptyValue, toFormState, type FormState } from './values';
