@@ -155,7 +155,7 @@ class RequestBody {
     RemindCommand remind() { return new RemindCommand(id("instanceId"), id("workItemId"), text("message")); }
 
     /** {@code { instanceId, text }} */
-    CommentCommand comment() { return new CommentCommand(id("instanceId"), text("text")); }
+    CommentCommand comment() { return new CommentCommand(id("instanceId"), text("text"), ids("mentions")); }
 
     /** {@code { instanceId, reason }} */
     TerminateCommand terminate() { return new TerminateCommand(id("instanceId"), text("reason")); }

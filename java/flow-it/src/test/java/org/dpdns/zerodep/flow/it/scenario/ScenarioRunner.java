@@ -156,7 +156,7 @@ class ScenarioRunner {
                 case "removeSigners" -> commandResult(engine.removeSigners(actor, new RemoveSignersCommand(args.id("workItem"), args.ids("users"))));
                 case "release" -> commandResult(engine.release(actor, new ReleaseCommand(args.id("workItem"), args.text("reason"))));
                 case "remind" -> commandResult(engine.remind(actor, new RemindCommand(args.id("instance"), args.id("workItem"), args.text("message"))));
-                case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"))));
+                case "comment" -> commandResult(engine.comment(actor, new CommentCommand(args.id("instance"), args.text("text"), args.ids("mentions"))));
                 case "signal" -> Map.of("results", engine.signal(actor, new SignalCommand(args.id("instance"), args.text("businessKey"),
                     args.text("event"), args.text("outcome"), args.map("data"))).stream().map(ScenarioRunner::commandResult).toList());
                 case "withdrawStep" -> commandResult(engine.withdrawStep(actor, new WithdrawStepCommand(args.id("workItem"), args.text("reason"))));

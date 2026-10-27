@@ -299,6 +299,8 @@ export interface FlowMessages {
   readonly instanceDetail: string;
   /** 流转记录里事件的说明：交给了谁、加了谁（没有时为 null） */
   readonly eventDetail: (type: string, data: Readonly<Record<string, unknown>>) => string | null;
+  /** 留言时选 @ 谁 */
+  readonly mentionPlaceholder: string;
 }
 
 declare module '@zerodep-dev/vue-tsx-pro-ui' {
@@ -790,6 +792,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     reminded: (count) => (count ? `已催办 ${count} 个待办` : '一小时内已经催过了'),
     leaveComment: '留言',
     commentPlaceholder: '写给流程里的人看的话，会记进流转记录',
+    mentionPlaceholder: '@ 提醒谁看',
     handlers: '处理人',
     instanceDetail: '流程详情',
     eventDetail: (type, data) => {
@@ -806,6 +809,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
       if (type === 'workItem.reminded' && data['auto']) return zhReminders[text(data['reason']) ?? ''] ?? '自动提醒';
       if (type === 'workItem.unclaimed') return `转收件箱的负责人指定${text(data['designatorName']) ? `：${text(data['designatorName'])}` : ''}`;
       if (type === 'instance.cc') return `抄送给 ${names(data['userNames']).join('、')}`;
+      if (type === 'instance.commented') return names(data['mentionNames']).map((name) => `@${name}`).join(' ') || null;
       if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);
       if (type === 'job.failed') return text(data['error']);
       const to = text(data['toUserName']);
@@ -1036,6 +1040,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     reminded: (count) => (count ? `Reminded ${count} task(s)` : 'Already reminded within the hour'),
     leaveComment: 'Comment',
     commentPlaceholder: 'A note for the people in this process; it goes into the history',
+    mentionPlaceholder: '@ Mention someone',
     handlers: 'Assignees',
     instanceDetail: 'Process details',
     eventDetail: (type, data) => {
@@ -1052,6 +1057,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
       if (type === 'workItem.reminded' && data['auto']) return enReminders[text(data['reason']) ?? ''] ?? 'Automatic reminder';
       if (type === 'workItem.unclaimed') return 'Handed to the inbox manager';
       if (type === 'instance.cc') return `To ${names(data['userNames']).join(', ')}`;
+      if (type === 'instance.commented') return names(data['mentionNames']).map((name) => `@${name}`).join(' ') || null;
       if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);
       if (type === 'job.failed') return text(data['error']);
       const to = text(data['toUserName']);

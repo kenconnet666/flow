@@ -209,10 +209,17 @@ public class CollaborationHandler {
             InstanceEntity instance = Instances.find(context.getDb(), command.getInstanceId());
             Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, FormValues.empty(),
                 instance.getRev());
-            run.addEvent(EventEntity.INSTANCE_COMMENTED, null, null, null, null, command.getText());
+            run.addEvent(EventEntity.INSTANCE_COMMENTED, null, null, null, null, command.getText(), mentionData(command.getMentions()));
             run.publish();
             return run.toResult();
         });
+    }
+
+    /** 留言 @ 到的人记进流转记录：编号与名字快照（同抄送的 users、userNames）；没 @ 人时不记 */
+    private Map<String, Object> mentionData(List<Long> mentions) {
+        List<Long> users = mentions == null ? List.of() : mentions.stream().distinct().toList();
+        if (users.isEmpty()) return Map.of();
+        return Map.of("mentions", users, "mentionNames", users.stream().map(context.getOrg()::userName).toList());
     }
 
     /** 收件箱负责人指定承办人：只有等我指定的待办能指定；锁住实例，改成直接落到那个人，记一条流转记录 */

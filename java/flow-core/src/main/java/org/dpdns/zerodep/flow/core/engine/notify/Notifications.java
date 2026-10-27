@@ -28,6 +28,7 @@ import java.util.function.Function;
  *   workItem.reminded       催办（reminded）；引擎按节点的 reminders 自动提醒时是即将到期（dueSoon）或已超时（overdue）
  *   workItem.overdue        已超时（overdue），另发收件箱的负责人
  *   instance.cc             抄送（cc）
+ *   instance.commented      留言里 @ 到的人（mentioned），不发给留言的人自己
  *   instance.finished、instance.terminated   流程结束（finished），发给发起人
  * </pre>
  * 定义里的 {@code notify}（节点上的盖过流程级的）按种类改：{@code false} 不发；{@code { template, to }} 换模板、加收件人。
@@ -75,6 +76,11 @@ public class Notifications {
                 send(Notification.OVERDUE, event, item, to);
             }
             case EventEntity.INSTANCE_CC -> send(Notification.CC, event, null, ids(event.getData().get("users")));
+            case EventEntity.INSTANCE_COMMENTED -> {
+                Set<Long> to = ids(event.getData().get("mentions"));
+                to.remove(event.getActorId());
+                send(Notification.MENTIONED, event, null, to);
+            }
             case EventEntity.INSTANCE_FINISHED, EventEntity.INSTANCE_TERMINATED ->
                 send(Notification.FINISHED, event, null, Set.of(instance.getStartedBy()));
             default -> { }

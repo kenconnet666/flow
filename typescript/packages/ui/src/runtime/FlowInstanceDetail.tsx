@@ -75,6 +75,7 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
   let comment = _state('');
   let ccOpen = _state(false);
   let ccPicked = _state<readonly PeopleEntry[]>([]);
+  let mentioned = _state<readonly PeopleEntry[]>([]);
   let ccMessage = _state('');
 
   /** 发一个命令：成功时刷新并告诉父级，返回 true */
@@ -121,7 +122,11 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
   }
 
   const leaveComment = () =>
-    run('comment', () => flow.comment({ instanceId: id, text: comment.trim() }), () => (comment = ''));
+    run(
+      'comment',
+      () => flow.comment({ instanceId: id, text: comment.trim(), mentions: mentioned.map((entry) => BigInt(entry.id)) }),
+      () => ((comment = ''), (mentioned = [])),
+    );
 
   return () => {
     const data = detail.data;
@@ -239,7 +244,18 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
           <Flex direction="column" gap="lg">
             <Flex direction="column" gap="sm">
               <Textarea _value={comment} rows={2} placeholder={messages.commentPlaceholder} aria-label={messages.leaveComment} />
-              <Flex justify="end">
+              <Flex justify="end" gap="sm" align="center" wrap>
+                {people && (
+                  <PeoplePicker
+                    source={people}
+                    _value={mentioned}
+                    types={['user']}
+                    recentKey="flow-mention"
+                    placeholder={messages.mentionPlaceholder}
+                    aria-label={messages.mentionPlaceholder}
+                    style={{ minWidth: '14rem' }}
+                  />
+                )}
                 <Button variant="outline" loading={busy === 'comment'} disabled={!comment.trim() || (busy != null && busy !== 'comment')} onClick={leaveComment}>
                   {messages.leaveComment}
                 </Button>

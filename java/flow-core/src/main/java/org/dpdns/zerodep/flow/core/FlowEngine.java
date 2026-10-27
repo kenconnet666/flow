@@ -565,7 +565,7 @@ public class FlowEngine<U extends Actor> {
     /** 留言（当前操作人） */
     public CommandResult comment(CommentCommand command) { return comment(actors.current(), command); }
 
-    /** 留言：记进流转记录 */
+    /** 留言：记进流转记录；@ 到的人收到通知（mentioned） */
     public CommandResult comment(U actor, CommentCommand command) {
         return execute(actor, "comment", String.valueOf(command.getInstanceId()), command, collaboration::comment);
     }

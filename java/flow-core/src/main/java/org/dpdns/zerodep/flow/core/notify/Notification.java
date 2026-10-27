@@ -35,6 +35,8 @@ public class Notification {
     public static final String CC = "cc";
     /** 被退回：退回的目标处理人 */
     public static final String RETURNED = "returned";
+    /** 留言里 @ 了：被 @ 的人 */
+    public static final String MENTIONED = "mentioned";
     /** 流程结束（正常结束或终止，带结束结果）：发起人 */
     public static final String FINISHED = "finished";
 

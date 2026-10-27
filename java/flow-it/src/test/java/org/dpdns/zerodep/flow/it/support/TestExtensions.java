@@ -64,7 +64,7 @@ public class TestExtensions {
                 public <R> R intercept(U actor, String operation, FlowCommand command, Chain<R> chain) {
                     if (command instanceof CompleteCommand complete && "拦下".equals(complete.getComment())) throw invalid("comment", "blocked");
                     if (command instanceof CommentCommand comment && comment.getText() != null) {
-                        return chain.proceed(new CommentCommand(comment.getInstanceId(), comment.getText().replace("敏感词", "***")));
+                        return chain.proceed(new CommentCommand(comment.getInstanceId(), comment.getText().replace("敏感词", "***"), comment.getMentions()));
                     }
                     R result = chain.proceed(command);
                     if (command instanceof StartCommand start && "rollback-after".equals(start.getBusinessKey())) throw invalid("businessKey", "rolled-back");

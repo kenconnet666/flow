@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.it.listener;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
+import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
@@ -90,6 +91,20 @@ class NotificationTest {
         assertEquals(Notification.FINISHED, finished.getKind());
         assertEquals(List.of(1001L), finished.getRecipients());
         assertEquals("done", finished.getEvent().getOutcome());
+    }
+
+    @Test
+    void 留言里at到的人收到通知_不发给自己_名字记进流转记录() {
+        var started = engine.start(ALICE, StartCommand.of("memo", Map.of()));
+        sent.clear();
+        var commented = engine.comment(ALICE, new CommentCommand(started.getInstance().getId(), "请帮忙看看", List.of(1004L, 1001L, 1004L)));
+        Notification mentioned = only();
+        assertEquals(Notification.MENTIONED, mentioned.getKind());
+        assertEquals(List.of(1004L), mentioned.getRecipients(), "去重，不发给留言的人自己");
+        assertEquals(List.of("总经理", "林小满"), commented.getEvents().get(0).getData().get("mentionNames"));
+
+        engine.comment(ALICE, new CommentCommand(started.getInstance().getId(), "没有 @ 人", List.of()));
+        assertEquals(List.of(), sent);
     }
 
     /** 这一步只发了一条，取出来并清空 */

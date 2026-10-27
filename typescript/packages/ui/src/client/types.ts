@@ -553,6 +553,8 @@ export interface CcCommand {
 export interface CommentCommand {
   readonly instanceId: Id;
   readonly text: string;
+  /** @ 的人：他们收到通知（mentioned），名字记进流转记录 */
+  readonly mentions?: readonly Id[];
 }
 
 /** 管理员对实例：终止、暂停（resume 只要 instanceId） */
