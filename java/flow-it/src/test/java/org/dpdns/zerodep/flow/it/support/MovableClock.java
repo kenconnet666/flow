@@ -1,19 +1,19 @@
-package org.dpdns.zerodep.flow.it.scenario;
+package org.dpdns.zerodep.flow.it.support;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
-/** 场景里的时钟：停在一个时刻，{@code runJobs} 那一步把它拨到后面（看超时、提醒、定时节点） */
-class MovableClock extends Clock {
+/** 测试用的时钟：停在一个时刻，由测试拨到后面（场景的 {@code runJobs}、看停留时长与超时） */
+public class MovableClock extends Clock {
     private Instant now;
 
-    MovableClock(Instant start) { this.now = start; }
+    public MovableClock(Instant start) { this.now = start; }
 
     /** 拨到 at；不能往回拨 */
-    void moveTo(Instant at) {
-        if (at.isBefore(now)) throw new IllegalArgumentException("the scenario clock cannot go back from " + now + " to " + at);
+    public void moveTo(Instant at) {
+        if (at.isBefore(now)) throw new IllegalArgumentException("the test clock cannot go back from " + now + " to " + at);
         now = at;
     }
 

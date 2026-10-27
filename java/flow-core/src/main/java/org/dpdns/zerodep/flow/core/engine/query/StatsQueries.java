@@ -5,12 +5,13 @@ import com.easy.query.core.proxy.sql.Select;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
+import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 import org.dpdns.zerodep.flow.core.view.stats.CountRow;
 import org.dpdns.zerodep.flow.core.view.stats.HandlerStats;
+import org.dpdns.zerodep.flow.core.view.stats.NodeRow;
 import org.dpdns.zerodep.flow.core.view.stats.NodeStats;
 import org.dpdns.zerodep.flow.core.view.stats.ProcessStats;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,7 +20,7 @@ import java.util.Map;
 
 /**
  * 统计（0002 §9）：各流程的实例数、各人工节点的停留与超时、处理人的工作量。
- * 计数在库里分组算；停留时长、超时比例取这段时间里处理完的待办在内存里算（只取几列）。
+ * 都在库里分组算（个数、平均停留、超时的个数），取回来的只有每组一行。
  */
 public class StatsQueries {
     private final EngineContext context;
@@ -54,24 +55,29 @@ public class StatsQueries {
 
     /** 一个流程各人工节点从 since 起处理完的待办：个数、平均停留、超时比例 */
     public List<NodeStats> nodes(String processKey, Instant since) {
-        List<WorkItemEntity> done = context.getDb().queryable(WorkItemEntity.class)
+        // 在库里分组算：一个月处理完的待办可能有几万条，不取回来
+        List<NodeRow> rows = context.getDb().queryable(WorkItemEntity.class)
             .where(w -> { w.processKey().eq(processKey); w.state().eq(WorkItemEntity.DONE); w.completedAt().ge(since); })
-            .select(w -> w.FETCHER.node().nodeName().createdAt().completedAt().dueAt())
+            .groupBy(w -> GroupKeys.of(w.node(), w.nodeName()))
+            .select(NodeRow.class, g -> {
+                WorkItemEntityProxy w = g.groupTable();
+                // Instant 列在代理上是任意类型，asLocalDateTime 只为让编译器认作时间（生成的仍是原列）
+                return Select.of(g.key1().as(NodeRow.Fields.node), g.key2().as(NodeRow.Fields.nodeName), g.count().as(NodeRow.Fields.done),
+                    w.createdAt().asLocalDateTime().duration(w.completedAt().asLocalDateTime()).toSeconds().avg().as(NodeRow.Fields.averageSeconds),
+                    w.id().count().filter(() -> w.dueAt().isNotNull()).as(NodeRow.Fields.withDue),
+                    w.id().count().filter(() -> { w.dueAt().isNotNull(); w.completedAt().gt(w.dueAt()); }).as(NodeRow.Fields.overdue));
+            })
             .toList();
-        Map<String, List<WorkItemEntity>> byNode = new LinkedHashMap<>();
-        for (WorkItemEntity item : done) byNode.computeIfAbsent(item.getNode(), n -> new ArrayList<>()).add(item);
         List<NodeStats> out = new ArrayList<>();
-        byNode.forEach((node, items) -> {
+        for (NodeRow row : rows) {
             NodeStats stats = new NodeStats();
-            stats.setNode(node);
-            stats.setNodeName(items.get(0).getNodeName());
-            stats.setDone(items.size());
-            stats.setAverageHours(items.stream().mapToLong(i -> Duration.between(i.getCreatedAt(), i.getCompletedAt()).toSeconds()).average().orElse(0) / 3600);
-            long withDue = items.stream().filter(i -> i.getDueAt() != null).count();
-            long overdue = items.stream().filter(i -> i.getDueAt() != null && i.getCompletedAt().isAfter(i.getDueAt())).count();
-            stats.setOverdueRate(withDue == 0 ? 0 : (double) overdue / withDue);
+            stats.setNode(row.getNode());
+            stats.setNodeName(row.getNodeName());
+            stats.setDone(row.getDone());
+            stats.setAverageHours(row.getAverageSeconds() == null ? 0 : row.getAverageSeconds().doubleValue() / 3600);
+            stats.setOverdueRate(row.getWithDue() == 0 ? 0 : (double) row.getOverdue() / row.getWithDue());
             out.add(stats);
-        });
+        }
         return out;
     }
 
