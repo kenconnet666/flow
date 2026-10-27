@@ -117,10 +117,10 @@ export default defineFlowForm(fields, ({ form, context }) => {
 | --- | --- | --- | --- |
 | `text` | 字符串 | `minLength`、`maxLength`、`pattern`（正则写成字符串） | `text` |
 | `number` | 数字 | `min`、`max`、`integer` | `number` |
-| `decimal` | **字符串**（`"19.90"`） | `scale`（小数位）、`min`、`max`（也写成字符串） | `number` |
+| `decimal` | 精确小数：Java 的 `BigDecimal`、前端的 `Decimal`（线上 typed JSON 的 `decimal`） | `scale`（小数位）、`min`、`max`（清单里写成文字，按字段类型读成小数） | `number` |
 | `boolean` | 布尔 | — | `boolean` |
-| `date` | `"2026-10-26"` | `min`、`max` | `date` |
-| `datetime` | 带 `Z` 的 ISO 8601（同 0001 的时间约定） | `min`、`max` | `date` |
+| `date` | 日期：`LocalDate` / `CalendarDate`（线上 `date`） | `min`、`max` | `date` |
+| `datetime` | 时刻：`Instant` / `ZonedDateTime`（线上 `timestamptz`，UTC） | `min`、`max` | `date` |
 | `select` | 选项的值；`multiple` 时是数组 | `options`（字面量列表或 `{ source }`）、`multiple` | `select` |
 | `people` | `PeopleEntry` 的数组（同组件库的 `PeoplePicker`：带名字，回显不用再查） | `types`（user / department / role，加接入方扩展的种类）、`max` | `select`（只比较 id）；可作为处理人来源（同 0002 §3"流程变量里的人"，取 `form.字段名`） |
 | `file` | `{ id, name, size }` 的数组，文件本身由接入方存 | `accept`、`maxCount`、`maxSize` | 不参与 |
@@ -130,8 +130,9 @@ export default defineFlowForm(fields, ({ form, context }) => {
 - `visibleWhen`（显示条件）、`requiredWhen`（必填条件）的值是条件树，与组件库的 `Condition` 同形，本身是 JSON5 字面量。放在清单里而不是 JSX 上，是因为它影响数据是否有效：
   前端按它显示或隐藏、标必填；后端用模型包的条件求值再校验一次——条件不成立时这个字段不算必填，交上来的值丢掉。
   节点上的字段权限（第 4 节）优先：节点上隐藏的字段，条件成立也不显示。（2026-10-26 随第 2 节补入）
-- `decimal` 用字符串：金额在 JS 里用浮点会丢精度，Java 用 `BigDecimal` 读；组件库已有按文字读数字的 `isNumericText`。
-- 其余的数（`number` 字段、人员的编号）按 JavaScript 的数：后端读进来时放得进 int 的整数存成 Integer、其余存成 Double，下发时是普通的 JSON 数字，来回一趟不变（无人值守时按推荐定，2026-10-27；Java 的 `JsonNumbers`）。
+- 值是强类型（2026-10-27 用户定）：线上、库里都是 json-wire 的 typed JSON，读进来按 `$types` 还原，模型包按类型校验，不从文字里认小数、日期。
+  清单里人写的 `default`、`min`、`max` 是文字，按字段类型读成同样的类型（模型包的 `FormManifest.typed` / `typedValue`）。
+- `number` 字段按 JavaScript 的数：没标类型的数还原成 Integer（放得进 int 的整数）或 Double，来回一趟不变。
 - 字段名：`^[a-z][A-Za-z0-9]*$`，最长 64，同一层里唯一。字段名会出现在条件里（写成 `form.字段名`，如 `form.amount`）、节点权限与摘要里，所以发布后改名等于删一个、加一个，校验会指出引用了旧名字的流程。
   表单的值不放进流程变量，单独存（5.5）。（2026-10-26 随第 5 节调整）
 
@@ -248,10 +249,10 @@ export default defineFormHandler({
 | --- | --- |
 | `text` | `TextField`、`Textarea` |
 | `number` | `NumberField`、`Slider`、`Rating`（只限 `integer`） |
-| `decimal` | `NumberField`（值是 `Decimal`；表单容器在边界上与清单的字符串互转） |
+| `decimal` | `NumberField`（值是 `Decimal`；步长按清单的 `scale`） |
 | `boolean` | `Switch`、`Checkbox` |
 | `date` | `DatePicker`、`DateField` |
-| `datetime` | `DatePicker`（`granularity="minute"`；控件给的是本地时间，容器按处理人的时区与清单的 UTC 互转） |
+| `datetime` | `DatePicker`（`granularity="minute"`，值是 `ZonedDateTime`；从空值新选时按浏览器的时区换成时刻） |
 | `select` | 单选：`Select`、`RadioGroup`、`ToggleGroup`；`multiple`：`Select`、`CheckboxGroup`、`Transfer`；字典是树形的：`TreeSelect`、`Cascader` |
 | `people` | `PeoplePicker` |
 | `file` | `Upload`、`FileDrop` |
