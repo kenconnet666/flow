@@ -15,7 +15,9 @@
         "variables": { "suppliers": [{ "name": "供应商甲", "amount": "100.00" }, { "name": "供应商乙", "amount": "120.00" }] } },
       "expect": {
         "instance": { "status": "active", "current": [{ "node": "quotes", "name": "各家报价" }] },
-        "workItems": [{ "node": "fill", "assigneeId": "1003" }, { "node": "fill", "assigneeId": "1003" }]
+        "workItems": [{ "node": "fill", "assigneeId": "1003" }, { "node": "fill", "assigneeId": "1003" }],
+        "events": ["instance.started", "node.left", "node.entered",
+          { "type": "call.started", "data": { "title": "报价：供应商甲" } }, { "type": "call.started", "data": { "title": "报价：供应商乙" } }]
       } },
     { "as": "carol", "command": "workItem", "args": { "workItem": "$a.workItems[0]" },
       "expect": { "instance": { "title": "报价：供应商甲", "parentInstanceId": "1", "startedByName": "林小满" },
