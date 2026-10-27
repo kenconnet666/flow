@@ -30,6 +30,7 @@ import {
   UserRoundPlus,
   TriangleAlert,
   X,
+  Workflow,
   Zap,
 } from '@lucide/icons';
 import { useFlowMessages } from '../lang/messages';
@@ -72,6 +73,8 @@ const LOOKS: Readonly<Record<string, { icon: TimelineItem['icon']; tone?: Status
   'instance.suspended': { icon: Pause, tone: 'warning' },
   'instance.resumed': { icon: Play },
   'instance.jumped': { icon: Redo2, tone: 'warning' },
+  'node.skipped': { icon: SkipForward },
+  'call.started': { icon: Workflow },
 };
 
 /** 处理结果的名字：引擎在处理的记录上存了快照（data.outcomeLabel） */

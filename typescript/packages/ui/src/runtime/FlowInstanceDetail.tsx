@@ -17,6 +17,7 @@ import {
   Dialog,
   Field,
   Flex,
+  Link,
   PeoplePicker,
   Popconfirm,
   Skeleton,
@@ -51,10 +52,12 @@ export interface FlowInstanceDetailProps {
   onChange?: (result: CommandResult) => void;
   /** 显示管理员操作（暂停、恢复、终止、跳转、改派）与异常（重试、跳过）：管理端打开时给；能不能做仍由后端的 PermissionPolicy 定 */
   admin?: boolean;
+  /** 另一个实例的地址：给了时子流程的详情上能点到上级流程 */
+  instanceHref?: (id: Id) => string;
 }
 
 /** 流程详情 */
-export const FlowInstanceDetail = _component(({ id, people, modules, onChange, admin = false }: FlowInstanceDetailProps) => {
+export const FlowInstanceDetail = _component(({ id, people, modules, onChange, admin = false, instanceHref }: FlowInstanceDetailProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const errorText = useErrorMessage();
@@ -145,6 +148,9 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
               items={[
                 { key: 'startedBy', label: messages.startedBy, value: instance.startedByName ?? '' },
                 { key: 'startedAt', label: messages.startedAt, value: format.date(instance.startedAt, { dateStyle: 'medium', timeStyle: 'short' }) },
+                ...(instance.parentInstanceId != null && instanceHref
+                  ? [{ key: 'parent', label: messages.parentInstance, value: <Link href={instanceHref(instance.parentInstanceId)}>{messages.openParent}</Link> }]
+                  : []),
                 ...(instance.current.length
                   ? [{ key: 'current', label: messages.columnCurrent, value: instance.current.map((c) => c.name ?? c.node).join('、') }]
                   : []),

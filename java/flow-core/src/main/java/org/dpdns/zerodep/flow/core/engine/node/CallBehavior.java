@@ -64,6 +64,10 @@ public class CallBehavior {
                 Variables.of(variables), FormValues.of(form), true, new StartHandler.ChildOf(parent.getId(), call.getId(), round, root, run), Map.of());
             Execution childRun = starter.launch(child, run.getActor(), launch, run.getNow());
             childRun.flush(null);
+            Map<String, Object> started = new LinkedHashMap<>();
+            started.put("instanceId", childRun.getInstance().getId());
+            started.put("title", childRun.getInstance().getTitle());
+            run.addEvent(EventEntity.CALL_STARTED, call, null, null, null, null, started);
             run.getCreated().addAll(childRun.getCreated());
         }
         if (!sync || items.isEmpty()) run.leave(call.getId(), null);

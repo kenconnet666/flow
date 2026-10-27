@@ -53,6 +53,7 @@ const enEvents: Record<string, string> = {
   'instance.dataChanged': 'Data changed by an administrator',
   'instance.migrated': 'Migrated to another version',
   'node.skipped': 'Skipped automatically at',
+  'call.started': 'Started a subprocess at',
   'job.failed': 'Automatic step failed at',
   'job.skipped': 'Skipped automatic step',
   'instance.suspended': 'Suspended',
@@ -382,6 +383,8 @@ export const enUS: FlowMessages = {
   mentionPlaceholder: '@ Mention someone',
   handlers: 'Assignees',
   instanceDetail: 'Process details',
+  parentInstance: 'Parent process',
+  openParent: 'Open',
   eventDetail: (type, data) => {
     if (type === 'workItem.signersAdded') {
       const mode = text(data['mode']);
@@ -397,6 +400,8 @@ export const enUS: FlowMessages = {
     if (type === 'workItem.reminded' && data['auto']) return enReminders[text(data['reason']) ?? ''] ?? 'Automatic reminder';
     if (type === 'workItem.unclaimed') return 'Handed to the inbox manager';
     if (type === 'instance.cc') return `To ${names(data['userNames']).join(', ')}`;
+    if (type === 'call.started') return text(data['title']);
+    if (type === 'node.skipped') return `${text(data['userName']) ?? ''} ${data['reason'] === 'initiator' ? 'is the starter' : 'handled the previous step'}`.trim();
     if (type === 'instance.commented') return names(data['mentionNames']).map((name) => `@${name}`).join(' ') || null;
     if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);
     if (type === 'job.failed') return text(data['error']);

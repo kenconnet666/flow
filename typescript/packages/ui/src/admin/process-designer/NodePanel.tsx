@@ -35,6 +35,7 @@ import {
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import type { ExtensionCatalog } from '../../client/types';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
+import { CallInputs } from './CallInputs';
 import { entryOf, ExtensionSelect, JsonObjectField, ParamsForm } from './extensions';
 import { AssigneeField, compact, DurationField, FieldGroup, FormAccessTable, optionsOf, OutcomeList } from './fields';
 
@@ -295,9 +296,11 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
           onUpdate:_value={(key: string | null) => set('process', key ?? '')}
         />
       </Field>
+      {/* 不写 mode 时引擎按异步（不等），这里照实显示；选了就明确写上 */}
       <Field label={messages.callMode}>
-        <Select items={optionsOf(messages.callModes)} _value={n.mode ?? 'sync'} onUpdate:_value={(mode: string | null) => set('mode', mode === 'async' ? 'async' : undefined)} />
+        <Select items={optionsOf(messages.callModes)} _value={n.mode ?? 'async'} onUpdate:_value={(mode: string | null) => set('mode', mode === 'sync' ? 'sync' : 'async')} />
       </Field>
+      <CallInputs node={n} definition={definition} manifest={manifest} onChange={(input) => set('input', input)} />
     </>
   );
 

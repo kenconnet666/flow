@@ -129,7 +129,7 @@
 | `parallel` | 并行网关 | — | 分叉时每条都走；汇合时等所有入边 |
 | `inclusive` | 包容网关 | — | 条件成立的都走；汇合时只等实际走了的分支 |
 | `service` | 自动节点 | `action`（接入方注册的动作名）、`args`（JSON）、`mode`（`"async"` 默认、`"sync"`，见 4.1）、`retry`（`{ "times": 3, "backoff": { "minutes": 1 } }`）、`onFailure`（`"manual"` 默认，转管理员处理；`"error"` 整个实例暂停） | 动作返回的结果（`outcome`），或一条出边 |
-| `call` | 调用流程（子流程） | `process`（流程 key）、`mode`（`"sync"` 等子流程结束、`"async"` 发起后不等）、`input`（`{ "子流程变量或 form.字段": 值 }`）、`output`（同步时把子流程的值写回） | 同步时按子流程结束的 `result`（`outcome`） |
+| `call` | 调用流程（子流程） | `process`（流程 key）、`mode`（`"sync"` 等子流程结束、`"async"` 发起后不等；不写是 `"async"`，设计器新画的写 `"sync"`）、`input`（`{ "子流程变量或 form.字段": 值 }`）、`output`（同步时把子流程的值写回） | 同步时按子流程结束的 `result`（`outcome`） |
 | `timer` | 定时等待 | `wait`：`{ "workdays": 2 }`、`{ "days": 1 }`、`{ "hours": 4 }`，或 `{ "until": { "ref": "form.signDate" } }` | 一条出边 |
 | `receive` | 等待外部事件 | `event`（事件名）、`outcomes`（事件可能带回的结果列表）、`due`（等多久）、`overdue`（超时怎么办，同 5.3）、`output` | 事件带回的结果（`outcome`） |
 | `cc` | 抄送节点 | `to`（同 3.2 的来源）、`message` | 一条出边，不阻塞 |

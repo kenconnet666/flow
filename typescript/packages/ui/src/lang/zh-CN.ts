@@ -52,6 +52,7 @@ const zhEvents: Record<string, string> = {
   'instance.dataChanged': '管理员改数据',
   'instance.migrated': '迁到新版本',
   'node.skipped': '自动跳过',
+  'call.started': '发起子流程',
   'job.failed': '自动处理失败',
   'job.skipped': '跳过自动处理',
   'instance.suspended': '暂停',
@@ -381,6 +382,8 @@ export const zhCN: FlowMessages = {
   mentionPlaceholder: '@ 提醒谁看',
   handlers: '处理人',
   instanceDetail: '流程详情',
+  parentInstance: '上级流程',
+  openParent: '打开',
   eventDetail: (type, data) => {
     if (type === 'workItem.signersAdded') {
       const mode = text(data['mode']);
@@ -396,6 +399,8 @@ export const zhCN: FlowMessages = {
     if (type === 'workItem.reminded' && data['auto']) return zhReminders[text(data['reason']) ?? ''] ?? '自动提醒';
     if (type === 'workItem.unclaimed') return `转收件箱的负责人指定${text(data['designatorName']) ? `：${text(data['designatorName'])}` : ''}`;
     if (type === 'instance.cc') return `抄送给 ${names(data['userNames']).join('、')}`;
+    if (type === 'call.started') return text(data['title']);
+    if (type === 'node.skipped') return `${text(data['userName']) ?? ''} ${data['reason'] === 'initiator' ? '是发起人' : '刚处理过上一步'}`.trim();
     if (type === 'instance.commented') return names(data['mentionNames']).map((name) => `@${name}`).join(' ') || null;
     if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);
     if (type === 'job.failed') return text(data['error']);

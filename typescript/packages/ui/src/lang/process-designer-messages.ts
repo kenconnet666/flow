@@ -118,6 +118,13 @@ export interface FlowDesignerMessages {
   readonly callProcess: string;
   readonly callMode: string;
   readonly callModes: Readonly<Record<string, string>>;
+  /** 传给子流程的值 */
+  readonly callInput: string;
+  readonly callInputTarget: string;
+  readonly callInputSource: string;
+  readonly addCallInput: string;
+  readonly removeCallInput: (target: string) => string;
+  readonly callInputSameNames: (count: number) => string;
   readonly result: string;
   readonly terminate: string;
   readonly connectTo: string;
@@ -249,6 +256,12 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     callProcess: '调用的流程',
     callMode: '方式',
     callModes: { sync: '等子流程结束再往下', async: '不等，直接往下' },
+    callInput: '传给子流程的值',
+    callInputTarget: '子流程的',
+    callInputSource: '取这里的',
+    addCallInput: '加一项',
+    removeCallInput: (target) => `不传 ${target}`,
+    callInputSameNames: (count) => `同名的 ${count} 个字段都带上`,
     result: '流程的结果',
     terminate: '到这里整个流程结束（取消其余分支）',
     connectTo: '连到……',
@@ -377,6 +390,12 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     callProcess: 'Process to call',
     callMode: 'Mode',
     callModes: { sync: 'Wait for it to finish', async: 'Do not wait' },
+    callInput: 'Values passed to the subprocess',
+    callInputTarget: 'Subprocess field',
+    callInputSource: 'Taken from',
+    addCallInput: 'Add',
+    removeCallInput: (target) => `Do not pass ${target}`,
+    callInputSameNames: (count) => `Pass the ${count} fields with the same name`,
     result: 'Process result',
     terminate: 'End the whole process here (cancel other branches)',
     connectTo: 'Connect to…',

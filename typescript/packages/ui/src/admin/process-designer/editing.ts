@@ -70,7 +70,8 @@ export function newNode(type: NewNodeType, id: string, texts: NewNodeTexts): Pro
     case 'cc':
       return { ...base, type, to: [] };
     case 'call':
-      return { ...base, type, process: '' };
+      // 新画的子流程默认等它结束（引擎不写 mode 时是不等）
+      return { ...base, type, process: '', mode: 'sync' };
     default:
       return { ...base, type } as ProcessNode;
   }

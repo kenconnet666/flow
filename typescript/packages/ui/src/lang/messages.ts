@@ -328,6 +328,9 @@ export interface FlowMessages {
   readonly handlers: string;
   /** 实例详情的标题 */
   readonly instanceDetail: string;
+  /** 子流程的详情上：上级流程 */
+  readonly parentInstance: string;
+  readonly openParent: string;
   /** 流转记录里事件的说明：交给了谁、加了谁（没有时为 null） */
   readonly eventDetail: (type: string, data: Readonly<Record<string, unknown>>) => string | null;
   /** 留言时选 @ 谁 */

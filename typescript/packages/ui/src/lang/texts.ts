@@ -10,7 +10,7 @@ export const problemText = (texts: Record<string, ProblemText>, code: string, pa
   Object.hasOwn(texts, code) ? texts[code]!(params) : code;
 
 /** 标题后面接节点名的实例级事件（"跳转到 财务复核""收到事件 等对方盖章"） */
-export const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'node.skipped', 'job.failed', 'job.skipped']);
+export const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'node.skipped', 'call.started', 'job.failed', 'job.skipped']);
 
 /** 事件数据里的名字（引擎存的快照） */
 export const text = (value: unknown) => (typeof value === 'string' ? value : null);

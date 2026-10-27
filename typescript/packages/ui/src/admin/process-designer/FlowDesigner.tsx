@@ -28,7 +28,7 @@ import {
   UserCheck,
   Workflow,
 } from '@lucide/icons';
-import { GATEWAY_TYPES, isRef, validateProcess, type AssigneeSource, type FormManifest, type ProcessDefinition, type ProcessEdge, type ProcessNode, type Problem } from '@zerodep-dev/flow-model';
+import { GATEWAY_TYPES, isRef, validateProcess, type AssigneeSource, type Condition, type FormManifest, type ProcessDefinition, type ProcessEdge, type ProcessNode, type Problem } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
@@ -45,6 +45,8 @@ import {
   Splitter,
   Text,
   Toolbar,
+  describeCondition,
+  useLang,
   useMediaQuery,
   useRequest,
   type IconData,
@@ -65,7 +67,7 @@ import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { useFlowMessages } from '../../lang/messages';
 import { addAfter, addNode, autoLayout, connect, PALETTE, placeNodes, reconnect, removeItems, replaceEdge, replaceNode, withPositions, type NewNodeType, type PlacedNode } from './editing';
 import { declaredOutcomes, entryOf, registeredIn } from './extensions';
-import { EdgePanel } from './EdgePanel';
+import { conditionFields, EdgePanel } from './EdgePanel';
 import { NodePanel } from './NodePanel';
 import { ProcessPanel } from './ProcessPanel';
 
@@ -115,6 +117,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
   const flowMessages = useFlowMessages();
   const controller = useDiagram();
   const narrow = useMediaQuery('(max-width: 48rem)');
+  const lang = useLang();
   let selection = _state<DiagramSelection>(EMPTY);
 
   // 撤销重做：定义按不可变的方式换，每一步记引用就够了
@@ -189,7 +192,13 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
     if (edge.outcome && from?.type === 'task') return from.outcomes.find((o) => o.key === edge.outcome)?.label ?? edge.outcome;
     if (edge.outcome && from) return declaredOutcomes(catalog.data ?? null, from).find((o) => o.value === edge.outcome)?.label ?? edge.outcome;
     if (edge.default) return messages.defaultEdge;
-    return edge.outcome ?? (edge.when ? messages.condition : undefined);
+    if (edge.outcome) return edge.outcome;
+    // 条件写成一句话（"金额 大于等于 3000"），看图就知道哪条线走哪
+    if (edge.when) {
+      const fields = conditionFields(definition, manifest.data ?? null, messages.form, messages.variable, catalog.data?.computed, messages.computed);
+      return describeCondition(edge.when as Condition, fields, lang);
+    }
+    return undefined;
   };
 
   /** 一个处理人来源的简短写法：记了名字用名字，否则"角色 1"这样 */
