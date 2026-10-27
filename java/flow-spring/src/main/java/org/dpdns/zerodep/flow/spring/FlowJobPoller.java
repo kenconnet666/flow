@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 定时做到期的作业（定时节点、超时、提醒、无人认领）：应用启动后每隔 {@code flow.jobs.interval} 调一次 {@code engine.runDueJobs()}，
@@ -33,6 +34,9 @@ public class FlowJobPoller implements SmartLifecycle {
     /** 上次维护的时间：启动后的第一轮就做一次 */
     private Instant lastMaintained = Instant.MIN;
     private volatile boolean running;
+    /** 这个进程做了几个作业、归档了几个实例（指标用，FlowMetrics） */
+    private final AtomicLong jobsRun = new AtomicLong();
+    private final AtomicLong archived = new AtomicLong();
 
     @SuppressWarnings("rawtypes")
     public FlowJobPoller(FlowEngine engine, Duration interval, Duration retention, Duration archiveAfter) {
@@ -57,9 +61,9 @@ public class FlowJobPoller implements SmartLifecycle {
     /** 做到没有到期的为止；数据库暂时连不上这类错误记日志，下一轮再试 */
     private void poll() {
         try {
-            while (running && engine.runDueJobs() > 0) {
-                // 一批做完马上看还有没有：积压时尽快做完
-            }
+            int done;
+            // 一批做完马上看还有没有：积压时尽快做完
+            while (running && (done = engine.runDueJobs()) > 0) jobsRun.addAndGet(done);
             maintainIfDue();
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.ERROR, "flow job polling failed; retrying in " + interval, e);
@@ -74,8 +78,9 @@ public class FlowJobPoller implements SmartLifecycle {
         long purged = engine.purgeRequests(retention);
         if (purged > 0) LOG.log(System.Logger.Level.DEBUG, "purged " + purged + " expired flow idempotency records");
         if (archiveAfter == null) return;
-        int archived = engine.archive(archiveAfter);
-        if (archived > 0) LOG.log(System.Logger.Level.INFO, "archived " + archived + " flow instances that ended more than " + archiveAfter + " ago");
+        int moved = engine.archive(archiveAfter);
+        archived.addAndGet(moved);
+        if (moved > 0) LOG.log(System.Logger.Level.INFO, "archived " + moved + " flow instances that ended more than " + archiveAfter + " ago");
     }
 
     @Override
@@ -86,4 +91,10 @@ public class FlowJobPoller implements SmartLifecycle {
 
     @Override
     public boolean isRunning() { return running; }
+
+    /** 这个进程做了几个作业 */
+    public long getJobsRun() { return jobsRun.get(); }
+
+    /** 这个进程归档了几个实例 */
+    public long getArchived() { return archived.get(); }
 }

@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.it.admin;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.MigrateCommand;
@@ -7,12 +8,14 @@ import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.view.instance.ProgressView;
 import org.dpdns.zerodep.flow.core.view.stats.HandlerStats;
 import org.dpdns.zerodep.flow.core.view.stats.NodeStats;
+import org.dpdns.zerodep.flow.core.view.stats.OpsStats;
 import org.dpdns.zerodep.flow.core.view.stats.ProcessStats;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.MovableClock;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.dpdns.zerodep.flow.model.error.FlowException;
+import org.dpdns.zerodep.flow.spring.FlowMetrics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -114,5 +117,38 @@ class AdminOpsTest {
         assertEquals(2, node.getDone());
         assertEquals(6.0, node.getAverageHours(), 1e-6, "停留 2 小时与 10 小时");
         assertEquals(0.5, node.getOverdueRate(), 1e-6, "10 小时的那个过了 8 小时的截止");
+    }
+
+    @Test
+    void 运维的数_到期没做的作业与指标() {
+        String timed = """
+            { "key": "timed", "name": "限时", "title": "限时",
+              "nodes": [ { "id": "start", "type": "start", "name": "提交" },
+                         { "id": "check", "type": "task", "name": "审核", "assignees": [{ "user": 1002 }], "due": { "hours": 8 },
+                           "outcomes": [{ "key": "ok", "label": "同意" }] },
+                         { "id": "end", "type": "end", "name": "结束", "result": "done" } ],
+              "edges": [ { "id": "e1", "from": "start", "to": "check" }, { "id": "e2", "from": "check", "to": "end", "outcome": "ok" } ] }
+            """;
+        MovableClock clock = new MovableClock(Instant.parse("2026-10-01T00:00:00Z"));
+        engine = FlowEngine.<TestUser>builder(LiveMysql.easyQuery()).orgDirectory(new TestOrg(List.of(ALICE, BOB, ADMIN))).clock(clock).build();
+        engine.publishDefinition(ADMIN, timed, null);
+        engine.start(ALICE, StartCommand.of("timed", Map.of()));
+        assertEquals(0, engine.ops().getDueJobs(), "截止时间还没到");
+        assertEquals(1, engine.ops().getActiveInstances());
+
+        clock.moveTo(clock.instant().plus(Duration.ofHours(9)));   // 超时一小时，作业还没人做
+        OpsStats ops = engine.ops();
+        assertEquals(1, ops.getDueJobs());
+        assertEquals(3600, ops.getOldestDueSeconds());
+        assertEquals(0, ops.getFailedJobs());
+
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        new FlowMetrics(engine, null).bindTo(registry);
+        assertEquals(1.0, registry.get("flow.jobs.due").gauge().value());
+        assertEquals(3600.0, registry.get("flow.jobs.due.oldest").gauge().value());
+        assertEquals(1.0, registry.get("flow.instances.active").gauge().value());
+
+        engine.runDueJobs();
+        assertEquals(0, engine.ops().getDueJobs(), "做完就不积压了");
     }
 }

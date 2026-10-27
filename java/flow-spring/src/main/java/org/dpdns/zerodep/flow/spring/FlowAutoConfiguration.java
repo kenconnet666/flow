@@ -140,6 +140,17 @@ public class FlowAutoConfiguration {
     }
 
     /** 用了 Spring Security、应用没给 {@link ActorProvider} 时：当前操作人取登录的 principal */
+    /** 有 Micrometer 时把引擎的数做成指标（FlowMetrics）；Actuator 会把 MeterBinder 绑到它的注册表上 */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "io.micrometer.core.instrument.binder.MeterBinder")
+    static class Metrics {
+        @Bean
+        @ConditionalOnMissingBean
+        FlowMetrics flowMetrics(FlowEngine engine, ObjectProvider<FlowJobPoller> poller) {
+            return new FlowMetrics(engine, poller.getIfAvailable());
+        }
+    }
+
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(name = "org.springframework.security.core.context.SecurityContextHolder")
     static class SecurityActors {

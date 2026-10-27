@@ -151,7 +151,18 @@ public class AppUser implements Actor {
 不用 Spring 时 `FlowEngine.builder(easyQuery).tenant(() -> 当前租户编号)`。每张表都带租户列、查询与写入由拦截器加条件；
 作业替各租户做时自动切到作业的租户。
 
-### 1.8 扩展点
+### 1.8 监控
+
+项目里有 Micrometer（一般随 Spring Boot Actuator 来）时自动有这些指标；没有时可以定时调 `engine.ops()` 自己报。
+
+| 指标 | 看什么 |
+| --- | --- |
+| `flow.jobs.due`、`flow.jobs.due.oldest` | 到期没做的作业、最早的晚了多少秒。正常时接近 0；一直涨说明作业轮询停了或做不过来 |
+| `flow.jobs.failed` | 重试用完失败的作业：要人在管理端的异常处理里重试或跳过，建议大于 0 就告警 |
+| `flow.instances.active` | 进行中的实例 |
+| `flow.jobs.run`、`flow.archive.instances` | 这个进程做了几个作业、归档了几个实例 |
+
+### 1.9 扩展点
 
 按名字注册 Bean 就生效（0006 第 6 节）：
 
@@ -260,6 +271,7 @@ flow-ui 的组件经 `useHttp()` 拿这个请求客户端、前缀 `/flow`；后
 - [ ] 接口响应是 typed JSON（看一个带金额的接口，响应里有 `$types`）
 - [ ] 集群部署时每个实例都可以开作业轮询；不想开就关掉并接调度平台
 - [ ] 量大时打开归档（`flow.archive.enabled`）
+- [ ] 监控上看 `flow.jobs.failed` 与 `flow.jobs.due.oldest`（1.8）
 
 ## 4. 常见问题
 

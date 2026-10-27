@@ -34,6 +34,13 @@
             <artifactId>flow-spring</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 引擎的指标（FlowMetrics）：flow-spring 里是可选的 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <version>${micrometer.version}</version>
+            <scope>test</scope>
+        </dependency>
         <!-- Spring Boot 的实库测试：按 flow-spring 编译用的版本 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

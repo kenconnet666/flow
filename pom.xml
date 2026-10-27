@@ -45,6 +45,8 @@
         <flyway.version>12.4.0</flyway.version>
         <!-- flow-spring 按 Spring Boot 3.5 编译（Java 17 起），只用 3.5 与 4.x 都有的写法，两条线都能用 -->
         <spring-boot.version>3.5.16</spring-boot.version>
+        <!-- 同 Spring Boot 3.5.16 管理的版本：flow-it 的测试不导入 Boot 的 BOM，单独写 -->
+        <micrometer.version>1.15.12</micrometer.version>
         <junit.version>6.0.3</junit.version>
         <surefire.version>3.6.0</surefire.version>
     </properties>

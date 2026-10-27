@@ -94,6 +94,7 @@ import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.instance.ProgressView;
 import org.dpdns.zerodep.flow.core.view.stats.HandlerStats;
 import org.dpdns.zerodep.flow.core.view.stats.NodeStats;
+import org.dpdns.zerodep.flow.core.view.stats.OpsStats;
 import org.dpdns.zerodep.flow.core.view.stats.ProcessStats;
 import org.dpdns.zerodep.flow.core.view.workitem.TodoItem;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemView;
@@ -758,6 +759,12 @@ public class FlowEngine<U extends Actor> {
             .where(r -> r.createdAt().lt(cutoff))
             .executeRows());
     }
+
+    /**
+     * 运维看的数（全部租户，不问权限，同 runDueJobs 是系统调用）：到期没做的作业与最早晚了多久、失败的作业、进行中的实例。
+     * Spring Boot 里有 Micrometer 时由 {@code FlowMetrics} 做成指标；别的监控可以定时调它。
+     */
+    public OpsStats ops() { return stats.ops(context.getClock().instant()); }
 
     // ───────── 归档 ─────────
 

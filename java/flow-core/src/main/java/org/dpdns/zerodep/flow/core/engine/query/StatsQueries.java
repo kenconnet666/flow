@@ -1,17 +1,22 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
+import com.easy.query.api.proxy.client.EasyEntityQuery;
 import com.easy.query.core.proxy.sql.GroupKeys;
 import com.easy.query.core.proxy.sql.Select;
+import org.dpdns.zerodep.flow.core.db.FlowInterceptors;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.JobEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 import org.dpdns.zerodep.flow.core.view.stats.CountRow;
 import org.dpdns.zerodep.flow.core.view.stats.HandlerStats;
 import org.dpdns.zerodep.flow.core.view.stats.NodeRow;
 import org.dpdns.zerodep.flow.core.view.stats.NodeStats;
+import org.dpdns.zerodep.flow.core.view.stats.OpsStats;
 import org.dpdns.zerodep.flow.core.view.stats.ProcessStats;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -99,6 +104,23 @@ public class StatsQueries {
         List<HandlerStats> list = new ArrayList<>(out.values());
         list.sort((a, b) -> Long.compare(b.getDone(), a.getDone()));
         return list;
+    }
+
+    /** 运维看的数（全部租户：作业与实例都不按当前租户过滤） */
+    public OpsStats ops(Instant now) {
+        EasyEntityQuery db = context.getDb();
+        OpsStats ops = new OpsStats();
+        ops.setAt(now);
+        ops.setDueJobs(db.queryable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
+            .where(j -> { j.state().eq(JobEntity.PENDING); j.dueAt().le(now); }).count());
+        Instant oldest = db.queryable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
+            .where(j -> { j.state().eq(JobEntity.PENDING); j.dueAt().le(now); })
+            .orderBy(j -> j.dueAt().asc()).select(j -> j.dueAt()).firstOrNull();
+        ops.setOldestDueSeconds(oldest == null ? 0 : Duration.between(oldest, now).toSeconds());
+        ops.setFailedJobs(db.queryable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT).where(j -> j.state().eq(JobEntity.FAILED)).count());
+        ops.setActiveInstances(db.queryable(InstanceEntity.class).noInterceptor(FlowInterceptors.TENANT)
+            .where(i -> i.status().in(List.of(InstanceEntity.ACTIVE, InstanceEntity.SUSPENDED))).count());
+        return ops;
     }
 
     private static HandlerStats handler(Map<Long, HandlerStats> out, CountRow row) {
