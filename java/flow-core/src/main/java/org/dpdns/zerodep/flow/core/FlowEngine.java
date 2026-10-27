@@ -935,7 +935,7 @@ public class FlowEngine<U extends Actor> {
         allow(actor, operation, target);
         if (interceptors.isEmpty()) return handler.apply(actor, command);
         @SuppressWarnings("unchecked")
-        Class<C> type = (Class<C>) command.getClass();   // 命令都是记录（final），类型就是 C
+        Class<C> type = (Class<C>) command.getClass();   // 运行时类型是 C 或它的子类：拦截器换掉的命令至少要是这个类型
         return context.transaction(() -> chain(0, actor, operation, type, handler).proceed(command));
     }
 
