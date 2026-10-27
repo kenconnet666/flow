@@ -167,9 +167,10 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
     }
     const name = item.kind === 'place' ? item.name : newFieldName(current);
     if (item.kind === 'list') {
-      return [...addField(source, current, name, newField('list', current, messages)), ...insertNode(source, current, parent, index, printList(name))];
+      const list = newField('list', current, messages, messages.fieldTypes['list']);
+      return [...addField(source, current, name, list), ...insertNode(source, current, parent, index, printList(name))];
     }
-    const definition = item.kind === 'place' ? current.fields.find((f) => f.name === name)?.definition : newField(item.type, current, messages);
+    const definition = item.kind === 'place' ? current.fields.find((f) => f.name === name)?.definition : newField(item.type, current, messages, item.label);
     // 清单里有、还没摆的明细表：摆成 form.List
     if (definition?.type === 'list') return insertNode(source, current, parent, index, printList(name));
     const control = item.kind === 'field' ? item.control : definition && controlsFor(definition)[0];
@@ -199,7 +200,8 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
     if (node?.container) return place(item, node.path, node.children.length);
     const at = node ? parentOf(root, node.path) : null;
     if (at) return place(item, at.parent.path, at.index + 1);
-    place(item, root.path, root.children.length);
+    const column = mainColumn(root);
+    place(item, column.path, column.children.length);
   }
 
   function removeSelected() {
@@ -493,6 +495,13 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
   );
 });
 
+/** 没选中东西时加到哪：根下只有一个容器（字段清单自动排版出的那一列 Flex）时一层层往里，新字段跟着那一列的间距排 */
+function mainColumn(root: DesignNode): DesignNode {
+  let at = root;
+  while (at.children.length === 1 && at.children[0]!.container) at = at.children[0]!;
+  return at;
+}
+
 /** 下一个没用过的 fieldN */
 function newFieldName(design: FormDesign): string {
   const used = new Set(design.fields.map((f) => f.name));
@@ -501,13 +510,24 @@ function newFieldName(design: FormDesign): string {
   return `field${n}`;
 }
 
-/** 新字段的定义：标签先给"字段 n"，选项字段带一个选项 */
-function newField(type: FieldType, design: FormDesign, messages: ReturnType<typeof useFormDesignerMessages>): FieldDefinition {
-  const n = Number(newFieldName(design).slice(5));
-  if (type === 'select') return { label: messages.newFieldLabel(n), type, options: [{ value: '1', label: messages.newOption(1) }] };
+/**
+ * 新字段的定义：标签用面板上那一项的名字（"金额"，已有同名的时"金额 2"），没有时"字段 n"；选项字段带一个选项
+ */
+function newField(type: FieldType, design: FormDesign, messages: ReturnType<typeof useFormDesignerMessages>, base?: string): FieldDefinition {
+  const label = base ? uniqueLabel(design, base) : messages.newFieldLabel(Number(newFieldName(design).slice(5)));
+  if (type === 'select') return { label, type, options: [{ value: '1', label: messages.newOption(1) }] };
   // 明细表先给一列，属性面板里再加
-  if (type === 'list') return { label: messages.newFieldLabel(n), type, fields: { name: { label: messages.newColumnLabel(1), type: 'text' } } };
-  return { label: messages.newFieldLabel(n), type };
+  if (type === 'list') return { label, type, fields: { name: { label: messages.newColumnLabel(1), type: 'text' } } };
+  return { label, type };
+}
+
+/** base 本身，或者后面加 2、3……：表单里还没有字段用这个标签 */
+function uniqueLabel(design: FormDesign, base: string): string {
+  const used = new Set(design.fields.map((f) => f.definition?.label));
+  if (!used.has(base)) return base;
+  let n = 2;
+  while (used.has(`${base} ${n}`)) n++;
+  return `${base} ${n}`;
 }
 
 /**
