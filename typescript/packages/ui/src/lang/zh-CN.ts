@@ -225,6 +225,7 @@ export const zhCN: FlowMessages = {
   nextInbox: '进收件箱',
   nextPick: '提交时选人',
   nextEnd: (result) => `结束：${result}`,
+  opinionFor: (holder) => `${holder} 请你给意见：你选的结果和意见记在流转记录里，怎么往下走由 ${holder} 定`,
   startDraftSaved: '草稿已存，下次在"发起"页的"我的草稿"里接着填',
   startDrafts: '我的草稿',
   continueDraft: '接着填',

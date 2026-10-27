@@ -63,13 +63,15 @@ public class WorkItemQueries {
         FormValues shown = draft == null ? stored : stored.with(draft.getForm());
         FormView form = definition.hasForm() ? forms.formView(definition, task.getForm(), false, shown, read) : null;
         boolean completable = open && (mine || candidate);
+        // 委派、加签的人办的结果只是意见（SubItems），节点按原来的人的结果走：不预测下一步，不选处理人、退回的节点
+        boolean decides = completable && item.getParentItemId() == null;
         NextSteps preview = new NextSteps(definition.getGraph(), context, instance.getStartedBy(), instance.getId());
-        List<WorkItemView.ReturnTarget> targets = completable && task.getOutcomes().stream().anyMatch(Outcome::choosesTarget)
+        List<WorkItemView.ReturnTarget> targets = decides && task.getOutcomes().stream().anyMatch(Outcome::choosesTarget)
             ? returnTargets(definition, instance, item.getNode()) : List.of();
         // 选节点的退回在没有能退回的节点时（还在第一个人工节点上）不给：点了也做不成
         List<OutcomeView> outcomes = task.getOutcomes().stream()
-            .filter(o -> !(completable && o.choosesTarget() && targets.isEmpty()))
-            .map(o -> outcomeView(o, completable ? preview.after(task.getId(), o.getKey(), read) : List.of(), o.choosesTarget() ? targets : List.of()))
+            .filter(o -> !(decides && o.choosesTarget() && targets.isEmpty()))
+            .map(o -> outcomeView(o, decides ? preview.after(task.getId(), o.getKey(), read) : List.of(), o.choosesTarget() ? targets : List.of()))
             .toList();
         boolean assign = open && context.getDb().queryable(WorkItemEntity.class)
             .where(w -> { w.id().eq(item.getId()); w.designatorId().eq(actor.getId()); w.needsDesignation().eq(true); })

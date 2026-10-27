@@ -63,6 +63,8 @@ export interface FlowMessages {
   readonly nextInbox: string;
   readonly nextPick: string;
   readonly nextEnd: (result: string) => string;
+  /** 委派、加签给我的待办：我办的结果只是意见，交回原来的处理人定 */
+  readonly opinionFor: (holder: string) => string;
   /** 发起前的草稿 */
   readonly startDraftSaved: string;
   readonly startDrafts: string;

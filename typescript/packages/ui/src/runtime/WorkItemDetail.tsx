@@ -222,6 +222,9 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
             {savedText && <Small tone="muted">{savedText}</Small>}
           </Flex>
         )}
+        {data.completable && data.workItem.parentItemId != null && data.workItem.fromUserName && (
+          <Alert tone="info">{messages.opinionFor(data.workItem.fromUserName)}</Alert>
+        )}
         {data.completable && (
           <ApprovalActions
             outcomes={data.outcomes}

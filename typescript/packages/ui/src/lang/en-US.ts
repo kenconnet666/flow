@@ -162,6 +162,7 @@ export const enUS: FlowMessages = {
   nextInbox: 'to the inbox',
   nextPick: 'you choose',
   nextEnd: (result) => `Ends: ${result}`,
+  opinionFor: (holder) => `${holder} asked for your opinion: your choice and comment go on the record; ${holder} decides how the process goes on`,
   startDraftSaved: 'Draft saved; continue it later from My drafts on the start page',
   startDrafts: 'My drafts',
   continueDraft: 'Continue',
