@@ -12,5 +12,8 @@
       "expect": { "error": { "code": "flow.validation-failed", "errors": [{ "field": "outcome", "code": "unknown-outcome" }] } } },
     { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "reject", "comment": "预算不够" },
       "expect": { "instance": { "status": "completed", "result": "rejected" } } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

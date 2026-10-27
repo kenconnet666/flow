@@ -94,7 +94,11 @@ importers:
         specifier: 'catalog:'
         version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)
 
-  packages/model: {}
+  packages/model:
+    dependencies:
+      '@zerodep-dev/json-wire':
+        specifier: link:../../../../json-wire/typescript/packages/json-wire
+        version: link:../../../../json-wire/typescript/packages/json-wire
 
   packages/ui:
     dependencies:
@@ -150,6 +154,9 @@ importers:
       '@zerodep-dev/flow-model':
         specifier: workspace:*
         version: link:../packages/model
+      '@zerodep-dev/json-wire':
+        specifier: link:../../../json-wire/typescript/packages/json-wire
+        version: link:../../../json-wire/typescript/packages/json-wire
     devDependencies:
       '@types/node':
         specifier: 24.19.2

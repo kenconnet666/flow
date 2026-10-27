@@ -27,6 +27,7 @@ import org.dpdns.zerodep.flow.model.definition.TaskRules;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
+import org.dpdns.zerodep.flow.model.form.FormManifest;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -75,6 +76,8 @@ final class Execution {
     private final Instant now;
     private final ProcessGraph graph;
     private final GatewayPairs pairs;
+    /** 表单的字段清单；流程没有表单时为 null */
+    private final FormManifest manifest;
     private final Deadlines deadlines;
     private final int rev;
     private InstanceEntity instance;
@@ -113,6 +116,7 @@ final class Execution {
         this.now = now;
         this.graph = definition.graph();
         this.pairs = definition.pairs();
+        this.manifest = definition.manifest();
         this.deadlines = new Deadlines(context.calendar(), definition.model().settings().calendar());
         this.instance = instance;
         this.form = form;
@@ -391,7 +395,8 @@ final class Execution {
         });
         if (!formChanges.isEmpty()) {
             Map<String, Object> merged = new LinkedHashMap<>(form.asMap());
-            merged.putAll(formChanges);
+            // 业务系统送来的数据未必标了类型：按清单的字段类型读成强类型
+            merged.putAll(manifest == null ? formChanges : manifest.typed(formChanges));
             form = FormValues.of(merged);
             Instances.saveForm(context.db(), instance.getId(), form);
         }

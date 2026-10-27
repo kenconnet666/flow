@@ -43,5 +43,8 @@
       "args": { "definition": { "key": "buy", "name": "买东西", "form": { "key": "purchase-form" },
         "nodes": [{ "id": "start", "type": "start", "name": "提交" }, { "id": "end", "type": "end", "name": "结束" }],
         "edges": [{ "id": "e", "from": "start", "to": "end" }] } } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

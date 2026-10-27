@@ -58,5 +58,8 @@
           { "node": "approve", "state": "done", "outcome": "pass", "completedBy": "1004" }
         ]
       } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

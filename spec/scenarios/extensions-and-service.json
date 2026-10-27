@@ -45,5 +45,8 @@
     { "as": "boss", "command": "retryJob", "args": { "job": "$stuck.timeline[3].data.jobId" }, "expect": { "revived": true } },
     { "command": "runJobs", "args": { "at": "2026-10-26T09:00:00Z" }, "expect": { "ran": 1 } },
     { "as": "boss", "command": "retryJob", "args": { "job": "$stuck.timeline[3].data.jobId" }, "expect": { "revived": true } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

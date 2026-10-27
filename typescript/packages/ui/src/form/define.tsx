@@ -36,7 +36,7 @@ import Decimal from 'decimal.js';
 import { cloneVNode, computed, isVNode, type VNode, type VNodeChild } from 'vue';
 import { useFlowMessages } from '../lang/messages';
 import type { FlowFormContext, FlowFormScope } from './context';
-import { formPath, toFormState, toJson, type FormState } from './values';
+import { formPath, toFormState, type FormState } from './values';
 
 /** 一个字段在表单里的值的类型 */
 type ValueOf<F> = F extends { readonly type: 'text' | 'date' | 'datetime' }
@@ -113,22 +113,20 @@ export function defineFlowForm<const M extends FormManifest>(
       }),
     });
 
-    // 节点权限与显示条件合算的状态：显示条件里的 form.x 按当前填的值（线上的样子）算
-    const states = computed(() => {
-      const json = toJson(manifest, controller.values);
-      return fieldStates(manifest, {
+    // 节点权限与显示条件合算的状态：显示条件里的 form.x 按当前填的值算
+    const states = computed(() =>
+      fieldStates(manifest, {
         access: context.nodeAccess,
         isStart: context.start,
-        read: (name) => (name.startsWith('form.') ? json[name.slice(5)] : context.read(name)),
-      });
-    });
+        read: (name) => (name.startsWith('form.') ? controller.values[name.slice(5)] : context.read(name)),
+      }),
+    );
     const stateOf = (path: string): FieldState =>
       states.value.get(manifestPath(path)) ?? { visible: false, editable: false, required: false, hiddenBy: 'access' };
 
     /** 清单的规则：必填、类型、长度、范围……（模型包的 mergeSubmission，与后端同一套） */
     function problemsOf(values: FormState): FormErrors {
-      const json = toJson(manifest, values);
-      const { errors } = mergeSubmission(manifest, states.value, json, json);
+      const { errors } = mergeSubmission(manifest, states.value, values, values);
       const out: FormErrors = {};
       for (const error of errors) out[formPath(error.field)] ??= messages.valueProblem(error.code);
       return out;
@@ -161,7 +159,7 @@ export function defineFlowForm<const M extends FormManifest>(
     context.attach({
       // 当作一次提交：校验并显示全部错误（组件库的规则是失焦或提交过之后才显示），之后随输入实时更新
       validate: () => controller.submit(),
-      values: () => toJson(manifest, controller.values),
+      values: () => ({ ...controller.values }),
       showErrors: (errors) => {
         for (const error of errors) {
           if (error.field) controller.setError(formPath(error.field) as never, messages.valueProblem(error.code ?? ''));

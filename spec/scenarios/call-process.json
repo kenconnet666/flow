@@ -44,5 +44,8 @@
       "expect": { "instance": { "status": "terminated" }, "timeline": [
         { "type": "instance.started", "data": { "parentNode": "quotes" } }, "node.left", "node.entered", "workItem.created",
         "workItem.canceled", { "type": "instance.terminated", "comment": "不买了" }] } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

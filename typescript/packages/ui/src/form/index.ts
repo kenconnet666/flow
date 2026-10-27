@@ -15,4 +15,4 @@ export {
   type ValuesOf,
 } from './define';
 export { FlowForm, flowFormModules, type FlowFormProps } from './FlowForm';
-export { emptyValue, toFormState, toJson, type FormState } from './values';
+export { emptyValue, toFormState, type FormState } from './values';

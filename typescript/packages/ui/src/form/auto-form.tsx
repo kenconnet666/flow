@@ -27,6 +27,7 @@ import {
   type PeopleEntry,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { Plus, Trash2 } from '@lucide/icons';
+import { CalendarDateTime, getLocalTimeZone, toZoned, type ZonedDateTime } from '@internationalized/date';
 import type { VNodeChild } from 'vue';
 import { useFlowMessages, type FlowMessages } from '../lang/messages';
 import { defineFlowForm, type FlowFormApi, type FlowFormComponentProps } from './define';
@@ -85,13 +86,17 @@ function controlOf(form: FlowFormApi<FormManifest>, context: FlowFormScope, path
     case 'boolean':
       return <Switch />;
     case 'date':
-      return <DatePicker min={textOf(field.min)} max={textOf(field.max)} />;
+      return <DatePicker valueType="dateValue" min={textOf(field.min)} max={textOf(field.max)} />;
     case 'datetime':
+      // 值是 ZonedDateTime 时控件照样写回它；从空值新选出的是本地的 CalendarDateTime，按浏览器的时区换成时刻
       return (
         <DatePicker
           granularity="minute"
-          _value={localMinute(form.getValue(path) as string | null)}
-          onUpdate:_value={(local: string | null) => form.setValue(path, local ? new Date(local).toISOString() : null)}
+          valueType="dateValue"
+          _value={form.getValue(path) as ZonedDateTime | null}
+          onUpdate:_value={(value: ZonedDateTime | CalendarDateTime | null) =>
+            form.setValue(path, value instanceof CalendarDateTime ? toZoned(value, getLocalTimeZone()) : value)
+          }
         />
       );
     case 'select':
@@ -178,10 +183,3 @@ function selectOf(form: FlowFormApi<FormManifest>, path: string, field: FieldDef
 const numberOf = (value: unknown) => (typeof value === 'number' ? value : undefined);
 const textOf = (value: unknown) => (typeof value === 'string' ? value : undefined);
 
-/** UTC 的时刻 → 本地的“年-月-日T时:分”（DatePicker 到分钟时的值） */
-function localMinute(iso: string | null): string | null {
-  if (!iso) return null;
-  const at = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
-}

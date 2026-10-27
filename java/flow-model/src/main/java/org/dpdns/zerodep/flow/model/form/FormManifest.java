@@ -2,6 +2,8 @@ package org.dpdns.zerodep.flow.model.form;
 
 import org.dpdns.zerodep.flow.model.Condition;
 import org.dpdns.zerodep.flow.model.Conditions;
+import org.dpdns.zerodep.wire.Wire;
+import org.dpdns.zerodep.wire.WireType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,10 +31,20 @@ public final class FormManifest {
      * @param visibleWhen  显示条件；null 时总是显示
      * @param requiredWhen 必填条件；null 时只看 required
      * @param columns      list 的列；不是 list 时为 null
-     * @param attributes   字段的全部属性（JSON 原样）
+     * @param attributes   字段的全部属性：JSON 原样，只有 decimal、date、datetime 的 {@code default}、{@code min}、{@code max}
+     *                     读成与值同样的强类型（BigDecimal、LocalDate、Instant；见 {@link #VALUE_KINDS}）
      */
     public record Field(String label, String type, boolean required, boolean multiple, Condition visibleWhen,
                         Condition requiredWhen, FormManifest columns, Map<String, Object> attributes) { }
+
+    /**
+     * 值是强类型的字段类型在线上（json-wire）是哪一种：提交的值由 wire 还原成对应的 Java 类型，清单里人写的
+     * {@code default}、{@code min}、{@code max} 是文字，解析清单时按它读成同样的类型。
+     */
+    public static final Map<String, WireType> VALUE_KINDS = Map.of("decimal", WireType.DECIMAL, "date", WireType.DATE, "datetime", WireType.TIMESTAMPTZ);
+
+    /** 带值的属性 */
+    private static final List<String> VALUE_ATTRIBUTES = List.of("default", "min", "max");
 
     /** 从 JSON 树读字段清单；形状不对时报 IllegalArgumentException，消息里带路径 */
     public static FormManifest parse(Object tree) {
@@ -51,8 +63,7 @@ public final class FormManifest {
             Object visible = attributes.get("visibleWhen");
             Object requiredWhen = attributes.get("requiredWhen");
             Object columns = attributes.get("fields");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> raw = (Map<String, Object>) attributes;
+            Map<String, Object> raw = typedValues(type, attributes);
             fields.put(name, new Field(
                 label == null ? name : label.toString(), type,
                 Boolean.TRUE.equals(attributes.get("required")), Boolean.TRUE.equals(attributes.get("multiple")),
@@ -60,6 +71,51 @@ public final class FormManifest {
                 "list".equals(type) && columns != null ? parse(columns, at + ".fields") : null, raw));
         }
         return new FormManifest(fields);
+    }
+
+    /** 强类型字段的 default、min、max 从文字读成值的类型（读不出时留着文字，清单的校验报 default-invalid、attribute-invalid） */
+    private static Map<String, Object> typedValues(String type, Map<?, ?> attributes) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        attributes.forEach((key, value) -> out.put(String.valueOf(key), value));
+        for (String attribute : VALUE_ATTRIBUTES) out.computeIfPresent(attribute, (key, value) -> typed(type, value));
+        return Collections.unmodifiableMap(out);
+    }
+
+    /**
+     * 定义里写的值（调用流程的 {@code input}、外部事件的 {@code output} 写进表单的）按字段类型读成强类型：人写的 JSON 没有 {@code $types}，
+     * decimal、date、datetime 的文字读成 BigDecimal、LocalDate、Instant；明细表逐行逐列读。不认识的字段、读不出的文字原样（提交时报 type）。
+     */
+    public Map<String, Object> typed(Map<String, Object> values) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        values.forEach((name, value) -> {
+            Field field = fields.get(name);
+            out.put(name, field == null ? value : typed(field, value));
+        });
+        return out;
+    }
+
+    private static Object typed(Field field, Object value) {
+        if (field.columns() != null && value instanceof List<?> rows) {
+            List<Object> out = new ArrayList<>();
+            for (Object row : rows) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> cells = row instanceof Map<?, ?> map ? field.columns().typed((Map<String, Object>) map) : null;
+                out.add(cells == null ? row : cells);
+            }
+            return out;
+        }
+        return typed(field.type(), value);
+    }
+
+    /** 一个值：强类型字段的文字读成值的类型，读不出时原样 */
+    private static Object typed(String type, Object value) {
+        WireType kind = VALUE_KINDS.get(type);
+        if (kind == null || !(value instanceof String text)) return value;
+        try {
+            return Wire.read(kind, text);
+        } catch (IllegalArgumentException e) {
+            return value;
+        }
     }
 
     /** 全部顶层字段，按清单里的先后 */

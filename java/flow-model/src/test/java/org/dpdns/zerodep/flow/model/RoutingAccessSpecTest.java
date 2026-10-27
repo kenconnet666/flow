@@ -6,6 +6,7 @@ import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.Routing;
 import org.dpdns.zerodep.flow.model.form.FormAccess;
 import org.dpdns.zerodep.flow.model.form.FormManifest;
+import org.dpdns.zerodep.wire.Wire;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -70,7 +71,7 @@ class RoutingAccessSpecTest {
             }));
         }
         for (Object item : (List<?>) spec.get("merges")) {
-            Map<?, ?> sample = (Map<?, ?>) item;
+            Map<?, ?> sample = (Map<?, ?>) Wire.decode(item);   // 值同线上：typed JSON 还原
             tests.add(DynamicTest.dynamicTest("合并：" + sample.get("name"), () -> {
                 @SuppressWarnings("unchecked")
                 FormAccess.Submission result = FormAccess.mergeSubmission(manifest, states(manifest, sample),

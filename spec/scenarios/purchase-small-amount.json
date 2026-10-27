@@ -12,5 +12,8 @@
         "workItems": [],
         "events": ["workItem.completed", "node.left", "node.entered", "node.left", "node.entered", "instance.finished"]
       } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

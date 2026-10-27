@@ -4,6 +4,7 @@
  *
  * 只查形状与范围；`options: { source }` 的字典、接入方注册的字段类型由后端另查。
  */
+import { parseWire, wireTypeOf, type WireType } from '@zerodep-dev/json-wire';
 import { isOrgId } from './definition.js';
 import type { FieldDefinition } from './manifest.js';
 import { compareValues, isBlank } from './values.js';
@@ -32,39 +33,40 @@ export interface ValueError {
   readonly code: ValueProblem;
 }
 
-const DECIMAL = /^[+-]?(\d+(\.\d*)?|\.\d+)$/;
-const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(:(\d{2})(\.\d{1,3})?)?Z$/;
+/**
+ * 值是强类型的字段类型在线上（json-wire）是哪一种：提交、下发的值由 wire 还原（decimal 是 Decimal、date 是 CalendarDate、
+ * datetime 是 ZonedDateTime），清单里人写的 default、min、max 是文字，用 {@link typedValue} 读成同样的类型。同 Java 的 FormManifest.VALUE_KINDS。
+ */
+export const VALUE_KINDS: Readonly<Partial<Record<string, WireType>>> = { decimal: 'decimal', date: 'date', datetime: 'timestamptz' };
 
-/** 公历日期是否存在（2026-02-30 不存在） */
-function validDate(year: number, month: number, day: number): boolean {
-  if (month < 1 || month > 12 || day < 1) return false;
-  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!;
-  return day <= days;
-}
-
-function isDate(value: unknown): boolean {
-  const m = typeof value === 'string' ? DATE.exec(value) : null;
-  return m !== null && validDate(Number(m[1]), Number(m[2]), Number(m[3]));
-}
-
-function isDateTime(value: unknown): boolean {
-  const m = typeof value === 'string' ? DATETIME.exec(value) : null;
-  if (m === null || !validDate(Number(m[1]), Number(m[2]), Number(m[3]))) return false;
-  return Number(m[4]) < 24 && Number(m[5]) < 60 && (m[7] === undefined || Number(m[7]) < 60);
+/**
+ * 人写的值（清单的 default、min、max，定义里写进表单的值）按字段类型读成强类型；不是强类型的字段、读不出的文字原样
+ * （提交时报 type）。明细表逐行逐列读。同 Java 的 FormManifest.typed。
+ */
+export function typedValue(field: FieldDefinition, value: unknown): unknown {
+  if (field.type === 'list' && field.fields && Array.isArray(value)) {
+    const columns = field.fields;
+    return value.map((row) =>
+      isObject(row) ? Object.fromEntries(Object.entries(row).map(([k, v]) => [k, columns[k] ? typedValue(columns[k], v) : v])) : row,
+    );
+  }
+  const kind = VALUE_KINDS[field.type];
+  if (kind === undefined || typeof value !== 'string') return value;
+  try {
+    return parseWire(kind, value);
+  } catch {
+    return value;
+  }
 }
 
 const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** 小数位数：末尾的零不算 */
-const scaleOf = (text: string) => (text.split('.')[1] ?? '').replace(/0+$/, '').length;
 
 /** 不小于下限、不大于上限；没写限的不查 */
 function range(value: unknown, field: FieldDefinition, errors: ValueError[], path: string): void {
-  if (field.min !== undefined && compareValues(value, field.min) < 0) errors.push({ path, code: 'min' });
-  if (field.max !== undefined && compareValues(value, field.max) > 0) errors.push({ path, code: 'max' });
+  if (field.min !== undefined && compareValues(value, typedValue(field, field.min)) < 0) errors.push({ path, code: 'min' });
+  if (field.max !== undefined && compareValues(value, typedValue(field, field.max)) > 0) errors.push({ path, code: 'max' });
 }
 
 /** 一个值合不合这个字段；空值（null、空文字、空数组）不查，必填由调用方另查 */
@@ -87,8 +89,9 @@ export function checkFieldValue(field: FieldDefinition, value: unknown): ValueEr
       return errors;
     }
     case 'decimal': {
-      if (typeof value !== 'string' || !DECIMAL.test(value.trim())) return [{ path: self, code: 'type' }];
-      if (field.scale !== undefined && scaleOf(value.trim()) > field.scale) errors.push({ path: self, code: 'scale' });
+      if (wireTypeOf(value) !== 'decimal') return [{ path: self, code: 'type' }];
+      // Decimal 不留末尾的零：小数位就是有效的位数
+      if (field.scale !== undefined && (value as { decimalPlaces(): number }).decimalPlaces() > field.scale) errors.push({ path: self, code: 'scale' });
       range(value, field, errors, self);
       return errors;
     }
@@ -96,7 +99,7 @@ export function checkFieldValue(field: FieldDefinition, value: unknown): ValueEr
       return typeof value === 'boolean' ? errors : [{ path: self, code: 'type' }];
     case 'date':
     case 'datetime': {
-      if (!(field.type === 'date' ? isDate(value) : isDateTime(value))) return [{ path: self, code: 'type' }];
+      if (wireTypeOf(value) !== VALUE_KINDS[field.type]) return [{ path: self, code: 'type' }];
       range(value, field, errors, self);
       return errors;
     }

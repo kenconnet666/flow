@@ -115,5 +115,8 @@
         }
       }
     }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

@@ -12,10 +12,11 @@ import java.util.regex.Pattern;
  * 条件里两个值怎样比：TS 的 {@code values.ts} 与这里是同一套规则，两个后端与前端对同一个条件得到同一个结果（spec/conditions 的样例两边都跑）。
  * <ul>
  *   <li>数字、大整数、能读成数字的文字（{@code "19.90"}、{@code "1e3"}）按精确的小数比较（{@link BigDecimal#compareTo}），不经浮点数；</li>
+ *   <li>同一种强类型的值（json-wire 还原出的 LocalDate、Instant……）按它们自己的先后；</li>
  *   <li>其余写成文字后按编码顺序比较（{@link String#compareTo}，不按语言环境，ISO 日期按文字比就是先后）；</li>
  *   <li>等于：数字与数字文字视为相等（表单里的 {@code "5"} 与变量里的 {@code 5}），{@code true} 与 {@code "true"} 也相等。</li>
  * </ul>
- * 值是 wire 的 {@code Json.read} 读出来的形状：Map、List、String、Long、BigDecimal、Boolean、null。
+ * 值是 json-wire 还原出的形状（{@code Wire.decode}）：Map、List、String、Integer、Double、Long、BigDecimal、LocalDate、Instant、Boolean、null。
  */
 public final class Values {
     private static final Pattern NUMERIC =
@@ -51,10 +52,13 @@ public final class Values {
     }
 
     /** 两个值比大小：负数、0、正数 */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static int compare(Object a, Object b) {
         BigDecimal x = decimalOf(a);
         BigDecimal y = decimalOf(b);
         if (x != null && y != null) return Integer.signum(x.compareTo(y));
+        // 同一种强类型的值（LocalDate、Instant……）按它自己的先后
+        if (a != null && b != null && a.getClass() == b.getClass() && a instanceof Comparable c) return Integer.signum(c.compareTo(b));
         return Integer.signum(toText(a).compareTo(toText(b)));
     }
 

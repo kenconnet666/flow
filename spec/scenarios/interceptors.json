@@ -18,5 +18,8 @@
     { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" }, "expect": { "workItem": { "state": "open" } } },
     { "as": "alice", "command": "comment", "args": { "instance": "$start.instance", "text": "这里有敏感词" },
       "expect": { "events": [{ "type": "instance.commented", "comment": "这里有***" }] } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

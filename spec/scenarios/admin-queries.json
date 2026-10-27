@@ -30,5 +30,8 @@
         { "node": "rejected", "name": "否决", "type": "end" }
       ] } },
     { "as": "admin", "command": "incidents", "expect": { "total": 0 } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

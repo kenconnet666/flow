@@ -1,4 +1,5 @@
-// 表单容器：没有代码时按清单自动排版；节点权限（隐藏、只读、能改）与显示条件随填写变；校验用模型包的规则；decimal 按文字交回
+// 表单容器：没有代码时按清单自动排版；节点权限（隐藏、只读、能改）与显示条件随填写变；校验用模型包的规则；值是强类型（decimal 是 Decimal）
+import Decimal from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 import type { FormView } from '../src/client/types';
 import type { FlowFormHandle } from '../src/form/context';
@@ -22,7 +23,7 @@ const view: FormView = {
   compilerVersion: null,
   access: { default: 'editable', fields: { note: 'hidden' } },
   start: true,
-  values: { amount: '12.50' },
+  values: { amount: new Decimal('12.50') },
 };
 
 /** 挂一张表单，拿到它交回的操作 */
@@ -53,13 +54,13 @@ describe('FlowForm', () => {
     expect(handle.values()).toMatchObject({ title: '办公桌' });
   });
 
-  it('取值：decimal 按清单的小数位写成文字，没填的是 null', async () => {
+  it('取值：值原样是强类型（decimal 是 Decimal），没填的是 null', async () => {
     const { handle } = await mountForm();
-    expect(handle.values()).toMatchObject({ title: null, amount: '12.50', quantity: null, urgent: false });
+    expect(handle.values()).toMatchObject({ title: null, amount: new Decimal('12.50'), quantity: null, urgent: false });
   });
 
   it('校验：必填没填、数字不合范围时不通过，并标到字段上', async () => {
-    const { host, handle } = await mountForm({ values: { amount: '1.00', quantity: 0 } });
+    const { host, handle } = await mountForm({ values: { amount: new Decimal('1.00'), quantity: 0 } });
     expect(await handle.validate()).toBe(false);
     await settle();
     expect(host.textContent).toContain('必填');
@@ -67,7 +68,7 @@ describe('FlowForm', () => {
   });
 
   it('引擎退回的按字段的问题标到字段上', async () => {
-    const { host, handle } = await mountForm({ values: { title: '桌子', amount: '1.00' } });
+    const { host, handle } = await mountForm({ values: { title: '桌子', amount: new Decimal('1.00') } });
     expect(await handle.validate()).toBe(true);
     handle.showErrors([{ field: 'title', code: 'maxLength' }]);
     await settle();

@@ -41,5 +41,8 @@
       } },
     { "as": "erp", "command": "signal", "args": { "businessKey": "HT-002", "event": "contract.signed", "outcome": "signed" },
       "expect": { "results": [] } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

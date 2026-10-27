@@ -13,5 +13,8 @@
     { "as": "bob", "command": "complete", "args": { "workItem": "$small.workItems[0]", "outcome": "pass" } },
     { "as": "bob", "command": "complete", "args": { "workItem": "$small.workItems[0]", "outcome": "pass" },
       "expect": { "error": { "code": "flow.instance-not-active" } } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

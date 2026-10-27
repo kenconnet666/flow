@@ -14,5 +14,8 @@
       "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "title": "改了标题", "note": "预算内" } } },
     { "as": "alice", "command": "instance", "args": { "instance": "$start.instance" },
       "expect": { "instance": { "title": "采购申请：椅子" }, "form": { "values": { "title": "椅子", "amount": "100.00", "note": "预算内" } } } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

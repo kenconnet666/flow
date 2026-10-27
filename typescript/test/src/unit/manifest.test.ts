@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { checkFieldValue, validateManifest, type FieldDefinition, type FormManifest, type Problem } from '@zerodep-dev/flow-model';
+import { fromWire } from '@zerodep-dev/json-wire';
 import { listSpec, readSpec } from './spec.js';
 
 interface ManifestSpec {
@@ -31,7 +32,8 @@ describe('字段清单的校验（spec/manifests）', () => {
 });
 
 describe('值的校验（spec/values）', () => {
-  for (const sample of readSpec<ValuesSpec>('values/field-values.json').cases) {
+  // 值同线上：每个用例按自己的  还原成 Decimal、CalendarDate……
+  for (const sample of readSpec<ValuesSpec>('values/field-values.json').cases.map((c) => fromWire<ValuesSpec['cases'][number]>(c))) {
     it(sample.name, () => {
       assert.deepEqual(checkFieldValue(sample.field, sample.value).map((e) => [e.path, e.code]), sample.expect);
     });

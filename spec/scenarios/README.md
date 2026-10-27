@@ -93,3 +93,5 @@
 - `events`、`timeline` 写成事件种类的列表，按先后逐个比。
 - 期望出错时写 `"error": { "code": "flow.…", "errors": [ … ] }`；没写 `error` 的步骤出错就算失败。
 - 值按线上的 JSON 比：编号、小数、时间都是文字（`"12000.00"`）。
+- 场景文件本身是 typed JSON（json-wire 的格式）：根上的 `$types` 标出参数里的小数、日期（如 `"steps.args.form.amount": "decimal"`），
+  执行器先按它还原再交给引擎，同线上的请求；表单的值要是强类型（decimal 是 BigDecimal、date 是 LocalDate、datetime 是 Instant）。

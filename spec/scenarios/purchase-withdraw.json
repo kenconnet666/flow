@@ -19,5 +19,8 @@
     { "as": "bob", "command": "complete", "args": { "workItem": "$second.workItems[0]", "outcome": "pass" } },
     { "as": "alice", "command": "withdraw", "args": { "instance": "$second.instance", "reason": "晚了" },
       "expect": { "error": { "code": "flow.forbidden" } } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

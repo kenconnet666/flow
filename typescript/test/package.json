@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Unit tests of the model package; the shared samples under spec/ run here and in the Java tests",
+  "description": "Unit tests of the model package; the shared samples under spec/ (typed JSON, restored with json-wire) run here and in the Java tests",
   "dependencies": {
-    "@zerodep-dev/flow-model": "workspace:*"
+    "@zerodep-dev/flow-model": "workspace:*",
+    "@zerodep-dev/json-wire": "link:../../../json-wire/typescript/packages/json-wire"
   },
   "devDependencies": {
     "@types/node": "24.19.2"

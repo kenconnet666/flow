@@ -73,7 +73,7 @@ class SpringHttpTest {
     @Test
     void 一单采购走完_出错也是200加业务错误码() throws Exception {
         Map<String, Object> started = call(post("/flow/commands/start"), "1001",
-            "{\"key\":\"purchase\",\"form\":{\"title\":\"办公桌\",\"amount\":\"12000.00\"}}");
+            "{\"key\":\"purchase\",\"form\":{\"title\":\"办公桌\",\"amount\":\"12000.00\"},\"$types\":{\"form.amount\":\"decimal\"}}");
         assertEquals("ok", started.get("code"));
         String review = (String) first(data(started).get("workItems")).get("id");
         String instance = (String) ((Map<?, ?>) data(started).get("instance")).get("id");
@@ -103,7 +103,7 @@ class SpringHttpTest {
     @Test
     void 带同一个IdempotencyKey的命令只做一次_再来返回第一次的响应() throws Exception {
         Map<String, Object> started = call(post("/flow/commands/start"), "1001",
-            "{\"key\":\"purchase\",\"form\":{\"title\":\"椅子\",\"amount\":\"100.00\"}}");
+            "{\"key\":\"purchase\",\"form\":{\"title\":\"椅子\",\"amount\":\"100.00\"},\"$types\":{\"form.amount\":\"decimal\"}}");
         String review = (String) first(data(started).get("workItems")).get("id");
         String body = "{\"workItemId\":\"" + review + "\",\"outcome\":\"pass\"}";
 

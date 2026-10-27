@@ -120,7 +120,8 @@ public final class StartHandler {
 
         ProcessNode.Start start = definition.graph().start();
         if (definition.hasForm()) {
-            run.form(launch.fullForm() ? launch.form()
+            // 子流程的表单值来自定义里的 input（人写的 JSON）：按清单的字段类型读成强类型
+            run.form(launch.fullForm() ? FormValues.of(definition.manifest().typed(launch.form().asMap()))
                 : FormSubmission.merge(definition.manifest(), start.form(), true, FormValues.empty(), launch.form(), run::read));
             FormDataEntity data = new FormDataEntity();
             data.setInstanceId(instance.getId());

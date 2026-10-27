@@ -2,7 +2,6 @@ package org.dpdns.zerodep.flow.model.form;
 
 import org.dpdns.zerodep.flow.model.Values;
 import org.dpdns.zerodep.flow.model.definition.OrgId;
-import org.dpdns.zerodep.wire.Wire;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,11 +15,10 @@ import java.util.regex.Pattern;
  * 一个字段的值合不合字段清单（docs/decisions/0004 的 1.3），与 TS 模型包的 {@code field-values.ts} 同一套规则，
  * 两边跑 spec/values 的样例。提交时（{@link FormAccess#mergeSubmission}）与字段清单校验默认值时都用它。
  * 只查形状与范围；{@code options: { source }} 的字典、接入方注册的字段类型由后端另查。
+ * <p>值是 json-wire 还原出的强类型：decimal 是 BigDecimal、date 是 LocalDate、datetime 是 Instant（{@link FormManifest#VALUE_KINDS}），
+ * number 是 JavaScript 的数（Integer、Double），其余照 JSON。类型不对就是 {@code type}，不再从文字里认。
  */
 public final class FieldValues {
-    /** 小数的文字：不收科学计数法（{@code 1e3}），能不能读成数与小数位交给 BigDecimal */
-    private static final Pattern DECIMAL = Pattern.compile("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)");
-
     private FieldValues() { }
 
     /**
@@ -49,15 +47,15 @@ public final class FieldValues {
                 }
             }
             case "number" -> {
-                if (!(value instanceof Long || value instanceof Integer || value instanceof BigDecimal || value instanceof Double)) return type();
+                if (!(value instanceof Integer || value instanceof Long || value instanceof Double)) return type();   // JavaScript 的数；BigDecimal 是 decimal
                 BigDecimal number = Values.decimalOf(value);
                 if (Boolean.TRUE.equals(a.get("integer")) && number.stripTrailingZeros().scale() > 0) errors.add(new ValueError("", "integer"));
                 range(value, a, errors);
             }
             case "decimal" -> {
-                if (!(value instanceof String text) || !DECIMAL.matcher(text.trim()).matches()) return type();
+                if (!(value instanceof BigDecimal decimal)) return type();
                 Integer scale = integer(a.get("scale"));
-                if (scale != null && Math.max(0, new BigDecimal(text.trim()).stripTrailingZeros().scale()) > scale) {
+                if (scale != null && Math.max(0, decimal.stripTrailingZeros().scale()) > scale) {
                     errors.add(new ValueError("", "scale"));   // 末尾的零不算
                 }
                 range(value, a, errors);
@@ -66,7 +64,7 @@ public final class FieldValues {
                 if (!(value instanceof Boolean)) return type();
             }
             case "date", "datetime" -> {
-                if (!(field.type().equals("date") ? isDate(value) : isDateTime(value))) return type();
+                if (!(field.type().equals("date") ? value instanceof LocalDate : value instanceof Instant)) return type();
                 range(value, a, errors);
             }
             case "select" -> {
@@ -83,7 +81,7 @@ public final class FieldValues {
                 if (a.get("types") instanceof List<?> types && people.stream().anyMatch(p -> !types.contains(((Map<?, ?>) p).get("type")))) {
                     errors.add(new ValueError("", "peopleType"));
                 }
-                Integer max = a.get("max") instanceof Long l ? Math.toIntExact(l) : null;
+                Integer max = integer(a.get("max"));
                 if (max != null && people.size() > max) errors.add(new ValueError("", "maxCount"));
             }
             case "file" -> {
@@ -139,21 +137,8 @@ public final class FieldValues {
 
     /** 非负整数的属性；不是整数时为 null（字段清单的校验另外报） */
     private static Integer integer(Object value) {
+        if (value instanceof Integer i) return i;
         return value instanceof Long l && l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE ? Math.toIntExact(l) : null;
     }
 
-    /** 日期：线上的写法 {@code 2026-10-24}，要是真实存在的日子 */
-    private static boolean isDate(Object value) { return value instanceof String s && parses(LocalDate.class, s); }
-
-    /** 日期时间：线上的写法，换算成 UTC、带 {@code Z}（{@code 2026-10-24T08:00:00.123Z}） */
-    private static boolean isDateTime(Object value) { return value instanceof String s && s.endsWith("Z") && parses(Instant.class, s); }
-
-    private static boolean parses(Class<?> type, String text) {
-        try {
-            Wire.parse(type, text);
-            return true;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-    }
 }

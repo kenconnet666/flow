@@ -63,5 +63,8 @@
       } },
     { "as": "carol", "command": "instance", "args": { "instance": "$start.instance" },
       "expect": { "actions": { "withdraw": false, "remind": false } } }
-  ]
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
 }

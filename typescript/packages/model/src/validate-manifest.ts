@@ -6,7 +6,7 @@
  *   // → [{ code: 'field-name-invalid', severity: 'error', field: 'Amount' }]
  */
 import { conditionFields, isConditionComplete, type Condition } from './condition.js';
-import { checkFieldValue } from './field-values.js';
+import { checkFieldValue, typedValue } from './field-values.js';
 import { manifestField, type FieldDefinition, type FormManifest } from './manifest.js';
 import type { Problem } from './validate.js';
 import { compareValues } from './values.js';
@@ -83,7 +83,7 @@ function checkField(
     const condition = field[which];
     if (condition) checkCondition(manifest, condition, path, which, report);
   }
-  if (field.default !== undefined && field.default !== null && checkFieldValue(field, field.default).length > 0) {
+  if (field.default !== undefined && field.default !== null && checkFieldValue(field, typedValue(field, field.default)).length > 0) {
     report('default-invalid', path);
   }
 }
@@ -106,9 +106,11 @@ function checkRanges(field: FieldDefinition, path: string, report: Report): void
   const plain: FieldDefinition = { label: field.label, type: field.type };
   for (const attribute of ['min', 'max'] as const) {
     const bound = field[attribute];
-    if (bound !== undefined && checkFieldValue(plain, bound).length > 0) report('attribute-invalid', path, { attribute });
+    if (bound !== undefined && checkFieldValue(plain, typedValue(plain, bound)).length > 0) report('attribute-invalid', path, { attribute });
   }
-  if (field.min !== undefined && field.max !== undefined && compareValues(field.min, field.max) > 0) report('range-invalid', path, { attribute: 'value' });
+  if (field.min !== undefined && field.max !== undefined && compareValues(typedValue(field, field.min), typedValue(field, field.max)) > 0) {
+    report('range-invalid', path, { attribute: 'value' });
+  }
 }
 
 /** 表单条件：写完整、不用 fn.、只引用表单字段与 sys. 名字 */

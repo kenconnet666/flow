@@ -13,6 +13,7 @@ import {
   type NodeFormAccess,
   type ProcessDefinition,
 } from '@zerodep-dev/flow-model';
+import { fromWire } from '@zerodep-dev/json-wire';
 import { readSpec } from './spec.js';
 
 interface RoutingSpec {
@@ -76,7 +77,8 @@ describe('字段权限（spec/access）', () => {
       assert.deepEqual(Object.fromEntries([...states].map(([k, s]) => [k, tuple(s)])), sample.states);
     });
   }
-  for (const sample of spec.merges) {
+  // 值同线上：每个用例按自己的  还原
+  for (const sample of spec.merges.map((m) => fromWire<AccessSpec['merges'][number]>(m))) {
     it(`合并：${sample.name}`, () => {
       const states = fieldStates(spec.manifest, { access: sample.access, isStart: sample.isStart, read: (f) => sample.values[f] });
       const result = mergeSubmission(spec.manifest, states, sample.stored, sample.submitted);
