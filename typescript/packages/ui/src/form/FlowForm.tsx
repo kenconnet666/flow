@@ -21,6 +21,7 @@ import type { FormView } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
 import { autoFlowForm } from './auto-form';
 import type { FlowFormContext, FlowFormHandle } from './context';
+import { compileForm, useFormCompiler } from './compiler';
 import { useFlowFiles } from './files';
 
 /** FlowForm 的属性 */
@@ -69,14 +70,15 @@ export const FlowForm = _component(({ view, mode = 'fill', people, modules, read
   const messages = useFlowMessages();
   const flow = useFlowClient();
   const files = useFlowFiles();
+  const compiler = useFormCompiler();
   let component = _state.raw<Component | null>(null);
   let failure = _state<string | null>(null);
 
   async function load(): Promise<Component> {
     if (!view.compiled && !view.source) return autoFlowForm(view.manifest);
-    const { COMPILER_VERSION, compileInThread, evaluateModule } = await import('@zerodep-dev/vue-tsx-pro-tsx/browser-compile');
+    const { COMPILER_VERSION, evaluateModule } = await import('@zerodep-dev/vue-tsx-pro-tsx/browser-compile');
     const stored = view.compiled && (view.compilerVersion === COMPILER_VERSION || !view.source) ? view.compiled : null;
-    const code = stored ?? (await compileInThread(view.source!, { filename: 'Form.tsx' }));
+    const code = stored ?? (await compileForm(view.source!, compiler));
     const exported = evaluateModule<{ default?: Component; fields?: FormManifest }>(code, {
       ...(await flowFormModules()),
       ...modules,

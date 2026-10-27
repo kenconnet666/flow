@@ -3,7 +3,9 @@
  */
 import { Activity, CalendarDays, ChartColumn, CircleCheck, CircleAlert, FileText, FormInput, Inbox, Mail, Send, Settings2, UserRoundCheck, Workflow } from '@lucide/icons';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { provideFlowFiles } from '@zerodep-dev/flow-ui/form';
+import { provideFlowFiles, provideFormCompiler } from '@zerodep-dev/flow-ui/form';
+import { createCompileClient } from '@zerodep-dev/vue-tsx-pro-tsx/browser-compile';
+import CompileWorker from '@zerodep-dev/vue-tsx-pro-tsx/browser-compile/worker?worker';
 import { NavItem, NavList, Select, Toaster, useHttp } from '@zerodep-dev/vue-tsx-pro-ui';
 import { AppShell, AppShellBrand } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { RouterView } from 'vue-router';
@@ -13,6 +15,8 @@ import { currentUser, toaster, users } from './session';
 export const App = _component(() => {
   // 附件存在示例后端（files.ts）：表单里的附件字段经它上传、打开
   provideFlowFiles(demoFiles(useHttp()));
+  // 代码表单在 Worker 里编译：表单设计器每改一下都要重编，放在页面线程会卡
+  provideFormCompiler(createCompileClient(() => new CompileWorker()));
   return shell;
 });
 

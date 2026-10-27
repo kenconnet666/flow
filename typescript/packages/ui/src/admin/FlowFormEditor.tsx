@@ -39,6 +39,7 @@ import { watch } from 'vue';
 import { useFlowClient } from '../client/flow-client';
 import type { CompileProblem, PublishedForm } from '../client/types';
 import { applyEdits } from '../form-tools/design/edit';
+import { useFormCompiler } from '../form/compiler';
 import { FlowForm } from '../form/FlowForm';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
@@ -81,6 +82,7 @@ const SETTLE = 400;
 /** 表单的编辑 */
 export const FlowFormEditor = _component(({ formKey, people, onPublished }: FlowFormEditorProps) => {
   const flow = useFlowClient();
+  const compiler = useFormCompiler();
   const messages = useFlowMessages();
   const errorText = useErrorMessage();
   let key = _state(formKey ?? '');
@@ -236,7 +238,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     failure = null;
     notice = null;
     try {
-      const compiled = mode !== 'manifest' ? await (await import('../form-tools')).compileFormSource(source) : null;
+      const compiled = mode !== 'manifest' ? await (await import('../form-tools')).compileFormSource(source, compiler) : null;
       const result = await flow.publishForm({
         key: key.trim(),
         name: name.trim(),

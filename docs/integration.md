@@ -277,7 +277,19 @@ provideFlowFiles({
 没给时附件字段只显示文件名。示例的写法见 `apps/demo/src/files.ts` 与后端的 `ExampleFiles`（只为演示：存在临时目录）；
 真实的下载接口要按能不能看这个实例把关（`engine.instance(actor, id)` 不抛错就是能看）。
 
-### 2.5 业务表单
+### 2.5 表单设计器的编译
+
+代码表单（与设计器的画布）要在浏览器里编译。给一个编译 Worker，改表单时界面不卡；不给时在页面线程编，也能用：
+
+```ts
+import { provideFormCompiler } from '@zerodep-dev/flow-ui/form';
+import { createCompileClient } from '@zerodep-dev/vue-tsx-pro-tsx/browser-compile';
+import CompileWorker from '@zerodep-dev/vue-tsx-pro-tsx/browser-compile/worker?worker';
+
+provideFormCompiler(createCompileClient(() => new CompileWorker()));   // 根组件的 setup 里
+```
+
+### 2.6 业务表单
 
 表单在管理端的表单设计器里画（字段、明细表、附件、布局、节点上的字段权限、前后端代码），发布后流程节点引用它；不用写前端代码。
 代码表单里明细表写 `<form.List name="lines" />`，标签页写 `<FormTabs>` 包几个 `<FormSection title="…">`，附件写 `<form.Field name="proof"><FileField /></form.Field>`。
