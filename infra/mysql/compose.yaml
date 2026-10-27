@@ -1,0 +1,56 @@
+# MySQL 8.4 for local development and live tests of the flow engine, self-contained: this folder is all you need.
+# The memory limit lives only here.
+#
+# Databases: flow_demo (the example backend, `.claude/run-example-backend.sh`) and flow_it (java/flow-it live tests).
+# User flow, password FLOW_DB_PASSWORD from .env (git-ignored).
+#
+# HOW TO DEPLOY AND USE (WSL Debian; a plain Debian/Ubuntu server works the same way)
+#
+# 1. Open WSL from Windows:            wsl -d Debian
+# 2. Install Docker Engine with the compose plugin when `docker compose version` does not work:
+#      curl -fsSL https://get.docker.com | sh
+# 3. Go to this folder:                cd /mnt/c/Users/Administrator/IdeaProjects/flow/infra/mysql
+# 4. Create the password file once:    printf 'FLOW_DB_PASSWORD=%s\n' "$(openssl rand -hex 16)" > .env
+# 5. Build and start (about one minute the first time), then wait for "healthy":
+#      docker compose up -d --build && docker compose ps
+# 6. Connect from Windows at localhost:53316 (wslrelay forwards it) or at the WSL address (`wsl -d Debian hostname -I`,
+#    first entry; it changes after a WSL restart): jdbc:mysql://localhost:53316/flow_demo, user flow.
+#    Change the port with FLOW_MYSQL_PORT in .env.
+# 7. Everyday commands, from this folder:
+#      docker compose logs -f mysql     # follow the log
+#      docker compose stop              # stop, data is kept
+#      docker compose up -d             # start again
+#      docker compose down -v           # delete the container AND its data
+name: flow-mysql
+
+services:
+  mysql:
+    build: .
+    image: flow-dev/mysql:8.4.11
+    platform: linux/amd64
+    restart: unless-stopped
+    mem_limit: 768m
+    memswap_limit: 768m
+    mem_reservation: 256m
+    cpus: 1.0
+    pids_limit: 256
+    environment:
+      MYSQL_DATABASE: flow_demo
+      MYSQL_USER: flow
+      MYSQL_PASSWORD: ${FLOW_DB_PASSWORD:?Set FLOW_DB_PASSWORD in .env or the environment}
+      MYSQL_ROOT_PASSWORD: ${FLOW_DB_PASSWORD:?Set FLOW_DB_PASSWORD in .env or the environment}
+    command: [--innodb-buffer-pool-size=128M, --max-connections=40, --performance-schema=OFF]
+    ports:
+      - "${FLOW_MYSQL_PORT:-53316}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD=$$MYSQL_PASSWORD mysql --protocol=TCP -h 127.0.0.1 -u flow -D flow_demo -e "SELECT 1" >/dev/null']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  mysql-data:

@@ -10,7 +10,7 @@
   wire 迁成独立仓库 json-wire。随后实体补齐了关系导航，⑥ 表单设计器第一版完成；同日又做完了"把引擎做完整"的五个阶段（自动跳过与通知、暂存、
   设计草稿、表单后端代码、批量与申请改派、管理员改数据、工作日历、列表筛选、实例迁移、外部进度、统计、导入导出复制、版本对比、表单设计器第二步），
   并把 Java 代码整理成普通的 Lombok 类、按职责分包（见第 6 节）。
-- **本机预览**（`.claude/launch.json`）：示例前端 `flow-demo`（5180）、后端 `flow-example-backend`（Spring Boot，8080），连 query 开发 MySQL（WSL）里的
+- **本机预览**（`.claude/launch.json`）：示例前端 `flow-demo`（5180）、后端 `flow-example-backend`（Spring Boot，8080），连本仓库 `infra/mysql` 起的开发 MySQL（WSL 的 Docker，端口 53316）里的
   flow_demo 库；空库先在 `typescript/apps/demo` 下 `pnpm seed` 发布示例的表单与流程。管理端"流程管理"里新建、编辑流程就是设计器。
 - **代码**（细节按步骤记在第 6 节的表里）：
   - 目录：根 `pom.xml` 聚合 `java/flow-model`、`flow-core`、`flow-spring`、`flow-it` 与 `examples/spring-boot`；`typescript/` 是 pnpm 工作区
@@ -32,8 +32,8 @@
   - Spring Boot 适配 `java/flow-spring`：引擎用 easy-query starter 建的 `EasyEntityQuery`（应用配 `easy-query.enable=true`、`easy-query.database=mysql`），
     `flow.*` 配置项见 `FlowProperties`；当前操作人默认取 Spring Security 的 principal；`flow.flyway.enabled` 启动时建表、`flow.http.enabled` 打开接口。
     接口返回普通对象，**typed JSON 由应用自己集成 json-wire**（示例 `examples/spring-boot` 的 `config/wire/WireResponseAdvice`）。按 Spring Boot 3.5 编译。
-  - 实库测试 `java/flow-it`：连 query 的开发 MySQL（WSL，`localhost:53306`）里的 `flow_it` 库，变量 `FLOW_MYSQL_URL` / `_USER` / `_PASSWORD`
-    （用户是 query，密码在 query 的 `infra/mysql/.env`）；没设时跳过。每个测试前用 Flyway 清库再建表。
+  - 实库测试 `java/flow-it`：连 `infra/mysql` 的开发 MySQL 里的 `flow_it` 库，变量 `FLOW_MYSQL_URL` / `_USER` / `_PASSWORD`，
+    在仓库根目录 `. infra/mysql/live-env.sh` 就设好了（用户 flow，密码在 `infra/mysql/.env`，主机取 WSL 的地址）；没设时跳过。每个测试前用 Flyway 清库再建表。
   - 依赖：easy-query 3.2.17（Maven 中央）；json-wire 0.1.0-SNAPSHOT（本机在 `../json-wire` 里 `mvnw install`，TS 按 `link:` 引用）。
   - 本地跑：`./mvnw -q install`（Java，含实库测试）；`cd typescript && pnpm install && pnpm test && pnpm typecheck:ui && pnpm test:ui`（TS）。
   - CI（`.github/workflows/ci.yml`）：Java（先检出并安装 json-wire，含 MySQL 8.4 跑实库测试）与 TS 两个任务。
@@ -65,7 +65,7 @@
 | flow（本仓库，私有） | `kenconnet666/flow` | 引擎（Java，Spring Boot）、模型包（Java + TS）、流程组件（前端）、管理端页面 |
 | easy-query（开源，dromara） | `dromara/easy-query`（本机 `IdeaProjectseasy-query`） | 持久化：实体、导航、隐式 join、`selectAutoInclude` 对象树、拦截器、Spring Boot starter；读源码查用法比查文档快 |
 | json-wire（公开） | `kenconnet666/json-wire` | 强类型 JSON 的传输：`Wire.encode` / `decode`、`toJson` / `fromJson`，TS 的 `toWire` / `fromWire`；`WireCodec` 注册自定义值类型。职责只是传输，不放别的 JSON 工具 |
-| query（公开） | `kenconnet666/query` | 原来的持久层（2026-10-27 起不再用）；开发用的 MySQL / PostgreSQL 在它的 `infra/*/compose.yaml` |
+| query（公开） | `kenconnet666/query` | 原来的持久层，2026-10-27 起不再用，**暂不维护**（PR #33 json-wire 的迁移留着没合）；开发库已搬进本仓库的 `infra/mysql` |
 | vue-tsx-pro（公开） | `kenconnet666/vue-tsx-pro` | 前端技术栈与通用底座：画布 `@zerodep-dev/vue-tsx-pro-ui/diagram`、条件构造器 `ConditionBuilder`、人员与组织选择器 `PeoplePicker`、`QueryTable` + `useTableQuery`；请求层自带一份 typed JSON 的还原（`createHttpClient({ wire: { decimal: Decimal, dates: 'objects' } })`） |
 
 **0003 的 B**：流程组件（流程图、设计器、审批面板、收件箱）在本仓库按模型包重做，界面风格与 vue-tsx-pro 新的画布示例一致
@@ -126,10 +126,10 @@
 
 | 东西 | 原电脑上的位置 | 新电脑上怎么办 |
 | --- | --- | --- |
-| 仓库 | `IdeaProjects\flow`、`json-wire`、`vue-tsx-pro`、`query`（开发数据库的 compose 在它里面）；可选 `easy-query`（dromara，读源码用） | `git clone https://github.com/kenconnet666/<名字>` 放在同一目录；json-wire 先 `mvnw install`，TS 侧 `pnpm install && pnpm build` |
+| 仓库 | `IdeaProjects\flow`、`json-wire`、`vue-tsx-pro`、可选 `query`（已不用）、 `easy-query`（dromara，读源码用） | `git clone https://github.com/kenconnet666/<名字>` 放在同一目录；json-wire 先 `mvnw install`，TS 侧 `pnpm install && pnpm build` |
 | 参考仓库（只读） | `IdeaProjects\flow-references\`（warm-flow、flowlong、flowlong-designer） | 需要时重新浅克隆；不影响构建 |
 | Claude 项目记忆 | `C:\Users\lionheart\.claude\projects\C--Users-lionheart-IdeaProjects-<仓库>\memory\` | 含真实业务项目的需求要点与资料位置（所以不进仓库）。按需手动拷到新电脑对应目录（目录名随用户名与路径变）；没有它也能继续，长期要求已抄在各仓库的交接文档里 |
-| 开发数据库 | WSL Debian 里的 Docker（query 的 `infra/*/compose.yaml`），密码在各目录已忽略的 `.env` | 见 query 的交接文档“换电脑后的准备”；WSL 空闲会关机，跑实库测试前挂一个 `wsl -d Debian -- sleep 14400` |
+| 开发数据库 | WSL Debian 里的 Docker（本仓库 `infra/mysql/compose.yaml`，库 flow_demo 与 flow_it），密码在已忽略的 `infra/mysql/.env` | 照 compose.yaml 开头的步骤建 `.env`、`docker compose up -d --build`，示例库再在 `typescript/apps/demo` 下 `pnpm seed`；WSL 空闲会关机，跑实库测试前挂一个 `wsl -d Debian -- sleep 14400` |
 | 工具 | JDK 17（query 是 Java 17）、Node 24、pnpm（vue-tsx-pro 用 12、query 用 11，由 `packageManager` 固定）、`gh` | 新装；vue-tsx-pro 首次跑浏览器测试前 `pnpm --filter @vue-tsx-pro/host-demo exec playwright install chromium firefox webkit` |
 | 用户级环境变量 | `GITHUB_TOKEN`、`CONTEXT7_API_KEY`、发布用的 `NPM_TOKEN` | 在新电脑重新设置 |
 

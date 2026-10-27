@@ -47,3 +47,6 @@ node_modules/
 # Nitro 的开发与构建输出
 .nitro/
 .output/
+
+# 开发数据库的密码（infra/mysql/.env.example 是模板）
+/infra/*/.env
