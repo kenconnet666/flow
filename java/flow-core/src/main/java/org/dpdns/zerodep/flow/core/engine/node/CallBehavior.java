@@ -91,16 +91,39 @@ public class CallBehavior {
                 .where(i -> { i.parentInstanceId().eq(ended.getParentInstanceId()); i.parentNode().eq(node); i.parentRound().eq(ended.getParentRound()); })
                 .orderBy(i -> i.id().asc()).toList().stream()
                 .map(c -> c.getId().equals(ended.getId()) ? ended : c).toList();
-            Map<String, Object> output = outputOf(call, children, child);
-            if (!output.isEmpty()) parentRun.getInstance().setVariables(parentRun.getInstance().getVariables().with(output));
-            parentRun.updateState(s -> s.waitDone(call.getId()));
-            parentRun.leave(call.getId(), outcomeOf(children));
+            returned(parentRun, call, children, child);
         }
         if (loaded) {
             parentRun.flush(null);
             child.getCreated().addAll(parentRun.getCreated());
             child.getClosed().addAll(parentRun.getClosed());
         }
+    }
+
+    /**
+     * 父实例恢复时：暂停期间子实例结束不推进父实例（{@link #load} 跳过暂停的），这里看每个还在等的同步调用节点，
+     * 这一轮的子实例都结束了就补上往下走
+     */
+    public static void resumeWaitingCalls(Execution parentRun) {
+        InstanceEntity parent = parentRun.getInstance();
+        for (String node : List.copyOf(parent.getState().getWaits().keySet())) {
+            if (!(parentRun.getGraph().node(node) instanceof ProcessNode.Call call) || !"sync".equals(call.getMode())) continue;
+            int round = parent.getState().round(node);
+            List<InstanceEntity> children = parentRun.getContext().getDb().queryable(InstanceEntity.class)
+                .where(i -> { i.parentInstanceId().eq(parent.getId()); i.parentNode().eq(node); i.parentRound().eq(round); })
+                .orderBy(i -> i.id().asc()).toList();
+            if (children.isEmpty() || children.stream().anyMatch(c -> c.getEndedAt() == null)) continue;
+            parentRun.updateState(s -> s.forget(node));
+            returned(parentRun, call, children, null);
+        }
+    }
+
+    /** 这一轮的子实例都结束了：output 收进父实例的流程变量，按结果往下走 */
+    private static void returned(Execution parentRun, ProcessNode.Call call, List<InstanceEntity> children, Execution justEnded) {
+        Map<String, Object> output = outputOf(call, children, parentRun.getContext(), justEnded);
+        if (!output.isEmpty()) parentRun.getInstance().setVariables(parentRun.getInstance().getVariables().with(output));
+        parentRun.updateState(s -> s.waitDone(call.getId()));
+        parentRun.leave(call.getId(), outcomeOf(children));
     }
 
     /** 一个子实例结束了：少等一个，返回是不是最后一个 */
@@ -144,12 +167,13 @@ public class CallBehavior {
     }
 
     /** output：父实例的流程变量 ← 子实例那一侧的值；forEach 时收成列表（按发起的先后） */
-    private static Map<String, Object> outputOf(ProcessNode.Call call, List<InstanceEntity> children, Execution child) {
+    private static Map<String, Object> outputOf(ProcessNode.Call call, List<InstanceEntity> children, EngineContext context, Execution justEnded) {
         Map<String, Object> out = new LinkedHashMap<>();
         if (call.getOutput().isEmpty()) return out;
-        EngineContext context = child.getContext();
-        List<FormValues> forms = children.stream().map(c -> c.getId().equals(child.getInstance().getId()) ? child.getForm()
-            : Instances.form(context.getDb(), c.getId())).toList();
+        // 刚结束的那个用推进到此刻的表单（还没写回），别的从库里读
+        List<FormValues> forms = children.stream()
+            .map(c -> justEnded != null && c.getId().equals(justEnded.getInstance().getId()) ? justEnded.getForm() : Instances.form(context.getDb(), c.getId()))
+            .toList();
         call.getOutput().forEach((target, name) -> {
             List<Object> values = new ArrayList<>();
             for (int i = 0; i < children.size(); i++) values.add(References.read(name, children.get(i), forms.get(i)));

@@ -15,6 +15,7 @@ import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.node.CallBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
@@ -65,6 +66,8 @@ public class AdminHandler {
         return onInstance(actor, command.getInstanceId(), false, (run, instance) -> {
             if (!InstanceEntity.SUSPENDED.equals(instance.getStatus())) throw FlowErrors.forbidden("instance", instance.getId(), "not-suspended");
             run.changeStatus(InstanceEntity.ACTIVE, EventEntity.INSTANCE_RESUMED, null);
+            // 暂停期间子实例都结束了的调用节点，现在往下走
+            CallBehavior.resumeWaitingCalls(run);
         });
     }
 

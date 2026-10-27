@@ -1,5 +1,5 @@
 {
-  "name": "调用流程：forEach 同步等全部结束、output 收成列表；单个同步按子实例的结果与 output 分支；异步不等；父实例终止时子实例一起终止",
+  "name": "调用流程：forEach 同步等全部结束、output 收成列表；单个同步按子实例的结果与 output 分支；异步不等；父实例终止时子实例一起终止；父实例暂停期间子实例都结束了，恢复时补上往下走",
   "forms": ["forms/purchase-form.json"],
   "processes": ["processes/quote.json", "processes/sourcing.json", "processes/sourcing-check.json", "processes/kickoff.json"],
   "clock": "2026-10-26T08:00:00Z",
@@ -34,6 +34,13 @@
 
     { "id": "c", "as": "alice", "command": "start", "args": { "key": "kickoff", "form": { "title": "新仓库", "amount": "0.00" } },
       "expect": { "instance": { "status": "completed", "result": "started" }, "workItems": [{ "node": "fill" }] } },
+
+    { "id": "e", "as": "alice", "command": "start", "args": { "key": "sourcing-check", "form": { "title": "胶水", "amount": "0.00" } } },
+    { "as": "boss", "command": "suspend", "args": { "instance": "$e.instance" } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$e.workItems[0]", "outcome": "done", "form": { "amount": "95.00" } },
+      "expect": { "instance": { "status": "completed" } } },
+    { "as": "alice", "command": "instance", "args": { "instance": "$e.instance" }, "expect": { "instance": { "status": "suspended" } } },
+    { "as": "boss", "command": "resume", "args": { "instance": "$e.instance" }, "expect": { "instance": { "status": "completed", "result": "cheap" } } },
 
     { "id": "d", "as": "alice", "command": "start",
       "args": { "key": "sourcing", "form": { "title": "墨盒", "amount": "0.00" },
