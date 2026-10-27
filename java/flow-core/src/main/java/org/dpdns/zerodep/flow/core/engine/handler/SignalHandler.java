@@ -7,6 +7,7 @@ import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
+import org.dpdns.zerodep.flow.core.engine.node.ReceiveBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
@@ -70,16 +71,16 @@ public class SignalHandler {
         if (removed == 0) return null;   // 并发的同一个事件先到了
         FormValues form = Instances.form(context.getDb(), instance.getId());
         Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, form, instance.getRev());
-        ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(wait.getNode());
+        ProcessNode.Receive receive = (ProcessNode.Receive) run.getGraph().node(wait.getNode());
         if (!instance.getState().getWaits().containsKey(wait.getNode())) {
             run.addEvent(EventEntity.SIGNAL_IGNORED, receive, null, command.getOutcome(), null, null, eventData(command));
         } else {
             if (!receive.getOutcomes().isEmpty() && !receive.getOutcomes().contains(command.getOutcome())) throw FlowErrors.invalid("outcome", "unknown-outcome");
             run.addEvent(EventEntity.SIGNAL_RECEIVED, receive, null, command.getOutcome(), null, null, eventData(command));
-            run.received(receive, command.getOutcome(), command.getData());
+            ReceiveBehavior.received(run, receive, command.getOutcome(), command.getData());
         }
         run.flush(null);
-        return run.result();
+        return run.toResult();
     }
 
     /** 实例不在等这个事件：只记一笔（不锁实例，同留言） */
@@ -89,7 +90,7 @@ public class SignalHandler {
             instance.getRev());
         run.addEvent(EventEntity.SIGNAL_IGNORED, null, null, command.getOutcome(), null, null, eventData(command));
         run.publish();
-        return run.result();
+        return run.toResult();
     }
 
     private static Map<String, Object> eventData(SignalCommand command) {

@@ -40,9 +40,9 @@ public class ClaimHandler {
 
             Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance,
                 FormValues.empty(), instance.getRev());
-            run.addEvent(EventEntity.WORK_ITEM_CLAIMED, run.graph().node(item.getNode()), null, null, item.getId(), null);
+            run.addEvent(EventEntity.WORK_ITEM_CLAIMED, run.getGraph().node(item.getNode()), null, null, item.getId(), null);
             run.publish();
-            return run.result();
+            return run.toResult();
         });
     }
 

@@ -84,6 +84,11 @@ public class AssigneeResolver {
         return List.copyOf(out.values());
     }
 
+    /** 几个来源下的人的编号（抄送、通知的收件人）：同 {@link #people}，只要编号 */
+    public List<Long> peopleOf(List<AssigneeSource> sources, InstanceEntity instance, Function<String, Object> read) {
+        return people(sources, instance, read).stream().map(Participant::getUser).toList();
+    }
+
     /**
      * 几个来源下的人：指定的人、角色与部门下的人（{@link OrgDirectory#members} 展开）、发起人、某节点的处理人；
      * 同一个人只算一次（先出现的为准），保持先后。会签的参与人、抄送节点的收件人都按它展开。

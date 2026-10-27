@@ -74,17 +74,17 @@ public class StepWithdrawal {
 
             Execution run = new Execution(context, actor, context.getClock().instant(), definition, instance, snapshot.getForm(), instance.getRev());
             for (WorkItemVO next : createdAt(instance.getId(), snapshot.getRev())) {
-                WorkItems.cancel(context.getDb(), next.getId(), run.now());
-                run.closed.add(next);
-                run.addEvent(EventEntity.WORK_ITEM_CANCELED, run.graph().node(next.getNode()), null, null, next.getId(), null);
+                WorkItems.cancel(context.getDb(), next.getId(), run.getNow());
+                run.getClosed().add(next);
+                run.addEvent(EventEntity.WORK_ITEM_CANCELED, run.getGraph().node(next.getNode()), null, null, next.getId(), null);
             }
             run.restore(snapshot.getState(), snapshot.getVariables());
             if (definition.hasForm()) Instances.saveForm(context.getDb(), instance.getId(), snapshot.getForm());
             reopen(item.getId());
             context.getDb().deletable(StepEntity.class).allowDeleteStatement(true).where(s -> s.instanceId().eq(instance.getId())).executeRows();
-            run.addEvent(EventEntity.WORK_ITEM_WITHDRAWN, run.graph().node(item.getNode()), null, item.getOutcome(), item.getId(), command.getReason());
+            run.addEvent(EventEntity.WORK_ITEM_WITHDRAWN, run.getGraph().node(item.getNode()), null, item.getOutcome(), item.getId(), command.getReason());
             run.flush(null);
-            return run.result();
+            return run.toResult();
         });
     }
 

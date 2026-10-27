@@ -14,6 +14,7 @@ import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -69,7 +70,7 @@ public class AdminHandler {
     /** 跳转：原来还没办完的待办都取消，从指定的节点重新走（开始节点不行） */
     public CommandResult jump(Actor actor, JumpCommand command) {
         return onInstance(actor, command.getInstanceId(), true, (run, instance) -> {
-            ProcessNode node = run.graph().node(command.getNode());
+            ProcessNode node = run.getGraph().node(command.getNode());
             if (node == null || node instanceof ProcessNode.Start) throw FlowErrors.invalid("node", "unknown-node");
             run.jumpTo(node.getId(), command.getReason());
         });
@@ -87,7 +88,7 @@ public class AdminHandler {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("toUserId", command.getUserId());
             data.put("toUserName", name);
-            run.addEvent(EventEntity.WORK_ITEM_REASSIGNED, run.graph().node(item.getNode()), null, null, item.getId(), command.getReason(), data);
+            run.addEvent(EventEntity.WORK_ITEM_REASSIGNED, run.getGraph().node(item.getNode()), null, null, item.getId(), command.getReason(), data);
         });
     }
 
@@ -119,12 +120,12 @@ public class AdminHandler {
         String outcome = command.getOutcome() == null || command.getOutcome().isBlank() ? null : command.getOutcome();
         return onInstance(actor, job.getInstanceId(), true, (run, instance) -> {
             if (!BuiltinJobs.stillWaiting(job, instance.getState())) throw FlowErrors.forbidden("job", job.getId(), "not-waiting");
-            ProcessNode.Service service = (ProcessNode.Service) run.graph().node(BuiltinJobs.nodeOf(job));
-            if (outcome == null ? !hasPlainEdge(run.graph(), service.getId()) : !skipOutcomes(run.graph(), service.getId()).contains(outcome)) {
+            ProcessNode.Service service = (ProcessNode.Service) run.getGraph().node(BuiltinJobs.nodeOf(job));
+            if (outcome == null ? !hasPlainEdge(run.getGraph(), service.getId()) : !skipOutcomes(run.getGraph(), service.getId()).contains(outcome)) {
                 throw FlowErrors.invalid("outcome", outcome == null ? "required" : "unknown-outcome");
             }
             context.getDb().deletable(JobEntity.class).allowDeleteStatement(true).whereById(job.getId()).executeRows();
-            run.skipAction(service, job.getId(), outcome, command.getReason());
+            ServiceBehavior.skip(run, service, job.getId(), outcome, command.getReason());
         });
     }
 
@@ -151,7 +152,7 @@ public class AdminHandler {
             Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, form, instance.getRev());
             action.accept(run, instance);
             run.flush(null);
-            return run.result();
+            return run.toResult();
         });
     }
 }

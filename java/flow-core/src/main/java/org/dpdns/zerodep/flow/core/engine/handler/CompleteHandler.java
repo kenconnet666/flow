@@ -14,6 +14,7 @@ import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.form.FormSubmission;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.node.TaskBehavior;
 import org.dpdns.zerodep.flow.core.engine.rule.Countersign;
 import org.dpdns.zerodep.flow.core.engine.rule.ReturnTargets;
 import org.dpdns.zerodep.flow.core.engine.rule.SubItems;
@@ -89,13 +90,13 @@ public class CompleteHandler {
             FormValues stored = Instances.form(context.getDb(), instance.getId());
             Execution run = new Execution(context, actor, now, definition, instance, stored, instance.getRev());
             if (definition.hasForm()) {
-                run.form(FormSubmission.merge(definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read));
-                Instances.saveForm(context.getDb(), instance.getId(), run.form());
+                run.setForm(FormSubmission.merge(definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read));
+                Instances.saveForm(context.getDb(), instance.getId(), run.getForm());
             }
 
-            run.picks(command.getPicks());
+            run.setPicks(command.getPicks());
             if (outcome != null && outcome.choosesTarget()) {
-                run.returnTarget(ReturnTargets.check(definition, instance.getState(), item.getNode(), command.getReturnTarget()));
+                run.setReturnTarget(ReturnTargets.check(definition, instance.getState(), item.getNode(), command.getReturnTarget()));
             }
 
             // 守卫：表单合并好之后、改成已处理之前问一遍，任一不通过整个处理不做
@@ -109,7 +110,7 @@ public class CompleteHandler {
 
             // 7. 写回
             run.flush(null);
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -132,13 +133,13 @@ public class CompleteHandler {
                 ? FormSubmission.draft(definition.getManifest(), task.getForm(), stored, command.getForm(), run::read)
                 : FormValues.empty();
             String comment = command.getComment() == null || command.getComment().isBlank() ? null : command.getComment();
-            WorkItemDraft draft = new WorkItemDraft(form, comment, run.now());
+            WorkItemDraft draft = new WorkItemDraft(form, comment, run.getNow());
             long saved = context.getDb().updatable(WorkItemEntity.class)
                 .setColumns(w -> w.draft().set(draft))
                 .where(w -> { w.id().eq(item.getId()); w.state().eq(WorkItemEntity.OPEN); })
                 .executeRows();
             if (saved != 1) throw FlowErrors.notOpen(item.getId());
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -149,10 +150,10 @@ public class CompleteHandler {
      * @param outcome 选的结果；节点没写处理结果时为 null（按 outcomeKey 当作一个"同意"）
      */
     public void finishItem(Execution run, ProcessNode.Task task, WorkItemVO item, String outcomeKey, Outcome outcome, String comment) {
-        if (!WorkItems.complete(context.getDb(), item.getId(), outcomeKey, comment, run.actor().getId(), run.actor().getName(), run.now())) {
+        if (!WorkItems.complete(context.getDb(), item.getId(), outcomeKey, comment, run.getActor().getId(), run.getActor().getName(), run.getNow())) {
             throw FlowErrors.notOpen(item.getId());
         }
-        run.closed.add(item);
+        run.getClosed().add(item);
         // 结果的名字存快照（同处理人的名字）：流转记录上显示"通过"而不是 pass，以后改了定义也不变
         Map<String, Object> data = outcome == null ? Map.of() : Map.of(EventEntity.OUTCOME_LABEL, outcome.getLabel());
         run.addEvent(EventEntity.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.getId(), comment, data);
@@ -186,11 +187,11 @@ public class CompleteHandler {
             })
             .orderBy(w -> { w.createdAt().asc(); w.id().asc(); })
             .select(WorkItemVO.class).toList();
-        Countersign.Decision decision = Countersign.decide(task.getMulti(), chosen, round, run.instance().getState().queue(task.getId()).size());
+        Countersign.Decision decision = Countersign.decide(task.getMulti(), chosen, round, run.getInstance().getState().queue(task.getId()).size());
         if (decision instanceof Countersign.Decision.Next) {
-            run.nextSigner(task, round.size() + 1);
+            TaskBehavior.nextSigner(run, task, round.size() + 1);
         } else if (decision instanceof Countersign.Decision.Finish finish) {
-            run.closeCountersign(task);
+            TaskBehavior.closeCountersign(run, task);
             goOn(run, task, chosenOutcome(task, finish.getOutcome()), comment);
         }
         // Wait：还要等别人，这一步只记下这个人的处理
@@ -231,7 +232,7 @@ public class CompleteHandler {
     private void checkGuards(Actor actor, Execution run, WorkItemVO item, Outcome outcome) {
         if (outcome == null || outcome.getGuards().isEmpty()) return;
         List<ErrorDetail> refused = new ArrayList<>();
-        OutcomeGuard.Context guardContext = new OutcomeGuard.Context(actor, run.view(), item, outcome.getKey(), run.form().asMap());
+        OutcomeGuard.Context guardContext = new OutcomeGuard.Context(actor, run.loadView(), item, outcome.getKey(), run.getForm().asMap());
         for (String name : outcome.getGuards()) {
             String reason = context.getExtensions().guard(name).check(guardContext);
             if (reason != null) refused.add(new ErrorDetail(name, null, item.getNode(), null, null, Map.of("reason", reason)));

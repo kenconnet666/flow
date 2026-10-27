@@ -18,6 +18,8 @@ import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
+import org.dpdns.zerodep.flow.core.engine.node.CcBehavior;
+import org.dpdns.zerodep.flow.core.engine.node.TaskBehavior;
 import org.dpdns.zerodep.flow.core.engine.rule.SubItems;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
@@ -63,10 +65,10 @@ public class CollaborationHandler {
         return onMyItem(actor, command.getWorkItemId(), (run, item, task) -> {
             requireAllowed(task.getAllow().isTransfer(), item, "transfer-not-allowed");
             requireSomeoneElse(actor, command.getUserId());
-            WorkItems.cancel(context.getDb(), item.getId(), run.now());
-            run.closed.add(item);
+            WorkItems.cancel(context.getDb(), item.getId(), run.getNow());
+            run.getClosed().add(item);
             run.addEvent(EventEntity.WORK_ITEM_TRANSFERRED, task, null, null, item.getId(), command.getReason(), to(command.getUserId()));
-            run.handOver(item, command.getUserId(), "transfer", null, WorkItemEntity.OPEN);
+            TaskBehavior.handOver(run, item, command.getUserId(), "transfer", null, WorkItemEntity.OPEN);
         });
     }
 
@@ -77,7 +79,7 @@ public class CollaborationHandler {
             requireSomeoneElse(actor, command.getUserId());
             WorkItems.changeState(context.getDb(), item.getId(), WorkItemEntity.OPEN, WorkItemEntity.WAITING);
             run.addEvent(EventEntity.WORK_ITEM_DELEGATED, task, null, null, item.getId(), command.getReason(), to(command.getUserId()));
-            run.handOver(item, command.getUserId(), "delegate", "delegate", WorkItemEntity.OPEN);
+            TaskBehavior.handOver(run, item, command.getUserId(), "delegate", "delegate", WorkItemEntity.OPEN);
         });
     }
 
@@ -101,7 +103,7 @@ public class CollaborationHandler {
             data.put("mode", mode);
             run.addEvent(EventEntity.SIGNERS_ADDED, task, null, null, item.getId(), command.getReason(), data);
             String state = "after".equals(mode) ? WorkItemEntity.WAITING : WorkItemEntity.OPEN;
-            for (Long user : users) run.handOver(item, user, "addSign", mode, state);
+            for (Long user : users) TaskBehavior.handOver(run, item, user, "addSign", mode, state);
         });
     }
 
@@ -112,12 +114,12 @@ public class CollaborationHandler {
             WorkItemVO item = locked.getItem();
             if (!actor.getId().equals(item.getAssigneeId())) throw FlowErrors.notCandidate(item.getId());
             Execution run = locked.execution(actor);
-            ProcessNode.Task task = (ProcessNode.Task) run.graph().node(item.getNode());
+            ProcessNode.Task task = (ProcessNode.Task) run.getGraph().node(item.getNode());
             for (WorkItemVO child : WorkItems.children(context.getDb(), item.getId())) {
                 boolean pending = WorkItemEntity.OPEN.equals(child.getState()) || WorkItemEntity.WAITING.equals(child.getState());
                 if (!pending || !command.getUsers().contains(child.getAssigneeId())) continue;
-                WorkItems.cancel(context.getDb(), child.getId(), run.now());
-                run.closed.add(child);
+                WorkItems.cancel(context.getDb(), child.getId(), run.getNow());
+                run.getClosed().add(child);
                 Map<String, Object> data = new LinkedHashMap<>();
                 data.put("userId", child.getAssigneeId());
                 data.put("userName", child.getAssigneeName());
@@ -125,7 +127,7 @@ public class CollaborationHandler {
             }
             SubItems.resumeIfSettled(context, run, item);
             run.flush(null);
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -139,9 +141,9 @@ public class CollaborationHandler {
             }
             Execution run = locked.execution(actor);
             if (!release(item.getId(), actor.getId())) throw FlowErrors.notOpen(item.getId());
-            run.addEvent(EventEntity.WORK_ITEM_RELEASED, run.graph().node(item.getNode()), null, null, item.getId(), command.getReason());
+            run.addEvent(EventEntity.WORK_ITEM_RELEASED, run.getGraph().node(item.getNode()), null, null, item.getId(), command.getReason());
             run.flush(null);
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -155,15 +157,15 @@ public class CollaborationHandler {
             ClaimHandler.requireActive(instance);
             Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, FormValues.empty(),
                 instance.getRev());
-            Instant notBefore = run.now().minus(REMIND_INTERVAL);
+            Instant notBefore = run.getNow().minus(REMIND_INTERVAL);
             for (WorkItemVO item : WorkItems.ofInstance(context.getDb(), instance.getId())) {
                 if (!WorkItemEntity.OPEN.equals(item.getState()) || (command.getWorkItemId() != null && !command.getWorkItemId().equals(item.getId()))) continue;
-                ProcessNode.Task task = (ProcessNode.Task) run.graph().node(item.getNode());
-                if (!task.getAllow().isRemind() || !WorkItems.remind(context.getDb(), item.getId(), run.now(), notBefore)) continue;
+                ProcessNode.Task task = (ProcessNode.Task) run.getGraph().node(item.getNode());
+                if (!task.getAllow().isRemind() || !WorkItems.remind(context.getDb(), item.getId(), run.getNow(), notBefore)) continue;
                 run.addEvent(EventEntity.WORK_ITEM_REMINDED, task, null, null, item.getId(), command.getMessage());
             }
             run.publish();
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -176,7 +178,7 @@ public class CollaborationHandler {
                 instance.getRev());
             run.addEvent(EventEntity.INSTANCE_COMMENTED, null, null, null, null, command.getText());
             run.publish();
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -191,9 +193,9 @@ public class CollaborationHandler {
             if (!WorkItems.assignTo(context.getDb(), item.getId(), command.getUserId(), name, WorkItemEntity.DESIGNATED, actor.getId())) {
                 throw FlowErrors.forbidden("workItem", item.getId(), "not-awaiting-your-designation");
             }
-            run.addEvent(EventEntity.WORK_ITEM_ASSIGNED, run.graph().node(item.getNode()), null, null, item.getId(), null, to(command.getUserId()));
+            run.addEvent(EventEntity.WORK_ITEM_ASSIGNED, run.getGraph().node(item.getNode()), null, null, item.getId(), null, to(command.getUserId()));
             run.flush(null);
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -204,9 +206,9 @@ public class CollaborationHandler {
             InstanceEntity instance = Instances.find(context.getDb(), command.getInstanceId());
             Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, FormValues.empty(),
                 instance.getRev());
-            run.copyTo(null, command.getUsers(), command.getMessage());
+            CcBehavior.copyTo(run, null, command.getUsers(), command.getMessage());
             run.publish();
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -235,9 +237,9 @@ public class CollaborationHandler {
             if (item.getAssigneeId() == null) claims.claim(actor, item);
             else if (!item.getAssigneeId().equals(actor.getId())) throw FlowErrors.notCandidate(item.getId());
             Execution run = locked.execution(actor);
-            action.apply(run, item, (ProcessNode.Task) run.graph().node(item.getNode()));
+            action.apply(run, item, (ProcessNode.Task) run.getGraph().node(item.getNode()));
             run.flush(null);
-            return run.result();
+            return run.toResult();
         });
     }
 

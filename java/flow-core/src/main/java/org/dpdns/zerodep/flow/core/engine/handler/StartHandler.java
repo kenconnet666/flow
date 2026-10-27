@@ -54,7 +54,7 @@ public class StartHandler {
             Execution run = launch(definition, actor, new Launch(actor.getId(), actor.getName(), command.getBusinessKey(), command.getPriority(),
                 command.getVariables(), command.getForm(), false, null, command.getPicks()), context.getClock().instant());
             run.flush(command.getTitle());
-            return run.result();
+            return run.toResult();
         });
     }
 
@@ -94,7 +94,7 @@ public class StartHandler {
         private final int round;
         /** 最外层的实例 */
         private final Long root;
-        /** 这个命令里调用它的父实例的推进：子实例马上就结束时直接回到它（见 CallActivities） */
+        /** 这个命令里调用它的父实例的推进：子实例马上就结束时直接回到它（见 CallBehavior） */
         private final Execution caller;
     }
 
@@ -131,18 +131,18 @@ public class StartHandler {
         // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
         context.getDb().insertable(instance).executeRows(true);
         Execution run = new Execution(context, actor, now, definition, instance, FormValues.empty(), instance.getRev());
-        if (parent != null) run.caller = parent.getCaller();
-        run.picks(launch.getPicks());
+        if (parent != null) run.setCaller(parent.getCaller());
+        run.setPicks(launch.getPicks());
 
         ProcessNode.Start start = definition.getGraph().start();
         if (definition.hasForm()) {
             // 子流程的表单值来自定义里的 input（人写的 JSON）：按清单的字段类型读成强类型
-            run.form(launch.isFullForm() ? FormValues.of(definition.getManifest().typed(launch.getForm().asMap()))
+            run.setForm(launch.isFullForm() ? FormValues.of(definition.getManifest().typed(launch.getForm().asMap()))
                 : FormSubmission.merge(definition.getManifest(), start.getForm(), true, FormValues.empty(), launch.getForm(), run::read));
             FormDataEntity data = new FormDataEntity();
             data.setInstanceId(instance.getId());
             data.setFormVersionId(definition.form().getId());
-            data.setValues(run.form());
+            data.setValues(run.getForm());
             data.setRev(0);
             context.getDb().insertable(data).executeRows();
         }

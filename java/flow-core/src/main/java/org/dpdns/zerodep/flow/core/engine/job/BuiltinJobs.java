@@ -7,6 +7,9 @@ import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.SystemActor;
 import org.dpdns.zerodep.flow.core.engine.handler.CompleteHandler;
+import org.dpdns.zerodep.flow.core.engine.node.ReceiveBehavior;
+import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
+import org.dpdns.zerodep.flow.core.engine.node.TimerBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -86,7 +89,7 @@ public class BuiltinJobs {
         @Override
         public Next run(JobEntity job, Instant now) {
             return onInstance(job, now, run -> {
-                if (stillWaiting(job, run.instance().getState())) run.performAction((ProcessNode.Service) run.graph().node(nodeOf(job)));
+                if (stillWaiting(job, run.getInstance().getState())) ServiceBehavior.perform(run, (ProcessNode.Service) run.getGraph().node(nodeOf(job)));
                 return null;
             });
         }
@@ -100,7 +103,7 @@ public class BuiltinJobs {
         @Override
         public void gaveUp(JobEntity job, String error, Instant now) {
             onInstance(job, now, run -> {
-                ProcessNode node = run.graph().node(nodeOf(job));
+                ProcessNode node = run.getGraph().node(nodeOf(job));
                 Map<String, Object> data = Map.of("jobId", job.getId(), "kind", job.getKind(), "error", error);
                 run.addEvent(EventEntity.JOB_FAILED, node, null, null, null, null, data);
                 // onFailure: error——整个实例停下（别的分支也不能处理），管理员恢复后重试或跳过；默认 manual 只停在这个节点
@@ -115,7 +118,7 @@ public class BuiltinJobs {
     /** 定时节点到点：实例还停在这个节点的这一轮上时往下走（跳转、退回跳出区域后不再等了的跳过） */
     private JobHandler.Next timer(JobEntity job, Instant now) {
         return onInstance(job, now, run -> {
-            if (stillWaiting(job, run.instance().getState())) run.timerFired(nodeOf(job));
+            if (stillWaiting(job, run.getInstance().getState())) TimerBehavior.fired(run, nodeOf(job));
             return null;
         });
     }
@@ -144,15 +147,15 @@ public class BuiltinJobs {
     private JobHandler.Next receiveTimeout(JobEntity job, Instant now) {
         String node = nodeOf(job);
         return onInstance(job, now, run -> {
-            if (!stillWaiting(job, run.instance().getState())) return null;
-            ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(node);
+            if (!stillWaiting(job, run.getInstance().getState())) return null;
+            ProcessNode.Receive receive = (ProcessNode.Receive) run.getGraph().node(node);
             run.addEvent(EventEntity.NODE_OVERDUE, receive, null, null, null, null, Map.of("dueAt", job.getDueAt().toString()));
             TaskRules.Overdue rule = receive.getOverdue();
             if (rule != null && "complete".equals(rule.getAction())) {
                 context.getDb().deletable(WaitEntity.class).allowDeleteStatement(true)
                     .where(w -> { w.instanceId().eq(job.getInstanceId()); w.event().eq(receive.getEvent()); w.node().eq(node); })
                     .executeRows();
-                run.received(receive, rule.getOutcome(), Map.of());
+                ReceiveBehavior.received(run, receive, rule.getOutcome(), Map.of());
             }
             return null;
         });
@@ -168,7 +171,7 @@ public class BuiltinJobs {
             WorkItems.remind(context.getDb(), item.getId(), now, now);
             remindEvent(run, task, item, reminder.getBefore() != null ? "dueSoon" : "overdue");
             boolean more = reminder.getEvery() != null && (reminder.getTimes() == null || sent + 1 < reminder.getTimes());
-            return more ? new JobHandler.Next(run.deadlines().plus(reminder.getEvery(), now), Map.of(REMINDER, index, SENT, sent + 1)) : null;
+            return more ? new JobHandler.Next(run.getDeadlines().plus(reminder.getEvery(), now), Map.of(REMINDER, index, SENT, sent + 1)) : null;
         });
     }
 
@@ -247,7 +250,7 @@ public class BuiltinJobs {
         return onInstance(job, now, run -> {
             WorkItemVO item = WorkItems.find(context.getDb(), job.getWorkItemId());
             if (!WorkItemEntity.OPEN.equals(item.getState())) return null;
-            return action.apply(run, item, (ProcessNode.Task) run.graph().node(item.getNode()));
+            return action.apply(run, item, (ProcessNode.Task) run.getGraph().node(item.getNode()));
         });
     }
 

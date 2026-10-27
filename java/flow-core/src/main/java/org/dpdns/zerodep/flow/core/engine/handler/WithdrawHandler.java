@@ -49,7 +49,7 @@ public class WithdrawHandler {
             Execution run = new Execution(context, actor, context.getClock().instant(), definition, instance, FormValues.empty(), instance.getRev());
             run.finish(InstanceEntity.WITHDRAWN, InstanceEntity.WITHDRAWN, EventEntity.INSTANCE_WITHDRAWN, command.getReason());
             run.flush(instance.getTitle());
-            return run.result();
+            return run.toResult();
         });
     }
 

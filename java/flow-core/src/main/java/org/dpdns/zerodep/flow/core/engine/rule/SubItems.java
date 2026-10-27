@@ -53,8 +53,8 @@ public class SubItems {
         if (pending.isEmpty()) return false;
         if (!"approve".equals(chosen.kindOrDefault())) {
             for (WorkItemVO child : pending) {
-                WorkItems.cancel(context.getDb(), child.getId(), run.now());
-                run.closed.add(child);
+                WorkItems.cancel(context.getDb(), child.getId(), run.getNow());
+                run.getClosed().add(child);
                 run.addEvent(EventEntity.WORK_ITEM_CANCELED, task, null, null, child.getId(), null);
             }
             return false;
@@ -69,7 +69,7 @@ public class SubItems {
     public static void resumeIfSettled(EngineContext context, Execution run, WorkItemVO parent) {
         if (!WorkItemEntity.WAITING.equals(parent.getState()) || hasPending(context, parent)) return;
         WorkItems.changeState(context.getDb(), parent.getId(), WorkItemEntity.WAITING, WorkItemEntity.OPEN);
-        run.addEvent(EventEntity.WORK_ITEM_RESUMED, run.graph().node(parent.getNode()), null, null, parent.getId(), null);
+        run.addEvent(EventEntity.WORK_ITEM_RESUMED, run.getGraph().node(parent.getNode()), null, null, parent.getId(), null);
     }
 
     /** 还有没办完的子待办（打开着的，或后加签还在等的） */
