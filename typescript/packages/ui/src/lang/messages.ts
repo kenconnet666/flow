@@ -47,6 +47,16 @@ export interface FlowMessages {
   readonly submit: string;
   /** 暂存：填了一半先存 */
   readonly saveDraft: string;
+  /** 表单编辑器的两个页签与后端代码 */
+  readonly formPanelForm: string;
+  readonly formPanelServer: string;
+  readonly serverCodeHint: string;
+  readonly serverCodeStart: string;
+  readonly compile: string;
+  readonly compileOk: string;
+  readonly compileProblem: (line: number, column: number, message: string) => string;
+  /** 表单还没发布（编辑器的预览）时调后端接口 */
+  readonly formNotPublished: string;
   /** 设计中的草稿（流程、表单编辑器） */
   readonly draftOpened: (by: string | null, time: string) => string;
   readonly discardDraft: string;
@@ -426,6 +436,14 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: '取消',
     submit: '提交',
     saveDraft: '暂存',
+    formNotPublished: '表单发布之后才能调后端代码的接口',
+    formPanelForm: '表单',
+    formPanelServer: '后端代码',
+    serverCodeHint: '一个 public 类实现 FormHandler（不写 package）：validate 校验、compute 算字段、submit 写业务表、actions 给前端调；可以 @Autowired 应用里的 Bean。',
+    serverCodeStart: '从骨架开始',
+    compile: '试编译',
+    compileOk: '编译通过',
+    compileProblem: (line, column, message) => `第 ${line} 行第 ${column} 列：${message}`,
     draftOpened: (by, time) => `接着${by ?? ''}在 ${time} 存的草稿改（还没发布）`,
     discardDraft: '放弃草稿',
     draftSaving: '正在保存草稿…',
@@ -597,6 +615,14 @@ export const flowMessages: MessageTable<FlowMessages> = {
     cancel: 'Cancel',
     submit: 'Submit',
     saveDraft: 'Save draft',
+    formNotPublished: 'The form backend code can be called once the form is published',
+    formPanelForm: 'Form',
+    formPanelServer: 'Backend code',
+    serverCodeHint: 'One public class implementing FormHandler (no package): validate, compute fields, submit to business tables, actions for the front end; @Autowired beans work.',
+    serverCodeStart: 'Start from a skeleton',
+    compile: 'Compile',
+    compileOk: 'Compiles',
+    compileProblem: (line, column, message) => `Line ${line}, column ${column}: ${message}`,
     draftOpened: (by, time) => `Continuing the draft ${by ? `saved by ${by} ` : ''}at ${time} (not published yet)`,
     discardDraft: 'Discard draft',
     draftSaving: 'Saving the draft…',

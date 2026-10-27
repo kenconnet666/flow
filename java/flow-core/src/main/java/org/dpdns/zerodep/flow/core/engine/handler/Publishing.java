@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
+import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
+
 import org.dpdns.zerodep.flow.core.entity.DraftEntity;
 
 import lombok.Data;
@@ -179,6 +181,7 @@ public class Publishing {
     /** 发布一张表单：先校验字段清单本身（0004 的 1.2），有错误时报 {@code flow.validation-failed} */
     public FormVersionEntity publishForm(Actor actor, FormPublication form) {
         FormManifest manifest = parseManifest(form.getManifest());
+        checkBackendCode(form);
         List<Problem> errors = errorsOnly(ManifestValidator.validate(manifest, ManifestValidator.BUILTIN_TYPES::contains));
         if (!errors.isEmpty()) {
             throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form manifest has " + errors.size() + " error(s)",
@@ -203,6 +206,18 @@ public class Publishing {
             drafts.delete(DraftEntity.FORM, form.getKey());
             return row;
         });
+    }
+
+    /** 表单的后端代码（Java）编不过时不能发布：问题带行列，标在编辑器里（字段 serverSource） */
+    private static void checkBackendCode(FormPublication form) {
+        if (!"java".equals(form.getServerLanguage()) || form.getServerSource() == null || form.getServerSource().isBlank()) return;
+        FormCompiler.Result result = new FormCompiler().compile(form.getServerSource());
+        if (result.isOk()) return;
+        throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form backend code does not compile",
+            result.getProblems().stream()
+                .map(p -> new ErrorDetail("compile-error", "serverSource", null, null, null,
+                    Map.of("line", String.valueOf(p.getLine()), "column", String.valueOf(p.getColumn()), "message", p.getMessage())))
+                .toList());
     }
 
     /** 表单本身：同 {@link #nextProcessVersion} */

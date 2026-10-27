@@ -190,6 +190,7 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
           <Card>
             <FlowForm
               view={data.form}
+              instanceId={instance.id}
               mode={data.completable ? 'fill' : 'view'}
               {...(people ? { people } : {})}
               {...(modules ? { modules } : {})}

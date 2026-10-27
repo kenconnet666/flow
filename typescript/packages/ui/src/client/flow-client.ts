@@ -25,7 +25,9 @@ import type {
   InstanceSearch,
   ProcessSummary,
   PublishedDefinition,
+  CompileProblem,
   DesignDraft,
+  FormActionCommand,
   DraftKind,
   SaveDesignDraftCommand,
   PublishedForm,
@@ -87,6 +89,10 @@ export interface FlowClient {
   versions(processKey: string, signal?: AbortSignal): Promise<readonly DefinitionVersion[]>;
   /** 某个版本的定义（发布时的原文）；version 不给时取最新的 */
   definitionJson(processKey: string, version?: number, signal?: AbortSignal): Promise<{ readonly json: string }>;
+  /** 试编译表单的后端代码（Java）：没有问题时是空的 */
+  compileFormCode(source: string): Promise<readonly CompileProblem[]>;
+  /** 调表单后端代码给前端的接口（表单代码里的 context.call） */
+  formAction(command: FormActionCommand): Promise<unknown>;
   /** 设计中的草稿；没有时为 null */
   designDraft(kind: DraftKind, key: string, signal?: AbortSignal): Promise<DesignDraft | null>;
   /** 某一种的全部草稿（不带内容）：列表上标"有草稿" */
@@ -195,6 +201,8 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     incidents: ({ page, pageSize, instanceId }, signal) =>
       get('/queries/incidents', signal, { page, pageSize, ...(instanceId == null ? {} : { instanceId: String(instanceId) }) }),
     versions: (processKey, signal) => get(`/queries/processes/${encodeURIComponent(processKey)}/versions`, signal),
+    compileFormCode: (source) => post('/forms/compile', { source }),
+    formAction: (command) => post('/forms/actions', command),
     designDraft: (kind, key, signal) => get(`/queries/drafts/${kind}/${encodeURIComponent(key)}`, signal),
     designDrafts: (kind, signal) => get(`/queries/drafts/${kind}`, signal),
     saveDesignDraft: (command) => post('/drafts/save', command),

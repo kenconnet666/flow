@@ -1,5 +1,11 @@
 package org.dpdns.zerodep.flow.core;
 
+import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
+
+import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
+
+import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
+
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
@@ -48,6 +54,7 @@ public class FlowEngineBuilder<U extends Actor> {
     private final List<CommandInterceptor<U>> interceptors = new ArrayList<>();
     private AfterCommit afterCommit = AfterCommit.immediately();
     private final List<PeopleResolver> resolvers = new ArrayList<>();
+    private FormHandlerFactory formHandlerFactory = FormHandlerFactory.REFLECTION;
     private final List<OutcomeGuard> guards = new ArrayList<>();
     private final List<ServiceAction> actions = new ArrayList<>();
 
@@ -95,13 +102,16 @@ public class FlowEngineBuilder<U extends Actor> {
     /** 注册一种作业的处理（新的种类，或换掉内置的 timer、overdue、remind、unclaimed） */
     public FlowEngineBuilder<U> jobHandler(JobHandler handler) { this.jobHandlers.add(handler); return this; }
 
+    /** 表单后端代码的类怎么变成对象：默认无参构造；Spring 里换成按 Bean 创建，后端代码里能 @Autowired（{@link FormHandlerFactory}） */
+    public FlowEngineBuilder<U> formHandlerFactory(FormHandlerFactory factory) { this.formHandlerFactory = factory; return this; }
+
     /** 组装 */
     public FlowEngine<U> build() {
         if (org == null) throw new IllegalStateException("an OrgDirectory is required: the engine has no default organisation");
         // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
         FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
         return new FlowEngine<>(new EngineContext(db, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
-            new Extensions(resolvers, guards, actions), new DefinitionCache(db)), actors, permissions, List.copyOf(interceptors),
+            new Extensions(resolvers, guards, actions), new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions, List.copyOf(interceptors),
             List.copyOf(jobHandlers));
     }
 }

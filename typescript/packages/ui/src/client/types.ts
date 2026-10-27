@@ -282,7 +282,26 @@ export interface FormPublication {
   readonly manifest: FormManifest;
   /** 前端源码（代码表单）；只有清单时不给 */
   readonly clientSource?: string;
+  /** 后端代码的语言（现在只有 java）与源码；没有后端代码时不给 */
+  readonly serverLanguage?: 'java';
+  readonly serverSource?: string;
   readonly note?: string;
+}
+
+/** 试编译后端代码报出的一个问题：行列从 1 开始 */
+export interface CompileProblem {
+  readonly line: number;
+  readonly column: number;
+  readonly message: string;
+}
+
+/** 调表单后端代码给前端的接口 */
+export interface FormActionCommand {
+  readonly formVersionId: Id;
+  /** 在实例里调时给；发起页上不给 */
+  readonly instanceId?: Id | null;
+  readonly action: string;
+  readonly args?: Readonly<Record<string, unknown>>;
 }
 
 /** 发布表单的结果 */

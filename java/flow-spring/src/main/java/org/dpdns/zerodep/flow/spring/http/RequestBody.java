@@ -166,7 +166,7 @@ class RequestBody {
     }
 
     /** 编号：前端按 typed JSON 发成文字（大整数不丢精度），写成数字也认 */
-    private Long id(String name) {
+    Long id(String name) {
         Object value = fields.get(name);
         if (value == null) return null;
         return idOf(name, value);
@@ -218,7 +218,7 @@ class RequestBody {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> object(String name) {
+    Map<String, Object> object(String name) {
         Object value = fields.get(name);
         if (value == null) return Map.of();
         if (value instanceof Map<?, ?>) return (Map<String, Object>) value;

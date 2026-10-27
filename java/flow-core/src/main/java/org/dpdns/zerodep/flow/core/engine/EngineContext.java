@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
+
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
@@ -26,6 +28,8 @@ public class EngineContext {
     private final Extensions extensions;
     /** 发布的版本，解析一次就记住 */
     private final DefinitionCache definitions;
+    /** 表单版本的后端代码，用到时编译、记住 */
+    private final FormHandlers formHandlers;
 
     /** 在引擎的事务里做（外面已有事务时加入）；最外层做完时发提交后的监听 */
     public <T> T transaction(Supplier<T> work) { return dispatcher.transaction(db, work); }

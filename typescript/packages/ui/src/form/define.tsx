@@ -168,7 +168,9 @@ export function defineFlowForm<const M extends FormManifest>(
       values: () => ({ ...controller.values }),
       showErrors: (errors) => {
         for (const error of errors) {
-          if (error.field) controller.setError(formPath(error.field) as never, messages.valueProblem(error.code ?? ''));
+          // 后端代码的校验（code 是 custom）带着给人看的说明
+          const custom = typeof error.params?.['message'] === 'string' ? (error.params['message'] as string) : null;
+          if (error.field) controller.setError(formPath(error.field) as never, custom ?? messages.valueProblem(error.code ?? ''));
         }
       },
     });

@@ -15,6 +15,8 @@ import type { FormManifest } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Alert, Skeleton, type PeopleSource } from '@zerodep-dev/vue-tsx-pro-ui';
 import { h, watch, type Component } from 'vue';
+import type { Id } from '@zerodep-dev/flow-model';
+import { useFlowClient } from '../client/flow-client';
 import type { FormView } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
 import { autoFlowForm } from './auto-form';
@@ -23,7 +25,9 @@ import type { FlowFormContext, FlowFormHandle } from './context';
 /** FlowForm 的属性 */
 export interface FlowFormProps {
   /** 引擎给的表单视图（发起页、待办详情里的 form） */
-  view: Pick<FormView, 'manifest' | 'values' | 'access' | 'start' | 'compiled' | 'source'>;
+  view: Pick<FormView, 'manifest' | 'values' | 'access' | 'start' | 'compiled' | 'source'> & { readonly versionId?: Id };
+  /** 表单所在的实例：表单代码调后端接口（context.call）时带上；发起页上没有 */
+  instanceId?: Id | null;
   /** fill 按权限填写（默认）；view 全部只读 */
   mode?: 'fill' | 'view';
   /** 人员字段的数据来源 */
@@ -57,8 +61,9 @@ export async function flowFormModules(): Promise<Record<string, unknown>> {
 }
 
 /** 表单容器 */
-export const FlowForm = _component(({ view, mode = 'fill', people, modules, read, onReady, keepPrevious }: FlowFormProps) => {
+export const FlowForm = _component(({ view, mode = 'fill', people, modules, read, onReady, keepPrevious, instanceId }: FlowFormProps) => {
   const messages = useFlowMessages();
+  const flow = useFlowClient();
   let component = _state.raw<Component | null>(null);
   let failure = _state<string | null>(null);
 
@@ -105,6 +110,10 @@ export const FlowForm = _component(({ view, mode = 'fill', people, modules, read
     people,
     read: read ?? (() => undefined),
     attach: (handle) => onReady?.(handle),
+    call: (action, args) => {
+      if (view.versionId == null) return Promise.reject(new Error(messages.formNotPublished));
+      return flow.formAction({ formVersionId: view.versionId, instanceId: instanceId ?? null, action, ...(args ? { args } : {}) });
+    },
   });
 
   return () => {

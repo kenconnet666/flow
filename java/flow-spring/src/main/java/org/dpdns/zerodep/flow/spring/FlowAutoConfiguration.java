@@ -5,6 +5,7 @@ import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
+import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
@@ -19,6 +20,7 @@ import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
 import org.dpdns.zerodep.flow.spring.http.FlowHttpController;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -68,7 +70,7 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners, ObjectProvider<NotificationChannel> channels,
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
                                  ObjectProvider<OutcomeGuard> guards, ObjectProvider<ServiceAction> actions,
-                                 ObjectProvider<CommandInterceptor> interceptors) {
+                                 ObjectProvider<CommandInterceptor> interceptors, ObjectProvider<FormHandlerFactory> formHandlerFactory) {
         migration.ifAvailable(m -> { });
         OrgDirectory directory = org.getIfAvailable();
         if (directory == null) {
@@ -91,6 +93,10 @@ public class FlowAutoConfiguration {
         guards.orderedStream().forEach(builder::guard);
         actions.orderedStream().forEach(builder::action);
         builder.afterCommit(afterCommit.getIfAvailable(SpringAfterCommit::new));
+        // 表单的后端代码按 Bean 创建：里面的 @Autowired 照常注入接入方的 Bean
+        builder.formHandlerFactory(formHandlerFactory.getIfAvailable(() -> beans instanceof AutowireCapableBeanFactory autowire
+            ? autowire::createBean
+            : FormHandlerFactory.REFLECTION));
         return builder.build();
     }
 

@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
+import org.dpdns.zerodep.flow.core.engine.form.FormCode;
+
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
@@ -137,8 +139,13 @@ public class StartHandler {
         ProcessNode.Start start = definition.getGraph().start();
         if (definition.hasForm()) {
             // 子流程的表单值来自定义里的 input（人写的 JSON）：按清单的字段类型读成强类型
-            run.setForm(launch.isFullForm() ? FormValues.of(definition.getManifest().typed(launch.getForm().asMap()))
-                : FormSubmission.merge(definition.getManifest(), start.getForm(), true, FormValues.empty(), launch.getForm(), run::read));
+            if (launch.isFullForm()) {
+                run.setForm(FormValues.of(definition.getManifest().typed(launch.getForm().asMap())));
+            } else {
+                run.setForm(FormSubmission.merge(definition.getManifest(), start.getForm(), true, FormValues.empty(), launch.getForm(), run::read));
+                // 表单的后端代码：校验、计算、写业务表（子流程按定义的 input 发起，不经它）
+                run.setForm(FormCode.submit(run, definition, start.getId(), true, run.getForm()));
+            }
             FormDataEntity data = new FormDataEntity();
             data.setInstanceId(instance.getId());
             data.setFormVersionId(definition.form().getId());

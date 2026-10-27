@@ -23,6 +23,11 @@ export interface FlowFormContext {
   readonly read: (name: string) => unknown;
   /** 表单建好之后把操作交回容器 */
   readonly attach: (handle: FlowFormHandle) => void;
+  /**
+   * 调表单后端代码给前端的接口（FormHandler.actions，0004 的 1.5）：context.call('remainingBudget', { department })。
+   * 表单还没发布（编辑器的预览）时报错
+   */
+  readonly call: (action: string, args?: Readonly<Record<string, unknown>>) => Promise<unknown>;
 }
 
 /** 表单交回容器的操作 */
@@ -32,7 +37,7 @@ export interface FlowFormHandle {
   /** 现在的值（线上的样子），提交给引擎；引擎只取这个节点上能改的字段 */
   values(): Record<string, unknown>;
   /** 把引擎退回的按字段的问题（flow.validation-failed 的 errors）标到字段上 */
-  showErrors(errors: readonly { readonly field?: string; readonly code?: string }[]): void;
+  showErrors(errors: readonly { readonly field?: string; readonly code?: string; readonly params?: Readonly<Record<string, unknown>> }[]): void;
 }
 
 /** 表单代码拿到的 context：容器给的，加上按字段取权限 */

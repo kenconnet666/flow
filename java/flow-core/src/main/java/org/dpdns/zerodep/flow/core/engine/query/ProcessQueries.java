@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine.query;
 
+import org.dpdns.zerodep.flow.core.engine.form.FormCode;
+
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
@@ -53,7 +55,10 @@ public class ProcessQueries {
         LoadedDefinition definition = definitions.latest(process);
         if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", key, "not-a-starter");
         Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.getId() : null;
-        FormView form = definition.hasForm() ? forms.formView(definition, definition.getGraph().start().getForm(), true, FormValues.empty(), read) : null;
+        // 初始值：表单后端代码的 load（没有后端代码时是空的，前端用清单的默认值）
+        FormView form = definition.hasForm()
+            ? forms.formView(definition, definition.getGraph().start().getForm(), true, FormCode.load(context, definition, actor), read)
+            : null;
         List<PickView> picks = new PickPreview(definition.getGraph(), context).after(definition.getGraph().start().getId(), null, read);
         return new StartView(new StartableProcess(key, process.getName(), process.getCategory(), process.getLatestVersion()), form, picks);
     }

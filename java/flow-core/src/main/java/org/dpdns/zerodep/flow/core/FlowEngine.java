@@ -1,5 +1,13 @@
 package org.dpdns.zerodep.flow.core;
 
+import org.dpdns.zerodep.flow.core.form.FormContext;
+
+import org.dpdns.zerodep.flow.core.engine.store.Instances;
+
+import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
+
+import org.dpdns.zerodep.flow.core.engine.form.FormCode;
+
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
@@ -160,6 +168,37 @@ public class FlowEngine<U extends Actor> {
      * {@link FlowEngineBuilder#build} 时把引擎的表要的转换器与拦截器装上去（{@link FlowEasyQuery#install}）。
      */
     public static <U extends Actor> FlowEngineBuilder<U> builder(EasyEntityQuery db) { return new FlowEngineBuilder<>(db); }
+
+    // ───────── 表单的后端代码 ─────────
+
+    /** 试编译表单的后端代码（当前操作人） */
+    public List<FormCompiler.Problem> compileFormCode(String source) { return compileFormCode(actors.current(), source); }
+
+    /** 试编译表单的后端代码（Java）：返回编译出的问题（行列从 1 开始），没有问题时是空的（{@code forms.compile}） */
+    public List<FormCompiler.Problem> compileFormCode(U actor, String source) {
+        allow(actor, "forms.compile", null);
+        return new FormCompiler().compile(source == null ? "" : source).getProblems();
+    }
+
+    /** 调表单后端代码给前端的接口（当前操作人） */
+    public Object formAction(Long formVersionId, Long instanceId, String action, Map<String, Object> args) {
+        return formAction(actors.current(), formVersionId, instanceId, action, args);
+    }
+
+    /**
+     * 调表单后端代码给前端的接口（{@code FormHandler.actions}，前端 {@code context.call}）：在实例里调时要能看这个实例
+     * （权限同 {@code instance}）；发起页上调时实例为 null。
+     */
+    public Object formAction(U actor, Long formVersionId, Long instanceId, String action, Map<String, Object> args) {
+        allow(actor, "forms.action", action);
+        String processKey = null;
+        if (instanceId != null) {
+            allow(actor, "instance", String.valueOf(instanceId));
+            processKey = Instances.find(context.getDb(), instanceId).getProcessKey();
+        }
+        FormContext ctx = new FormContext(actor, processKey, instanceId, null, instanceId == null);
+        return FormCode.action(context, formVersionId, action, args == null ? Map.of() : args, ctx);
+    }
 
     // ───────── 设计中的草稿 ─────────
 

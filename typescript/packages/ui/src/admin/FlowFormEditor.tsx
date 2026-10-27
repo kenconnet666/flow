@@ -5,6 +5,7 @@
  *   - 代码：写表单的 TSX（defineFields + defineFlowForm），字段清单从代码里取出（不执行代码）。
  * 设计与代码是同一份源码、同一个代码编辑器（设计时藏起来但不卸载），撤销重做只有代码编辑器的一个历史（0004 的 3.1）。
  * 改了停一会儿自动存成草稿（写法、清单、源码，design-draft.ts），再打开时接着草稿改；发布后草稿就没了。
+ * "后端代码"页签写表单的后端代码（Java 的 FormHandler），能试编译，跟表单一起发布。
  * 边改边看：清单的问题（字段名、类型、属性……）随改随列出，没问题时右边的预览跟着变；发布定一个新版本。
  * 打开已有的表单时载入最新版本，也能载入以前的某个版本；新建时给一个最小的骨架。发布时只存源码，审批页在浏览器里编译。
  *
@@ -19,7 +20,11 @@ import {
   Field,
   Flex,
   Grid,
+  HttpError,
   Select,
+  Tab,
+  TabList,
+  Tabs,
   Text,
   TextField,
   ToggleGroup,
@@ -31,12 +36,13 @@ import {
 import { CodeEditor, type CodeEditorHandle } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { watch } from 'vue';
 import { useFlowClient } from '../client/flow-client';
-import type { PublishedForm } from '../client/types';
+import type { CompileProblem, PublishedForm } from '../client/types';
 import { applyEdits } from '../form-tools/design/edit';
 import { FlowForm } from '../form/FlowForm';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
 import { FormDesigner } from './form-designer/FormDesigner';
+import { FormServerCode } from './FormServerCode';
 import { useFlowMessages } from '../lang/messages';
 
 /** FlowFormEditor 的属性 */
@@ -75,6 +81,12 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   let mode = _state<Mode>('manifest');
   let manifestText = _state(formKey ? '' : JSON.stringify(SKELETON, null, 2));
   let source = _state('');
+  /** 后端代码（Java）；空的表示没有 */
+  let serverSource = _state('');
+  /** 发布时后端报出的编译问题 */
+  let serverProblems = _state<readonly CompileProblem[] | null>(null);
+  /** 看的是表单（清单、设计、代码），还是后端代码 */
+  let panel = _state<'form' | 'server'>('form');
   let note = _state('');
   let analysis = _state<Analysis>({ manifest: null, problems: [] });
   let failure = _state<string | null>(null);
@@ -86,7 +98,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   let openedDraft = _state<{ by: string | null; at: Date } | null>(null);
 
   /** 草稿里存的：写法、清单的文字、源码 */
-  const draftContent = () => JSON.stringify({ mode, manifestText, source });
+  const draftContent = () => JSON.stringify({ mode, manifestText, source, serverSource });
   const draft = useDesignDraft({
     kind: 'form',
     key: () => (formKey ?? key.trim()) || null,
@@ -97,10 +109,11 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
 
   /** 换上草稿里的内容 */
   function showDraft(content: string) {
-    const saved = JSON.parse(content) as { mode: Mode; manifestText: string; source: string };
+    const saved = JSON.parse(content) as { mode: Mode; manifestText: string; source: string; serverSource?: string };
     mode = saved.mode;
     manifestText = saved.manifestText;
     source = saved.source;
+    serverSource = saved.serverSource ?? '';
   }
 
   const versions = useRequest((k: string | null, signal) => (k ? flow.formVersions(k, signal) : Promise.resolve([])), {
@@ -154,6 +167,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       category = doc.category ?? '';
       manifestText = JSON.stringify(JSON.parse(doc.manifest), null, 2);
       source = doc.clientSource ?? '';
+      serverSource = doc.serverSource ?? '';
       mode = doc.clientSource ? 'design' : 'manifest';
       baseVersion = doc.version;
       const opened = withDraft ? await draft.open() : null;
@@ -208,6 +222,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         ...(category.trim() ? { category: category.trim() } : {}),
         manifest: current.manifest,
         ...(mode !== 'manifest' ? { clientSource: source } : {}),
+        ...(serverSource.trim() ? { serverLanguage: 'java' as const, serverSource } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
       });
       note = '';
@@ -217,8 +232,20 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       baseVersion = result.version;
       await versions.refresh();
       onPublished?.(result);
+      serverProblems = null;
     } catch (error) {
-      failure = errorText(error);
+      // 后端代码编不过：转到后端代码页签，问题带行列列出来
+      const compile = error instanceof HttpError ? (error.errors ?? []).filter((d) => d.code === 'compile-error') : [];
+      if (compile.length) {
+        serverProblems = compile.map((d) => ({
+          line: Number(d.params?.['line'] ?? 1),
+          column: Number(d.params?.['column'] ?? 1),
+          message: String(d.params?.['message'] ?? ''),
+        }));
+        panel = 'server';
+      } else {
+        failure = errorText(error);
+      }
     } finally {
       busy = null;
     }
@@ -254,6 +281,15 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
             </Field>
           )}
         </Flex>
+        <Tabs _value={panel} onUpdate:_value={(next: string) => (panel = next as 'form' | 'server')}>
+          <TabList aria-label={messages.formEditor}>
+            <Tab value="form">{messages.formPanelForm}</Tab>
+            <Tab value="server">{messages.formPanelServer}</Tab>
+          </TabList>
+        </Tabs>
+        {panel === 'server' && <FormServerCode _value={serverSource} problems={serverProblems} />}
+        {/* 看后端代码时表单这边藏起来但不卸载：代码编辑器的撤销历史留着 */}
+        <Flex direction="column" gap="md" style={panel === 'server' ? { display: 'none' } : undefined}>
         <ToggleGroup aria-label={messages.formMode} required _value={mode} onUpdate:_value={(next: string) => void switchMode(next as Mode)}>
           <ToggleItem value="manifest">{messages.formModeManifest}</ToggleItem>
           <ToggleItem value="design">{messages.formModeDesign}</ToggleItem>
@@ -293,6 +329,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
             )}
           </Card>
         </Grid>
+        </Flex>
         {analysis.problems.length > 0 && (
           <Alert tone="danger">
             <Flex direction="column" gap="xs">

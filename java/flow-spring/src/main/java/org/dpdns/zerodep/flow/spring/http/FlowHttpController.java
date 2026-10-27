@@ -187,6 +187,19 @@ public class FlowHttpController {
         return respond(() -> engine.designDrafts(kind));
     }
 
+    /** 试编译表单的后端代码：{@code { source }}，返回问题（行列从 1 开始） */
+    @PostMapping("/forms/compile")
+    public Map<String, Object> compileFormCode(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return respond(() -> engine.compileFormCode(RequestBody.parse(body).text("source")));
+    }
+
+    /** 调表单后端代码给前端的接口：{@code { formVersionId, instanceId, action, args }} */
+    @PostMapping("/forms/actions")
+    public Map<String, Object> formAction(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        RequestBody request = RequestBody.parse(body);
+        return respond(() -> engine.formAction(request.id("formVersionId"), request.id("instanceId"), request.text("action"), request.object("args")));
+    }
+
     /** 管理端的表单列表 */
     @GetMapping("/queries/forms")
     public Map<String, Object> forms() {

@@ -219,7 +219,7 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
         )}
         {data.form && (
           <Card>
-            <FlowForm view={data.form} mode="view" {...(people ? { people } : {})} {...(modules ? { modules } : {})} />
+            <FlowForm view={data.form} instanceId={data.instance.id} mode="view" {...(people ? { people } : {})} {...(modules ? { modules } : {})} />
           </Card>
         )}
         <Card header={messages.diagram}>

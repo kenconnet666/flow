@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine.handler;
 
+import org.dpdns.zerodep.flow.core.engine.form.FormCode;
+
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
@@ -91,6 +93,7 @@ public class CompleteHandler {
             Execution run = new Execution(context, actor, now, definition, instance, stored, instance.getRev());
             if (definition.hasForm()) {
                 run.setForm(FormSubmission.merge(definition.getManifest(), task.getForm(), false, stored, command.getForm(), run::read));
+                run.setForm(FormCode.submit(run, definition, task.getId(), false, run.getForm()));
                 Instances.saveForm(context.getDb(), instance.getId(), run.getForm());
             }
 
