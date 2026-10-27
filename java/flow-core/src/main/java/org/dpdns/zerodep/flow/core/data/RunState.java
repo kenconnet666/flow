@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /** 实例的运行状态（0007 的 {@code flow_instance.state}，引擎内部用，不给前端）。不可变：推进时换出新的一份。 */
 @Data
@@ -25,6 +26,21 @@ public class RunState {
     public static final RunState INITIAL = new RunState(Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
     /** 复制并冻结 */
+    /** 节点换了标识（实例迁到新版本）：按 旧 → 新 改掉各张表里的节点；没写的不变 */
+    public RunState renamed(Map<String, String> nodes) {
+        Function<String, String> to = node -> nodes.getOrDefault(node, node);
+        // 退回表的值也是节点
+        Map<String, String> returnsTo = new LinkedHashMap<>();
+        returns.forEach((node, back) -> returnsTo.put(node, to.apply(back)));
+        return new RunState(rekey(rounds, to), rekey(waiting, to), rekey(returnsTo, to), rekey(queues, to), rekey(waits, to));
+    }
+
+    private static <V> Map<String, V> rekey(Map<String, V> map, Function<String, String> to) {
+        Map<String, V> out = new LinkedHashMap<>();
+        map.forEach((key, value) -> out.put(to.apply(key), value));
+        return out;
+    }
+
     public RunState(Map<String, Integer> rounds, Map<String, Integer> waiting, Map<String, String> returns, Map<String, List<Long>> queues, Map<String, Instant> waits) {
         rounds = rounds == null ? Map.of() : Map.copyOf(rounds);
         waiting = waiting == null ? Map.of() : Map.copyOf(waiting);

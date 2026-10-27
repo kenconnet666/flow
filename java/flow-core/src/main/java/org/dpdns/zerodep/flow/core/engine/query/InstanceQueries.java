@@ -23,6 +23,7 @@ import org.dpdns.zerodep.flow.core.view.instance.IncidentView;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.instance.ProcessDiagram;
+import org.dpdns.zerodep.flow.core.view.instance.ProgressView;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.FieldAccess;
 import org.dpdns.zerodep.flow.model.definition.NodeFormAccess;
@@ -67,6 +68,28 @@ public class InstanceQueries {
             })
             .orderBy(i -> { i.startedAt().desc(); i.id().desc(); })
             .select(InstanceVO.class).toPageResult(page, size), page, size);
+    }
+
+    /** 外部参与方看的进度：现在在哪个环节、谁在处理、预计什么时候答复 */
+    public ProgressView progress(Long instanceId) {
+        InstanceEntity instance = Instances.find(context.getDb(), instanceId);
+        ProgressView view = new ProgressView();
+        view.setTitle(instance.getTitle());
+        view.setProcessKey(instance.getProcessKey());
+        view.setStatus(instance.getStatus());
+        view.setStartedAt(instance.getStartedAt());
+        view.setEndedAt(instance.getEndedAt());
+        view.setSteps(WorkItems.ofInstance(context.getDb(), instanceId).stream()
+            .filter(w -> WorkItemEntity.OPEN.equals(w.getState()))
+            .map(w -> {
+                ProgressView.Step step = new ProgressView.Step();
+                step.setNodeName(w.getNodeName());
+                step.setHandlerName(w.getAssigneeName());
+                step.setArrivedAt(w.getCreatedAt());
+                step.setDueAt(w.getDueAt());
+                return step;
+            }).toList());
+        return view;
     }
 
     /** 我发起的：按发起时间从新到旧 */

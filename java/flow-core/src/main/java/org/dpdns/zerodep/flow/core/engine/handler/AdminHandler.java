@@ -3,6 +3,7 @@ package org.dpdns.zerodep.flow.core.engine.handler;
 import org.dpdns.zerodep.flow.core.command.ChangeDataCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
+import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
@@ -14,14 +15,18 @@ import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
+import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.engine.node.CallBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.JobEntity;
+import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
+import org.dpdns.zerodep.flow.core.entity.WaitEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
@@ -93,6 +98,77 @@ public class AdminHandler {
             data.put("toUserId", command.getUserId());
             data.put("toUserName", name);
             run.addEvent(EventEntity.WORK_ITEM_REASSIGNED, run.getGraph().node(item.getNode()), null, null, item.getId(), command.getReason(), data);
+        });
+    }
+
+    /**
+     * 迁移到流程的另一个版本：正在用的节点（开着、等着的待办，在等的定时、事件、调用）按对应关系换到新版本的节点上
+     * （同名的可以不写），新版本里没有或类型不同时报 {@code flow.validation-failed}；运行状态里按节点记的、待办、等待、作业都跟着改，
+     * 记一条 {@code instance.migrated}。表单换成新版本用的表单版本（值不动）。
+     */
+    public CommandResult migrate(Actor actor, MigrateCommand command) {
+        if (command.getReason() == null || command.getReason().isBlank()) throw FlowErrors.invalid("reason", "required");
+        return context.transaction(() -> {
+            InstanceEntity instance = Instances.lock(context.getDb(), command.getInstanceId());
+            if (instance.getEndedAt() != null) throw FlowErrors.notActive(instance);
+            LoadedDefinition from = definitions.of(instance);
+            Long targetId = context.getDb().queryable(ProcessVersionEntity.class)
+                .where(v -> { v.processKey().eq(instance.getProcessKey()); v.version().eq(command.getVersion()); })
+                .selectColumn(v -> v.id()).firstOrNull();
+            if (targetId == null) throw FlowErrors.notFound("definition", instance.getProcessKey() + "@" + command.getVersion());
+            LoadedDefinition to = definitions.byId(targetId);
+
+            // 正在用的节点 → 新版本里的节点
+            List<WorkItemVO> live = WorkItems.ofInstance(context.getDb(), instance.getId()).stream()
+                .filter(w -> WorkItemEntity.OPEN.equals(w.getState()) || WorkItemEntity.WAITING.equals(w.getState())).toList();
+            java.util.Set<String> inUse = new java.util.LinkedHashSet<>(instance.getState().getWaits().keySet());
+            live.forEach(w -> inUse.add(w.getNode()));
+            Map<String, String> mapping = new LinkedHashMap<>();
+            for (String node : inUse) {
+                String target = command.getNodes().getOrDefault(node, node);
+                ProcessNode before = from.getGraph().node(node);
+                ProcessNode after = to.getGraph().node(target);
+                if (after == null || before == null || !after.getType().equals(before.getType())) throw FlowErrors.invalid("nodes." + node, "no-matching-node");
+                mapping.put(node, target);
+            }
+
+            Instant now = context.getClock().instant();
+            instance.setDefinitionId(to.getStored().getId());
+            instance.setVersion(to.getStored().getVersion());
+            instance.setState(instance.getState().renamed(mapping));
+            mapping.forEach((node, target) -> {
+                String name = to.getGraph().node(target).getName();
+                context.getDb().updatable(WorkItemEntity.class)
+                    .setColumns(w -> { w.node().set(target); w.nodeName().set(name); })
+                    .where(w -> { w.instanceId().eq(instance.getId()); w.node().eq(node); w.state().in(List.of(WorkItemEntity.OPEN, WorkItemEntity.WAITING)); })
+                    .executeRows();
+                context.getDb().updatable(WaitEntity.class).setColumns(w -> w.node().set(target))
+                    .where(w -> { w.instanceId().eq(instance.getId()); w.node().eq(node); }).executeRows();
+            });
+            // 定时、自动节点、等事件超时的作业里记着节点
+            for (JobEntity job : context.getDb().queryable(JobEntity.class)
+                    .where(j -> { j.instanceId().eq(instance.getId()); j.state().eq(JobEntity.PENDING); }).toList()) {
+                Object node = job.getPayload().get(BuiltinJobs.NODE);
+                if (node instanceof String n && mapping.containsKey(n) && !mapping.get(n).equals(n)) {
+                    Map<String, Object> payload = new LinkedHashMap<>(job.getPayload());
+                    payload.put(BuiltinJobs.NODE, mapping.get(n));
+                    context.getDb().updatable(JobEntity.class).setColumns(j -> j.payload().set(payload)).where(j -> j.id().eq(job.getId())).executeRows();
+                }
+            }
+            if (to.hasForm()) {
+                Long formVersionId = to.form().getId();
+                context.getDb().updatable(FormDataEntity.class).setColumns(d -> d.formVersionId().set(formVersionId))
+                    .where(d -> d.instanceId().eq(instance.getId())).executeRows();
+            }
+
+            Execution run = new Execution(context, actor, now, to, instance, Instances.form(context.getDb(), instance.getId()), instance.getRev());
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("fromVersion", from.getStored().getVersion());
+            data.put("toVersion", to.getStored().getVersion());
+            data.put("nodes", mapping);
+            run.addEvent(EventEntity.INSTANCE_MIGRATED, null, null, null, null, command.getReason(), data);
+            run.flush(null);
+            return run.toResult();
         });
     }
 

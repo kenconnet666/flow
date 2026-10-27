@@ -15,6 +15,7 @@ import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FlowCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
+import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
@@ -58,6 +59,7 @@ import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries;
 import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
 import org.dpdns.zerodep.flow.core.engine.query.ProcessQueries;
+import org.dpdns.zerodep.flow.core.engine.query.StatsQueries;
 import org.dpdns.zerodep.flow.core.engine.query.WorkItemQueries;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
@@ -83,6 +85,10 @@ import org.dpdns.zerodep.flow.core.view.instance.CcItem;
 import org.dpdns.zerodep.flow.core.view.instance.IncidentView;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceDetail;
 import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
+import org.dpdns.zerodep.flow.core.view.instance.ProgressView;
+import org.dpdns.zerodep.flow.core.view.stats.HandlerStats;
+import org.dpdns.zerodep.flow.core.view.stats.NodeStats;
+import org.dpdns.zerodep.flow.core.view.stats.ProcessStats;
 import org.dpdns.zerodep.flow.core.view.workitem.TodoItem;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemView;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
@@ -131,6 +137,7 @@ public class FlowEngine<U extends Actor> {
     private final Publishing publishing;
     private final DesignDraftHandler drafts;
     private final CalendarHandler calendarHandler;
+    private final StatsQueries stats;
     private final ProcessQueries processQueries;
     private final FormQueries formQueries;
     private final InboxQueries inbox;
@@ -157,6 +164,7 @@ public class FlowEngine<U extends Actor> {
         this.publishing = new Publishing(context);
         this.drafts = new DesignDraftHandler(context);
         this.calendarHandler = new CalendarHandler(context);
+        this.stats = new StatsQueries(context);
         this.processQueries = new ProcessQueries(context);
         this.formQueries = new FormQueries(context);
         this.inbox = new InboxQueries(context);
@@ -203,6 +211,52 @@ public class FlowEngine<U extends Actor> {
         }
         FormContext ctx = new FormContext(actor, processKey, instanceId, null, instanceId == null);
         return FormCode.action(context, formVersionId, action, args == null ? Map.of() : args, ctx);
+    }
+
+    // ───────── 迁移、进度、统计 ─────────
+
+    /** 迁移实例（当前操作人） */
+    public CommandResult migrate(MigrateCommand command) { return migrate(actors.current(), command); }
+
+    /** 管理员把实例迁到流程的另一个版本（见 {@link AdminHandler#migrate}） */
+    public CommandResult migrate(U actor, MigrateCommand command) {
+        return execute(actor, "migrate", String.valueOf(command.getInstanceId()), command, admin::migrate);
+    }
+
+    /** 外部参与方看的进度（当前操作人） */
+    public ProgressView progress(Long instanceId) { return progress(actors.current(), instanceId); }
+
+    /** 外部参与方看的进度：环节、处理人、预计答复的时间（{@code progress}，接入方按业务关系放行外部账号） */
+    public ProgressView progress(U actor, Long instanceId) {
+        allow(actor, "progress", String.valueOf(instanceId));
+        return instanceQueries.progress(instanceId);
+    }
+
+    /** 各流程的实例数（当前操作人） */
+    public List<ProcessStats> processStats() { return processStats(actors.current()); }
+
+    /** 各流程的实例数：进行中、正常结束、终止与撤回（{@code stats}） */
+    public List<ProcessStats> processStats(U actor) {
+        allow(actor, "stats", null);
+        return stats.processes();
+    }
+
+    /** 一个流程各节点的停留与超时（当前操作人） */
+    public List<NodeStats> nodeStats(String processKey, Instant since) { return nodeStats(actors.current(), processKey, since); }
+
+    /** 一个流程各人工节点从 since 起：处理了多少、平均停留几小时、超时的比例（{@code stats}） */
+    public List<NodeStats> nodeStats(U actor, String processKey, Instant since) {
+        allow(actor, "stats", processKey);
+        return stats.nodes(processKey, since);
+    }
+
+    /** 处理人的工作量（当前操作人） */
+    public List<HandlerStats> handlerStats(Instant since) { return handlerStats(actors.current(), since); }
+
+    /** 处理人的工作量：从 since 起处理完的、现在手上打开着的（{@code stats}） */
+    public List<HandlerStats> handlerStats(U actor, Instant since) {
+        allow(actor, "stats", null);
+        return stats.handlers(since);
     }
 
     // ───────── 工作日历 ─────────

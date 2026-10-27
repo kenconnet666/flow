@@ -5,10 +5,11 @@
  * 换写法时互相转：设计换到 JSON 时按当前的定义排版；JSON 换回设计时要是合法的 JSON。"校验"交给后端列出错误与警告（不发布），
  * "发布"定一个新版本。打开已有的流程时载入最新版本，也能载入以前的某个版本再改；新建时给一个最小的骨架。
  * 改了停一会儿自动存成草稿（design-draft.ts），再打开时接着草稿改，可以放弃草稿；发布后草稿就没了。
+ * "对比"列出正在改的与所基于的已发布版本差在哪（布局不算）。
  *
  *   <FlowDefinitionEditor processKey={key} people={peopleSource} onPublished={(result) => toaster.success(…)} />
  */
-import type { ProcessDefinition } from '@zerodep-dev/flow-model';
+import { diffProcess, type ProcessDefinition, type ProcessDiff } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
@@ -33,6 +34,7 @@ import { useFlowClient } from '../client/flow-client';
 import type { DefinitionProblem, PublishedDefinition } from '../client/types';
 import { useDesignerMessages } from '../lang/process-designer-messages';
 import { useFlowMessages } from '../lang/messages';
+import { DefinitionDiffView } from './DefinitionDiffView';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
 import { FlowDesigner } from './process-designer/FlowDesigner';
@@ -81,6 +83,7 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
   let loaded = _state(!processKey);
   let note = _state('');
   let problems = _state<readonly DefinitionProblem[] | null>(null);
+  let diff = _state.raw<{ version: number; result: ProcessDiff } | null>(null);
   let failure = _state<string | null>(null);
   let notice = _state<string | null>(null);
   let busy = _state<string | null>(null);
@@ -100,10 +103,13 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
     baseVersion: () => baseVersion,
   });
 
-  // 改了就不再是上次校验的那一份：校验结果收起来
+  // 改了就不再是上次校验、对比的那一份：结果收起来
   watch(
     () => [definition, text],
-    () => (problems = null),
+    () => {
+      problems = null;
+      diff = null;
+    },
   );
 
   const versions = useRequest((key: string | null, signal) => (key ? flow.versions(key, signal) : Promise.resolve([])), {
@@ -225,6 +231,22 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
     }
   }
 
+  /** 和所基于的已发布版本（新建的没有）对比 */
+  async function compare() {
+    const version = baseVersion ?? versions.data?.[0]?.version;
+    if (!processKey || version == null) return;
+    busy = 'compare';
+    failure = null;
+    try {
+      const published = JSON.parse((await flow.definitionJson(processKey, version)).json) as ProcessDefinition;
+      diff = { version, result: diffProcess(published, JSON.parse(currentJson()) as ProcessDefinition) };
+    } catch (error) {
+      failure = error instanceof SyntaxError ? messages.jsonInvalid(error.message) : errorText(error);
+    } finally {
+      busy = null;
+    }
+  }
+
   /** 问题出在哪：节点、连线、泳道、字段 */
   const where = (p: DefinitionProblem) => [p.node, p.edge, p.lane, p.field].filter(Boolean).join(' / ');
 
@@ -276,10 +298,16 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
               </Flex>
             </Alert>
           ))}
+        {diff && <DefinitionDiffView version={diff.version} diff={diff.result} />}
         <Flex gap="sm" align="end" wrap>
           <Button variant="outline" loading={busy === 'validate'} disabled={busy != null} onClick={validate}>
             {messages.validate}
           </Button>
+          {processKey && (
+            <Button variant="outline" loading={busy === 'compare'} disabled={busy != null} onClick={compare}>
+              {messages.compare}
+            </Button>
+          )}
           <Field label={messages.publishNote}>
             <TextField _value={note} />
           </Field>

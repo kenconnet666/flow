@@ -67,6 +67,8 @@ public class EventEntity implements ProxyEntityAvailable<EventEntity, EventEntit
     public static final String WORK_ITEM_ASSIGNED = "workItem.assigned";
     /** 被指定的人申请改派：待办回到负责人的"待我指定"里；comment 是原因 */
     public static final String WORK_ITEM_REASSIGN_REQUESTED = "workItem.reassignRequested";
+    /** 管理员把实例迁到流程的另一个版本：data 里是 fromVersion、toVersion 与节点的对应关系 nodes，comment 是原因 */
+    public static final String INSTANCE_MIGRATED = "instance.migrated";
     /** 管理员改数据：data 里是改了的流程变量 variables 与表单字段 form（各是 名字 → { before, after }），comment 是原因 */
     public static final String INSTANCE_DATA_CHANGED = "instance.dataChanged";
     /** 进了收件箱很久没人认领，转收件箱的负责人指定（unclaimed 的 assignByManager）：data 里是负责人 designatorId、designatorName */

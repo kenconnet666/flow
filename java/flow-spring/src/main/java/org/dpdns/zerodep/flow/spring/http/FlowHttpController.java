@@ -227,6 +227,40 @@ public class FlowHttpController {
         return respond(() -> engine.formAction(request.id("formVersionId"), request.id("instanceId"), request.text("action"), request.object("args")));
     }
 
+    /** 管理员把实例迁到另一个版本：{@code { instanceId, version, nodes: { 旧: 新 }, reason }} */
+    @PostMapping("/admin/migrate")
+    public Map<String, Object> migrate(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("admin/migrate", () -> ResponseBody.of(engine.migrate(RequestBody.parse(body).migrate())));
+    }
+
+    /** 外部参与方看的进度 */
+    @GetMapping("/queries/instances/{id}/progress")
+    public Map<String, Object> progress(@PathVariable("id") Long id) {
+        return respond(() -> engine.progress(id));
+    }
+
+    /** 统计：各流程的实例数 */
+    @GetMapping("/queries/stats/processes")
+    public Map<String, Object> processStats() {
+        return respond(() -> engine.processStats());
+    }
+
+    /** 统计：一个流程各节点的停留与超时（since 不写取 30 天前） */
+    @GetMapping("/queries/stats/nodes")
+    public Map<String, Object> nodeStats(@RequestParam("processKey") String processKey, @RequestParam(name = "since", required = false) String since) {
+        return respond(() -> engine.nodeStats(processKey, sinceOf(since)));
+    }
+
+    /** 统计：处理人的工作量（since 不写取 30 天前） */
+    @GetMapping("/queries/stats/handlers")
+    public Map<String, Object> handlerStats(@RequestParam(name = "since", required = false) String since) {
+        return respond(() -> engine.handlerStats(sinceOf(since)));
+    }
+
+    private static Instant sinceOf(String since) {
+        return since == null || since.isBlank() ? Instant.now().minus(java.time.Duration.ofDays(30)) : Instant.parse(since);
+    }
+
     /** 全部工作日历 */
     @GetMapping("/queries/calendars")
     public Map<String, Object> calendars() {

@@ -117,6 +117,55 @@ export interface SaveDraftCommand {
   readonly comment?: string;
 }
 
+/** 管理员把实例迁到流程的另一个版本 */
+export interface MigrateCommand {
+  readonly instanceId: Id;
+  readonly version: number;
+  /** 旧节点 → 新节点；同名的可以不写 */
+  readonly nodes: Readonly<Record<string, string>>;
+  readonly reason: string;
+}
+
+/** 外部参与方看的进度 */
+export interface ProgressView {
+  readonly title: string | null;
+  readonly processKey: string;
+  readonly status: string;
+  readonly startedAt: Moment;
+  readonly endedAt: Moment | null;
+  readonly steps: readonly {
+    readonly nodeName: string | null;
+    readonly handlerName: string | null;
+    readonly arrivedAt: Moment;
+    readonly dueAt: Moment | null;
+  }[];
+}
+
+/** 统计：一个流程的实例数 */
+export interface ProcessStats {
+  readonly processKey: string;
+  readonly running: number;
+  readonly completed: number;
+  readonly stopped: number;
+}
+
+/** 统计：一个人工节点的处理情况 */
+export interface NodeStats {
+  readonly node: string;
+  readonly nodeName: string | null;
+  readonly done: number;
+  readonly averageHours: number;
+  readonly overdueRate: number;
+}
+
+/** 统计：一个处理人的工作量 */
+export interface HandlerStats {
+  readonly userId: Id;
+  readonly userName: string | null;
+  readonly done: number;
+  readonly open: number;
+}
+
 /** 一份工作日历 */
 export interface WorkCalendar {
   readonly name: string;

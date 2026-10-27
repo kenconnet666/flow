@@ -27,6 +27,11 @@ import type {
   PublishedDefinition,
   BatchResult,
   WorkCalendar,
+  MigrateCommand,
+  ProgressView,
+  ProcessStats,
+  NodeStats,
+  HandlerStats,
   ChangeDataCommand,
   CompileProblem,
   DesignDraft,
@@ -149,6 +154,16 @@ export interface FlowClient {
   batchClaim(workItemIds: readonly Id[]): Promise<{ readonly results: readonly BatchResult[] }>;
   /** 批量处理：按同一个结果；不写结果时各按第一个"同意"类的 */
   batchComplete(workItemIds: readonly Id[], outcome?: string, comment?: string): Promise<{ readonly results: readonly BatchResult[] }>;
+  /** 管理员把实例迁到流程的另一个版本 */
+  migrate(command: MigrateCommand): Promise<CommandResult>;
+  /** 外部参与方看的进度 */
+  progress(instanceId: Id, signal?: AbortSignal): Promise<ProgressView>;
+  /** 统计：各流程的实例数 */
+  processStats(signal?: AbortSignal): Promise<readonly ProcessStats[]>;
+  /** 统计：一个流程各节点的停留与超时（since 是 ISO 时刻，不写取 30 天前） */
+  nodeStats(processKey: string, since?: string, signal?: AbortSignal): Promise<readonly NodeStats[]>;
+  /** 统计：处理人的工作量 */
+  handlerStats(since?: string, signal?: AbortSignal): Promise<readonly HandlerStats[]>;
   /** 全部工作日历 */
   calendars(signal?: AbortSignal): Promise<readonly WorkCalendar[]>;
   /** 保存一份工作日历（特殊日子整份换掉） */
@@ -258,6 +273,11 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     batchComplete: (workItemIds, outcome, comment) =>
       post('/commands/batch-complete', { workItemIds, ...(outcome ? { outcome } : {}), ...(comment ? { comment } : {}) }),
     changeData: (command) => post('/admin/change-data', command),
+    migrate: (command) => post('/admin/migrate', command),
+    progress: (instanceId, signal) => get(`/queries/instances/${instanceId}/progress`, signal),
+    processStats: (signal) => get('/queries/stats/processes', signal),
+    nodeStats: (processKey, since, signal) => get('/queries/stats/nodes', signal, { processKey, ...(since ? { since } : {}) }),
+    handlerStats: (since, signal) => get('/queries/stats/handlers', signal, { ...(since ? { since } : {}) }),
     calendars: (signal) => get('/queries/calendars', signal),
     saveCalendar: (calendar) => post('/calendars/save', calendar),
     deleteCalendar: async (name) => {

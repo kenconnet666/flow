@@ -10,6 +10,7 @@ import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
+import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
@@ -119,6 +120,13 @@ class RequestBody {
         }
         out.setDays(list);
         return out;
+    }
+
+    /** {@code { instanceId, version, nodes: { 旧: 新 }, reason }} */
+    MigrateCommand migrate() {
+        Map<String, String> nodes = new LinkedHashMap<>();
+        object("nodes").forEach((from, to) -> nodes.put(from, String.valueOf(to)));
+        return new MigrateCommand(id("instanceId"), number("version"), nodes, text("reason"));
     }
 
     /** 批量操作的待办：{@code { workItemIds: [...] }} */

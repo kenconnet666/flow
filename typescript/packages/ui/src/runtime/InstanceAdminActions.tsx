@@ -1,5 +1,5 @@
 /**
- * 流程详情上的管理员操作（0006 的 3.4）：暂停或恢复、终止、跳转到某个节点、把打开着的待办改派给别人。
+ * 流程详情上的管理员操作（0006 的 3.4）：暂停或恢复、终止、跳转到某个节点、改数据、迁到流程的另一个版本、把打开着的待办改派给别人。
  * 谁能做由后端的 PermissionPolicy 定；这里只管按实例的状态显示哪几个。命令由父级发（同 CollaborationActions）。
  *
  *   <InstanceAdminActions detail={data} people={peopleSource} busy={busy} onRun={(key, action) => run(key, action)} />
@@ -22,6 +22,7 @@ import {
 import { useFlowClient } from '../client/flow-client';
 import type { CommandResult, InstanceDetail } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
+import { MigrateDialog } from './MigrateDialog';
 
 /** InstanceAdminActions 的属性 */
 export interface InstanceAdminActionsProps {
@@ -50,6 +51,7 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
   let changeVariables = _state('');
   let changeForm = _state('');
   let changeError = _state<string | null>(null);
+  let migrateOpen = _state(false);
 
   const instanceId = (): Id => detail.instance.id;
   const note = () => (reason.trim() ? { reason: reason.trim() } : {});
@@ -132,6 +134,9 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
           >
             {messages.changeData}
           </Button>
+          <Button variant="outline" disabled={busy != null} onClick={() => (migrateOpen = true)}>
+            {messages.migrate}
+          </Button>
           <Popconfirm
             title={messages.terminateConfirm}
             tone="danger"
@@ -197,6 +202,7 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
             </Field>
           </Flex>
         </Dialog>
+        <MigrateDialog _open={migrateOpen} detail={detail} onConfirm={(command) => onRun('migrate', () => flow.migrate(command))} />
         {people && (
           <Dialog
             _open={reassignOpen}

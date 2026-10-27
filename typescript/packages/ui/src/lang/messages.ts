@@ -75,6 +75,51 @@ export interface FlowMessages {
   readonly changeVariables: string;
   readonly changeForm: string;
   readonly changeDataHint: string;
+  /** 实例迁到另一个版本 */
+  readonly migrate: string;
+  readonly migrateHint: string;
+  readonly migrateVersion: string;
+  readonly migrateNodeTo: (node: string) => string;
+  /** 外部参与方看的进度 */
+  readonly endedAt: string;
+  readonly progressWaiting: string;
+  readonly progressDue: string;
+  readonly progressNoDue: string;
+  /** 统计 */
+  readonly statistics: string;
+  readonly statsProcesses: string;
+  readonly statsRunning: string;
+  readonly statsCompleted: string;
+  readonly statsStopped: string;
+  readonly statsRange: string;
+  readonly lastDays: (days: number) => string;
+  readonly statsNodes: string;
+  readonly statsPickProcess: string;
+  readonly statsDone: string;
+  readonly statsAverageHours: string;
+  readonly statsOverdueRate: string;
+  readonly statsHandlers: string;
+  readonly statsOpen: string;
+  /** 导出、导入、复制 */
+  readonly exportJson: string;
+  readonly importJson: string;
+  readonly importNote: (file: string) => string;
+  readonly imported: string;
+  readonly copy: string;
+  readonly copyName: (name: string) => string;
+  readonly copyNote: (key: string) => string;
+  readonly copied: (key: string) => string;
+  /** 与已发布版本对比 */
+  readonly compare: string;
+  readonly diffNone: (version: number) => string;
+  readonly diffTitle: (version: number) => string;
+  readonly diffAdded: string;
+  readonly diffRemoved: string;
+  readonly diffChanged: string;
+  readonly diffProcess: string;
+  readonly diffNodes: string;
+  readonly diffEdges: string;
+  readonly diffLanes: string;
   /** 表单编辑器的两个页签与后端代码 */
   readonly formPanelForm: string;
   readonly formPanelServer: string;
@@ -323,6 +368,7 @@ const zhEvents: Record<string, string> = {
   'node.overdue': '等待超时',
   'workItem.reassignRequested': '申请改派',
   'instance.dataChanged': '管理员改数据',
+  'instance.migrated': '迁到新版本',
   'node.skipped': '自动跳过',
   'job.failed': '自动处理失败',
   'job.skipped': '跳过自动处理',
@@ -359,6 +405,7 @@ const enEvents: Record<string, string> = {
   'node.overdue': 'Timed out at',
   'workItem.reassignRequested': 'Asked for reassignment',
   'instance.dataChanged': 'Data changed by an administrator',
+  'instance.migrated': 'Migrated to another version',
   'node.skipped': 'Skipped automatically at',
   'job.failed': 'Automatic step failed at',
   'job.skipped': 'Skipped automatic step',
@@ -494,6 +541,46 @@ export const flowMessages: MessageTable<FlowMessages> = {
     changeVariables: '流程变量（JSON）',
     changeForm: '表单字段（JSON）',
     changeDataHint: '只写要改的名字，值写 null 是清空；改前改后都记进流转记录',
+    migrate: '迁移版本',
+    migrateHint: '把这个实例换到流程的另一个版本接着走：表单数据、流转记录都留着；正停着的节点在那个版本里没有的，要指定换成哪个。',
+    migrateVersion: '迁到哪个版本',
+    migrateNodeTo: (node) => `「${node}」换成`,
+    endedAt: '结束时间',
+    progressWaiting: '正在自动处理，稍后再看',
+    progressDue: '预计答复',
+    progressNoDue: '没有时限',
+    statistics: '统计',
+    statsProcesses: '各流程的实例',
+    statsRunning: '进行中',
+    statsCompleted: '已完成',
+    statsStopped: '终止、撤回',
+    statsRange: '时间范围',
+    lastDays: (days) => `最近 ${days} 天`,
+    statsNodes: '各环节的处理',
+    statsPickProcess: '选一个流程',
+    statsDone: '处理了',
+    statsAverageHours: '平均停留（小时）',
+    statsOverdueRate: '超时比例',
+    statsHandlers: '处理人的工作量',
+    statsOpen: '手上还有',
+    exportJson: '导出',
+    importJson: '导入',
+    importNote: (file) => `从 ${file} 导入`,
+    imported: '已导入并发布',
+    copy: '复制',
+    copyName: (name) => `${name}（副本）`,
+    copyNote: (key) => `复制自 ${key}`,
+    copied: (key) => `已复制成 ${key}`,
+    compare: '与已发布版本对比',
+    diffNone: (version) => `与 v${version} 没有差别（布局不算）`,
+    diffTitle: (version) => `与 v${version} 相比`,
+    diffAdded: '加',
+    diffRemoved: '删',
+    diffChanged: '改',
+    diffProcess: '流程属性',
+    diffNodes: '节点',
+    diffEdges: '连线',
+    diffLanes: '泳道',
     formPanelForm: '表单',
     formPanelServer: '后端代码',
     serverCodeHint: '一个 public 类实现 FormHandler（不写 package）：validate 校验、compute 算字段、submit 写业务表、actions 给前端调；可以 @Autowired 应用里的 Bean。',
@@ -698,6 +785,46 @@ export const flowMessages: MessageTable<FlowMessages> = {
     changeVariables: 'Process variables (JSON)',
     changeForm: 'Form fields (JSON)',
     changeDataHint: 'Only the names to change; null clears a value. Before and after go into the history',
+    migrate: 'Migrate version',
+    migrateHint: 'Move this instance to another version of the process: form data and history stay; steps it waits at that the version lacks need a replacement.',
+    migrateVersion: 'Target version',
+    migrateNodeTo: (node) => `Replace "${node}" with`,
+    endedAt: 'Ended at',
+    progressWaiting: 'Being processed automatically; check back later',
+    progressDue: 'Expected reply',
+    progressNoDue: 'No deadline',
+    statistics: 'Statistics',
+    statsProcesses: 'Instances by process',
+    statsRunning: 'Running',
+    statsCompleted: 'Completed',
+    statsStopped: 'Terminated or withdrawn',
+    statsRange: 'Period',
+    lastDays: (days) => `Last ${days} days`,
+    statsNodes: 'Steps',
+    statsPickProcess: 'Pick a process',
+    statsDone: 'Done',
+    statsAverageHours: 'Average hours',
+    statsOverdueRate: 'Overdue',
+    statsHandlers: 'Workload',
+    statsOpen: 'Open',
+    exportJson: 'Export',
+    importJson: 'Import',
+    importNote: (file) => `Imported from ${file}`,
+    imported: 'Imported and published',
+    copy: 'Copy',
+    copyName: (name) => `${name} (copy)`,
+    copyNote: (key) => `Copied from ${key}`,
+    copied: (key) => `Copied as ${key}`,
+    compare: 'Compare with published',
+    diffNone: (version) => `No difference from v${version} (layout ignored)`,
+    diffTitle: (version) => `Compared with v${version}`,
+    diffAdded: 'Added',
+    diffRemoved: 'Removed',
+    diffChanged: 'Changed',
+    diffProcess: 'Process settings',
+    diffNodes: 'Nodes',
+    diffEdges: 'Edges',
+    diffLanes: 'Lanes',
     formPanelForm: 'Form',
     formPanelServer: 'Backend code',
     serverCodeHint: 'One public class implementing FormHandler (no package): validate, compute fields, submit to business tables, actions for the front end; @Autowired beans work.',
