@@ -191,7 +191,11 @@ export const zhCN: FlowMessages = {
   requestReassign: '申请改派',
   batchClaim: '批量认领',
   batchApprove: '批量同意',
-  batchReport: (ok, failed) => (failed ? `做成 ${ok} 条，${failed} 条没做成（已被别人处理、要填表单……），请逐条打开处理` : `做成 ${ok} 条`),
+  batchReport: (kind, ok, failed) => {
+    const done = `已${kind === 'claim' ? '认领' : '同意'} ${ok} 条`;
+    return failed ? `${done}，${failed} 条没办成（已被别人处理、要填表单、流程暂停……），请逐条打开处理` : done;
+  },
+  batchApproveConfirm: (count) => `同意选中的 ${count} 条？每条都按它的"同意"处理`,
   changeData: '改数据',
   changeVariables: '流程变量（JSON）',
   changeForm: '表单字段（JSON）',

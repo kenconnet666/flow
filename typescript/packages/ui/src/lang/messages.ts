@@ -96,7 +96,8 @@ export interface FlowMessages {
   readonly requestReassign: string;
   readonly batchClaim: string;
   readonly batchApprove: string;
-  readonly batchReport: (ok: number, failed: number) => string;
+  readonly batchReport: (kind: 'claim' | 'approve', ok: number, failed: number) => string;
+  readonly batchApproveConfirm: (count: number) => string;
   readonly changeData: string;
   readonly changeVariables: string;
   readonly changeForm: string;
@@ -356,7 +357,16 @@ export const useFlowMessages = () => useMessages('flow', flowMessages);
 export const flowErrorCodes: MessageTable<Readonly<Record<FlowErrorCode, ErrorCodeText>>> = {
   'zh-CN': {
     'flow.not-found': '要找的流程、待办或实例不存在',
-    'flow.forbidden': '没有权限做这件事',
+    // 后端在 reason 里说了为什么不行时说具体原因
+    'flow.forbidden': (p) =>
+      ({
+        disabled: '这个流程已经停用，不能发起',
+        'not-a-starter': '你不在这个流程能发起的人里',
+        'not-the-initiator': '只有发起人能撤回',
+        'not-visible': '你没有参与这个流程，看不到它',
+        'not-suspended': '流程没有暂停，不用恢复',
+        'not-waiting': '这个自动处理已经不在等了，不能再重试或跳过',
+      })[String(p['reason'])] ?? '没有权限做这件事',
     'flow.not-candidate': '你不是这个待办的处理人',
     'flow.already-claimed': '这个待办已经被别人认领了',
     'flow.work-item-not-open': '这个待办已经处理过了',
@@ -370,7 +380,15 @@ export const flowErrorCodes: MessageTable<Readonly<Record<FlowErrorCode, ErrorCo
   },
   'en-US': {
     'flow.not-found': 'The process, task or instance does not exist',
-    'flow.forbidden': 'You are not allowed to do this',
+    'flow.forbidden': (p) =>
+      ({
+        disabled: 'This process is disabled and cannot be started',
+        'not-a-starter': 'You are not among the people who can start this process',
+        'not-the-initiator': 'Only the starter can withdraw it',
+        'not-visible': 'You have not taken part in this process and cannot see it',
+        'not-suspended': 'The process is not suspended',
+        'not-waiting': 'This automatic step is no longer waiting; it cannot be retried or skipped',
+      })[String(p['reason'])] ?? 'You are not allowed to do this',
     'flow.not-candidate': 'You are not working on this task',
     'flow.already-claimed': 'Someone else has claimed this task',
     'flow.work-item-not-open': 'This task has already been completed',

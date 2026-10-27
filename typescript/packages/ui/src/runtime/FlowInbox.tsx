@@ -10,7 +10,7 @@
  */
 import type { TodoItem } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Badge, Button, Flex, Link, Small, useFormat, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
+import { Badge, Button, Flex, Link, Popconfirm, Small, useFormat, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
 import { watch } from 'vue';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
@@ -144,7 +144,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     try {
       const { results } = kind === 'claim' ? await flow.batchClaim(ids) : await flow.batchComplete(ids);
       const failed = results.filter((r) => !r.ok);
-      report = messages.batchReport(results.length - failed.length, failed.length);
+      report = messages.batchReport(kind, results.length - failed.length, failed.length);
       selected = [];
       await query.refresh();
     } finally {
@@ -158,9 +158,18 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
         <Button size="sm" variant="outline" disabled={selected.length === 0 || busy != null} loading={busy === 'claim'} onClick={() => void batch('claim')}>
           {messages.batchClaim}
         </Button>
-        <Button size="sm" variant="outline" disabled={selected.length === 0 || busy != null} loading={busy === 'approve'} onClick={() => void batch('approve')}>
-          {messages.batchApprove}
-        </Button>
+        {/* 一次同意好几单：先确认，不是点错就办了 */}
+        <Popconfirm
+          title={messages.batchApproveConfirm(selected.length)}
+          confirmText={messages.confirm}
+          cancelText={messages.cancel}
+          onConfirm={() => batch('approve')}
+          trigger={(props) => (
+            <Button {...props} size="sm" variant="outline" disabled={selected.length === 0 || busy != null} loading={busy === 'approve'}>
+              {messages.batchApprove}
+            </Button>
+          )}
+        />
         {report && <Small tone="muted">{report}</Small>}
       </Flex>
     );

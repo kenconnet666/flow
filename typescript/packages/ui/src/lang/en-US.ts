@@ -192,7 +192,11 @@ export const enUS: FlowMessages = {
   requestReassign: 'Request reassignment',
   batchClaim: 'Claim selected',
   batchApprove: 'Approve selected',
-  batchReport: (ok, failed) => (failed ? `${ok} done, ${failed} not done (handled by someone else, form required…); open them one by one` : `${ok} done`),
+  batchReport: (kind, ok, failed) => {
+    const done = `${kind === 'claim' ? 'Claimed' : 'Approved'} ${ok}`;
+    return failed ? `${done}; ${failed} not done (handled by someone else, form required, suspended…); open them one by one` : done;
+  },
+  batchApproveConfirm: (count) => `Approve the ${count} selected? Each one is approved with its own "approve" outcome`,
   changeData: 'Change data',
   changeVariables: 'Process variables (JSON)',
   changeForm: 'Form fields (JSON)',
