@@ -4,6 +4,7 @@
  * 流程定义的编辑 FlowDefinitionEditor（设计器 FlowDesigner 与 JSON 两种写法）。流程详情的管理员操作在主入口的 FlowInstanceDetail（admin）。
  * 谁能用由后端的 PermissionPolicy 定。
  */
+export { FlowCalendars } from './FlowCalendars';
 export { FlowDefinitionEditor, type FlowDefinitionEditorProps } from './FlowDefinitionEditor';
 export { FlowDesigner, type FlowDesignerProps } from './process-designer/FlowDesigner';
 export { FlowFormEditor, type FlowFormEditorProps } from './FlowFormEditor';

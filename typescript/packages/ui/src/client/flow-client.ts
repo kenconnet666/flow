@@ -26,6 +26,7 @@ import type {
   ProcessSummary,
   PublishedDefinition,
   BatchResult,
+  WorkCalendar,
   ChangeDataCommand,
   CompileProblem,
   DesignDraft,
@@ -62,6 +63,13 @@ export interface FlowPage<T> extends TablePage<T> {
 export type TodoPage = FlowPage<TodoItem>;
 
 /** 分页的参数 */
+/** 我已办、我发起的、抄送我的的筛选：流程、起止时刻（ISO） */
+export interface ListQuery {
+  readonly processKey?: string;
+  readonly from?: string;
+  readonly to?: string;
+}
+
 export interface PageQuery {
   readonly page: number;
   readonly pageSize: number;
@@ -78,9 +86,9 @@ export interface FlowClient {
   /** 等我指定承办人的（没人认领、我是收件箱负责人） */
   designations(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 我已办：按处理时间从新到旧 */
-  done(query: PageQuery, signal?: AbortSignal): Promise<TodoPage>;
+  done(query: PageQuery & ListQuery, signal?: AbortSignal): Promise<TodoPage>;
   /** 我发起的：按发起时间从新到旧 */
-  started(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
+  started(query: PageQuery & ListQuery, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
   /** 管理端搜实例：按发起时间从新到旧 */
   instances(query: PageQuery & InstanceSearch, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
   /** 管理端的流程列表 */
@@ -120,7 +128,7 @@ export interface FlowClient {
   /** 停用、启用表单：停用后新发布的流程不能再选它 */
   setFormActive(formKey: string, active: boolean): Promise<FormSummary>;
   /** 抄送我的：未读在前 */
-  ccList(query: PageQuery, signal?: AbortSignal): Promise<FlowPage<CcItem>>;
+  ccList(query: PageQuery & ListQuery, signal?: AbortSignal): Promise<FlowPage<CcItem>>;
   /** 待办详情 */
   workItem(id: Id, signal?: AbortSignal): Promise<WorkItemView>;
   /** 实例详情 */
@@ -141,6 +149,12 @@ export interface FlowClient {
   batchClaim(workItemIds: readonly Id[]): Promise<{ readonly results: readonly BatchResult[] }>;
   /** 批量处理：按同一个结果；不写结果时各按第一个"同意"类的 */
   batchComplete(workItemIds: readonly Id[], outcome?: string, comment?: string): Promise<{ readonly results: readonly BatchResult[] }>;
+  /** 全部工作日历 */
+  calendars(signal?: AbortSignal): Promise<readonly WorkCalendar[]>;
+  /** 保存一份工作日历（特殊日子整份换掉） */
+  saveCalendar(calendar: WorkCalendar): Promise<WorkCalendar>;
+  /** 删掉一份工作日历 */
+  deleteCalendar(name: string): Promise<void>;
   /** 管理员改流程变量、表单字段 */
   changeData(command: ChangeDataCommand): Promise<CommandResult>;
   /** 撤回刚处理的一步：下一步还没人动时，待办回到自己手里 */
@@ -198,10 +212,10 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     startable: (signal) => get('/queries/startable', signal),
     startView: (key, signal) => get(`/queries/start/${encodeURIComponent(key)}`, signal),
     todo: ({ page, pageSize }, signal) => get('/queries/todo', signal, { page, pageSize }),
-    done: ({ page, pageSize }, signal) => get('/queries/done', signal, { page, pageSize }),
+    done: (query, signal) => get('/queries/done', signal, { ...query }),
     designations: ({ page, pageSize }, signal) => get('/queries/designations', signal, { page, pageSize }),
-    started: ({ page, pageSize }, signal) => get('/queries/started', signal, { page, pageSize }),
-    ccList: ({ page, pageSize }, signal) => get('/queries/cc', signal, { page, pageSize }),
+    started: (query, signal) => get('/queries/started', signal, { ...query }),
+    ccList: (query, signal) => get('/queries/cc', signal, { ...query }),
     instances: ({ page, pageSize, ...search }, signal) => {
       // 空的条件不发：后端按"不限"处理
       const filters = Object.fromEntries(Object.entries(search).filter(([, v]) => v != null && v !== '')) as Record<string, string>;
@@ -244,6 +258,11 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     batchComplete: (workItemIds, outcome, comment) =>
       post('/commands/batch-complete', { workItemIds, ...(outcome ? { outcome } : {}), ...(comment ? { comment } : {}) }),
     changeData: (command) => post('/admin/change-data', command),
+    calendars: (signal) => get('/queries/calendars', signal),
+    saveCalendar: (calendar) => post('/calendars/save', calendar),
+    deleteCalendar: async (name) => {
+      await post('/calendars/delete', { name });
+    },
     withdrawStep: (workItemId, reason) => post('/commands/withdraw-step', { workItemId, ...(reason ? { reason } : {}) }),
     transfer: (command) => post('/commands/transfer', command),
     delegate: (command) => post('/commands/delegate', command),

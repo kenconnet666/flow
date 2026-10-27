@@ -24,6 +24,11 @@
     { "as": "bob", "command": "batchComplete", "args": { "workItems": ["$a.workItems[0]", "$b.workItems[0]"], "outcome": "pass" },
       "expect": { "results": [{ "ok": true }, { "ok": true }] } },
 
+    { "as": "bob", "command": "done", "args": { "processKey": "purchase" }, "expect": { "total": 2 } },
+    { "as": "bob", "command": "done", "args": { "processKey": "assign-demo" }, "expect": { "total": 0 } },
+    { "as": "bob", "command": "done", "args": { "from": "2026-10-27T00:00:00Z" }, "expect": { "total": 0 } },
+    { "as": "alice", "command": "started", "args": { "processKey": "purchase", "to": "2026-10-26T08:00:01Z" }, "expect": { "total": 2 } },
+
     { "id": "fix", "as": "alice", "command": "start", "args": { "key": "assign-demo" } },
     { "command": "runJobs", "args": { "at": "2026-10-26T09:00:00Z" }, "expect": { "ran": 1 } },
     { "as": "boss", "command": "assign", "args": { "workItem": "$fix.workItems[0]", "user": 1003 } },

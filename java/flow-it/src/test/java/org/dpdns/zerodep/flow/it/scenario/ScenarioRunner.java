@@ -34,6 +34,7 @@ import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
+import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.it.scenario.Scenario.Step;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
@@ -126,7 +127,7 @@ class ScenarioRunner {
                 case "startView" -> view(engine.startView(actor, args.text("key")));
                 case "todo" -> page(engine.todo(actor, args.number("page", 1), args.number("size", 20)));
                 case "workItem" -> view(engine.workItem(actor, args.id("workItem")));
-                case "done" -> page(engine.done(actor, args.number("page", 1), args.number("size", 20)));
+                case "done" -> page(engine.done(actor, args.filter(), args.number("page", 1), args.number("size", 20)));
                 case "instances" -> page(engine.instances(actor, new InstanceSearch(args.text("status"), args.text("processKey"),
                     args.text("keyword"), args.id("startedBy")), args.number("page", 1), args.number("size", 20)));
                 case "validateDefinition" -> wire(Map.of("problems", engine.validateDefinition(actor, Json.write(args.raw("definition")))));
@@ -145,7 +146,7 @@ class ScenarioRunner {
                 }
                 case "processes" -> wire(Map.of("processes", engine.processes(actor)));
                 case "incidents" -> page(engine.incidents(actor, args.id("instance"), args.number("page", 1), args.number("size", 20)));
-                case "started" -> page(engine.started(actor, args.number("page", 1), args.number("size", 20)));
+                case "started" -> page(engine.started(actor, args.filter(), args.number("page", 1), args.number("size", 20)));
                 case "instance" -> view(engine.instance(actor, args.id("instance")));
                 case "transfer" -> commandResult(engine.transfer(actor, new TransferCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
                 case "delegate" -> commandResult(engine.delegate(actor, new DelegateCommand(args.id("workItem"), args.id("user"), args.text("reason"))));
@@ -168,7 +169,7 @@ class ScenarioRunner {
                 case "skipJob" -> commandResult(engine.skipJob(actor, new SkipJobCommand(args.id("job"), args.text("outcome"), args.text("reason"))));
                 case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
                 case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));
-                case "ccList" -> page(engine.ccList(actor, args.number("page", 1), args.number("size", 20)));
+                case "ccList" -> page(engine.ccList(actor, args.filter(), args.number("page", 1), args.number("size", 20)));
                 case "terminate" -> commandResult(engine.terminate(actor, new TerminateCommand(args.id("instance"), args.text("reason"))));
                 case "suspend" -> commandResult(engine.suspend(actor, new SuspendCommand(args.id("instance"), args.text("reason"))));
                 case "resume" -> commandResult(engine.resume(actor, new ResumeCommand(args.id("instance"))));
@@ -274,6 +275,13 @@ class ScenarioRunner {
             Map<String, List<Long>> out = new LinkedHashMap<>();
             map("picks").forEach((node, users) -> out.put(node, ((List<?>) users).stream().map(Arguments::toId).toList()));
             return out;
+        }
+
+        /** 列表的筛选：processKey、from、to（ISO 时刻） */
+        ListFilter filter() {
+            String from = text("from");
+            String to = text("to");
+            return new ListFilter(text("processKey"), from == null ? null : Instant.parse(from), to == null ? null : Instant.parse(to));
         }
 
         /** 一串编号 */

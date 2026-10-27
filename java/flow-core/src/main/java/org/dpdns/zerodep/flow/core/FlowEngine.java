@@ -40,6 +40,7 @@ import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.form.FormCode;
 import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
 import org.dpdns.zerodep.flow.core.engine.handler.AdminHandler;
+import org.dpdns.zerodep.flow.core.engine.handler.CalendarHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.ClaimHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.CollaborationHandler;
 import org.dpdns.zerodep.flow.core.engine.handler.CompleteHandler;
@@ -55,6 +56,7 @@ import org.dpdns.zerodep.flow.core.engine.query.FormQueries;
 import org.dpdns.zerodep.flow.core.engine.query.InboxQueries;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries;
+import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
 import org.dpdns.zerodep.flow.core.engine.query.ProcessQueries;
 import org.dpdns.zerodep.flow.core.engine.query.WorkItemQueries;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
@@ -67,6 +69,7 @@ import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.identity.ActorProvider;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.view.Page;
+import org.dpdns.zerodep.flow.core.view.definition.CalendarVO;
 import org.dpdns.zerodep.flow.core.view.definition.DefinitionProblem;
 import org.dpdns.zerodep.flow.core.view.definition.DesignDraftVO;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessSummary;
@@ -127,6 +130,7 @@ public class FlowEngine<U extends Actor> {
     private final StepWithdrawal stepWithdrawals;
     private final Publishing publishing;
     private final DesignDraftHandler drafts;
+    private final CalendarHandler calendarHandler;
     private final ProcessQueries processQueries;
     private final FormQueries formQueries;
     private final InboxQueries inbox;
@@ -152,6 +156,7 @@ public class FlowEngine<U extends Actor> {
         this.stepWithdrawals = new StepWithdrawal(context);
         this.publishing = new Publishing(context);
         this.drafts = new DesignDraftHandler(context);
+        this.calendarHandler = new CalendarHandler(context);
         this.processQueries = new ProcessQueries(context);
         this.formQueries = new FormQueries(context);
         this.inbox = new InboxQueries(context);
@@ -198,6 +203,35 @@ public class FlowEngine<U extends Actor> {
         }
         FormContext ctx = new FormContext(actor, processKey, instanceId, null, instanceId == null);
         return FormCode.action(context, formVersionId, action, args == null ? Map.of() : args, ctx);
+    }
+
+    // ───────── 工作日历 ─────────
+
+    /** 全部工作日历（当前操作人） */
+    public List<CalendarVO> calendars() { return calendars(actors.current()); }
+
+    /** 全部工作日历，连同节假日与调休（{@code calendars.read}） */
+    public List<CalendarVO> calendars(U actor) {
+        allow(actor, "calendars.read", null);
+        return calendarHandler.list();
+    }
+
+    /** 保存一份工作日历（当前操作人） */
+    public CalendarVO saveCalendar(CalendarVO calendar) { return saveCalendar(actors.current(), calendar); }
+
+    /** 保存一份工作日历：时区、一周哪几天上班、全部特殊日子整份换掉（{@code calendars.save}） */
+    public CalendarVO saveCalendar(U actor, CalendarVO calendar) {
+        allow(actor, "calendars.save", calendar.getName());
+        return calendarHandler.save(calendar);
+    }
+
+    /** 删掉一份工作日历（当前操作人） */
+    public void deleteCalendar(String name) { deleteCalendar(actors.current(), name); }
+
+    /** 删掉一份工作日历：用它的流程之后按周一到周五算（{@code calendars.delete}） */
+    public void deleteCalendar(U actor, String name) {
+        allow(actor, "calendars.delete", name);
+        calendarHandler.delete(name);
     }
 
     // ───────── 设计中的草稿 ─────────
@@ -685,21 +719,33 @@ public class FlowEngine<U extends Actor> {
     }
 
     /** 我已办（当前操作人） */
-    public Page<TodoItem> done(int page, int size) { return done(actors.current(), page, size); }
+    public Page<TodoItem> done(int page, int size) { return done(actors.current(), ListFilter.NONE, page, size); }
 
-    /** 我处理过的待办，按处理时间从新到旧 */
-    public Page<TodoItem> done(U actor, int page, int size) {
+    /** 我处理过的待办（当前操作人，筛选） */
+    public Page<TodoItem> done(ListFilter filter, int page, int size) { return done(actors.current(), filter, page, size); }
+
+    /** 我处理过的待办（不筛） */
+    public Page<TodoItem> done(U actor, int page, int size) { return done(actor, ListFilter.NONE, page, size); }
+
+    /** 我处理过的待办，按处理时间从新到旧；可以按流程、处理时间筛 */
+    public Page<TodoItem> done(U actor, ListFilter filter, int page, int size) {
         allow(actor, "done", String.valueOf(actor.getId()));
-        return inbox.done(actor, page, size);
+        return inbox.done(actor, filter, page, size);
     }
 
     /** 抄送我的（当前操作人） */
-    public Page<CcItem> ccList(int page, int size) { return ccList(actors.current(), page, size); }
+    public Page<CcItem> ccList(int page, int size) { return ccList(actors.current(), ListFilter.NONE, page, size); }
 
-    /** 抄送我的：未读在前 */
-    public Page<CcItem> ccList(U actor, int page, int size) {
+    /** 抄送我的（当前操作人，筛选） */
+    public Page<CcItem> ccList(ListFilter filter, int page, int size) { return ccList(actors.current(), filter, page, size); }
+
+    /** 抄送我的（不筛） */
+    public Page<CcItem> ccList(U actor, int page, int size) { return ccList(actor, ListFilter.NONE, page, size); }
+
+    /** 抄送我的：未读在前；可以按流程、抄送时间筛 */
+    public Page<CcItem> ccList(U actor, ListFilter filter, int page, int size) {
         allow(actor, "cc.list", String.valueOf(actor.getId()));
-        return inbox.ccList(actor, page, size);
+        return inbox.ccList(actor, filter, page, size);
     }
 
     /** 管理端搜实例（当前操作人） */
@@ -733,12 +779,18 @@ public class FlowEngine<U extends Actor> {
     }
 
     /** 我发起的（当前操作人） */
-    public Page<InstanceVO> started(int page, int size) { return started(actors.current(), page, size); }
+    public Page<InstanceVO> started(int page, int size) { return started(actors.current(), ListFilter.NONE, page, size); }
 
-    /** 我发起的实例，按发起时间从新到旧 */
-    public Page<InstanceVO> started(U actor, int page, int size) {
+    /** 我发起的实例（当前操作人，筛选） */
+    public Page<InstanceVO> started(ListFilter filter, int page, int size) { return started(actors.current(), filter, page, size); }
+
+    /** 我发起的实例（不筛） */
+    public Page<InstanceVO> started(U actor, int page, int size) { return started(actor, ListFilter.NONE, page, size); }
+
+    /** 我发起的实例，按发起时间从新到旧；可以按流程、发起时间筛 */
+    public Page<InstanceVO> started(U actor, ListFilter filter, int page, int size) {
         allow(actor, "started", String.valueOf(actor.getId()));
-        return instanceQueries.started(actor, page, size);
+        return instanceQueries.started(actor, filter, page, size);
     }
 
     /** 实例详情（当前操作人） */

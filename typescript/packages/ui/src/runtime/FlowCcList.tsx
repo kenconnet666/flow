@@ -11,6 +11,7 @@ import { Badge, Flex, Link, useTableQuery, type DataTableColumn } from '@zerodep
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
+import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './list-filters';
 import { statusTone } from './status';
 
 /** FlowCcList 的属性 */
@@ -29,9 +30,10 @@ export interface FlowCcListProps {
 export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, title }: FlowCcListProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
-  const query = useTableQuery((q, signal) => flow.ccList({ page: q.page, pageSize: q.pageSize }, signal), {
+  const filterFields = useListFilters();
+  const query = useTableQuery((q, signal) => flow.ccList({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters) }, signal), {
     pageSize,
-    filters: {},
+    filters: { ...BLANK_LIST_FILTERS },
   });
 
   async function open(item: CcItem) {
@@ -76,6 +78,8 @@ export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, tit
       query={query}
       columns={[...defaults(), ...columns]}
       getKey={(item) => String(item.id)}
+      blankFilters={BLANK_LIST_FILTERS}
+      filters={filterFields}
       title={title ?? messages.ccList}
     />
   );

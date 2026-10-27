@@ -1,12 +1,7 @@
 package org.dpdns.zerodep.flow.core;
 
-import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
-
-import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
-
-import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
-
 import com.easy.query.api.proxy.client.EasyEntityQuery;
+import org.dpdns.zerodep.flow.core.calendar.TableWorkCalendar;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.db.FlowEasyQuery;
@@ -14,7 +9,10 @@ import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.EventDispatcher;
 import org.dpdns.zerodep.flow.core.engine.TenantScope;
+import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
+import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
+import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
@@ -47,7 +45,8 @@ public class FlowEngineBuilder<U extends Actor> {
     private PermissionPolicy<U> permissions = PermissionPolicy.allowAll();
     private Clock clock = Clock.systemUTC();
     private Supplier<Long> tenant = () -> 0L;
-    private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
+    /** 不给时按表里的工作日历算（管理端维护；一份都没建时周一到周五、UTC） */
+    private WorkCalendar calendar;
     private final List<JobHandler> jobHandlers = new ArrayList<>();
     private final List<FlowListener> listeners = new ArrayList<>();
     private final List<NotificationChannel> channels = new ArrayList<>();
@@ -110,7 +109,7 @@ public class FlowEngineBuilder<U extends Actor> {
         if (org == null) throw new IllegalStateException("an OrgDirectory is required: the engine has no default organisation");
         // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
         FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
-        return new FlowEngine<>(new EngineContext(db, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
+        return new FlowEngine<>(new EngineContext(db, clock, org, calendar != null ? calendar : new TableWorkCalendar(db, ZoneOffset.UTC), new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
             new Extensions(resolvers, guards, actions), new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions, List.copyOf(interceptors),
             List.copyOf(jobHandlers));
     }

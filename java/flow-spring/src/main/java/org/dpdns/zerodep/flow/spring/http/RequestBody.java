@@ -30,12 +30,14 @@ import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.view.definition.CalendarVO;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -94,6 +96,29 @@ class RequestBody {
     /** {@code { instanceId, variables, form, reason }} */
     ChangeDataCommand changeData() {
         return new ChangeDataCommand(id("instanceId"), Variables.of(object("variables")), FormValues.of(object("form")), text("reason"));
+    }
+
+    /** {@code { name, zone, workweek, days: [{ day, workday, note }] }}：日子是 typed JSON 的 date，写成 "2026-10-01" 也认 */
+    CalendarVO calendar() {
+        CalendarVO out = new CalendarVO();
+        out.setName(text("name"));
+        out.setZone(text("zone"));
+        out.setWorkweek(text("workweek"));
+        Object days = fields.get("days");
+        List<CalendarVO.Day> list = new ArrayList<>();
+        if (days instanceof List<?> items) {
+            for (Object item : items) {
+                if (!(item instanceof Map<?, ?> map)) throw invalid("days", "expected-object");
+                CalendarVO.Day day = new CalendarVO.Day();
+                Object value = map.get("day");
+                day.setDay(value instanceof LocalDate date ? date : LocalDate.parse(String.valueOf(value)));
+                day.setWorkday(Boolean.TRUE.equals(map.get("workday")));
+                day.setNote(map.get("note") instanceof String note ? note : null);
+                list.add(day);
+            }
+        }
+        out.setDays(list);
+        return out;
     }
 
     /** 批量操作的待办：{@code { workItemIds: [...] }} */

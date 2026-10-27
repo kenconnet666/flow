@@ -11,6 +11,7 @@ import { Badge, Link, useTableQuery, type DataTableColumn } from '@zerodep-dev/v
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
+import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './list-filters';
 import { statusTone } from './status';
 
 /** FlowStartedList 的属性 */
@@ -29,9 +30,10 @@ export interface FlowStartedListProps {
 export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20, title }: FlowStartedListProps) => {
   const flow = useFlowClient();
   const messages = useFlowMessages();
-  const query = useTableQuery((q, signal) => flow.started({ page: q.page, pageSize: q.pageSize }, signal), {
+  const filterFields = useListFilters();
+  const query = useTableQuery((q, signal) => flow.started({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters) }, signal), {
     pageSize,
-    filters: {},
+    filters: { ...BLANK_LIST_FILTERS },
   });
 
   const defaults = (): DataTableColumn<ProcessInstance>[] => [
@@ -72,6 +74,8 @@ export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20
       query={query}
       columns={[...defaults(), ...columns]}
       getKey={(instance) => String(instance.id)}
+      blankFilters={BLANK_LIST_FILTERS}
+      filters={filterFields}
       title={title ?? messages.startedList}
     />
   );

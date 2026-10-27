@@ -72,9 +72,15 @@ public class InboxQueries {
     }
 
     /** 我处理过的：按处理时间从新到旧，每行带实例与处理结果的名字 */
-    public Page<TodoItem> done(Actor actor, int page, int size) {
+    public Page<TodoItem> done(Actor actor, ListFilter filter, int page, int size) {
         Page<TodoItem> rows = Page.of(context.getDb().queryable(WorkItemEntity.class)
-            .where(w -> { w.completedBy().eq(actor.getId()); w.state().eq(WorkItemEntity.DONE); })
+            .where(w -> {
+                w.completedBy().eq(actor.getId());
+                w.state().eq(WorkItemEntity.DONE);
+                if (filter.hasProcess()) w.processKey().eq(filter.getProcessKey());
+                if (filter.getFrom() != null) w.completedAt().ge(filter.getFrom());
+                if (filter.getTo() != null) w.completedAt().lt(filter.getTo());
+            })
             .orderBy(w -> { w.completedAt().desc(); w.id().desc(); })
             .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
         rows.getRows().forEach(this::labelOutcome);
@@ -97,9 +103,15 @@ public class InboxQueries {
     }
 
     /** 抄送我的：未读在前，已读的按读的时间从新到旧，同样的按抄送时间从新到旧；每行带实例 */
-    public Page<CcItem> ccList(Actor actor, int page, int size) {
+    public Page<CcItem> ccList(Actor actor, ListFilter filter, int page, int size) {
         return Page.of(context.getDb().queryable(CcEntity.class)
-            .where(c -> c.recipientId().eq(actor.getId()))
+            .where(c -> {
+                c.recipientId().eq(actor.getId());
+                // 抄送上没有流程标识：沿导航 instance 隐式连表
+                if (filter.hasProcess()) c.instance().processKey().eq(filter.getProcessKey());
+                if (filter.getFrom() != null) c.createdAt().ge(filter.getFrom());
+                if (filter.getTo() != null) c.createdAt().lt(filter.getTo());
+            })
             .orderBy(c -> { c.readAt().desc(true, OrderByModeEnum.NULLS_FIRST); c.createdAt().desc(); c.id().desc(); })
             .selectAutoInclude(CcItem.class).toPageResult(page, size), page, size);
     }

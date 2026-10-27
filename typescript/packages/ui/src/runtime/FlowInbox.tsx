@@ -14,6 +14,7 @@ import { Badge, Button, Flex, Link, Small, useFormat, useTableQuery, type DataTa
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
+import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './list-filters';
 import { statusTone } from './status';
 
 /** FlowInbox 的属性 */
@@ -35,11 +36,15 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
   const flow = useFlowClient();
   const messages = useFlowMessages();
   const format = useFormat();
-  const query = useTableQuery((q, signal) => flow[list]({ page: q.page, pageSize: q.pageSize }, signal), {
-    pageSize,
-    // 两个列表现在都没有筛选条件
-    filters: {},
-  });
+  // 我已办能按流程、处理时间筛；待办、待我指定不筛
+  const filterFields = useListFilters();
+  const query = useTableQuery(
+    (q, signal) =>
+      list === 'done'
+        ? flow.done({ page: q.page, pageSize: q.pageSize, ...listFilterParams(q.filters) }, signal)
+        : flow[list]({ page: q.page, pageSize: q.pageSize }, signal),
+    { pageSize, filters: { ...BLANK_LIST_FILTERS } },
+  );
 
   const titleColumn = (): DataTableColumn<TodoItem> => ({
     key: 'title',
@@ -151,6 +156,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
       query={query}
       columns={[...(list === 'done' ? doneColumns() : todoColumns()), ...columns]}
       getKey={(item) => String(item.id)}
+      {...(list === 'done' ? { blankFilters: BLANK_LIST_FILTERS, filters: filterFields } : {})}
       {...(list === 'todo' ? { selectionMode: 'multiple' as const, _selected: selected, 'onUpdate:_selected': (keys: string[]) => (selected = keys), toolbar: toolbar() } : {})}
       title={title ?? (list === 'done' ? messages.doneList : list === 'designations' ? messages.designationList : messages.inbox)}
     />

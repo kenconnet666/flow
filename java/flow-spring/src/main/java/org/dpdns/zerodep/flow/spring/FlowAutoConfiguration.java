@@ -3,6 +3,7 @@ package org.dpdns.zerodep.flow.spring;
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
+import org.dpdns.zerodep.flow.core.calendar.TableWorkCalendar;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
@@ -84,7 +85,8 @@ public class FlowAutoConfiguration {
         actors.ifAvailable(builder::actorProvider);
         permissions.ifAvailable(builder::permissionPolicy);
         clock.ifUnique(builder::clock);
-        builder.workCalendar(calendar.getIfAvailable(() -> WorkCalendar.weekdays(ZoneId.of(properties.getCalendar().getZone()))));
+        // 没有自己的日历时按表里的工作日历算（管理端维护），一份都没建时周一到周五
+        builder.workCalendar(calendar.getIfAvailable(() -> new TableWorkCalendar(db, ZoneId.of(properties.getCalendar().getZone()))));
         jobHandlers.orderedStream().forEach(builder::jobHandler);
         listeners.orderedStream().forEach(builder::listener);
         channels.orderedStream().forEach(builder::channel);

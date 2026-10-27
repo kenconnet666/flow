@@ -2,6 +2,7 @@
  * 引擎 HTTP 接口的请求与结果（0006 的 7.3）：两个后端相同。运行时的形状（实例、待办、流转记录）在模型包，
  * 这里是查询页面用的视图（发起页、待办详情）与命令的参数。编号是 bigint（见模型包的 runtime.ts）。
  */
+import type { CalendarDate } from '@internationalized/date';
 import type {
   FlowEvent,
   FormManifest,
@@ -114,6 +115,22 @@ export interface SaveDraftCommand {
   readonly workItemId: Id;
   readonly form?: Readonly<Record<string, unknown>>;
   readonly comment?: string;
+}
+
+/** 一份工作日历 */
+export interface WorkCalendar {
+  readonly name: string;
+  readonly zone: string;
+  /** 一周哪几天上班：1 是周一，7 是周日，逗号分隔 */
+  readonly workweek: string;
+  readonly days: readonly WorkCalendarDay[];
+}
+
+/** 工作日历的一个特殊日子：节假日不上班，调休补班要上班 */
+export interface WorkCalendarDay {
+  readonly day: CalendarDate;
+  readonly workday: boolean;
+  readonly note: string | null;
 }
 
 /** 批量认领、处理时一个待办的结果 */

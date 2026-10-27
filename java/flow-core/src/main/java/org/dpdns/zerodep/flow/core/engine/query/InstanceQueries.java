@@ -70,9 +70,14 @@ public class InstanceQueries {
     }
 
     /** 我发起的：按发起时间从新到旧 */
-    public Page<InstanceVO> started(Actor actor, int page, int size) {
+    public Page<InstanceVO> started(Actor actor, ListFilter filter, int page, int size) {
         return Page.of(context.getDb().queryable(InstanceEntity.class)
-            .where(i -> i.startedBy().eq(actor.getId()))
+            .where(i -> {
+                i.startedBy().eq(actor.getId());
+                if (filter.hasProcess()) i.processKey().eq(filter.getProcessKey());
+                if (filter.getFrom() != null) i.startedAt().ge(filter.getFrom());
+                if (filter.getTo() != null) i.startedAt().lt(filter.getTo());
+            })
             .orderBy(i -> { i.startedAt().desc(); i.id().desc(); })
             .select(InstanceVO.class).toPageResult(page, size), page, size);
     }

@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.spring.http;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.engine.query.InstanceQueries.InstanceSearch;
+import org.dpdns.zerodep.flow.core.engine.query.ListFilter;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
 import org.dpdns.zerodep.flow.model.error.FlowException;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -225,6 +227,28 @@ public class FlowHttpController {
         return respond(() -> engine.formAction(request.id("formVersionId"), request.id("instanceId"), request.text("action"), request.object("args")));
     }
 
+    /** 全部工作日历 */
+    @GetMapping("/queries/calendars")
+    public Map<String, Object> calendars() {
+        return respond(() -> engine.calendars());
+    }
+
+    /** 保存一份工作日历：{@code { name, zone, workweek, days: [{ day, workday, note }] }} */
+    @PostMapping("/calendars/save")
+    public Map<String, Object> saveCalendar(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("calendars/save", () -> engine.saveCalendar(RequestBody.parse(body).calendar()));
+    }
+
+    /** 删掉一份工作日历：{@code { name }} */
+    @PostMapping("/calendars/delete")
+    public Map<String, Object> deleteCalendar(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        RequestBody request = RequestBody.parse(body);
+        return command("calendars/delete", () -> {
+            engine.deleteCalendar(request.text("name"));
+            return Map.of();
+        });
+    }
+
     /** 管理端的表单列表 */
     @GetMapping("/queries/forms")
     public Map<String, Object> forms() {
@@ -271,8 +295,11 @@ public class FlowHttpController {
     /** 我已办 */
     @GetMapping("/queries/done")
     public Map<String, Object> done(@RequestParam(name = "page", defaultValue = "1") int page,
-                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-        return respond(() -> engine.done(page, pageSize));
+                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+                                       @RequestParam(name = "processKey", required = false) String processKey,
+                                       @RequestParam(name = "from", required = false) String from,
+                                       @RequestParam(name = "to", required = false) String to) {
+        return respond(() -> engine.done(filter(processKey, from, to), page, pageSize));
     }
 
     /** 外部事件：{@code { instanceId 或 businessKey, event, outcome, data }}，返回 {@code { results: [每个往下走的实例这一步的结果] }} */
@@ -358,8 +385,11 @@ public class FlowHttpController {
     /** 抄送我的 */
     @GetMapping("/queries/cc")
     public Map<String, Object> ccList(@RequestParam(name = "page", defaultValue = "1") int page,
-                                         @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-        return respond(() -> engine.ccList(page, pageSize));
+                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+                                       @RequestParam(name = "processKey", required = false) String processKey,
+                                       @RequestParam(name = "from", required = false) String from,
+                                       @RequestParam(name = "to", required = false) String to) {
+        return respond(() -> engine.ccList(filter(processKey, from, to), page, pageSize));
     }
 
     /** 抄送：{@code { instanceId, users, message }} */
@@ -389,8 +419,16 @@ public class FlowHttpController {
     /** 我发起的 */
     @GetMapping("/queries/started")
     public Map<String, Object> started(@RequestParam(name = "page", defaultValue = "1") int page,
-                                          @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-        return respond(() -> engine.started(page, pageSize));
+                                       @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+                                       @RequestParam(name = "processKey", required = false) String processKey,
+                                       @RequestParam(name = "from", required = false) String from,
+                                       @RequestParam(name = "to", required = false) String to) {
+        return respond(() -> engine.started(filter(processKey, from, to), page, pageSize));
+    }
+
+    /** 列表的筛选：时刻写成 ISO 的文字（2026-10-01T00:00:00Z） */
+    private static ListFilter filter(String processKey, String from, String to) {
+        return new ListFilter(processKey, from == null || from.isBlank() ? null : Instant.parse(from), to == null || to.isBlank() ? null : Instant.parse(to));
     }
 
     /** 待办详情：表单、处理结果、我能不能认领与处理 */

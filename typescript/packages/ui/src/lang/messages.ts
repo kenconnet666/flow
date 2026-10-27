@@ -47,6 +47,25 @@ export interface FlowMessages {
   readonly submit: string;
   /** 暂存：填了一半先存 */
   readonly saveDraft: string;
+  /** 列表筛选的起止日期 */
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  /** 工作日历 */
+  readonly calendars: string;
+  readonly calendarsHint: string;
+  readonly calendarPick: string;
+  readonly calendarName: string;
+  readonly calendarZone: string;
+  readonly calendarWorkweek: string;
+  readonly weekdays: readonly string[];
+  readonly calendarDays: string;
+  readonly calendarDay: string;
+  readonly calendarWorkday: string;
+  readonly calendarNote: string;
+  readonly calendarAddDay: string;
+  readonly calendarSaved: string;
+  readonly save: string;
+  readonly remove: string;
   /** 申请改派、批量、改数据 */
   readonly requestReassign: string;
   readonly batchClaim: string;
@@ -450,6 +469,23 @@ export const flowMessages: MessageTable<FlowMessages> = {
     submit: '提交',
     saveDraft: '暂存',
     formNotPublished: '表单发布之后才能调后端代码的接口',
+    dateFrom: '从',
+    dateTo: '到',
+    calendars: '工作日历',
+    calendarsHint: '时限写成工作日时按它算。流程定义的 settings.calendar 写日历的名字，不写用 default；一份都没建时按周一到周五算。',
+    calendarPick: '改哪一份',
+    calendarName: '名字',
+    calendarZone: '时区',
+    calendarWorkweek: '一周哪几天上班',
+    weekdays: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+    calendarDays: '节假日与调休',
+    calendarDay: '日子',
+    calendarWorkday: '这天上班（调休补班）',
+    calendarNote: '说明',
+    calendarAddDay: '加一天',
+    calendarSaved: '工作日历已保存',
+    save: '保存',
+    remove: '删除',
     requestReassign: '申请改派',
     batchClaim: '批量认领',
     batchApprove: '批量同意',
@@ -637,6 +673,23 @@ export const flowMessages: MessageTable<FlowMessages> = {
     submit: 'Submit',
     saveDraft: 'Save draft',
     formNotPublished: 'The form backend code can be called once the form is published',
+    dateFrom: 'From',
+    dateTo: 'To',
+    calendars: 'Work calendars',
+    calendarsHint: 'Deadlines in workdays use them. A process names its calendar in settings.calendar (default when missing); with none, Monday to Friday.',
+    calendarPick: 'Edit',
+    calendarName: 'Name',
+    calendarZone: 'Time zone',
+    calendarWorkweek: 'Working days of the week',
+    weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    calendarDays: 'Holidays and make-up days',
+    calendarDay: 'Day',
+    calendarWorkday: 'Working day (make-up)',
+    calendarNote: 'Note',
+    calendarAddDay: 'Add a day',
+    calendarSaved: 'The calendar was saved',
+    save: 'Save',
+    remove: 'Delete',
     requestReassign: 'Request reassignment',
     batchClaim: 'Claim selected',
     batchApprove: 'Approve selected',
