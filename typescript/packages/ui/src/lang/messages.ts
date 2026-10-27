@@ -45,6 +45,9 @@ export interface FlowMessages {
   readonly cancel: string;
   /** 发起 */
   readonly submit: string;
+  /** 暂存：填了一半先存 */
+  readonly saveDraft: string;
+  readonly draftSaved: (time: string) => string;
   /** 流转记录 */
   readonly timeline: string;
   /** 实例的状态 */
@@ -414,6 +417,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
     confirm: '确定',
     cancel: '取消',
     submit: '提交',
+    saveDraft: '暂存',
+    draftSaved: (time) => `已暂存（${time}）`,
     timeline: '流转记录',
     status: { active: '进行中', suspended: '已暂停', completed: '已完成', terminated: '已终止', withdrawn: '已撤回' },
     event: (type, node, outcome) => {
@@ -576,6 +581,8 @@ export const flowMessages: MessageTable<FlowMessages> = {
     confirm: 'OK',
     cancel: 'Cancel',
     submit: 'Submit',
+    saveDraft: 'Save draft',
+    draftSaved: (time) => `Draft saved (${time})`,
     timeline: 'History',
     status: { active: 'In progress', suspended: 'Suspended', completed: 'Completed', terminated: 'Terminated', withdrawn: 'Withdrawn' },
     event: (type, node, outcome) => {

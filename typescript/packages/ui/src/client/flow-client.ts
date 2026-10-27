@@ -38,6 +38,7 @@ import type {
   RemindCommand,
   RemoveSignersCommand,
   StartableProcess,
+  SaveDraftCommand,
   StartCommand,
   StartView,
   WithdrawCommand,
@@ -111,6 +112,8 @@ export interface FlowClient {
   claim(workItemId: Id): Promise<CommandResult>;
   /** 处理 */
   complete(command: CompleteCommand): Promise<CommandResult>;
+  /** 暂存：填了一半先存在待办上，不提交 */
+  saveDraft(command: SaveDraftCommand): Promise<CommandResult>;
   /** 撤回 */
   withdraw(command: WithdrawCommand): Promise<CommandResult>;
   /** 撤回刚处理的一步：下一步还没人动时，待办回到自己手里 */
@@ -199,6 +202,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     start: (command) => post('/commands/start', command),
     claim: (workItemId) => post('/commands/claim', { workItemId }),
     complete: (command) => post('/commands/complete', command),
+    saveDraft: (command) => post('/commands/save-draft', command),
     withdraw: (command) => post('/commands/withdraw', command),
     withdrawStep: (workItemId, reason) => post('/commands/withdraw-step', { workItemId, ...(reason ? { reason } : {}) }),
     transfer: (command) => post('/commands/transfer', command),

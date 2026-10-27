@@ -12,9 +12,10 @@ import java.util.List;
  * @param claimable 我能认领（在收件箱里、我是候选）
  * @param completable 我能处理（落到我的；或在收件箱里、我是候选——处理时顺带认领）
  * @param actions   处理之外我现在能做的协作（审批页上的"转办""委派"……按钮）
+ * @param draft     我暂存过的（表单里已经显示暂存的值）；没有、不是我的待办时为 null
  */
 public record WorkItemView(WorkItemVO workItem, InstanceVO instance, FormView form, List<OutcomeView> outcomes,
-                           boolean claimable, boolean completable, Actions actions) {
+                           boolean claimable, boolean completable, Actions actions, DraftVO draft) {
     /**
      * 处理之外我现在能做的协作：能处理、节点上的 {@code allow} 没关掉时才能做（0005 人工节点的 allow、0006 的 3.1）。
      *

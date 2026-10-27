@@ -8,6 +8,7 @@ import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
@@ -115,6 +116,7 @@ final class ScenarioRunner {
                 case "claim" -> commandResult(engine.claim(actor, new ClaimCommand(args.id("workItem"))));
                 case "complete" -> commandResult(engine.complete(actor, new CompleteCommand(args.id("workItem"), args.text("outcome"),
                     args.text("comment"), FormValues.of(args.map("form")), args.picks(), args.text("returnTarget"))));
+                case "saveDraft" -> commandResult(engine.saveDraft(actor, new SaveDraftCommand(args.id("workItem"), FormValues.of(args.map("form")), args.text("comment"))));
                 case "withdraw" -> commandResult(engine.withdraw(actor, new WithdrawCommand(args.id("instance"), args.text("reason"))));
                 case "startable" -> wire(Map.of("processes", engine.startable(actor)));
                 case "startView" -> view(engine.startView(actor, args.text("key")));

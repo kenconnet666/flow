@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
+import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.view.WorkItemVO;
@@ -56,6 +57,7 @@ final class WorkItems {
             .setColumns(w -> {
                 w.outcome().set(outcome);
                 w.comment().set(comment);
+                w.draft().set((WorkItemDraft) null);
                 w.completedBy().set(by);
                 w.completedByName().set(byName);
                 w.completedAt().set(at);

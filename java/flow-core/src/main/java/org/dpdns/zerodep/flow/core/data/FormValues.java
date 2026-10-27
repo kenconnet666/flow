@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.data;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -17,6 +18,14 @@ public final class FormValues extends JsonFields {
 
     /** 从 JSON 形状的 Map 来 */
     public static FormValues of(Map<String, ?> fields) { return fields == null || fields.isEmpty() ? EMPTY : new FormValues(fields); }
+
+    /** 这些值盖上 other 里的（other 里没有的字段不变） */
+    public FormValues with(FormValues other) {
+        if (other == null || other.asMap().isEmpty()) return this;
+        Map<String, Object> merged = new LinkedHashMap<>(asMap());
+        merged.putAll(other.asMap());
+        return new FormValues(merged);
+    }
 
     /** 没有字段 */
     public static FormValues empty() { return EMPTY; }

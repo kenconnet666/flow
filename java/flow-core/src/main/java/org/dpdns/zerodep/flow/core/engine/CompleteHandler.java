@@ -2,9 +2,11 @@ package org.dpdns.zerodep.flow.core.engine;
 
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
@@ -95,6 +97,35 @@ public final class CompleteHandler {
 
             // 7. 写回
             run.flush(null);
+            return run.result();
+        });
+    }
+
+    /**
+     * 暂存：在收件箱里的先认领给我，表单只收这个节点上能改的字段、不查必填，连同意见存在待办上；不推进、不记流转记录。
+     */
+    public CommandResult saveDraft(Actor actor, SaveDraftCommand command) {
+        return context.transaction(() -> {
+            WorkItemVO item = WorkItems.find(context.db(), command.workItemId());
+            InstanceEntity instance = Instances.find(context.db(), item.getInstanceId());
+            ClaimHandler.requireActive(instance);
+            if (item.getAssigneeId() == null) claims.claim(actor, item);
+            else if (!item.getAssigneeId().equals(actor.id())) throw FlowErrors.notCandidate(item.getId());
+
+            LoadedDefinition definition = definitions.of(instance);
+            ProcessNode.Task task = (ProcessNode.Task) definition.graph().node(item.getNode());
+            FormValues stored = Instances.form(context.db(), instance.getId());
+            Execution run = new Execution(context, actor, context.clock().instant(), definition, instance, stored, instance.getRev());
+            FormValues form = definition.hasForm()
+                ? FormSubmission.draft(definition.manifest(), task.form(), stored, command.form(), run::read)
+                : FormValues.empty();
+            String comment = command.comment() == null || command.comment().isBlank() ? null : command.comment();
+            WorkItemDraft draft = new WorkItemDraft(form, comment, run.now());
+            long saved = context.db().updatable(WorkItemEntity.class)
+                .setColumns(w -> w.draft().set(draft))
+                .where(w -> { w.id().eq(item.getId()); w.state().eq(WorkItemEntity.OPEN); })
+                .executeRows();
+            if (saved != 1) throw FlowErrors.notOpen(item.getId());
             return run.result();
         });
     }

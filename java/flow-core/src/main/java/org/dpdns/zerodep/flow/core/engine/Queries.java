@@ -3,6 +3,7 @@ package org.dpdns.zerodep.flow.core.engine;
 import com.easy.query.api.proxy.entity.select.EntityQueryable;
 import com.easy.query.core.func.def.enums.OrderByModeEnum;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.CcEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -16,6 +17,7 @@ import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.view.CcItem;
+import org.dpdns.zerodep.flow.core.view.DraftVO;
 import org.dpdns.zerodep.flow.core.view.FlowEventVO;
 import org.dpdns.zerodep.flow.core.view.FormDocument;
 import org.dpdns.zerodep.flow.core.view.FormSummary;
@@ -287,7 +289,12 @@ public final class Queries {
 
         FormValues stored = Instances.form(context.db(), instance.getId());
         Function<String, Object> read = name -> References.read(name, instance, stored);
-        FormView form = definition.hasForm() ? formView(definition, task.form(), false, stored, read) : null;
+        // 我暂存过的接着填：表单显示暂存的值
+        WorkItemDraft draft = open && mine
+            ? context.db().queryable(WorkItemEntity.class).whereById(item.getId()).selectColumn(w -> w.draft()).singleOrNull()
+            : null;
+        FormValues shown = draft == null ? stored : stored.with(draft.getForm());
+        FormView form = definition.hasForm() ? formView(definition, task.form(), false, shown, read) : null;
         boolean completable = open && (mine || candidate);
         PickPreview preview = new PickPreview(definition.graph(), context);
         List<WorkItemView.ReturnTarget> targets = completable && task.outcomes().stream().anyMatch(Outcome::choosesTarget)
@@ -305,7 +312,8 @@ public final class Queries {
             ? new WorkItemView.Actions(task.allow().transfer(), task.allow().delegate(), task.allow().addSign(),
                 mine && WorkItemEntity.CLAIMED.equals(item.getAssignment()), assign, withdrawStep)
             : new WorkItemView.Actions(false, false, false, false, assign, withdrawStep);
-        return new WorkItemView(item, Instances.view(context.db(), instance.getId()), form, outcomes, open && candidate, completable, actions);
+        return new WorkItemView(item, Instances.view(context.db(), instance.getId()), form, outcomes, open && candidate, completable, actions,
+            draft == null ? null : new DraftVO(draft.getComment(), draft.getSavedAt()));
     }
 
     /**

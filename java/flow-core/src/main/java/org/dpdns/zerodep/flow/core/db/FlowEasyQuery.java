@@ -37,6 +37,7 @@ public final class FlowEasyQuery {
         config.applyValueConverter(new JsonColumns.RunStateJson());
         config.applyValueConverter(new JsonColumns.CurrentNodesJson());
         config.applyValueConverter(new JsonColumns.ObjectJson());
+        config.applyValueConverter(new JsonColumns.DraftJson());
         config.applyInterceptor(new FlowInterceptors.Tenant(tenant));
         config.applyInterceptor(new FlowInterceptors.Touch(clock));
     }

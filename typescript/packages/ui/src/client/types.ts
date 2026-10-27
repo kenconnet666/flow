@@ -99,6 +99,21 @@ export interface WorkItemView {
   readonly completable: boolean;
   /** 处理之外我现在能做的协作 */
   readonly actions: WorkItemActions;
+  /** 我暂存过的（表单里已经是暂存的值）；没有时为 null */
+  readonly draft: WorkItemDraft | null;
+}
+
+/** 待办上我暂存过的：写了一半的意见与暂存的时间 */
+export interface WorkItemDraft {
+  readonly comment: string | null;
+  readonly savedAt: Moment;
+}
+
+/** 暂存：填了一半先存，不提交 */
+export interface SaveDraftCommand {
+  readonly workItemId: Id;
+  readonly form?: Readonly<Record<string, unknown>>;
+  readonly comment?: string;
 }
 
 /** 处理之外我现在能做的协作：能处理、节点上的 allow 没关掉时才能做 */

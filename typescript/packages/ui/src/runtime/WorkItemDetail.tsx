@@ -19,6 +19,7 @@ import {
   HttpError,
   Popconfirm,
   Skeleton,
+  Small,
   useErrorMessage,
   useFormat,
   useRequest,
@@ -34,6 +35,7 @@ import { CollaborationActions, type Collaboration } from './CollaborationActions
 import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
 import { statusTone } from './status';
+import { watch } from 'vue';
 
 /** WorkItemDetail 的属性 */
 export interface WorkItemDetailProps {
@@ -63,6 +65,15 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
   let commentError = _state<string | undefined>(undefined);
   let busy = _state<string | null>(null);
   let failure = _state<string | null>(null);
+  let saved = _state<string | null>(null);
+
+  // 打开时接着暂存过的意见写
+  watch(
+    () => view.data?.draft,
+    (draft) => {
+      if (draft?.comment && !comment) comment = draft.comment;
+    },
+  );
 
   /** 引擎退回的错误：按字段的标回表单与意见框，其余显示在顶上并重新加载（状态可能已经变了） */
   function report(error: unknown) {
@@ -114,6 +125,20 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
 
   const claim = () => run('claim', () => flow.claim(id));
 
+  /** 暂存：不校验必填，存下表单与意见；留在这一页，不算办完 */
+  async function saveDraft() {
+    busy = 'saveDraft';
+    failure = null;
+    try {
+      await flow.saveDraft({ workItemId: id, ...(form ? { form: form.values() } : {}), ...(comment.trim() ? { comment: comment.trim() } : {}) });
+      saved = messages.draftSaved(format.date(new Date(), { timeStyle: 'short' }));
+    } catch (error) {
+      report(error);
+    } finally {
+      busy = null;
+    }
+  }
+
   /** 处理：先校验表单；返回成功没有（选人框按它决定关不关） */
   async function complete(outcome: OutcomeView, picks: Record<string, Id[]>, target?: string): Promise<boolean> {
     commentError = undefined;
@@ -136,6 +161,8 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
     if (!data) return <Skeleton />;
     const { workItem, instance } = data;
     const open = workItem.state === 'open';
+    const savedText =
+      saved ?? (data.draft ? messages.draftSaved(format.date(data.draft.savedAt.toDate(), { dateStyle: 'medium', timeStyle: 'short' })) : null);
     return (
       <Flex direction="column" gap="lg">
         {failure && <Alert tone="danger" onClose={() => (failure = null)}>{failure}</Alert>}
@@ -175,6 +202,14 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
             <Button variant="outline" loading={busy === 'claim'} disabled={busy != null && busy !== 'claim'} onClick={claim}>
               {messages.claim}
             </Button>
+          </Flex>
+        )}
+        {data.completable && (
+          <Flex gap="sm" align="center">
+            <Button variant="outline" loading={busy === 'saveDraft'} disabled={busy != null && busy !== 'saveDraft'} onClick={saveDraft}>
+              {messages.saveDraft}
+            </Button>
+            {savedText && <Small tone="muted">{savedText}</Small>}
           </Flex>
         )}
         {data.completable && (

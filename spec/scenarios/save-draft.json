@@ -1,0 +1,31 @@
+{
+  "name": "暂存：在收件箱里的先认领给我；只收这个节点上能改的字段，不查必填只查值；再打开时表单显示暂存的值、带着意见；处理完就清掉",
+  "forms": ["forms/purchase-form.json"],
+  "processes": ["processes/purchase.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "eve": { "id": 1006, "name": "宋知遥", "roles": [1] }
+  },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "purchase", "form": { "title": "椅子", "amount": "100.00" } } },
+    { "as": "bob", "command": "saveDraft",
+      "args": { "workItem": "$start.workItems[0]", "form": { "title": "想改标题", "note": "还在核预算" }, "comment": "明天再看" } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": {
+        "workItem": { "assignment": "claimed", "assigneeId": "1002" },
+        "form": { "values": { "title": "椅子", "note": "还在核预算" } },
+        "draft": { "comment": "明天再看" }
+      } },
+    { "as": "eve", "command": "saveDraft", "args": { "workItem": "$start.workItems[0]", "form": { "note": "我也写" } },
+      "expect": { "error": { "code": "flow.not-candidate" } } },
+    { "as": "eve", "command": "workItem", "args": { "workItem": "$start.workItems[0]" },
+      "expect": { "draft": null, "form": { "values": { "note": null } } } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$start.workItems[0]", "outcome": "pass", "form": { "note": "预算内" } } },
+    { "as": "bob", "command": "workItem", "args": { "workItem": "$start.workItems[0]" }, "expect": { "draft": null } }
+  ],
+  "$types": {
+    "steps.args.form.amount": "decimal"
+  }
+}

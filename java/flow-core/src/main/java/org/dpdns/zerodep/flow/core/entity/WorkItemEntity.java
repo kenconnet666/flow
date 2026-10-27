@@ -1,15 +1,17 @@
 package org.dpdns.zerodep.flow.core.entity;
 
 import com.easy.query.core.annotation.Column;
-import com.easy.query.core.annotation.OrderByProperty;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Navigate;
+import com.easy.query.core.annotation.OrderByProperty;
 import com.easy.query.core.annotation.Table;
 import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
+import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
+import org.dpdns.zerodep.flow.core.db.JsonColumns;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 
 import java.time.Instant;
@@ -78,6 +80,9 @@ public class WorkItemEntity implements ProxyEntityAvailable<WorkItemEntity, Work
     private Instant lastRemindedAt;
     private Boolean needsDesignation;
     private Long designatorId;
+    /** 暂存：处理人填了一半先存下的表单与意见；没有时为 null，处理完时清掉 */
+    @Column(conversion = JsonColumns.DraftJson.class)
+    private WorkItemDraft draft;
     private String outcome;
     private String comment;
     private Long completedBy;

@@ -5,6 +5,7 @@ import com.easy.query.core.metadata.ColumnMetadata;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity.CurrentNode;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
@@ -108,6 +109,27 @@ public final class JsonColumns {
                 out.add(new CurrentNode((String) node.get("node"), (String) node.get("name")));
             }
             return List.copyOf(out);
+        }
+    }
+
+    /** 待办上的暂存：{ "form": { 字段: 值 }, "comment": 意见, "savedAt": 时刻 } */
+    public static final class DraftJson implements ValueConverter<WorkItemDraft, String> {
+        @Override
+        public String serialize(WorkItemDraft value, ColumnMetadata column) {
+            if (value == null) return null;
+            Map<String, Object> json = new LinkedHashMap<>();
+            json.put("form", value.getForm() == null ? Map.of() : value.getForm().asMap());
+            if (value.getComment() != null) json.put("comment", value.getComment());
+            json.put("savedAt", value.getSavedAt());
+            return write(json);
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public WorkItemDraft deserialize(String value, ColumnMetadata column) {
+            if (value == null) return null;
+            Map<String, Object> json = object(value);
+            return new WorkItemDraft(FormValues.of((Map<String, Object>) json.get("form")), (String) json.get("comment"), (Instant) json.get("savedAt"));
         }
     }
 

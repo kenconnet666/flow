@@ -9,6 +9,8 @@ import org.dpdns.zerodep.flow.model.form.FormAccess;
 import org.dpdns.zerodep.flow.model.form.FormManifest;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -43,5 +45,21 @@ final class FormSubmission {
                 submission.errors().stream().map(ErrorDetail::of).toList());
         }
         return FormValues.of(submission.values());
+    }
+
+    /**
+     * 暂存的值：只留提交里这个节点上能改的字段，按类型、长度、范围查（不查必填：还没填完）；有问题时同样报 {@code flow.validation-failed}。
+     */
+    static FormValues draft(FormManifest manifest, NodeFormAccess access, FormValues stored, FormValues submitted, Function<String, Object> read) {
+        Map<String, FormAccess.FieldState> states = FormAccess.fieldStates(manifest, access, false, read);
+        FormAccess.Submission submission = FormAccess.mergeSubmission(manifest, states, stored.asMap(), submitted.asMap());
+        List<ErrorDetail> problems = submission.errors().stream().filter(e -> !"required".equals(e.code())).map(ErrorDetail::of).toList();
+        if (!problems.isEmpty()) throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the draft has " + problems.size() + " problem(s)", problems);
+        Map<String, Object> editable = new LinkedHashMap<>();
+        submitted.asMap().forEach((name, value) -> {
+            FormAccess.FieldState state = states.get(name);
+            if (state != null && state.editable()) editable.put(name, value);
+        });
+        return FormValues.of(editable);
     }
 }

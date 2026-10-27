@@ -24,6 +24,7 @@ import java.util.function.Supplier;
  * <pre>
  * POST {前缀}/commands/start      { key, form, variables, businessKey, title, priority }
  * POST {前缀}/commands/claim      { workItemId }
+ * POST {前缀}/commands/save-draft { workItemId, form, comment }
  * POST {前缀}/commands/complete   { workItemId, outcome, comment, form, picks, returnTarget }
  * POST {前缀}/commands/withdraw   { instanceId, reason }
  * POST {前缀}/commands/transfer、delegate、add-signers、remove-signers、release、remind、comment、cc、read-cc、signal、assign、withdraw-step
@@ -65,6 +66,11 @@ public class FlowHttpController {
     @PostMapping("/commands/complete")
     public Map<String, Object> complete(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
         return command("commands/complete", () -> ResponseBody.of(engine.complete(RequestBody.parse(body).complete())));
+    }
+
+    @PostMapping("/commands/save-draft")
+    public Map<String, Object> saveDraft(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/save-draft", () -> ResponseBody.of(engine.saveDraft(RequestBody.parse(body).saveDraft())));
     }
 
     @PostMapping("/commands/withdraw")

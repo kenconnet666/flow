@@ -10,6 +10,7 @@ import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FlowCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
@@ -273,6 +274,14 @@ public final class FlowEngine<U extends Actor> {
     /** 处理一个待办（步骤见 {@link CompleteHandler}） */
     public CommandResult complete(U actor, CompleteCommand command) {
         return execute(actor, "complete", String.valueOf(command.workItemId()), command, completions::handle);
+    }
+
+    /** 暂存（当前操作人） */
+    public CommandResult saveDraft(SaveDraftCommand command) { return saveDraft(actors.current(), command); }
+
+    /** 暂存：填了一半先存在待办上，不提交（见 {@link CompleteHandler#saveDraft}） */
+    public CommandResult saveDraft(U actor, SaveDraftCommand command) {
+        return execute(actor, "saveDraft", String.valueOf(command.workItemId()), command, completions::saveDraft);
     }
 
     /** 撤回（当前操作人） */

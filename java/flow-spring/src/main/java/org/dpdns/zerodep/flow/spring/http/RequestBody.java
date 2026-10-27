@@ -6,6 +6,7 @@ import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
@@ -75,6 +76,9 @@ final class RequestBody {
     CompleteCommand complete() {
         return new CompleteCommand(id("workItemId"), text("outcome"), text("comment"), FormValues.of(object("form")), picks(), text("returnTarget"));
     }
+
+    /** {@code { workItemId, form, comment }} */
+    SaveDraftCommand saveDraft() { return new SaveDraftCommand(id("workItemId"), FormValues.of(object("form")), text("comment")); }
 
     /** {@code { instanceId, reason }} */
     WithdrawCommand withdraw() { return new WithdrawCommand(id("instanceId"), text("reason")); }
