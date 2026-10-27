@@ -30,6 +30,7 @@ import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 import org.dpdns.zerodep.wire.Json;
+import org.dpdns.zerodep.wire.Wire;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,8 +38,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 请求体（JSON 文字）读成命令。用 query wire 的 {@link Json#read} 读，不经过 Web 框架的 Jackson：小数不经 double、不丢精度，
- * 也不管应用用的是 Jackson 2 还是 3。前端按 typed JSON 发（vue-tsx-pro 的 {@code toWire}），根上的 {@code $types} 用不上，忽略。
+ * 请求体（JSON 文字）读成命令：{@link Json#read} 读、{@link Wire#decode} 按根上的 {@code $types} 还原，不经过 Web 框架的 Jackson——
+ * 小数不经 double、不丢精度，也不管应用用的是 Jackson 2 还是 3。前端按 typed JSON 发（vue-tsx-pro 的 {@code toWire}），
+ * 表单的值、流程变量里的小数、日期、大整数还原成 BigDecimal、LocalDate、Long……（没标类型的数是 JavaScript 的数）。
  * 字段名同命令的参数（docs/decisions/0006 第 3 节）；JSON 写错、该是对象的不是对象时报 {@code flow.validation-failed}。
  */
 final class RequestBody {
@@ -52,7 +54,7 @@ final class RequestBody {
         if (text == null || text.isBlank()) return new RequestBody(Map.of());
         Object tree;
         try {
-            tree = Json.read(text);
+            tree = Wire.decode(Json.read(text));
         } catch (IllegalArgumentException e) {
             throw invalid("body", "malformed-json");
         }

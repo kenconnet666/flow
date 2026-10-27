@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
@@ -44,8 +44,8 @@ final class FlowErrors {
     static FlowException notCandidate(Long workItemId) { return workItem(FlowErrorCode.NOT_CANDIDATE, workItemId); }
 
     /** 实例已结束、已暂停 */
-    static FlowException notActive(InstanceRecord instance) {
-        return new FlowException(FlowErrorCode.INSTANCE_NOT_ACTIVE, Map.of("instance", String.valueOf(instance.id()), "status", instance.status()));
+    static FlowException notActive(InstanceEntity instance) {
+        return new FlowException(FlowErrorCode.INSTANCE_NOT_ACTIVE, Map.of("instance", String.valueOf(instance.getId()), "status", instance.getStatus()));
     }
 
     private static FlowException workItem(FlowErrorCode code, Long workItemId) {

@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
+import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -14,7 +14,7 @@ import java.util.Set;
  * @param users   解析出的人（用户编号），保持先后、去重
  * @param inboxes 收件箱：角色、部门的候选
  */
-record Assignees(Set<Long> users, List<Candidate> inboxes) {
+record Assignees(Set<Long> users, List<CandidateEntity> inboxes) {
     /** 空的一份，解析时往里加 */
     static Assignees empty() { return new Assignees(new LinkedHashSet<>(), new ArrayList<>()); }
 
@@ -38,12 +38,12 @@ record Assignees(Set<Long> users, List<Candidate> inboxes) {
     Long directUser() { return users.iterator().next(); }
 
     /** 第一个收件箱（待办上显示它属于哪个角色、部门）；没有时为 null */
-    Candidate firstInbox() { return inboxes.isEmpty() ? null : inboxes.get(0); }
+    CandidateEntity firstInbox() { return inboxes.isEmpty() ? null : inboxes.get(0); }
 
     /** 进收件箱时要存的候选：人在前，收件箱在后 */
-    List<Candidate> candidates() {
-        List<Candidate> out = new ArrayList<>();
-        for (Long user : users) out.add(new Candidate(Candidate.USER, user));
+    List<CandidateEntity> candidates() {
+        List<CandidateEntity> out = new ArrayList<>();
+        for (Long user : users) out.add(new CandidateEntity(CandidateEntity.USER, user));
         out.addAll(inboxes);
         return out;
     }

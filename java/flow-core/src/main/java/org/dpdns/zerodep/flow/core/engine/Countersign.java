@@ -1,8 +1,9 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.MultiInstance;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -44,9 +45,9 @@ final class Countersign {
      * @param items   这个节点这一轮的全部待办（含刚处理完的那个）
      * @param waiting 依次会签还没轮到的人数
      */
-    static Decision decide(MultiInstance multi, Outcome chosen, List<WorkItem> items, int waiting) {
+    static Decision decide(MultiInstance multi, Outcome chosen, List<WorkItemVO> items, int waiting) {
         boolean approve = "approve".equals(chosen.kindOrDefault());
-        boolean someoneOpen = items.stream().anyMatch(i -> WorkItem.OPEN.equals(i.state()) || WorkItem.WAITING.equals(i.state())) || waiting > 0;
+        boolean someoneOpen = items.stream().anyMatch(i -> WorkItemEntity.OPEN.equals(i.getState()) || WorkItemEntity.WAITING.equals(i.getState())) || waiting > 0;
         return switch (multi.complete()) {
             case "any" -> new Decision.Finish(chosen.key());
             case "all" -> !approve || !someoneOpen ? new Decision.Finish(chosen.key()) : new Decision.Wait();
@@ -57,12 +58,12 @@ final class Countersign {
     }
 
     /** 票签：一票否决立即结束；这个结果达到门槛就按它结束；都处理完还没有达到的就按 fallback */
-    private static Decision threshold(MultiInstance multi, Outcome chosen, List<WorkItem> items, boolean someoneOpen) {
+    private static Decision threshold(MultiInstance multi, Outcome chosen, List<WorkItemVO> items, boolean someoneOpen) {
         if (chosen.veto()) return new Decision.Finish(chosen.key());
-        List<WorkItem> same = items.stream().filter(i -> chosen.key().equals(i.outcome())).toList();
+        List<WorkItemVO> same = items.stream().filter(i -> chosen.key().equals(i.getOutcome())).toList();
         boolean reached = "ratio".equals(multi.complete())
             ? BigDecimal.valueOf(same.size()).divide(BigDecimal.valueOf(items.size()), 6, RoundingMode.HALF_UP).compareTo(multi.ratio()) >= 0
-            : same.stream().mapToInt(i -> i.weight() == null ? 1 : i.weight()).sum() >= multi.votes();
+            : same.stream().mapToInt(i -> i.getWeight() == null ? 1 : i.getWeight()).sum() >= multi.votes();
         if (reached) return new Decision.Finish(chosen.key());
         return someoneOpen ? new Decision.Wait() : new Decision.Finish(multi.fallback());
     }

@@ -2,14 +2,15 @@ package org.dpdns.zerodep.flow.core.engine;
 
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
-import org.dpdns.zerodep.flow.core.store.JobStore.Job;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.JobEntity;
+import org.dpdns.zerodep.flow.core.entity.WaitEntity;
+import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.definition.TaskRules;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -75,28 +76,28 @@ public final class BuiltinJobs {
         @Override public String kind() { return ACTION; }
 
         @Override
-        public Next run(Job job, Instant now) {
+        public Next run(JobEntity job, Instant now) {
             return onInstance(job, now, run -> {
-                if (stillWaiting(job, run.instance().state())) run.performAction((ProcessNode.Service) run.graph().node(nodeOf(job)));
+                if (stillWaiting(job, run.instance().getState())) run.performAction((ProcessNode.Service) run.graph().node(nodeOf(job)));
                 return null;
             });
         }
 
         @Override
-        public Duration retryDelay(Job job, int attempts) {
-            Object seconds = job.payload().get(BACKOFF_SECONDS);
+        public Duration retryDelay(JobEntity job, int attempts) {
+            Object seconds = job.getPayload().get(BACKOFF_SECONDS);
             return seconds instanceof Number n ? Duration.ofSeconds(n.longValue()) : JobHandler.super.retryDelay(job, attempts);
         }
 
         @Override
-        public void gaveUp(Job job, String error, Instant now) {
+        public void gaveUp(JobEntity job, String error, Instant now) {
             onInstance(job, now, run -> {
                 ProcessNode node = run.graph().node(nodeOf(job));
-                Map<String, Object> data = Map.of("jobId", job.id(), "kind", job.kind(), "error", error);
-                run.addEvent(FlowEvent.JOB_FAILED, node, null, null, null, null, data);
+                Map<String, Object> data = Map.of("jobId", job.getId(), "kind", job.getKind(), "error", error);
+                run.addEvent(EventEntity.JOB_FAILED, node, null, null, null, null, data);
                 // onFailure: error——整个实例停下（别的分支也不能处理），管理员恢复后重试或跳过；默认 manual 只停在这个节点
                 if (node instanceof ProcessNode.Service service && "error".equals(service.onFailure())) {
-                    run.changeStatus(ProcessInstance.SUSPENDED, FlowEvent.INSTANCE_SUSPENDED, null);
+                    run.changeStatus(InstanceEntity.SUSPENDED, EventEntity.INSTANCE_SUSPENDED, null);
                 }
                 return null;
             });
@@ -104,17 +105,17 @@ public final class BuiltinJobs {
     }
 
     /** 定时节点到点：实例还停在这个节点的这一轮上时往下走（跳转、退回跳出区域后不再等了的跳过） */
-    private JobHandler.Next timer(Job job, Instant now) {
+    private JobHandler.Next timer(JobEntity job, Instant now) {
         return onInstance(job, now, run -> {
-            if (stillWaiting(job, run.instance().state())) run.timerFired(nodeOf(job));
+            if (stillWaiting(job, run.instance().getState())) run.timerFired(nodeOf(job));
             return null;
         });
     }
 
     /** 待办超时：记一条"超时"，再按节点的 overdue 处理 */
-    private JobHandler.Next overdue(Job job, Instant now) {
+    private JobHandler.Next overdue(JobEntity job, Instant now) {
         return onOpenItem(job, now, (run, item, task) -> {
-            run.addEvent(FlowEvent.WORK_ITEM_OVERDUE, task, null, null, item.id(), null, Map.of("dueAt", item.dueAt().toString()));
+            run.addEvent(EventEntity.WORK_ITEM_OVERDUE, task, null, null, item.getId(), null, Map.of("dueAt", item.getDueAt().toString()));
             overdueOutcome(task).ifPresent(outcome -> completions.finishItem(run, task, item, outcome.key(), outcome, null));
             return null;
         });
@@ -132,17 +133,17 @@ public final class BuiltinJobs {
     }
 
     /** 等待节点等超时：还在等这一轮时记一条，overdue 写了 complete 就当作事件按那个结果到了，否则接着等 */
-    private JobHandler.Next receiveTimeout(Job job, Instant now) {
+    private JobHandler.Next receiveTimeout(JobEntity job, Instant now) {
         String node = nodeOf(job);
         return onInstance(job, now, run -> {
-            if (!stillWaiting(job, run.instance().state())) return null;
+            if (!stillWaiting(job, run.instance().getState())) return null;
             ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(node);
-            run.addEvent(FlowEvent.NODE_OVERDUE, receive, null, null, null, null, Map.of("dueAt", job.dueAt().toString()));
+            run.addEvent(EventEntity.NODE_OVERDUE, receive, null, null, null, null, Map.of("dueAt", job.getDueAt().toString()));
             TaskRules.Overdue rule = receive.overdue();
             if (rule != null && "complete".equals(rule.action())) {
-                for (var wait : context.stores().waits().ofInstance(job.instanceId(), receive.event())) {
-                    if (wait.node().equals(node)) context.stores().waits().remove(wait.id());
-                }
+                context.db().deletable(WaitEntity.class).allowDeleteStatement(true)
+                    .where(w -> { w.instanceId().eq(job.getInstanceId()); w.event().eq(receive.event()); w.node().eq(node); })
+                    .executeRows();
                 run.received(receive, rule.outcome(), Map.of());
             }
             return null;
@@ -150,13 +151,13 @@ public final class BuiltinJobs {
     }
 
     /** 提醒：记一条催办；超时后每隔一段时间的，次数没用完时排下一次 */
-    private JobHandler.Next remind(Job job, Instant now) {
-        int index = ((Number) job.payload().get(REMINDER)).intValue();
-        int sent = ((Number) job.payload().get(SENT)).intValue();
+    private JobHandler.Next remind(JobEntity job, Instant now) {
+        int index = ((Number) job.getPayload().get(REMINDER)).intValue();
+        int sent = ((Number) job.getPayload().get(SENT)).intValue();
         return onOpenItem(job, now, (run, item, task) -> {
             if (index >= task.reminders().size()) return null;   // 定义改了：按实例的版本不会走到这里，留个保险
             TaskRules.Reminder reminder = task.reminders().get(index);
-            context.stores().workItems().remind(item.id(), now, now);
+            WorkItems.remind(context.db(), item.getId(), now, now);
             remindEvent(run, task, item, reminder.before() != null ? "dueSoon" : "overdue");
             boolean more = reminder.every() != null && (reminder.times() == null || sent + 1 < reminder.times());
             return more ? new JobHandler.Next(run.deadlines().plus(reminder.every(), now), Map.of(REMINDER, index, SENT, sent + 1)) : null;
@@ -164,18 +165,22 @@ public final class BuiltinJobs {
     }
 
     /** 没人认领：还在收件箱里时提醒，或标成等收件箱的负责人指定 */
-    private JobHandler.Next unclaimed(Job job, Instant now) {
+    private JobHandler.Next unclaimed(JobEntity job, Instant now) {
         return onOpenItem(job, now, (run, item, task) -> {
-            if (item.assigneeId() != null || task.unclaimed() == null) return null;   // 已经有人认领了
+            if (item.getAssigneeId() != null || task.unclaimed() == null) return null;   // 已经有人认领了
             if ("assignByManager".equals(task.unclaimed().action())) {
-                Long manager = item.inboxKind() == null ? null : context.org().inboxManager(item.inboxKind(), item.inboxId()).orElse(null);
-                context.stores().workItems().needDesignation(item.id(), manager);
+                Long manager = item.getInboxKind() == null ? null : context.org().inboxManager(item.getInboxKind(), item.getInboxId()).orElse(null);
+                // 标成等收件箱的负责人指定（不知道负责人时 designator 为空）
+                context.db().updatable(WorkItemEntity.class)
+                    .setColumns(w -> { w.needsDesignation().set(true); w.designatorId().set(manager); w.rev().increment(); })
+                    .where(w -> { w.id().eq(item.getId()); w.state().eq(WorkItemEntity.OPEN); w.assigneeId().isNull(); })
+                    .executeRows();
                 Map<String, Object> data = new LinkedHashMap<>();
                 if (manager != null) {
                     data.put("designatorId", manager);
                     data.put("designatorName", context.org().userName(manager));
                 }
-                run.addEvent(FlowEvent.WORK_ITEM_UNCLAIMED, task, null, null, item.id(), null, data);
+                run.addEvent(EventEntity.WORK_ITEM_UNCLAIMED, task, null, null, item.getId(), null, data);
             } else {
                 remindEvent(run, task, item, "unclaimed");
             }
@@ -183,21 +188,21 @@ public final class BuiltinJobs {
         });
     }
 
-    private static void remindEvent(Execution run, ProcessNode.Task task, WorkItem item, String reason) {
-        run.addEvent(FlowEvent.WORK_ITEM_REMINDED, task, null, null, item.id(), null, Map.of("auto", true, "reason", reason));
+    private static void remindEvent(Execution run, ProcessNode.Task task, WorkItemVO item, String reason) {
+        run.addEvent(EventEntity.WORK_ITEM_REMINDED, task, null, null, item.getId(), null, Map.of("auto", true, "reason", reason));
     }
 
     // ───────── 共用的步骤 ─────────
 
     /** 作业对应的节点（定时、自动节点、等待超时的作业）；待办上的作业（超时、提醒、没人认领）为 null */
-    static String nodeOf(Job job) {
-        return (String) job.payload().get(NODE);
+    static String nodeOf(JobEntity job) {
+        return (String) job.getPayload().get(NODE);
     }
 
     /** 实例还停在作业的那个节点的那一轮上（跳转、退回跳出区域后就对不上了，作业跳过） */
-    static boolean stillWaiting(Job job, RunState state) {
+    static boolean stillWaiting(JobEntity job, RunState state) {
         String node = nodeOf(job);
-        return node != null && job.payload().get(ROUND) instanceof Number round
+        return node != null && job.getPayload().get(ROUND) instanceof Number round
             && state.waits().containsKey(node) && state.round(node) == round.intValue();
     }
 
@@ -210,46 +215,45 @@ public final class BuiltinJobs {
     /** 对实例上一个打开着的待办做一件事 */
     @FunctionalInterface
     private interface ItemAction {
-        JobHandler.Next apply(Execution run, WorkItem item, ProcessNode.Task task);
+        JobHandler.Next apply(Execution run, WorkItemVO item, ProcessNode.Task task);
     }
 
     /**
      * 锁住实例再做：实例没了、结束了跳过；暂停时往后推（数据不变）。做完写回。
      * {@link JobRunner} 已经开了事务。
      */
-    private JobHandler.Next onInstance(Job job, Instant now, InstanceAction action) {
-        Optional<Integer> rev = context.stores().instances().lock(job.instanceId());
-        if (rev.isEmpty()) return null;
-        InstanceRecord instance = context.stores().instances().find(job.instanceId()).orElseThrow();
-        if (instance.endedAt() != null) return null;
-        if (ProcessInstance.SUSPENDED.equals(instance.status())) return new JobHandler.Next(now.plus(POSTPONE), job.payload());
-        FormValues form = context.stores().formData().read(instance.id()).map(f -> f.values()).orElse(FormValues.empty());
-        Execution run = new Execution(context, SystemActor.INSTANCE, now, definitions.of(instance), instance, form, rev.get());
+    private JobHandler.Next onInstance(JobEntity job, Instant now, InstanceAction action) {
+        InstanceEntity instance = Instances.lockIfExists(context.db(), job.getInstanceId());
+        if (instance == null || instance.getEndedAt() != null) return null;
+        if (InstanceEntity.SUSPENDED.equals(instance.getStatus())) return new JobHandler.Next(now.plus(POSTPONE), job.getPayload());
+        FormValues form = Instances.form(context.db(), instance.getId());
+        Execution run = new Execution(context, SystemActor.INSTANCE, now, definitions.of(instance), instance, form, instance.getRev());
         JobHandler.Next next = action.apply(run);
         run.flush(null);
         return next;
     }
 
     /** 待办还打开着才做：先不加锁看一眼（办完了的直接跳过，不去锁实例），锁住实例后再重读一次 */
-    private JobHandler.Next onOpenItem(Job job, Instant now, ItemAction action) {
-        if (!isOpen(job.workItemId())) return null;
+    private JobHandler.Next onOpenItem(JobEntity job, Instant now, ItemAction action) {
+        if (!isOpen(job.getWorkItemId())) return null;
         return onInstance(job, now, run -> {
-            WorkItem item = context.stores().workItems().find(job.workItemId()).orElseThrow();
-            if (!WorkItem.OPEN.equals(item.state())) return null;
-            return action.apply(run, item, (ProcessNode.Task) run.graph().node(item.node()));
+            WorkItemVO item = WorkItems.find(context.db(), job.getWorkItemId());
+            if (!WorkItemEntity.OPEN.equals(item.getState())) return null;
+            return action.apply(run, item, (ProcessNode.Task) run.graph().node(item.getNode()));
         });
     }
 
     private boolean isOpen(Long workItemId) {
-        return context.stores().workItems().find(workItemId).map(item -> WorkItem.OPEN.equals(item.state())).orElse(false);
+        String state = context.db().queryable(WorkItemEntity.class).whereById(workItemId).selectColumn(w -> w.state()).singleOrNull();
+        return WorkItemEntity.OPEN.equals(state);
     }
 
     /** 一种作业的处理 */
-    private static JobHandler handler(String kind, BiFunction<Job, Instant, JobHandler.Next> run) {
+    private static JobHandler handler(String kind, BiFunction<JobEntity, Instant, JobHandler.Next> run) {
         return new JobHandler() {
             @Override public String kind() { return kind; }
 
-            @Override public Next run(Job job, Instant now) { return run.apply(job, now); }
+            @Override public Next run(JobEntity job, Instant now) { return run.apply(job, now); }
         };
     }
 }

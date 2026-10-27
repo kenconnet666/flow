@@ -1,5 +1,8 @@
 package org.dpdns.zerodep.flow.core.listener;
 
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.view.FlowEventVO;
+
 import java.util.Set;
 
 /**
@@ -11,7 +14,7 @@ import java.util.Set;
  * 按事件种类、流程标识过滤（{@link #types}、{@link #processes}），节点上的 {@code meta} 随通知给出。
  * <pre>{@code
  * FlowEngine.builder(dataSource).listener(notice -> {
- *     if (FlowEvent.WORK_ITEM_REMINDED.equals(notice.event().type())) mail.send(...);
+ *     if (EventEntity.WORK_ITEM_REMINDED.equals(notice.event().type())) mail.send(...);
  * })
  * }</pre>
  */
@@ -31,7 +34,7 @@ public interface FlowListener {
     /** 什么时候调；默认提交之后 */
     default Phase phase() { return Phase.AFTER_COMMIT; }
 
-    /** 只听这几种事件（{@code FlowEvent} 的常量，如 {@code workItem.created}）；空的表示全部 */
+    /** 只听这几种事件（{@code FlowEventVO} 的常量，如 {@code workItem.created}）；空的表示全部 */
     default Set<String> types() { return Set.of(); }
 
     /** 只听这几个流程（流程标识）；空的表示全部 */

@@ -8,7 +8,7 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>flow</name>
-    <description>Approval workflow engine for Spring Boot and Nuxt, with a shared model package.</description>
+    <description>Approval workflow engine for Spring Boot on easy-query, with a shared model package.</description>
     <url>https://github.com/kenconnet666/flow</url>
     <developers>
         <developer>
@@ -35,8 +35,11 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <!-- query 主干的 SNAPSHOT（要 wire 的 Json.write）：本机在 query 里 mvnw install，CI 先构建 query；query 发版后换成发布的版本 -->
-        <query.version>2.1.0-SNAPSHOT</query.version>
+        <!-- json-wire（typed JSON）：模型包与引擎用它读写 JSON 文字、还原强类型的值；本机在 ../json-wire 里 mvnw install，CI 先构建它 -->
+        <json-wire.version>0.1.0-SNAPSHOT</json-wire.version>
+        <!-- 持久层：easy-query 的强类型查询（APT 为实体生成代理类）；实体与 VO 用 Lombok -->
+        <easy-query.version>3.2.17</easy-query.version>
+        <lombok.version>1.18.46</lombok.version>
         <mysql.version>9.7.0</mysql.version>
         <!-- 只在实库测试里用来执行建表脚本；接入方用自己项目的 Flyway -->
         <flyway.version>12.4.0</flyway.version>
@@ -56,28 +59,33 @@
             </dependency>
             <dependency>
                 <groupId>org.dpdns.zerodep</groupId>
-                <artifactId>wire</artifactId>
-                <version>${query.version}</version>
+                <artifactId>json-wire</artifactId>
+                <version>${json-wire.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.dpdns.zerodep</groupId>
-                <artifactId>query-core</artifactId>
-                <version>${query.version}</version>
+                <groupId>com.easy-query</groupId>
+                <artifactId>sql-api-proxy</artifactId>
+                <version>${easy-query.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.dpdns.zerodep</groupId>
-                <artifactId>query-mysql</artifactId>
-                <version>${query.version}</version>
+                <groupId>com.easy-query</groupId>
+                <artifactId>sql-mysql</artifactId>
+                <version>${easy-query.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.easy-query</groupId>
+                <artifactId>sql-springboot-starter</artifactId>
+                <version>${easy-query.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
                 <version>${mysql.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.dpdns.zerodep</groupId>
-                <artifactId>query-spring</artifactId>
-                <version>${query.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.flywaydb</groupId>
@@ -113,6 +121,21 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.16.0</version>
+                    <configuration>
+                        <!-- Lombok 先补 getter / setter，easy-query 再为实体生成代理类（查询里的 o.state() 这类） -->
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                            <path>
+                                <groupId>com.easy-query</groupId>
+                                <artifactId>sql-processor</artifactId>
+                                <version>${easy-query.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>

@@ -1,24 +1,24 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import com.easy.query.api.proxy.client.EasyEntityQuery;
+import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
 import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
-import org.dpdns.zerodep.flow.core.store.WorkItemStore;
-import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.Lane;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.definition.Ref;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.Set;
-import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 人工节点由谁处理（0005 的 3.2，0006 第 6 节"组织"一行的 {@code AssigneeResolver}）：把节点上写的几个来源解析成人和收件箱。
@@ -37,12 +37,12 @@ import java.util.function.Function;
  * 几个来源取并集。
  */
 final class AssigneeResolver {
-    private final WorkItemStore workItems;
+    private final EasyEntityQuery db;
     private final OrgDirectory org;
     private final Extensions extensions;
 
-    AssigneeResolver(WorkItemStore workItems, OrgDirectory org, Extensions extensions) {
-        this.workItems = workItems;
+    AssigneeResolver(EasyEntityQuery db, OrgDirectory org, Extensions extensions) {
+        this.db = db;
         this.org = org;
         this.extensions = extensions;
     }
@@ -59,7 +59,7 @@ final class AssigneeResolver {
      * 会签的参与人：来源列表里的人、角色与部门下的人（{@link OrgDirectory#members} 展开），或引用的 people 值；
      * 同一个人只算一次（先出现的为准），保持先后。
      */
-    List<Participant> participants(ProcessNode.Task task, InstanceRecord instance, Function<String, Object> read,
+    List<Participant> participants(ProcessNode.Task task, InstanceEntity instance, Function<String, Object> read,
                                    Map<String, List<Long>> picks) {
         Map<Long, Participant> out = new LinkedHashMap<>();
         if (task.multi().participants() instanceof Ref ref) {
@@ -82,20 +82,21 @@ final class AssigneeResolver {
      * 几个来源下的人：指定的人、角色与部门下的人（{@link OrgDirectory#members} 展开）、发起人、某节点的处理人；
      * 同一个人只算一次（先出现的为准），保持先后。会签的参与人、抄送节点的收件人都按它展开。
      */
-    List<Participant> people(List<AssigneeSource> sources, InstanceRecord instance, Function<String, Object> read) {
+    List<Participant> people(List<AssigneeSource> sources, InstanceEntity instance, Function<String, Object> read) {
         Map<Long, Participant> out = new LinkedHashMap<>();
         for (AssigneeSource source : sources) {
             if (source instanceof AssigneeSource.User user) {
                 int weight = user.weight() == null ? 1 : user.weight();
                 for (Long id : OrgIds.all(valueOf(user.user(), read))) out.putIfAbsent(id, new Participant(id, weight));
             } else if (source instanceof AssigneeSource.Role role) {
-                for (Long id : OrgIds.all(valueOf(role.role(), read))) addMembers(out, Candidate.ROLE, id);
+                for (Long id : OrgIds.all(valueOf(role.role(), read))) addMembers(out, CandidateEntity.ROLE, id);
             } else if (source instanceof AssigneeSource.Department dept) {
-                for (Long id : OrgIds.all(valueOf(dept.department(), read))) addMembers(out, Candidate.DEPARTMENT, id);
+                for (Long id : OrgIds.all(valueOf(dept.department(), read))) addMembers(out, CandidateEntity.DEPARTMENT, id);
             } else if (source instanceof AssigneeSource.Initiator) {
-                out.putIfAbsent(instance.startedBy(), new Participant(instance.startedBy(), 1));
+                out.putIfAbsent(instance.getStartedBy(), new Participant(instance.getStartedBy(), 1));
             } else if (source instanceof AssigneeSource.SameAs same) {
-                workItems.lastCompletedBy(instance.id(), same.node()).ifPresent(id -> out.putIfAbsent(id, new Participant(id, 1)));
+                Long last = WorkItems.lastCompletedBy(db, instance.getId(), same.node());
+                if (last != null) out.putIfAbsent(last, new Participant(last, 1));
             } else if (source instanceof AssigneeSource.Resolver resolver) {
                 for (Long id : named(resolver, instance, read)) out.putIfAbsent(id, new Participant(id, 1));
             } else if (source instanceof AssigneeSource.Group group) {
@@ -117,7 +118,7 @@ final class AssigneeResolver {
      *
      * @param read 取引用的值（{@code { "ref": "form.buyer" }} 这类来源要用）
      */
-    Assignees resolve(ProcessNode.Task task, ProcessGraph graph, InstanceRecord instance, Function<String, Object> read,
+    Assignees resolve(ProcessNode.Task task, ProcessGraph graph, InstanceEntity instance, Function<String, Object> read,
                       Map<String, List<Long>> picks) {
         Assignees out = Assignees.empty();
         for (AssigneeSource source : sourcesOf(task, graph)) {
@@ -126,17 +127,18 @@ final class AssigneeResolver {
             } else if (source instanceof AssigneeSource.User user) {
                 out.users().addAll(OrgIds.all(valueOf(user.user(), read)));
             } else if (source instanceof AssigneeSource.Role role) {
-                for (Long id : OrgIds.all(valueOf(role.role(), read))) out.inboxes().add(new Candidate(Candidate.ROLE, id));
+                for (Long id : OrgIds.all(valueOf(role.role(), read))) out.inboxes().add(new CandidateEntity(CandidateEntity.ROLE, id));
             } else if (source instanceof AssigneeSource.Department dept) {
-                for (Long id : OrgIds.all(valueOf(dept.department(), read))) out.inboxes().add(new Candidate(Candidate.DEPARTMENT, id));
+                for (Long id : OrgIds.all(valueOf(dept.department(), read))) out.inboxes().add(new CandidateEntity(CandidateEntity.DEPARTMENT, id));
             } else if (source instanceof AssigneeSource.Initiator) {
-                out.users().add(instance.startedBy());
+                out.users().add(instance.getStartedBy());
             } else if (source instanceof AssigneeSource.SameAs same) {
-                workItems.lastCompletedBy(instance.id(), same.node()).ifPresent(out.users()::add);
+                Long last = WorkItems.lastCompletedBy(db, instance.getId(), same.node());
+                if (last != null) out.users().add(last);
             } else if (source instanceof AssigneeSource.Resolver resolver) {
                 out.users().addAll(named(resolver, instance, read));
             } else if (source instanceof AssigneeSource.Group group) {
-                for (Long id : OrgIds.all(valueOf(group.id(), read))) out.inboxes().add(new Candidate(group.kind(), id));
+                for (Long id : OrgIds.all(valueOf(group.id(), read))) out.inboxes().add(new CandidateEntity(group.kind(), id));
             } else {
                 throw new UnsupportedOperationException("assignee source " + source.getClass().getSimpleName() + " is not supported yet");
             }
@@ -148,7 +150,7 @@ final class AssigneeResolver {
      * 上一步选的人：没选报 {@code picks.节点 required}，超过 max 报 {@code too-many}，不在 from 解析出的人里报 {@code not-allowed}
      * （from 不写时谁都可以）。
      */
-    private List<Long> picked(ProcessNode.Task task, AssigneeSource.Pick pick, Map<String, List<Long>> picks, InstanceRecord instance,
+    private List<Long> picked(ProcessNode.Task task, AssigneeSource.Pick pick, Map<String, List<Long>> picks, InstanceEntity instance,
                               Function<String, Object> read) {
         String field = "picks." + task.id();
         List<Long> chosen = picks.getOrDefault(task.id(), List.of()).stream().distinct().toList();
@@ -162,9 +164,9 @@ final class AssigneeResolver {
     }
 
     /** 接入方注册的解析器算出的人；参数里的引用先换成值 */
-    private List<Long> named(AssigneeSource.Resolver source, InstanceRecord instance, Function<String, Object> read) {
+    private List<Long> named(AssigneeSource.Resolver source, InstanceEntity instance, Function<String, Object> read) {
         PeopleResolver resolver = extensions.resolver(source.name());
-        return resolver.resolve(new PeopleResolver.Context(instance.view(), RefValues.resolve(source.args(), read), read));
+        return resolver.resolve(new PeopleResolver.Context(Instances.view(db, instance.getId()), RefValues.resolve(source.args(), read), read));
     }
 
     /** 节点上写的来源；没写时用所在泳道的收件箱 */

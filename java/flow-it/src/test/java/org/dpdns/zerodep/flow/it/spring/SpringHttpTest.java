@@ -4,6 +4,7 @@ import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.dpdns.zerodep.wire.Json;
+import org.dpdns.zerodep.wire.Wire;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,10 +29,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
- * flow-spring 的自动配置与 HTTP 接口（0006 的 7.3）：只配了数据源、打开 Flyway 建表与 HTTP 接口，应用只给了组织架构与当前操作人。
+ * flow-spring 的自动配置与 HTTP 接口（0006 的 7.3）：只配了数据源、打开 easy-query 的 starter、Flyway 建表与 HTTP 接口，
+ * 应用只给了组织架构、当前操作人和 wire 的响应集成（{@link WireResponseAdvice}）。
  * 走一单采购：发起、财务处理、总经理审批；HTTP 一律 200，成败看响应体的 code（0008）。
  */
 @SpringBootTest(classes = SpringTestApp.class, properties = {
+    "easy-query.enable=true",
+    "easy-query.database=mysql",
     "flow.flyway.enabled=true",
     "flow.http.enabled=true",
     // 应用自己没有 Flyway 迁移：关掉 Spring Boot 自带的那一套，只跑引擎的
@@ -57,8 +61,9 @@ class SpringHttpTest {
         // 经接口发布：表单文件与定义文件原样作为请求体
         Map<String, Object> form = call(post("/flow/forms/publish"), "1001",
             Files.readString(scenarios.resolve("forms/purchase-form.json"), StandardCharsets.UTF_8));
-        // 编号同别处一样是 typed JSON：写成文字，$types 里记着 bigint
-        assertEquals(Map.of("id", data(form).get("id"), "key", "purchase-form", "version", 1L, "$types", Map.of("id", "bigint")), data(form));
+        // 编号同别处一样是 typed JSON（接入方的 WireResponseAdvice 写的）：写成文字，响应体根上的 $types 里记着 bigint
+        assertEquals(Map.of("id", data(form).get("id"), "key", "purchase-form", "version", 1L), data(form));
+        assertEquals("bigint", ((Map<?, ?>) form.get(Wire.TYPES)).get("data.id"));
         Map<String, Object> process = call(post("/flow/definitions/publish").param("note", "第一版"), "1001",
             Files.readString(scenarios.resolve("processes/purchase.json"), StandardCharsets.UTF_8));
         assertEquals(1L, ((Number) data(process).get("version")).longValue());

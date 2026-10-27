@@ -35,6 +35,16 @@
             <groupId>org.dpdns.zerodep</groupId>
             <artifactId>flow-spring</artifactId>
         </dependency>
+        <!-- 接口的 typed JSON：应用自己集成（config/wire），引擎的接口也经它写出 -->
+        <dependency>
+            <groupId>org.dpdns.zerodep</groupId>
+            <artifactId>json-wire</artifactId>
+        </dependency>
+        <!-- easy-query 的 MySQL 方言：starter 按 easy-query.database 选 -->
+        <dependency>
+            <groupId>com.easy-query</groupId>
+            <artifactId>sql-mysql</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

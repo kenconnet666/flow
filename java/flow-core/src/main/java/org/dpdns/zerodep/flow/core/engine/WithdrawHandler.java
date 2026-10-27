@@ -3,11 +3,11 @@ package org.dpdns.zerodep.flow.core.engine;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,34 +29,32 @@ public final class WithdrawHandler {
     /** 撤回；不是发起人、规则不允许时报 {@code flow.forbidden} */
     public CommandResult handle(Actor actor, WithdrawCommand command) {
         return context.transaction(() -> {
-            int rev = context.stores().instances().lock(command.instanceId())
-                .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
-            InstanceRecord instance = context.stores().instances().find(command.instanceId()).orElseThrow();
+            InstanceEntity instance = Instances.lock(context.db(), command.instanceId());
             ClaimHandler.requireActive(instance);
-            if (!actor.id().equals(instance.startedBy())) throw FlowErrors.forbidden("instance", instance.id(), "not-the-initiator");
+            if (!actor.id().equals(instance.getStartedBy())) throw FlowErrors.forbidden("instance", instance.getId(), "not-the-initiator");
 
             LoadedDefinition definition = definitions.of(instance);
-            if (!allowed(definition, context.stores().workItems().ofInstance(instance.id()))) {
+            if (!allowed(definition, WorkItems.ofInstance(context.db(), instance.getId()))) {
                 String rule = Objects.requireNonNullElse(definition.model().settings().withdraw(), "beforeAction");
-                throw FlowErrors.forbidden("instance", instance.id(), "withdraw-" + rule);
+                throw FlowErrors.forbidden("instance", instance.getId(), "withdraw-" + rule);
             }
 
-            Execution run = new Execution(context, actor, context.clock().instant(), definition, instance, FormValues.empty(), rev);
-            run.finish(ProcessInstance.WITHDRAWN, ProcessInstance.WITHDRAWN, FlowEvent.INSTANCE_WITHDRAWN, command.reason());
-            run.flush(instance.title());
-            return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
+            Execution run = new Execution(context, actor, context.clock().instant(), definition, instance, FormValues.empty(), instance.getRev());
+            run.finish(InstanceEntity.WITHDRAWN, InstanceEntity.WITHDRAWN, EventEntity.INSTANCE_WITHDRAWN, command.reason());
+            run.flush(instance.getTitle());
+            return run.result();
         });
     }
 
     /** 发起人现在还能不能撤回（实例详情上的"撤回"按钮）：不看是不是发起人 */
-    static boolean allowed(LoadedDefinition definition, List<WorkItem> items) {
+    static boolean allowed(LoadedDefinition definition, List<WorkItemVO> items) {
         return allowed(Objects.requireNonNullElse(definition.model().settings().withdraw(), "beforeAction"), items);
     }
 
     /** 按规则看现在还能不能撤回 */
-    private static boolean allowed(String rule, List<WorkItem> items) {
-        boolean handled = items.stream().anyMatch(w -> WorkItem.DONE.equals(w.state()));
-        boolean claimed = items.stream().anyMatch(w -> WorkItem.CLAIMED.equals(w.assignment()));
+    private static boolean allowed(String rule, List<WorkItemVO> items) {
+        boolean handled = items.stream().anyMatch(w -> WorkItemEntity.DONE.equals(w.getState()));
+        boolean claimed = items.stream().anyMatch(w -> WorkItemEntity.CLAIMED.equals(w.getAssignment()));
         return switch (rule) {
             case "never" -> false;
             case "beforeClaim" -> !handled && !claimed;

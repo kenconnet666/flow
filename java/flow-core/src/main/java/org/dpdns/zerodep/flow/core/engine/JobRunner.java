@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.store.JobStore;
-import org.dpdns.zerodep.flow.core.store.JobStore.Job;
+import org.dpdns.zerodep.flow.core.db.FlowInterceptors;
+import org.dpdns.zerodep.flow.core.entity.JobEntity;
 
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
@@ -42,36 +42,72 @@ public final class JobRunner {
     /** 做一批到期的作业，返回做了几个（含失败的）；一批做满时调用方可以马上再调 */
     public int runDue() {
         Instant now = context.clock().instant();
-        JobStore jobs = context.stores().jobs();
         int ran = 0;
-        for (Job job : jobs.due(now, BATCH)) {
-            if (!jobs.lock(job.id(), owner, now, now.plus(LEASE))) continue;   // 别的进程先领了
-            TenantScope.run(job.tenantId(), () -> runOne(job, now));
+        for (JobEntity job : due(now)) {
+            if (!lock(job.getId(), now)) continue;   // 别的进程先领了
+            TenantScope.run(job.getTenantId(), () -> runOne(job, now));
             ran++;
         }
         return ran;
     }
 
-    private void runOne(Job job, Instant now) {
-        JobStore jobs = context.stores().jobs();
-        JobHandler handler = handlers.get(job.kind());
+    /** 到期、没人领着（或领的人超时了）的作业，按到期时间先后；跨租户 */
+    private List<JobEntity> due(Instant now) {
+        return context.db().queryable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
+            .where(j -> {
+                j.state().eq(JobEntity.PENDING);
+                j.dueAt().le(now);
+                j.or(() -> { j.lockedUntil().isNull(); j.lockedUntil().lt(now); });
+            })
+            .orderBy(j -> { j.dueAt().asc(); j.id().asc(); })
+            .limit(BATCH).toList();
+    }
+
+    /** 抢一个作业：还等着、没人领着时记下是谁领的、领到什么时候；跨租户 */
+    private boolean lock(Long jobId, Instant now) {
+        return context.db().updatable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
+            .setColumns(j -> { j.lockedBy().set(owner); j.lockedUntil().set(now.plus(LEASE)); })
+            .where(j -> {
+                j.id().eq(jobId);
+                j.state().eq(JobEntity.PENDING);
+                j.or(() -> { j.lockedUntil().isNull(); j.lockedUntil().lt(now); });
+            })
+            .executeRows() == 1;
+    }
+
+    private void runOne(JobEntity job, Instant now) {
+        JobHandler handler = handlers.get(job.getKind());
         try {
-            if (handler == null) throw new IllegalStateException("no JobHandler is registered for job kind '" + job.kind() + "'");
+            if (handler == null) throw new IllegalStateException("no JobHandler is registered for job kind '" + job.getKind() + "'");
             context.transaction(() -> {
                 JobHandler.Next next = handler.run(job, now);
-                if (next == null) jobs.done(job.id());
-                else jobs.reschedule(job.id(), next.at(), next.payload());
+                if (next == null) {
+                    context.db().deletable(JobEntity.class).allowDeleteStatement(true).whereById(job.getId()).executeRows();
+                } else {
+                    // 下次再做（每隔一段时间的提醒、实例暂停时往后推）：换上新的时刻与数据，放开
+                    context.db().updatable(JobEntity.class)
+                        .setColumns(j -> { j.dueAt().set(next.at()); j.payload().set(next.payload()); j.lockedBy().set((String) null); j.lockedUntil().set((Instant) null); })
+                        .whereById(job.getId()).executeRows();
+                }
             });
         } catch (RuntimeException e) {
-            int attempts = job.attempts() + 1;
+            int attempts = job.getAttempts() + 1;
             String error = describe(e);
-            LOG.log(System.Logger.Level.WARNING, "flow job " + job.id() + " (" + job.kind() + ") failed, attempt " + attempts, e);
-            if (attempts < job.maxAttempts()) {
-                jobs.retry(job.id(), now.plus(handler == null ? Duration.ofMinutes(1) : handler.retryDelay(job, attempts)), error);
-                return;
-            }
-            jobs.fail(job.id(), error);
-            if (handler != null) giveUp(handler, job, error, now);
+            LOG.log(System.Logger.Level.WARNING, "flow job " + job.getId() + " (" + job.getKind() + ") failed, attempt " + attempts, e);
+            boolean retry = attempts < job.getMaxAttempts();
+            Instant again = retry ? now.plus(handler == null ? Duration.ofMinutes(1) : handler.retryDelay(job, attempts)) : null;
+            // 失败了：失败次数加一、记下原因、放开；还能重试的过一会儿再做，重试用完的标成失败、留着给管理员看
+            context.db().updatable(JobEntity.class)
+                .setColumns(j -> {
+                    j.attempts().increment();
+                    j.lastError().set(error);
+                    j.lockedBy().set((String) null);
+                    j.lockedUntil().set((Instant) null);
+                    if (retry) j.dueAt().set(again);
+                    else j.state().set(JobEntity.FAILED);
+                })
+                .whereById(job.getId()).executeRows();
+            if (!retry && handler != null) giveUp(handler, job, error, now);
         }
     }
 
@@ -85,11 +121,11 @@ public final class JobRunner {
     }
 
     /** 重试用完的善后（记一笔流转记录……）；它再失败只记日志，作业已经是失败的了 */
-    private void giveUp(JobHandler handler, Job job, String error, Instant now) {
+    private void giveUp(JobHandler handler, JobEntity job, String error, Instant now) {
         try {
             context.transaction(() -> handler.gaveUp(job, error, now));
         } catch (RuntimeException e) {
-            LOG.log(System.Logger.Level.ERROR, "flow job " + job.id() + " gave up and its handler failed to record it", e);
+            LOG.log(System.Logger.Level.ERROR, "flow job " + job.getId() + " gave up and its handler failed to record it", e);
         }
     }
 }

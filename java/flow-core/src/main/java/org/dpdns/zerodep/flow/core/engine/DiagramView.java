@@ -1,12 +1,13 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.view.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.ProcessDiagram;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 
 import java.util.HashSet;
 import java.util.List;
@@ -20,18 +21,18 @@ import java.util.Set;
 final class DiagramView {
     private DiagramView() { }
 
-    static ProcessDiagram of(ProcessDefinition definition, ProcessInstance instance, List<FlowEvent> timeline) {
+    static ProcessDiagram of(ProcessDefinition definition, InstanceVO instance, List<FlowEventVO> timeline) {
         Set<String> left = new HashSet<>();
         Set<String> taken = new HashSet<>();
-        for (FlowEvent event : timeline) {
-            if (!FlowEvent.NODE_LEFT.equals(event.type())) continue;
-            if (event.node() != null) left.add(event.node());
-            if (event.edge() != null) taken.add(event.edge());
+        for (FlowEventVO event : timeline) {
+            if (!EventEntity.NODE_LEFT.equals(event.getType())) continue;
+            if (event.getNode() != null) left.add(event.getNode());
+            if (event.getEdge() != null) taken.add(event.getEdge());
         }
         Set<String> current = new HashSet<>();
-        instance.current().forEach(c -> current.add(c.node()));
+        instance.getCurrent().forEach(c -> current.add(c.node()));
         // 结束了：走到的结束节点也算走过（结束节点不会"离开"）
-        boolean ended = instance.endedAt() != null;
+        boolean ended = instance.getEndedAt() != null;
         Map<?, ?> positions = definition.layout().get("nodes") instanceof Map<?, ?> map ? map : Map.of();
 
         List<ProcessDiagram.Node> nodes = definition.nodes().stream().map(node -> {

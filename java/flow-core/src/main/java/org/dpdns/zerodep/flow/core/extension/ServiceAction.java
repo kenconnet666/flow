@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.extension;
 
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
+import org.dpdns.zerodep.flow.core.view.InstanceVO;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -25,7 +25,7 @@ public interface ServiceAction {
      * @param idempotencyKey 去重用：同一个节点的同一轮相同（重试时也相同）
      * @param read           按引用的名字取值
      */
-    record Context(ProcessInstance instance, String node, Map<String, Object> args, String idempotencyKey, Function<String, Object> read) { }
+    record Context(InstanceVO instance, String node, Map<String, Object> args, String idempotencyKey, Function<String, Object> read) { }
 
     /**
      * 做完的结果。

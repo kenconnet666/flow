@@ -9,6 +9,11 @@ spring:
     # 应用自己没有 Flyway 迁移；引擎的表由下面 flow.flyway 那一套建
     enabled: false
 
+# 引擎用 easy-query 的 starter 建的 EasyEntityQuery 读写（表名、列名按默认的下划线命名）
+easy-query:
+  enable: true
+  database: mysql
+
 flow:
   flyway:
     enabled: true        # 启动时执行引擎的建表脚本（单独的历史表 flow_schema_history）

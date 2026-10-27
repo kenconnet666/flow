@@ -31,10 +31,22 @@
             <groupId>org.dpdns.zerodep</groupId>
             <artifactId>flow-core</artifactId>
         </dependency>
-        <!-- 引擎的事务交给接入方的事务管理器（多数据源时指定用哪个） -->
+        <!-- 引擎用 easy-query starter 建的 EasyEntityQuery：数据源、方言、事务跟着接入方的 Spring 配置走 -->
         <dependency>
-            <groupId>org.dpdns.zerodep</groupId>
-            <artifactId>query-spring</artifactId>
+            <groupId>com.easy-query</groupId>
+            <artifactId>sql-springboot-starter</artifactId>
+            <!-- starter 声明的是 Spring Boot 2.3 的自动配置与 AOP：传到接入方会盖过它自己的 Boot 版本，由接入方的应用带来 -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- starter 的追踪配置（EasyQueryTrackAopConfiguration）要 AspectJ；排掉了它带的 Boot 2 的 starter-aop，这里补上 -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
         </dependency>
         <!-- 下面这些由接入方的应用带来：自动配置、事务、Web、安全、Flyway 都只在类路径上有时才用 -->
         <dependency>

@@ -1,9 +1,5 @@
 package org.dpdns.zerodep.flow.core.view;
 
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
-
 import java.util.List;
 
 /**
@@ -17,7 +13,7 @@ import java.util.List;
  * @param nodes     流程的节点（开始节点、网关除外）：管理员跳转时选目标
  * @param diagram   流程图：节点走到哪了、连线走过没有
  */
-public record InstanceDetail(ProcessInstance instance, FormView form, List<WorkItem> workItems, List<FlowEvent> timeline,
+public record InstanceDetail(InstanceVO instance, FormView form, List<WorkItemVO> workItems, List<FlowEventVO> timeline,
                              Actions actions, List<NodeRef> nodes, ProcessDiagram diagram) {
     /**
      * 一个节点。

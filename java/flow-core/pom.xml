@@ -11,24 +11,24 @@
     </parent>
     <artifactId>flow-core</artifactId>
     <name>flow-core</name>
-    <description>The workflow engine: commands, queries and extension points over query, without Spring.</description>
+    <description>The workflow engine: commands, queries and extension points over easy-query, without Spring.</description>
     <properties>
         <automatic.module.name>org.dpdns.zerodep.flow.core</automatic.module.name>
     </properties>
     <dependencies>
-        <!-- 不依赖方言包：由接入方给的连接决定方言（query 的通用门面） -->
         <dependency>
             <groupId>org.dpdns.zerodep</groupId>
             <artifactId>flow-model</artifactId>
         </dependency>
+        <!-- 引擎用接入方建好的 EasyEntityQuery：方言（MySQL 包）、数据源与事务都由接入方定 -->
         <dependency>
-            <groupId>org.dpdns.zerodep</groupId>
-            <artifactId>query-core</artifactId>
+            <groupId>com.easy-query</groupId>
+            <artifactId>sql-api-proxy</artifactId>
         </dependency>
-        <!-- 第一版只支持 MySQL 8 / PolarDB MySQL（0001），建表脚本也是 MySQL 的：方言随引擎带上，接入方不用另加 -->
         <dependency>
-            <groupId>org.dpdns.zerodep</groupId>
-            <artifactId>query-mysql</artifactId>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

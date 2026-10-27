@@ -28,16 +28,14 @@ import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
-import org.dpdns.zerodep.flow.core.view.InstanceDetail;
+import org.dpdns.zerodep.flow.core.engine.Queries.InstanceSearch;
+import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.it.scenario.Scenario.Step;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestExtensions;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.dpdns.zerodep.flow.model.error.FlowException;
-import org.dpdns.zerodep.flow.model.runtime.TodoItem;
-import org.dpdns.zerodep.query.exec.Page;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
 
@@ -71,7 +69,7 @@ final class ScenarioRunner {
         this.scenario = scenario;
         LiveMysql.recreateTables();
         this.clock = new MovableClock(scenario.clock());
-        FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
+        FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.easyQuery())
             .orgDirectory(new TestOrg(scenario.actors().values()))
             .clock(clock);
         this.engine = new TestExtensions().register(builder).build();
@@ -137,7 +135,7 @@ final class ScenarioRunner {
                 case "publishForm" -> {
                     var form = engine.publishForm(actor, new FormPublication(args.text("key"), args.text("name"), args.text("category"),
                         Json.write(args.raw("manifest")), args.text("clientSource"), null, null, null, null, args.text("note")));
-                    yield wire(Map.of("id", form.id(), "key", form.formKey(), "version", form.version()));   // 同 HTTP 接口的响应
+                    yield wire(Map.of("id", form.getId(), "key", form.getFormKey(), "version", form.getVersion()));   // 同 HTTP 接口的响应
                 }
                 case "processes" -> wire(Map.of("processes", engine.processes(actor)));
                 case "incidents" -> page(engine.incidents(actor, args.id("instance"), args.number("page", 1), args.number("size", 20)));
@@ -200,12 +198,8 @@ final class ScenarioRunner {
         return wire(out);
     }
 
-    /** 一页列表：同 query 的表格接口（{@link Page#toWire}），total 是数字 */
-    private static Map<String, Object> page(Page<?> page) {
-        Map<String, Object> tree = new LinkedHashMap<>(page.toWire());
-        tree.remove(Wire.TYPES);
-        return tree;
-    }
+    /** 一页列表：{ rows, total, page, size, totalPages }，同 HTTP 接口 */
+    private static Map<String, Object> page(Page<?> page) { return view(page); }
 
     /** 查询结果本身（发起页、待办详情、实例详情）：记录按属性名写成对象 */
     @SuppressWarnings("unchecked")

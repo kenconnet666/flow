@@ -29,7 +29,6 @@ class ErrorCodesTest {
         ApiResult<Object> fail = ApiResult.fail(new FlowException(FlowErrorCode.WORK_ITEM_NOT_OPEN, Map.of("workItem", "7")));
         assertEquals("flow.work-item-not-open", fail.code());
         assertEquals(Map.of("workItem", "7"), fail.params());
-        assertEquals("query.unexpected-row-count", ApiResult.fail(new IllegalStateException("rows"), e -> "query.unexpected-row-count").code());
         assertEquals("flow.internal-error", ApiResult.fail(new IllegalStateException("x")).code());
     }
 }

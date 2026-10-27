@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core;
 
+import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
@@ -28,6 +29,8 @@ import org.dpdns.zerodep.flow.core.command.TerminateCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
+import org.dpdns.zerodep.flow.core.db.FlowEasyQuery;
+import org.dpdns.zerodep.flow.core.db.FlowInterceptors;
 import org.dpdns.zerodep.flow.core.engine.AdminHandler;
 import org.dpdns.zerodep.flow.core.engine.BuiltinJobs;
 import org.dpdns.zerodep.flow.core.engine.ClaimHandler;
@@ -39,12 +42,16 @@ import org.dpdns.zerodep.flow.core.engine.EventDispatcher;
 import org.dpdns.zerodep.flow.core.engine.JobHandler;
 import org.dpdns.zerodep.flow.core.engine.JobRunner;
 import org.dpdns.zerodep.flow.core.engine.Publishing;
+import org.dpdns.zerodep.flow.core.engine.Queries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.engine.Queries;
 import org.dpdns.zerodep.flow.core.engine.SignalHandler;
 import org.dpdns.zerodep.flow.core.engine.StartHandler;
 import org.dpdns.zerodep.flow.core.engine.StepWithdrawal;
 import org.dpdns.zerodep.flow.core.engine.TenantScope;
 import org.dpdns.zerodep.flow.core.engine.WithdrawHandler;
+import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
+import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
+import org.dpdns.zerodep.flow.core.entity.RequestEntity;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
@@ -55,45 +62,25 @@ import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
-import org.dpdns.zerodep.flow.core.store.CcStore;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore.VersionInfo;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore;
-import org.dpdns.zerodep.flow.core.store.EventStore;
-import org.dpdns.zerodep.flow.core.store.FormDataStore;
-import org.dpdns.zerodep.flow.core.store.FormStore.FormVersionInfo;
-import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
-import org.dpdns.zerodep.flow.core.store.FormStore;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceSearch;
-import org.dpdns.zerodep.flow.core.store.InstanceStore;
-import org.dpdns.zerodep.flow.core.store.JobStore;
-import org.dpdns.zerodep.flow.core.store.RequestStore;
-import org.dpdns.zerodep.flow.core.store.StepStore;
-import org.dpdns.zerodep.flow.core.store.Stores;
-import org.dpdns.zerodep.flow.core.store.WaitStore;
-import org.dpdns.zerodep.flow.core.store.WorkItemStore;
-import org.dpdns.zerodep.flow.core.store.query.FlowDatabase;
-import org.dpdns.zerodep.flow.core.store.query.QueryStores;
+import org.dpdns.zerodep.flow.core.view.CcItem;
 import org.dpdns.zerodep.flow.core.view.DefinitionProblem;
 import org.dpdns.zerodep.flow.core.view.FormDocument;
 import org.dpdns.zerodep.flow.core.view.FormSummary;
+import org.dpdns.zerodep.flow.core.view.FormVersionVO;
 import org.dpdns.zerodep.flow.core.view.IncidentView;
 import org.dpdns.zerodep.flow.core.view.InstanceDetail;
+import org.dpdns.zerodep.flow.core.view.InstanceVO;
+import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.core.view.ProcessSummary;
+import org.dpdns.zerodep.flow.core.view.ProcessVersionVO;
 import org.dpdns.zerodep.flow.core.view.StartView;
 import org.dpdns.zerodep.flow.core.view.StartableProcess;
+import org.dpdns.zerodep.flow.core.view.TodoItem;
 import org.dpdns.zerodep.flow.core.view.WorkItemView;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
-import org.dpdns.zerodep.flow.model.runtime.CcItem;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.TodoItem;
-import org.dpdns.zerodep.query.exec.ConnectionProvider;
-import org.dpdns.zerodep.query.exec.Database;
-import org.dpdns.zerodep.query.exec.Page;
 
-import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -108,7 +95,7 @@ import java.util.function.Supplier;
 /**
  * 流程引擎的门面（docs/decisions/0006）：接入方只和它打交道。命令改状态，查询读，扩展点由 {@link Builder} 给出。不依赖 Spring。
  * <pre>{@code
- * FlowEngine<MyUser> engine = FlowEngine.<MyUser>builder(dataSource).actorProvider(security::currentUser).orgDirectory(org).build();
+ * FlowEngine<MyUser> engine = FlowEngine.<MyUser>builder(easyEntityQuery).actorProvider(security::currentUser).orgDirectory(org).build();
  * engine.publishForm(new FormPublication("purchase", "采购申请", null, manifestJson, null, null, null, null, null, null));
  * engine.publishDefinition(definitionJson, "第一版");
  * CommandResult started = engine.start(StartCommand.of("purchase", Map.of("amount", "1200.00")));
@@ -117,7 +104,8 @@ import java.util.function.Supplier;
  * }</pre>
  * <ul>
  *   <li>表由接入方建：执行 flow-core 里的 {@code db/flow/mysql/*.sql}，推荐交给 Flyway（docs/decisions/0007 第 9 节）；</li>
- *   <li>每个命令在一个事务里执行（外面已有同一个数据源的事务时加入），处理的步骤见各处理类（{@code engine} 包）；</li>
+ *   <li>读写用接入方的 easy-query（{@code EasyEntityQuery}）：表是 {@code entity} 包里的实体，接入方也能直接查它们、和自己的表一起查；</li>
+ *   <li>每个命令在一个事务里执行（外面已有事务时加入），处理的步骤见各处理类（{@code engine} 包）；</li>
  *   <li>出错时抛带业务错误码的 {@link FlowException}（0008），HTTP 接口写成响应体；</li>
  *   <li>不带操作人的方法取 {@link ActorProvider} 的当前操作人，带 {@code actor} 的给后台任务、系统操作用；每个操作先问 {@link PermissionPolicy}；</li>
  *   <li>命令过了权限再过 {@link CommandInterceptor}（审计、业务校验、改参数），和标准处理在同一个事务里。</li>
@@ -162,19 +150,19 @@ public final class FlowEngine<U extends Actor> {
         this.jobs = new JobRunner(context, handlers);
     }
 
-    /** 开始组装：引擎在这个数据源上建自己的数据库实例（方言由连接决定；不在事务里时每条语句借一个连接） */
-    public static <U extends Actor> Builder<U> builder(DataSource dataSource) { return new Builder<>(ConnectionProvider.of(dataSource)); }
-
-    /** 开始组装：连接由接入方给，例如 Spring 里带事务管理器的 {@code SpringConnections.of(dataSource, transactionManager)} */
-    public static <U extends Actor> Builder<U> builder(ConnectionProvider connections) { return new Builder<>(connections); }
+    /**
+     * 开始组装：用接入方建好的 easy-query（方言、数据源、事务由它定；Spring 里是 easy-query starter 的那个）。
+     * {@link Builder#build} 时把引擎的表要的转换器与拦截器装上去（{@link FlowEasyQuery#install}）。
+     */
+    public static <U extends Actor> Builder<U> builder(EasyEntityQuery db) { return new Builder<>(db); }
 
     // ───────── 发布 ─────────
 
     /** 发布流程定义（当前操作人），见 {@link #publishDefinition(Actor, String, String)} */
-    public StoredDefinition publishDefinition(String json, String note) { return publishDefinition(actors.current(), json, note); }
+    public ProcessVersionEntity publishDefinition(String json, String note) { return publishDefinition(actors.current(), json, note); }
 
     /** 发布流程定义：校验不通过时报 {@code flow.definition-invalid}，错误明细里是问题列表；版本号由后端给 */
-    public StoredDefinition publishDefinition(U actor, String json, String note) {
+    public ProcessVersionEntity publishDefinition(U actor, String json, String note) {
         allow(actor, "definitions.publish", null);
         return publishing.publishDefinition(actor, json, note);
     }
@@ -198,10 +186,10 @@ public final class FlowEngine<U extends Actor> {
     }
 
     /** 流程的全部版本（当前操作人） */
-    public List<VersionInfo> versions(String processKey) { return versions(actors.current(), processKey); }
+    public List<ProcessVersionVO> versions(String processKey) { return versions(actors.current(), processKey); }
 
     /** 流程的全部版本，新的在前（{@code definitions.versions}） */
-    public List<VersionInfo> versions(U actor, String processKey) {
+    public List<ProcessVersionVO> versions(U actor, String processKey) {
         allow(actor, "definitions.versions", processKey);
         return queries.versions(processKey);
     }
@@ -225,10 +213,10 @@ public final class FlowEngine<U extends Actor> {
     }
 
     /** 表单的全部版本（当前操作人） */
-    public List<FormVersionInfo> formVersions(String formKey) { return formVersions(actors.current(), formKey); }
+    public List<FormVersionVO> formVersions(String formKey) { return formVersions(actors.current(), formKey); }
 
     /** 表单的全部版本，新的在前（{@code forms.versions}） */
-    public List<FormVersionInfo> formVersions(U actor, String formKey) {
+    public List<FormVersionVO> formVersions(U actor, String formKey) {
         allow(actor, "forms.versions", formKey);
         return queries.formVersions(formKey);
     }
@@ -252,10 +240,10 @@ public final class FlowEngine<U extends Actor> {
     }
 
     /** 发布表单（当前操作人） */
-    public StoredForm publishForm(FormPublication form) { return publishForm(actors.current(), form); }
+    public FormVersionEntity publishForm(FormPublication form) { return publishForm(actors.current(), form); }
 
     /** 发布表单：字段清单校验不通过时报 {@code flow.validation-failed} */
-    public StoredForm publishForm(U actor, FormPublication form) {
+    public FormVersionEntity publishForm(U actor, FormPublication form) {
         allow(actor, "forms.publish", form.key());
         return publishing.publishForm(actor, form);
     }
@@ -466,16 +454,23 @@ public final class FlowEngine<U extends Actor> {
     public String idempotent(U actor, String requestId, String command, Supplier<String> work) {
         if (requestId == null || requestId.isBlank()) return work.get();
         return context.transaction(() -> {
-            var done = context.stores().requests().find(requestId);
-            if (done.isPresent()) {
-                if (!done.get().command().equals(command) || !Objects.equals(done.get().actorId(), actor.id())) {
+            RequestEntity done = context.db().queryable(RequestEntity.class).where(r -> r.requestId().eq(requestId)).singleOrNull();
+            if (done != null) {
+                if (!done.getCommand().equals(command) || !Objects.equals(done.getActorId(), actor.id())) {
                     throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "request id " + requestId + " was used for another command",
                         List.of(new ErrorDetail("reused", "requestId", null, null, null, Map.of())));
                 }
-                return done.get().response();
+                return done.getResponse();
             }
             String response = work.get();
-            context.stores().requests().save(new RequestStore.NewRequest(requestId, command, actor.id(), response, context.clock().instant()));
+            // 同一个编号并发写第二次时违反唯一约束，那个命令整个回滚
+            RequestEntity request = new RequestEntity();
+            request.setRequestId(requestId);
+            request.setCommand(command);
+            request.setActorId(actor.id());
+            request.setResponse(response);
+            request.setCreatedAt(context.clock().instant());
+            context.db().insertable(request).executeRows();
             return response;
         });
     }
@@ -495,7 +490,10 @@ public final class FlowEngine<U extends Actor> {
      */
     public long purgeRequests(Duration olderThan) {
         Instant cutoff = context.clock().instant().minus(olderThan);
-        return context.transaction(() -> context.stores().requests().deleteBefore(cutoff));
+        return context.transaction(() -> context.db().deletable(RequestEntity.class).allowDeleteStatement(true)
+            .noInterceptor(FlowInterceptors.TENANT)
+            .where(r -> r.createdAt().lt(cutoff))
+            .executeRows());
     }
 
     // ───────── 查询 ─────────
@@ -564,10 +562,10 @@ public final class FlowEngine<U extends Actor> {
     }
 
     /** 管理端搜实例（当前操作人） */
-    public Page<ProcessInstance> instances(InstanceSearch search, int page, int size) { return instances(actors.current(), search, page, size); }
+    public Page<InstanceVO> instances(InstanceSearch search, int page, int size) { return instances(actors.current(), search, page, size); }
 
     /** 管理端搜实例：按状态、流程、标题、发起人；谁能搜由 PermissionPolicy 定（{@code instances.search}） */
-    public Page<ProcessInstance> instances(U actor, InstanceSearch search, int page, int size) {
+    public Page<InstanceVO> instances(U actor, InstanceSearch search, int page, int size) {
         allow(actor, "instances.search", null);
         return queries.instances(search, page, size);
     }
@@ -594,10 +592,10 @@ public final class FlowEngine<U extends Actor> {
     }
 
     /** 我发起的（当前操作人） */
-    public Page<ProcessInstance> started(int page, int size) { return started(actors.current(), page, size); }
+    public Page<InstanceVO> started(int page, int size) { return started(actors.current(), page, size); }
 
     /** 我发起的实例，按发起时间从新到旧 */
-    public Page<ProcessInstance> started(U actor, int page, int size) {
+    public Page<InstanceVO> started(U actor, int page, int size) {
         allow(actor, "started", String.valueOf(actor.id()));
         return queries.started(actor, page, size);
     }
@@ -650,7 +648,7 @@ public final class FlowEngine<U extends Actor> {
      * 只能用带 {@code actor} 参数的方法。
      */
     public static final class Builder<U extends Actor> {
-        private final ConnectionProvider connections;
+        private final EasyEntityQuery db;
         private ActorProvider<U> actors = () -> {
             throw new IllegalStateException("no ActorProvider is configured; pass the actor explicitly or set FlowEngine.Builder.actorProvider");
         };
@@ -658,17 +656,6 @@ public final class FlowEngine<U extends Actor> {
         private PermissionPolicy<U> permissions = PermissionPolicy.allowAll();
         private Clock clock = Clock.systemUTC();
         private Supplier<Long> tenant = () -> 0L;
-        private DefinitionStore definitionStore;
-        private FormStore formStore;
-        private FormDataStore formDataStore;
-        private InstanceStore instanceStore;
-        private WorkItemStore workItemStore;
-        private EventStore eventStore;
-        private JobStore jobStore;
-        private CcStore ccStore;
-        private WaitStore waitStore;
-        private RequestStore requestStore;
-        private StepStore stepStore;
         private WorkCalendar calendar = WorkCalendar.weekdays(ZoneOffset.UTC);
         private final List<JobHandler> jobHandlers = new ArrayList<>();
         private final List<FlowListener> listeners = new ArrayList<>();
@@ -678,7 +665,7 @@ public final class FlowEngine<U extends Actor> {
         private final List<OutcomeGuard> guards = new ArrayList<>();
         private final List<ServiceAction> actions = new ArrayList<>();
 
-        private Builder(ConnectionProvider connections) { this.connections = Objects.requireNonNull(connections, "connections"); }
+        private Builder(EasyEntityQuery db) { this.db = Objects.requireNonNull(db, "db"); }
 
         /** 当前操作人从哪来 */
         public Builder<U> actorProvider(ActorProvider<U> actors) { this.actors = actors; return this; }
@@ -694,39 +681,6 @@ public final class FlowEngine<U extends Actor> {
 
         /** 当前租户的编号；默认不用多租户（0） */
         public Builder<U> tenant(Supplier<Long> tenant) { this.tenant = tenant; return this; }
-
-        /** 换掉流程定义的存储 */
-        public Builder<U> definitionStore(DefinitionStore store) { this.definitionStore = store; return this; }
-
-        /** 换掉表单的存储 */
-        public Builder<U> formStore(FormStore store) { this.formStore = store; return this; }
-
-        /** 换掉表单值的存储 */
-        public Builder<U> formDataStore(FormDataStore store) { this.formDataStore = store; return this; }
-
-        /** 换掉实例的存储 */
-        public Builder<U> instanceStore(InstanceStore store) { this.instanceStore = store; return this; }
-
-        /** 换掉待办的存储 */
-        public Builder<U> workItemStore(WorkItemStore store) { this.workItemStore = store; return this; }
-
-        /** 换掉流转记录的存储 */
-        public Builder<U> eventStore(EventStore store) { this.eventStore = store; return this; }
-
-        /** 换掉处理之前的快照的存储 */
-        public Builder<U> stepStore(StepStore store) { this.stepStore = store; return this; }
-
-        /** 换掉幂等记录的存储 */
-        public Builder<U> requestStore(RequestStore store) { this.requestStore = store; return this; }
-
-        /** 换掉等外部事件的存储 */
-        public Builder<U> waitStore(WaitStore store) { this.waitStore = store; return this; }
-
-        /** 换掉抄送的存储 */
-        public Builder<U> ccStore(CcStore store) { this.ccStore = store; return this; }
-
-        /** 换掉作业的存储 */
-        public Builder<U> jobStore(JobStore store) { this.jobStore = store; return this; }
 
         /** 工作日历：时限写成工作日时按它算；默认周一到周五、UTC 的日期（{@link WorkCalendar#weekdays}） */
         public Builder<U> workCalendar(WorkCalendar calendar) { this.calendar = calendar; return this; }
@@ -756,22 +710,9 @@ public final class FlowEngine<U extends Actor> {
         public FlowEngine<U> build() {
             if (org == null) throw new IllegalStateException("an OrgDirectory is required: the engine has no default organisation");
             // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
-            Database db = FlowDatabase.create(connections, TenantScope.over(tenant), clock);
-            Stores defaults = QueryStores.create(db);
-            Stores stores = new Stores(
-                definitionStore != null ? definitionStore : defaults.definitions(),
-                formStore != null ? formStore : defaults.forms(),
-                formDataStore != null ? formDataStore : defaults.formData(),
-                instanceStore != null ? instanceStore : defaults.instances(),
-                workItemStore != null ? workItemStore : defaults.workItems(),
-                eventStore != null ? eventStore : defaults.events(),
-                jobStore != null ? jobStore : defaults.jobs(),
-                ccStore != null ? ccStore : defaults.ccs(),
-                waitStore != null ? waitStore : defaults.waits(),
-                requestStore != null ? requestStore : defaults.requests(),
-                stepStore != null ? stepStore : defaults.steps());
-            return new FlowEngine<>(new EngineContext(db, stores, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
-                new Extensions(resolvers, guards, actions), new DefinitionCache(stores)), actors, permissions, List.copyOf(interceptors),
+            FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
+            return new FlowEngine<>(new EngineContext(db, clock, org, calendar, new EventDispatcher(List.copyOf(listeners), afterCommit),
+                new Extensions(resolvers, guards, actions), new DefinitionCache(db)), actors, permissions, List.copyOf(interceptors),
                 List.copyOf(jobHandlers));
         }
     }

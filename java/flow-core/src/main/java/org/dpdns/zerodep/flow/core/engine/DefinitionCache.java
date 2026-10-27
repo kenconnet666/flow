@@ -1,9 +1,9 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.store.Stores;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredDefinition;
-import org.dpdns.zerodep.flow.core.store.FormStore.StoredForm;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import com.easy.query.api.proxy.client.EasyEntityQuery;
+import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.model.definition.Definitions;
 import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
@@ -18,30 +18,35 @@ import java.util.concurrent.ConcurrentHashMap;
  * 集群里别的节点发布新版本时不需要通知这里——新版本是新编号。
  */
 public final class DefinitionCache {
-    private final Stores stores;
+    private final EasyEntityQuery db;
     private final Map<Long, LoadedDefinition> loaded = new ConcurrentHashMap<>();
 
-    public DefinitionCache(Stores stores) { this.stores = stores; }
+    public DefinitionCache(EasyEntityQuery db) { this.db = db; }
 
     /** 实例按哪个版本走 */
-    public LoadedDefinition of(InstanceRecord instance) {
-        LoadedDefinition found = loaded.get(instance.definitionId());
+    public LoadedDefinition of(InstanceEntity instance) { return byId(instance.getDefinitionId()); }
+
+    /** 按编号取一个版本 */
+    public LoadedDefinition byId(Long definitionId) {
+        LoadedDefinition found = loaded.get(definitionId);
         if (found != null) return found;
-        return of(stores.definitions().byId(instance.definitionId())
-            .orElseThrow(() -> FlowErrors.notFound("definition", instance.definitionId())));
+        return of(db.queryable(ProcessVersionEntity.class).whereById(definitionId)
+            .singleNotNull(() -> FlowErrors.notFound("definition", definitionId)));
     }
 
     /** 某个存着的版本 */
-    public LoadedDefinition of(StoredDefinition stored) {
-        return loaded.computeIfAbsent(stored.id(), id -> load(stored));
+    public LoadedDefinition of(ProcessVersionEntity stored) {
+        return loaded.computeIfAbsent(stored.getId(), id -> load(stored));
     }
 
-    private LoadedDefinition load(StoredDefinition stored) {
-        ProcessGraph graph = ProcessGraph.of(Definitions.parse(stored.model()));
+    private LoadedDefinition load(ProcessVersionEntity stored) {
+        ProcessGraph graph = ProcessGraph.of(Definitions.parse(stored.getModel()));
         GatewayPairs pairs = GatewayPairs.of(graph.definition());
-        if (stored.formKey() == null) return new LoadedDefinition(stored, graph, null, null, pairs);
-        StoredForm form = stores.forms().version(stored.formKey(), stored.formVersion())
-            .orElseThrow(() -> FlowErrors.notFound("form", stored.formKey() + "@" + stored.formVersion()));
-        return new LoadedDefinition(stored, graph, form, FormManifest.parse(Json.read(form.manifest())), pairs);
+        if (stored.getFormKey() == null) return new LoadedDefinition(stored, graph, null, null, pairs);
+        FormVersionEntity form = db.queryable(FormVersionEntity.class)
+            .where(f -> { f.formKey().eq(stored.getFormKey()); f.version().eq(stored.getFormVersion()); })
+            .select(f -> f.FETCHER.id().formKey().version().manifest())
+            .singleNotNull(() -> FlowErrors.notFound("form", stored.getFormKey() + "@" + stored.getFormVersion()));
+        return new LoadedDefinition(stored, graph, form, FormManifest.parse(Json.read(form.getManifest())), pairs);
     }
 }

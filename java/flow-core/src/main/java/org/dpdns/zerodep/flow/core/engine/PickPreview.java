@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
+import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.view.PickView;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
@@ -65,9 +65,9 @@ final class PickPreview {
             if (source instanceof AssigneeSource.User user && !(user.user() instanceof Ref)) {
                 users.addAll(OrgIds.all(user.user()));
             } else if (source instanceof AssigneeSource.Role role && !(role.role() instanceof Ref)) {
-                for (Long id : OrgIds.all(role.role())) users.addAll(context.org().members(Candidate.ROLE, id));
+                for (Long id : OrgIds.all(role.role())) users.addAll(context.org().members(CandidateEntity.ROLE, id));
             } else if (source instanceof AssigneeSource.Department dept && !(dept.department() instanceof Ref)) {
-                for (Long id : OrgIds.all(dept.department())) users.addAll(context.org().members(Candidate.DEPARTMENT, id));
+                for (Long id : OrgIds.all(dept.department())) users.addAll(context.org().members(CandidateEntity.DEPARTMENT, id));
             } else if (source instanceof AssigneeSource.Group group && !(group.id() instanceof Ref)) {
                 for (Long id : OrgIds.all(group.id())) users.addAll(context.org().members(group.kind(), id));
             } else {

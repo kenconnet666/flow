@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.store.WorkItemStore.Candidate;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.Ref;
 
@@ -14,16 +14,16 @@ final class CandidateRules {
     private CandidateRules() { }
 
     /** 候选里有我、我的角色、部门或扩展的归属，而且我没被排除（退回过收件箱的人不能再认领） */
-    static boolean isCandidate(Actor actor, List<Candidate> candidates) {
-        boolean excluded = candidates.stream().anyMatch(c -> Candidate.EXCLUDED.equals(c.kind()) && c.targetId().equals(actor.id()));
+    static boolean isCandidate(Actor actor, List<CandidateEntity> candidates) {
+        boolean excluded = candidates.stream().anyMatch(c -> CandidateEntity.EXCLUDED.equals(c.getKind()) && c.getTargetId().equals(actor.id()));
         if (excluded) return false;
-        for (Candidate c : candidates) {
-            boolean matches = switch (c.kind()) {
-                case Candidate.USER -> c.targetId().equals(actor.id());
-                case Candidate.ROLE -> actor.roles().contains(c.targetId());
-                case Candidate.DEPARTMENT -> actor.departments().contains(c.targetId());
-                case Candidate.EXCLUDED -> false;
-                default -> actor.groups(c.kind()).contains(c.targetId());
+        for (CandidateEntity c : candidates) {
+            boolean matches = switch (c.getKind()) {
+                case CandidateEntity.USER -> c.getTargetId().equals(actor.id());
+                case CandidateEntity.ROLE -> actor.roles().contains(c.getTargetId());
+                case CandidateEntity.DEPARTMENT -> actor.departments().contains(c.getTargetId());
+                case CandidateEntity.EXCLUDED -> false;
+                default -> actor.groups(c.getKind()).contains(c.getTargetId());
             };
             if (matches) return true;
         }

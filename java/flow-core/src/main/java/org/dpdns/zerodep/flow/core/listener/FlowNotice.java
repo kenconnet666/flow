@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.listener;
 
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
+import org.dpdns.zerodep.flow.core.view.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.InstanceVO;
 
 import java.util.Map;
 
@@ -12,7 +12,7 @@ import java.util.Map;
  * @param instance 实例
  * @param nodeMeta 事件所在节点的 {@code meta}（0005 的节点共有字段，引擎原样保存不解释）；不在节点上的事件是空的
  */
-public record FlowNotice(FlowEvent event, ProcessInstance instance, Map<String, Object> nodeMeta) {
+public record FlowNotice(FlowEventVO event, InstanceVO instance, Map<String, Object> nodeMeta) {
     public FlowNotice {
         nodeMeta = nodeMeta == null ? Map.of() : nodeMeta;
     }

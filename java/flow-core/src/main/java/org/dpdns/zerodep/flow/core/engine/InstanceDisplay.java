@@ -1,13 +1,13 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
-import org.dpdns.zerodep.flow.core.store.WorkItemStore;
+import com.easy.query.api.proxy.client.EasyEntityQuery;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity.CurrentNode;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 import org.dpdns.zerodep.flow.model.Values;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance.CurrentNode;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,17 +31,19 @@ final class InstanceDisplay {
     private InstanceDisplay() { }
 
     /**
-     * 重算之后的实例。
+     * 重算，写进实例（还没写库）。
      *
      * @param fixedTitle 发起时显式给的标题；为 null 时按模板生成
      * @param read       取引用的值
      */
-    static InstanceRecord refresh(InstanceRecord instance, ProcessDefinition definition, String fixedTitle, Function<String, Object> read,
-                                  WorkItemStore workItems) {
+    static void refresh(InstanceEntity instance, ProcessDefinition definition, String fixedTitle, Function<String, Object> read,
+                        EasyEntityQuery db) {
         String title = fixedTitle != null ? fixedTitle : title(definition, read);
         Map<String, Object> summary = new LinkedHashMap<>();
         for (String name : definition.summary()) summary.put(name, read.apply(name));
-        return instance.withDisplay(title, summary, currentNodes(instance, definition, workItems));
+        instance.setTitle(title);
+        instance.setSummary(summary);
+        instance.setCurrent(currentNodes(instance, definition, db));
     }
 
     /** 按模板生成标题；不写模板时用流程名 */
@@ -59,14 +61,14 @@ final class InstanceDisplay {
     }
 
     /** 还开着的待办所在的节点，按到达的先后、去重；再加上停着等的节点（定时、异步的自动节点） */
-    private static List<CurrentNode> currentNodes(InstanceRecord instance, ProcessDefinition definition, WorkItemStore workItems) {
+    private static List<CurrentNode> currentNodes(InstanceEntity instance, ProcessDefinition definition, EasyEntityQuery db) {
         // 结束了的没有正在处理的节点；暂停的照样显示停在哪
-        if (instance.endedAt() != null) return List.of();
+        if (instance.getEndedAt() != null) return List.of();
         Map<String, CurrentNode> open = new LinkedHashMap<>();
-        for (WorkItem item : workItems.ofInstance(instance.id())) {
-            if (WorkItem.OPEN.equals(item.state())) open.putIfAbsent(item.node(), new CurrentNode(item.node(), item.nodeName()));
+        for (WorkItemVO item : WorkItems.ofInstance(db, instance.getId())) {
+            if (WorkItemEntity.OPEN.equals(item.getState())) open.putIfAbsent(item.getNode(), new CurrentNode(item.getNode(), item.getNodeName()));
         }
-        for (String node : instance.state().waits().keySet()) {
+        for (String node : instance.getState().waits().keySet()) {
             String name = definition.nodes().stream().filter(n -> n.id().equals(node)).map(ProcessNode::name).findFirst().orElse(null);
             open.putIfAbsent(node, new CurrentNode(node, name));
         }

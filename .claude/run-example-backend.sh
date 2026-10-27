@@ -1,6 +1,6 @@
 #!/bin/sh
 # 本机预览用：跑 Spring Boot 示例后端（端口 8080），连 query 的开发 MySQL（WSL 的 Docker）里的 flow_demo 库。
-# 密码从旁边 query 仓库的 infra/mysql/.env 读，不写进这里；WSL 的地址变了时设 FLOW_MYSQL_HOST。
+# 密码从旁边 query 仓库的 infra/mysql/.env 读，不写进这里；默认经 localhost 连 WSL（wslrelay 转发），要直连时设 FLOW_MYSQL_HOST。
 cd "$(dirname "$0")/.." || exit 1
 
 # 预览工具起的进程里可能没有 JAVA_HOME：用 IDEA 装在 ~/.jdks 下的最新一个
@@ -13,7 +13,7 @@ fi
 # 而 JDK 只在 bind 失败时才退回 TCP 回环：把套接字目录指到一个不存在的目录，让 bind 失败、走 TCP（只影响本机预览）
 NO_AF_UNIX="$(cygpath -m "$HOME")/flow-no-af-unix"
 
-FLOW_MYSQL_URL="jdbc:mysql://${FLOW_MYSQL_HOST:-172.17.206.87}:53306/flow_demo"
+FLOW_MYSQL_URL="jdbc:mysql://${FLOW_MYSQL_HOST:-localhost}:53306/flow_demo"
 FLOW_MYSQL_USER=query
 FLOW_MYSQL_PASSWORD="$(grep '^QUERY_DB_PASSWORD=' ../query/infra/mysql/.env | cut -d= -f2-)"
 export FLOW_MYSQL_URL FLOW_MYSQL_USER FLOW_MYSQL_PASSWORD

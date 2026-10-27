@@ -3,20 +3,19 @@ package org.dpdns.zerodep.flow.core.engine;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.data.RunState;
+import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.store.FormDataStore.StoredFormData;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
-import org.dpdns.zerodep.flow.core.store.StepStore;
-import org.dpdns.zerodep.flow.core.store.WorkItemStore.Completion;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
 import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -52,37 +51,37 @@ public final class CompleteHandler {
     public CommandResult handle(Actor actor, CompleteCommand command) {
         return context.transaction(() -> {
             // 1. 锁实例
-            WorkItem found = context.stores().workItems().find(command.workItemId())
-                .orElseThrow(() -> FlowErrors.notFound("workItem", command.workItemId()));
-            int rev = context.stores().instances().lock(found.instanceId())
-                .orElseThrow(() -> FlowErrors.notFound("instance", found.instanceId()));
-            InstanceRecord instance = context.stores().instances().find(found.instanceId()).orElseThrow();
+            WorkItemVO found = WorkItems.find(context.db(), command.workItemId());
+            InstanceEntity instance = Instances.lock(context.db(), found.getInstanceId());
             ClaimHandler.requireActive(instance);
+            // 处理之前的样子（实例会在推进时就地改）：记成快照，下一步还没人动时处理人能撤回
+            RunState stateBefore = instance.getState();
+            Variables variablesBefore = instance.getVariables();
 
             // 2. 锁住之后重读待办：并发的另一次处理可能刚刚改了它
-            WorkItem item = context.stores().workItems().find(command.workItemId()).orElseThrow();
-            if (!WorkItem.OPEN.equals(item.state())) throw FlowErrors.notOpen(item.id());
-            if (item.assigneeId() == null) claims.claim(actor, item);
-            else if (!item.assigneeId().equals(actor.id())) throw FlowErrors.notCandidate(item.id());
+            WorkItemVO item = WorkItems.find(context.db(), command.workItemId());
+            if (!WorkItemEntity.OPEN.equals(item.getState())) throw FlowErrors.notOpen(item.getId());
+            if (item.getAssigneeId() == null) claims.claim(actor, item);
+            else if (!item.getAssigneeId().equals(actor.id())) throw FlowErrors.notCandidate(item.getId());
 
             // 3. 结果与意见
             LoadedDefinition definition = definitions.of(instance);
-            ProcessNode.Task task = (ProcessNode.Task) definition.graph().node(item.node());
+            ProcessNode.Task task = (ProcessNode.Task) definition.graph().node(item.getNode());
             Outcome outcome = chosenOutcome(task, command.outcome());
             checkComment(outcome, command.comment());
 
             // 4. 表单
             Instant now = context.clock().instant();
-            FormValues stored = context.stores().formData().read(instance.id()).map(StoredFormData::values).orElse(FormValues.empty());
-            Execution run = new Execution(context, actor, now, definition, instance, stored, rev);
+            FormValues stored = Instances.form(context.db(), instance.getId());
+            Execution run = new Execution(context, actor, now, definition, instance, stored, instance.getRev());
             if (definition.hasForm()) {
                 run.form(FormSubmission.merge(definition.manifest(), task.form(), false, stored, command.form(), run::read));
-                context.stores().formData().update(instance.id(), run.form());
+                Instances.saveForm(context.db(), instance.getId(), run.form());
             }
 
             run.picks(command.picks());
             if (outcome != null && outcome.choosesTarget()) {
-                run.returnTarget(ReturnTargets.check(definition, instance.state(), item.node(), command.returnTarget()));
+                run.returnTarget(ReturnTargets.check(definition, instance.getState(), item.getNode(), command.returnTarget()));
             }
 
             // 守卫：表单合并好之后、改成已处理之前问一遍，任一不通过整个处理不做
@@ -92,15 +91,11 @@ public final class CompleteHandler {
             finishItem(run, task, item, outcome == null ? command.outcome() : outcome.key(), outcome, command.comment());
 
             // 记下处理之前的样子：下一步还没人动时处理人能撤回（StepWithdrawal）；结束了就不再能撤回
-            if (run.instance().endedAt() == null) {
-                context.stores().steps().save(new StepStore.StepSnapshot(instance.id(), item.id(), rev, instance.state(), instance.variables(), stored));
-            } else {
-                context.stores().steps().remove(instance.id());
-            }
+            StepWithdrawal.remember(context.db(), instance, item.getId(), stateBefore, variablesBefore, stored);
 
             // 7. 写回
             run.flush(null);
-            return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
+            return run.result();
         });
     }
 
@@ -110,16 +105,17 @@ public final class CompleteHandler {
      *
      * @param outcome 选的结果；节点没写处理结果时为 null（按 outcomeKey 当作一个"同意"）
      */
-    void finishItem(Execution run, ProcessNode.Task task, WorkItem item, String outcomeKey, Outcome outcome, String comment) {
-        Completion completion = new Completion(outcomeKey, comment, run.actor().id(), run.actor().name(), run.now());
-        if (!context.stores().workItems().complete(item.id(), completion)) throw FlowErrors.notOpen(item.id());
+    void finishItem(Execution run, ProcessNode.Task task, WorkItemVO item, String outcomeKey, Outcome outcome, String comment) {
+        if (!WorkItems.complete(context.db(), item.getId(), outcomeKey, comment, run.actor().id(), run.actor().name(), run.now())) {
+            throw FlowErrors.notOpen(item.getId());
+        }
         run.closed.add(item);
         // 结果的名字存快照（同处理人的名字）：流转记录上显示"通过"而不是 pass，以后改了定义也不变
-        Map<String, Object> data = outcome == null ? Map.of() : Map.of(FlowEvent.OUTCOME_LABEL, outcome.label());
-        run.addEvent(FlowEvent.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.id(), comment, data);
+        Map<String, Object> data = outcome == null ? Map.of() : Map.of(EventEntity.OUTCOME_LABEL, outcome.label());
+        run.addEvent(EventEntity.WORK_ITEM_COMPLETED, task, null, outcomeKey, item.getId(), comment, data);
 
         Outcome chosen = outcome != null ? outcome : implicitApprove(outcomeKey);
-        if (item.parentItemId() != null) {
+        if (item.getParentItemId() != null) {
             // 委派、加签的人办完：回到原来的待办（SubItems）；后加签、并加的都办完了才按原来的人的结果往下
             SubItems.childDone(context, run, task, item, (parent, parentOutcome) -> settle(run, task, parent, parentOutcome, comment));
         } else if (!SubItems.holdsParent(context, run, task, item, chosen)) {
@@ -131,16 +127,23 @@ public final class CompleteHandler {
      * 一个待办（会签时是其中一份）按这个结果办完了，节点怎样往下：不是会签时直接往下；会签时先问 {@link Countersign}——
      * 还要等别人、轮到下一个人、或按某个结果结束（结束时取消其余的待办）。
      */
-    private void settle(Execution run, ProcessNode.Task task, WorkItem item, Outcome chosen, String comment) {
+    private void settle(Execution run, ProcessNode.Task task, WorkItemVO item, Outcome chosen, String comment) {
         if (task.multi() == null) {
             goOn(run, task, chosen, comment);
             return;
         }
         // 这一轮的会签待办：不含转办取消掉的、委派加签挂在下面的
-        List<WorkItem> round = context.stores().workItems().ofInstance(item.instanceId()).stream()
-            .filter(i -> i.node().equals(task.id()) && i.round() == item.round() && i.parentItemId() == null)
-            .filter(i -> !WorkItem.CANCELED.equals(i.state())).toList();
-        Countersign.Decision decision = Countersign.decide(task.multi(), chosen, round, run.instance().state().queue(task.id()).size());
+        List<WorkItemVO> round = context.db().queryable(WorkItemEntity.class)
+            .where(w -> {
+                w.instanceId().eq(item.getInstanceId());
+                w.node().eq(task.id());
+                w.round().eq(item.getRound());
+                w.parentItemId().isNull();
+                w.state().ne(WorkItemEntity.CANCELED);
+            })
+            .orderBy(w -> { w.createdAt().asc(); w.id().asc(); })
+            .select(WorkItemVO.class).toList();
+        Countersign.Decision decision = Countersign.decide(task.multi(), chosen, round, run.instance().getState().queue(task.id()).size());
         if (decision instanceof Countersign.Decision.Next) {
             run.nextSigner(task, round.size() + 1);
         } else if (decision instanceof Countersign.Decision.Finish finish) {
@@ -163,7 +166,7 @@ public final class CompleteHandler {
                 else run.leave(task.id(), outcome.key());
             }
             case "reject", "escalate" -> run.leave(task.id(), outcome.key());
-            case "terminate" -> run.finish(ProcessInstance.TERMINATED, outcome.result(), FlowEvent.INSTANCE_TERMINATED, comment);
+            case "terminate" -> run.finish(InstanceEntity.TERMINATED, outcome.result(), EventEntity.INSTANCE_TERMINATED, comment);
             default -> throw new UnsupportedOperationException("outcome kind '" + outcome.kindOrDefault() + "' is not supported");
         }
     }
@@ -182,13 +185,13 @@ public final class CompleteHandler {
     }
 
     /** 结果上写的守卫（接入方注册的 OutcomeGuard）都要通过；不通过的报 {@code flow.guard-rejected}，明细里是守卫的名字与原因 */
-    private void checkGuards(Actor actor, Execution run, WorkItem item, Outcome outcome) {
+    private void checkGuards(Actor actor, Execution run, WorkItemVO item, Outcome outcome) {
         if (outcome == null || outcome.guards().isEmpty()) return;
         List<ErrorDetail> refused = new ArrayList<>();
-        OutcomeGuard.Context guardContext = new OutcomeGuard.Context(actor, run.instance().view(), item, outcome.key(), run.form().asMap());
+        OutcomeGuard.Context guardContext = new OutcomeGuard.Context(actor, run.view(), item, outcome.key(), run.form().asMap());
         for (String name : outcome.guards()) {
             String reason = context.extensions().guard(name).check(guardContext);
-            if (reason != null) refused.add(new ErrorDetail(name, null, item.node(), null, null, Map.of("reason", reason)));
+            if (reason != null) refused.add(new ErrorDetail(name, null, item.getNode(), null, null, Map.of("reason", reason)));
         }
         if (!refused.isEmpty()) throw new FlowException(FlowErrorCode.GUARD_REJECTED, "guards refused outcome " + outcome.key(), refused);
     }

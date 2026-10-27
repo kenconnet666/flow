@@ -1,9 +1,10 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -27,15 +28,15 @@ final class SubItems {
      *
      * @param settle 节点按原来的待办的结果往下走（会签时先看会签结束了没有）：后加签、并加的人都办完、原来的人也办完时调用
      */
-    static void childDone(EngineContext context, Execution run, ProcessNode.Task task, WorkItem child,
-                          BiConsumer<WorkItem, Outcome> settle) {
-        WorkItem parent = context.stores().workItems().find(child.parentItemId()).orElseThrow();
-        switch (child.addMode()) {
+    static void childDone(EngineContext context, Execution run, ProcessNode.Task task, WorkItemVO child,
+                          BiConsumer<WorkItemVO, Outcome> settle) {
+        WorkItemVO parent = WorkItems.find(context.db(), child.getParentItemId());
+        switch (child.getAddMode()) {
             case "delegate", "before" -> resumeIfSettled(context, run, parent);
             case "after", "parallel" -> {
-                if (WorkItem.DONE.equals(parent.state()) && !hasPending(context, parent)) settle.accept(parent, outcomeOf(task, parent));
+                if (WorkItemEntity.DONE.equals(parent.getState()) && !hasPending(context, parent)) settle.accept(parent, outcomeOf(task, parent));
             }
-            default -> throw new IllegalStateException("unknown add mode " + child.addMode());
+            default -> throw new IllegalStateException("unknown add mode " + child.getAddMode());
         }
     }
 
@@ -43,40 +44,41 @@ final class SubItems {
      * 原来的待办办完了：有还在办的并加的人、或等着的后加签的人时，节点先不往下走（返回 true）；
      * 后加签的人的待办这时打开。原来的人选了非同意的结果（否决、退回……）时不等加签的人，把它们取消、照常往下走。
      */
-    static boolean holdsParent(EngineContext context, Execution run, ProcessNode.Task task, WorkItem parent, Outcome chosen) {
-        List<WorkItem> pending = context.stores().workItems().children(parent.id()).stream()
-            .filter(c -> WorkItem.OPEN.equals(c.state()) || WorkItem.WAITING.equals(c.state())).toList();
+    static boolean holdsParent(EngineContext context, Execution run, ProcessNode.Task task, WorkItemVO parent, Outcome chosen) {
+        List<WorkItemVO> pending = WorkItems.children(context.db(), parent.getId()).stream()
+            .filter(c -> WorkItemEntity.PENDING.contains(c.getState())).toList();
         if (pending.isEmpty()) return false;
         if (!"approve".equals(chosen.kindOrDefault())) {
-            for (WorkItem child : pending) {
-                context.stores().workItems().cancel(child.id(), run.now());
+            for (WorkItemVO child : pending) {
+                WorkItems.cancel(context.db(), child.getId(), run.now());
                 run.closed.add(child);
-                run.addEvent(FlowEvent.WORK_ITEM_CANCELED, task, null, null, child.id(), null);
+                run.addEvent(EventEntity.WORK_ITEM_CANCELED, task, null, null, child.getId(), null);
             }
             return false;
         }
-        for (WorkItem child : pending) {
-            if ("after".equals(child.addMode())) context.stores().workItems().changeState(child.id(), WorkItem.WAITING, WorkItem.OPEN);
+        for (WorkItemVO child : pending) {
+            if ("after".equals(child.getAddMode())) WorkItems.changeState(context.db(), child.getId(), WorkItemEntity.WAITING, WorkItemEntity.OPEN);
         }
         return true;
     }
 
     /** 委派、前加签的人都办完了（或都减掉了）：原来的待办打开，回到原来的处理人手里 */
-    static void resumeIfSettled(EngineContext context, Execution run, WorkItem parent) {
-        if (!WorkItem.WAITING.equals(parent.state()) || hasPending(context, parent)) return;
-        context.stores().workItems().changeState(parent.id(), WorkItem.WAITING, WorkItem.OPEN);
-        run.addEvent(FlowEvent.WORK_ITEM_RESUMED, run.graph().node(parent.node()), null, null, parent.id(), null);
+    static void resumeIfSettled(EngineContext context, Execution run, WorkItemVO parent) {
+        if (!WorkItemEntity.WAITING.equals(parent.getState()) || hasPending(context, parent)) return;
+        WorkItems.changeState(context.db(), parent.getId(), WorkItemEntity.WAITING, WorkItemEntity.OPEN);
+        run.addEvent(EventEntity.WORK_ITEM_RESUMED, run.graph().node(parent.getNode()), null, null, parent.getId(), null);
     }
 
     /** 还有没办完的子待办（打开着的，或后加签还在等的） */
-    private static boolean hasPending(EngineContext context, WorkItem parent) {
-        return context.stores().workItems().children(parent.id()).stream()
-            .anyMatch(c -> WorkItem.OPEN.equals(c.state()) || WorkItem.WAITING.equals(c.state()));
+    private static boolean hasPending(EngineContext context, WorkItemVO parent) {
+        return context.db().queryable(WorkItemEntity.class)
+            .where(w -> { w.parentItemId().eq(parent.getId()); w.state().in(WorkItemEntity.PENDING); })
+            .any();
     }
 
     /** 原来的待办选的结果 */
-    private static Outcome outcomeOf(ProcessNode.Task task, WorkItem parent) {
-        return task.outcomes().stream().filter(o -> o.key().equals(parent.outcome())).findFirst()
-            .orElseGet(() -> new Outcome(parent.outcome(), parent.outcome(), null, null, null, false, List.of(), false, null, null));
+    private static Outcome outcomeOf(ProcessNode.Task task, WorkItemVO parent) {
+        return task.outcomes().stream().filter(o -> o.key().equals(parent.getOutcome())).findFirst()
+            .orElseGet(() -> new Outcome(parent.getOutcome(), parent.getOutcome(), null, null, null, false, List.of(), false, null, null));
     }
 }

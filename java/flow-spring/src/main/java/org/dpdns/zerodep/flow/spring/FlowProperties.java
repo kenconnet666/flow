@@ -24,11 +24,9 @@ import java.time.Duration;
  */
 @ConfigurationProperties("flow")
 public class FlowProperties {
-    /** 引擎用哪个 DataSource Bean；只有一个 DataSource 时不用写 */
+    /** 建表（Flyway）用哪个 DataSource Bean；只有一个 DataSource 时不用写。引擎读写用 easy-query starter 的数据源 */
     private String datasource;
 
-    /** 引擎的事务交给哪个事务管理器 Bean；只有一个时不用写 */
-    private String transactionManager;
 
     /** 建表 */
     private final Flyway flyway = new Flyway();
@@ -49,9 +47,7 @@ public class FlowProperties {
 
     public void setDatasource(String datasource) { this.datasource = datasource; }
 
-    public String getTransactionManager() { return transactionManager; }
 
-    public void setTransactionManager(String transactionManager) { this.transactionManager = transactionManager; }
 
     public Flyway getFlyway() { return flyway; }
 

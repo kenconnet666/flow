@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.extension;
 
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
+import org.dpdns.zerodep.flow.core.view.InstanceVO;
 
 import java.util.List;
 import java.util.Map;
@@ -24,5 +24,5 @@ public interface PeopleResolver {
      * @param args     定义里写的参数，其中的 {@code { ref }} 已经换成值
      * @param read     按引用的名字取值（{@code form.amount}、{@code sys.initiator}……）
      */
-    record Context(ProcessInstance instance, Map<String, Object> args, Function<String, Object> read) { }
+    record Context(InstanceVO instance, Map<String, Object> args, Function<String, Object> read) { }
 }

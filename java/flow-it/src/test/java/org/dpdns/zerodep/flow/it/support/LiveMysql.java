@@ -1,5 +1,10 @@
 package org.dpdns.zerodep.flow.it.support;
 
+import com.easy.query.api.proxy.client.DefaultEasyEntityQuery;
+import com.easy.query.api.proxy.client.EasyEntityQuery;
+import com.easy.query.core.api.client.EasyQueryClient;
+import com.easy.query.core.bootstrapper.EasyQueryBootstrapper;
+import com.easy.query.mysql.config.MySQLDatabaseConfiguration;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Assumptions;
@@ -33,6 +38,18 @@ public final class LiveMysql {
         mysql.setPassword(password);
         dataSource = mysql;
         return dataSource;
+    }
+
+    /**
+     * 引擎用的 easy-query：在这个库上、MySQL 方言。每次新建一个——组装引擎时会把引擎的转换器与拦截器装上去，
+     * 几个引擎共用一个时会装好几遍。
+     */
+    public static EasyEntityQuery easyQuery() {
+        EasyQueryClient client = EasyQueryBootstrapper.defaultBuilderConfiguration()
+            .setDefaultDataSource(dataSource())
+            .useDatabaseConfigure(new MySQLDatabaseConfiguration())
+            .build();
+        return new DefaultEasyEntityQuery(client);
     }
 
     /** 清空库，再按建表脚本建表（Flyway 的历史表叫 flow_schema_history，与接入方自己的迁移分开） */

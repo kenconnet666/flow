@@ -1,8 +1,9 @@
 package org.dpdns.zerodep.flow.example;
 
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.listener.FlowNotice;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
+import org.dpdns.zerodep.flow.core.view.FlowEventVO;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -17,27 +18,27 @@ public class ExampleNotifications implements FlowListener {
 
     @Override
     public Set<String> types() {
-        return Set.of(FlowEvent.WORK_ITEM_CREATED, FlowEvent.WORK_ITEM_REMINDED, FlowEvent.WORK_ITEM_OVERDUE, FlowEvent.INSTANCE_CC,
-            FlowEvent.INSTANCE_FINISHED, FlowEvent.JOB_FAILED);
+        return Set.of(EventEntity.WORK_ITEM_CREATED, EventEntity.WORK_ITEM_REMINDED, EventEntity.WORK_ITEM_OVERDUE, EventEntity.INSTANCE_CC,
+            EventEntity.INSTANCE_FINISHED, EventEntity.JOB_FAILED);
     }
 
     @Override
     public void on(FlowNotice notice) {
-        FlowEvent event = notice.event();
-        String title = notice.instance().title();
-        String text = switch (event.type()) {
-            case FlowEvent.WORK_ITEM_CREATED -> "新待办「" + title + "」" + event.nodeName() + "，处理人 " + dataText(event, "assigneeName", "收件箱");
-            case FlowEvent.WORK_ITEM_REMINDED -> "催办「" + title + "」" + event.nodeName();
-            case FlowEvent.WORK_ITEM_OVERDUE -> "超时「" + title + "」" + event.nodeName();
-            case FlowEvent.JOB_FAILED -> "异常「" + title + "」" + event.nodeName() + "：" + dataText(event, "error", "") + "，通知管理员处理";
-            case FlowEvent.INSTANCE_CC -> "抄送「" + title + "」给 " + dataText(event, "userNames", "");
-            default -> "「" + title + "」已结束，结果 " + event.outcome() + "，通知发起人 " + notice.instance().startedByName();
+        FlowEventVO event = notice.event();
+        String title = notice.instance().getTitle();
+        String text = switch (event.getType()) {
+            case EventEntity.WORK_ITEM_CREATED -> "新待办「" + title + "」" + event.getNodeName() + "，处理人 " + dataText(event, "assigneeName", "收件箱");
+            case EventEntity.WORK_ITEM_REMINDED -> "催办「" + title + "」" + event.getNodeName();
+            case EventEntity.WORK_ITEM_OVERDUE -> "超时「" + title + "」" + event.getNodeName();
+            case EventEntity.JOB_FAILED -> "异常「" + title + "」" + event.getNodeName() + "：" + dataText(event, "error", "") + "，通知管理员处理";
+            case EventEntity.INSTANCE_CC -> "抄送「" + title + "」给 " + dataText(event, "userNames", "");
+            default -> "「" + title + "」已结束，结果 " + event.getOutcome() + "，通知发起人 " + notice.instance().getStartedByName();
         };
         LOG.log(System.Logger.Level.INFO, "[通知] " + text);
     }
 
-    private static String dataText(FlowEvent event, String key, String fallback) {
-        Object value = event.data() == null ? null : event.data().get(key);
+    private static String dataText(FlowEventVO event, String key, String fallback) {
+        Object value = event.getData() == null ? null : event.getData().get(key);
         return value == null ? fallback : String.valueOf(value);
     }
 }

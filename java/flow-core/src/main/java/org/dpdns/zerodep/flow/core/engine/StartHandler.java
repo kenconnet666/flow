@@ -5,13 +5,14 @@ import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
+import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore.StoredProcess;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -46,15 +47,18 @@ public final class StartHandler {
             Execution run = launch(definition, actor, new Launch(actor.id(), actor.name(), command.businessKey(), command.priority(),
                 command.variables(), command.form(), false, null, command.picks()), context.clock().instant());
             run.flush(command.title());
-            return new CommandResult(run.instance().view(), run.created, run.closed, run.events);
+            return run.result();
         });
     }
 
     /** 流程最新发布的版本；流程不存在、停用了时报错 */
     LoadedDefinition latestActive(String key) {
-        StoredProcess process = context.stores().definitions().process(key).orElseThrow(() -> FlowErrors.notFound("process", key));
-        if (!StoredProcess.ACTIVE.equals(process.status())) throw FlowErrors.forbidden("process", key, "disabled");
-        return definitions.of(context.stores().definitions().latest(key).orElseThrow(() -> FlowErrors.notFound("process", key)));
+        ProcessEntity process = context.db().queryable(ProcessEntity.class).where(p -> p.processKey().eq(key))
+            .singleNotNull(() -> FlowErrors.notFound("process", key));
+        if (!ProcessEntity.ACTIVE.equals(process.getStatus())) throw FlowErrors.forbidden("process", key, "disabled");
+        return definitions.of(context.db().queryable(ProcessVersionEntity.class)
+            .where(v -> { v.processKey().eq(key); v.version().eq(process.getLatestVersion()); })
+            .singleNotNull(() -> FlowErrors.notFound("process", key)));
     }
 
     /**
@@ -86,14 +90,31 @@ public final class StartHandler {
     Execution launch(LoadedDefinition definition, Actor actor, Launch launch, Instant now) {
         ProcessDefinition model = definition.model();
         ChildOf parent = launch.parent();
-        InstanceRecord draft = new InstanceRecord(null, model.key(), definition.stored().id(), definition.stored().version(),
-            launch.businessKey(), model.name(), launch.priority(), Map.of(), ProcessInstance.ACTIVE, null, List.of(),
-            initialVariables(model, launch.variables()), RunState.INITIAL, launch.starterId(), launch.starterName(), now, null,
-            parent == null ? null : parent.instanceId(), parent == null ? null : parent.node(), parent == null ? null : parent.round(),
-            parent == null ? null : parent.root(), 0);
+        InstanceEntity instance = new InstanceEntity();
+        instance.setProcessKey(model.key());
+        instance.setDefinitionId(definition.stored().getId());
+        instance.setVersion(definition.stored().getVersion());
+        instance.setBusinessKey(launch.businessKey());
+        instance.setTitle(model.name());
+        instance.setPriority(launch.priority());
+        instance.setSummary(Map.of());
+        instance.setStatus(InstanceEntity.ACTIVE);
+        instance.setCurrent(List.of());
+        instance.setVariables(initialVariables(model, launch.variables()));
+        instance.setState(RunState.INITIAL);
+        instance.setStartedBy(launch.starterId());
+        instance.setStartedByName(launch.starterName());
+        instance.setStartedAt(now);
+        if (parent != null) {
+            instance.setParentInstanceId(parent.instanceId());
+            instance.setParentNode(parent.node());
+            instance.setParentRound(parent.round());
+            instance.setRootInstanceId(parent.root());
+        }
+        instance.setRev(0);
         // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
-        InstanceRecord instance = context.stores().instances().insert(draft);
-        Execution run = new Execution(context, actor, now, definition, instance, FormValues.empty(), instance.rev());
+        context.db().insertable(instance).executeRows(true);
+        Execution run = new Execution(context, actor, now, definition, instance, FormValues.empty(), instance.getRev());
         if (parent != null) run.caller = parent.caller();
         run.picks(launch.picks());
 
@@ -101,10 +122,15 @@ public final class StartHandler {
         if (definition.hasForm()) {
             run.form(launch.fullForm() ? launch.form()
                 : FormSubmission.merge(definition.manifest(), start.form(), true, FormValues.empty(), launch.form(), run::read));
-            context.stores().formData().insert(instance.id(), definition.form().id(), run.form());
+            FormDataEntity data = new FormDataEntity();
+            data.setInstanceId(instance.getId());
+            data.setFormVersionId(definition.form().getId());
+            data.setValues(run.form());
+            data.setRev(0);
+            context.db().insertable(data).executeRows();
         }
-        Map<String, Object> data = parent == null ? Map.of() : Map.of("parentInstanceId", parent.instanceId(), "parentNode", parent.node());
-        run.addEvent(FlowEvent.INSTANCE_STARTED, start, null, null, null, null, data);
+        Map<String, Object> origin = parent == null ? Map.of() : Map.of("parentInstanceId", parent.instanceId(), "parentNode", parent.node());
+        run.addEvent(EventEntity.INSTANCE_STARTED, start, null, null, null, null, origin);
         run.leave(start.id(), null);
         return run;
     }

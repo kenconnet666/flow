@@ -3,12 +3,11 @@ package org.dpdns.zerodep.flow.core.engine;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.WaitEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
-import org.dpdns.zerodep.flow.core.store.WaitStore.Wait;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -38,14 +37,18 @@ public final class SignalHandler {
         if (command.event() == null || command.event().isBlank()) throw FlowErrors.invalid("event", "required");
         if (command.instanceId() == null && command.businessKey() == null) throw FlowErrors.invalid("instanceId", "required");
         return context.transaction(() -> {
-            List<Wait> waits = command.instanceId() != null
-                ? context.stores().waits().ofInstance(command.instanceId(), command.event())
-                : context.stores().waits().ofBusinessKey(command.businessKey(), command.event());
+            List<WaitEntity> waits = context.db().queryable(WaitEntity.class)
+                .where(w -> {
+                    w.event().eq(command.event());
+                    if (command.instanceId() != null) w.instanceId().eq(command.instanceId());
+                    else w.businessKey().eq(command.businessKey());
+                })
+                .orderBy(w -> w.id().asc()).toList();
             List<CommandResult> results = new ArrayList<>();
             if (waits.isEmpty()) {
                 if (command.instanceId() != null) results.add(ignored(actor, command.instanceId(), command));
             } else {
-                for (Wait wait : waits) {
+                for (WaitEntity wait : waits) {
                     CommandResult result = deliver(actor, wait, command);
                     if (result != null) results.add(result);
                 }
@@ -55,19 +58,19 @@ public final class SignalHandler {
     }
 
     /** 送到一个等待：锁住实例、删掉这一行；实例还停在那个节点上时往下走，否则（跳转走了）记一笔 */
-    private CommandResult deliver(Actor actor, Wait wait, SignalCommand command) {
-        int rev = context.stores().instances().lock(wait.instanceId()).orElseThrow(() -> FlowErrors.notFound("instance", wait.instanceId()));
-        InstanceRecord instance = context.stores().instances().find(wait.instanceId()).orElseThrow();
+    private CommandResult deliver(Actor actor, WaitEntity wait, SignalCommand command) {
+        InstanceEntity instance = Instances.lock(context.db(), wait.getInstanceId());
         ClaimHandler.requireActive(instance);
-        if (!context.stores().waits().remove(wait.id())) return null;   // 并发的同一个事件先到了
-        FormValues form = context.stores().formData().read(instance.id()).map(f -> f.values()).orElse(FormValues.empty());
-        Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, form, rev);
-        ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(wait.node());
-        if (!instance.state().waits().containsKey(wait.node())) {
-            run.addEvent(FlowEvent.SIGNAL_IGNORED, receive, null, command.outcome(), null, null, eventData(command));
+        long removed = context.db().deletable(WaitEntity.class).allowDeleteStatement(true).whereById(wait.getId()).executeRows();
+        if (removed == 0) return null;   // 并发的同一个事件先到了
+        FormValues form = Instances.form(context.db(), instance.getId());
+        Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, form, instance.getRev());
+        ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(wait.getNode());
+        if (!instance.getState().waits().containsKey(wait.getNode())) {
+            run.addEvent(EventEntity.SIGNAL_IGNORED, receive, null, command.outcome(), null, null, eventData(command));
         } else {
             if (!receive.outcomes().isEmpty() && !receive.outcomes().contains(command.outcome())) throw FlowErrors.invalid("outcome", "unknown-outcome");
-            run.addEvent(FlowEvent.SIGNAL_RECEIVED, receive, null, command.outcome(), null, null, eventData(command));
+            run.addEvent(EventEntity.SIGNAL_RECEIVED, receive, null, command.outcome(), null, null, eventData(command));
             run.received(receive, command.outcome(), command.data());
         }
         run.flush(null);
@@ -76,10 +79,10 @@ public final class SignalHandler {
 
     /** 实例不在等这个事件：只记一笔（不锁实例，同留言） */
     private CommandResult ignored(Actor actor, Long instanceId, SignalCommand command) {
-        InstanceRecord instance = context.stores().instances().find(instanceId).orElseThrow(() -> FlowErrors.notFound("instance", instanceId));
+        InstanceEntity instance = Instances.find(context.db(), instanceId);
         Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
-            instance.rev());
-        run.addEvent(FlowEvent.SIGNAL_IGNORED, null, null, command.outcome(), null, null, eventData(command));
+            instance.getRev());
+        run.addEvent(EventEntity.SIGNAL_IGNORED, null, null, command.outcome(), null, null, eventData(command));
         run.publish();
         return run.result();
     }

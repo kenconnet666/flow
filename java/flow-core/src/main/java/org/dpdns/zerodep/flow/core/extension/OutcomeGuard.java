@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.extension;
 
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
+import org.dpdns.zerodep.flow.core.view.InstanceVO;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 
 import java.util.Map;
 
@@ -27,5 +27,5 @@ public interface OutcomeGuard {
      * @param outcome  选的结果
      * @param form     合并了这次提交之后的表单的值
      */
-    record Context(Actor actor, ProcessInstance instance, WorkItem workItem, String outcome, Map<String, Object> form) { }
+    record Context(Actor actor, InstanceVO instance, WorkItemVO workItem, String outcome, Map<String, Object> form) { }
 }

@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
-import org.dpdns.zerodep.flow.core.store.JobStore.Job;
+import org.dpdns.zerodep.flow.core.entity.JobEntity;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -16,13 +16,13 @@ public interface JobHandler {
     String kind();
 
     /** 做一个作业；返回下次再做的时刻与数据（每隔一段时间的提醒、实例暂停时往后推），做完了返回 null（作业删掉） */
-    Next run(Job job, Instant now);
+    Next run(JobEntity job, Instant now);
 
     /** 第 attempts 次失败后隔多久重试；默认 1、4、9……分钟 */
-    default Duration retryDelay(Job job, int attempts) { return Duration.ofMinutes((long) attempts * attempts); }
+    default Duration retryDelay(JobEntity job, int attempts) { return Duration.ofMinutes((long) attempts * attempts); }
 
     /** 重试用完了（作业已经标成失败）：在一个新的事务里调，记一笔、通知管理员；默认什么也不做 */
-    default void gaveUp(Job job, String error, Instant now) { }
+    default void gaveUp(JobEntity job, String error, Instant now) { }
 
     /**
      * 下次再做。

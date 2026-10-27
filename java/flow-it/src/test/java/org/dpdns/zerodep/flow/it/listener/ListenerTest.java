@@ -3,12 +3,12 @@ package org.dpdns.zerodep.flow.it.listener;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.listener.FlowNotice;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;
 import org.dpdns.zerodep.flow.it.support.TestOrg;
 import org.dpdns.zerodep.flow.it.support.TestUser;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,7 +48,7 @@ class ListenerTest {
     }
 
     private FlowEngine<TestUser> engine(FlowListener... more) {
-        FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.dataSource())
+        FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.easyQuery())
             .orgDirectory(new TestOrg(List.of(ALICE, BOSS)))
             .listener(delivered::add);
         for (FlowListener listener : more) builder.listener(listener);
@@ -61,15 +61,15 @@ class ListenerTest {
     void 提交后拿到这一步的流转记录与节点的meta() {
         FlowEngine<TestUser> engine = engine();
         var started = engine.start(ALICE, StartCommand.of("memo", Map.of()));
-        assertEquals(List.of(FlowEvent.INSTANCE_STARTED, FlowEvent.NODE_LEFT, FlowEvent.NODE_ENTERED, FlowEvent.WORK_ITEM_CREATED), types());
+        assertEquals(List.of(EventEntity.INSTANCE_STARTED, EventEntity.NODE_LEFT, EventEntity.NODE_ENTERED, EventEntity.WORK_ITEM_CREATED), types());
         FlowNotice created = delivered.get(3);
         assertEquals("mail", created.nodeMeta().get("channel"));
-        assertEquals("memo", created.instance().processKey());
-        assertTrue(created.event().id() != null, "通知里的流转记录带数据库给的编号");
+        assertEquals("memo", created.instance().getProcessKey());
+        assertTrue(created.event().getId() != null, "通知里的流转记录带数据库给的编号");
 
         delivered.clear();
-        engine.complete(BOSS, CompleteCommand.of(started.created().get(0).id(), "ok"));
-        assertEquals(FlowEvent.INSTANCE_FINISHED, types().get(types().size() - 1));
+        engine.complete(BOSS, CompleteCommand.of(started.created().get(0).getId(), "ok"));
+        assertEquals(EventEntity.INSTANCE_FINISHED, types().get(types().size() - 1));
     }
 
     @Test
@@ -79,7 +79,7 @@ class ListenerTest {
 
             @Override public Phase phase() { return Phase.IN_TRANSACTION; }
 
-            @Override public Set<String> types() { return Set.of(FlowEvent.WORK_ITEM_CREATED); }
+            @Override public Set<String> types() { return Set.of(EventEntity.WORK_ITEM_CREATED); }
         };
         FlowEngine<TestUser> engine = engine(veto);
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> engine.start(ALICE, StartCommand.of("memo", Map.of())));
@@ -89,6 +89,6 @@ class ListenerTest {
     }
 
     private List<String> types() {
-        return delivered.stream().map(n -> n.event().type()).toList();
+        return delivered.stream().map(n -> n.event().getType()).toList();
     }
 }

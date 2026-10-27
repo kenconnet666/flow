@@ -1,9 +1,10 @@
 package org.dpdns.zerodep.flow.model;
 
+import org.dpdns.zerodep.wire.Json;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -14,7 +15,7 @@ import java.util.regex.Pattern;
  *   <li>其余写成文字后按编码顺序比较（{@link String#compareTo}，不按语言环境，ISO 日期按文字比就是先后）；</li>
  *   <li>等于：数字与数字文字视为相等（表单里的 {@code "5"} 与变量里的 {@code 5}），{@code true} 与 {@code "true"} 也相等。</li>
  * </ul>
- * 值是 query 的 {@code Json.read} 读出来的形状：Map、List、String、Long、BigDecimal、Boolean、null。
+ * 值是 wire 的 {@code Json.read} 读出来的形状：Map、List、String、Long、BigDecimal、Boolean、null。
  */
 public final class Values {
     private static final Pattern NUMERIC =
@@ -43,7 +44,7 @@ public final class Values {
     /** 值写成文字：null 是空字符串，对象、数组写成 JSON */
     public static String toText(Object value) {
         if (value == null) return "";
-        if (value instanceof Map<?, ?> || value instanceof Collection<?>) return json(value);
+        if (value instanceof Map<?, ?> || value instanceof Collection<?>) return Json.write(value);   // 与 JSON.stringify 一致
         // 去掉末尾的零：与 JS 把数字写成文字一致（1234.50 读进来是 1234.5）
         if (value instanceof BigDecimal d) return d.stripTrailingZeros().toPlainString();
         return String.valueOf(value);
@@ -74,66 +75,5 @@ public final class Values {
 
     private static boolean isComposite(Object value) {
         return value instanceof Map<?, ?> || value instanceof Collection<?>;
-    }
-
-    /** 最小的 JSON 写法，只给"对象写成文字"这一种少见的比较用；与 JSON.stringify 的输出一致 */
-    private static String json(Object value) {
-        StringBuilder out = new StringBuilder();
-        write(out, value);
-        return out.toString();
-    }
-
-    private static void write(StringBuilder out, Object value) {
-        if (value == null) {
-            out.append("null");
-        } else if (value instanceof String s) {
-            quote(out, s);
-        } else if (value instanceof BigDecimal d) {
-            out.append(d.toPlainString());
-        } else if (value instanceof Number || value instanceof Boolean) {
-            out.append(value);
-        } else if (value instanceof Map<?, ?> map) {
-            out.append('{');
-            Iterator<? extends Map.Entry<?, ?>> entries = map.entrySet().iterator();
-            while (entries.hasNext()) {
-                Map.Entry<?, ?> entry = entries.next();
-                quote(out, String.valueOf(entry.getKey()));
-                out.append(':');
-                write(out, entry.getValue());
-                if (entries.hasNext()) out.append(',');
-            }
-            out.append('}');
-        } else if (value instanceof Collection<?> list) {
-            out.append('[');
-            Iterator<?> items = list.iterator();
-            while (items.hasNext()) {
-                write(out, items.next());
-                if (items.hasNext()) out.append(',');
-            }
-            out.append(']');
-        } else {
-            quote(out, value.toString());
-        }
-    }
-
-    private static void quote(StringBuilder out, String text) {
-        out.append('"');
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            switch (c) {
-                case '"' -> out.append("\\\"");
-                case '\\' -> out.append("\\\\");
-                case '\n' -> out.append("\\n");
-                case '\r' -> out.append("\\r");
-                case '\t' -> out.append("\\t");
-                case '\b' -> out.append("\\b");
-                case '\f' -> out.append("\\f");
-                default -> {
-                    if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
-                    else out.append(c);
-                }
-            }
-        }
-        out.append('"');
     }
 }

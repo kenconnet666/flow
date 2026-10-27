@@ -2,12 +2,14 @@ package org.dpdns.zerodep.flow.model.form;
 
 import org.dpdns.zerodep.flow.model.Values;
 import org.dpdns.zerodep.flow.model.definition.OrgId;
+import org.dpdns.zerodep.wire.Wire;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -16,9 +18,8 @@ import java.util.regex.Pattern;
  * 只查形状与范围；{@code options: { source }} 的字典、接入方注册的字段类型由后端另查。
  */
 public final class FieldValues {
+    /** 小数的文字：不收科学计数法（{@code 1e3}），能不能读成数与小数位交给 BigDecimal */
     private static final Pattern DECIMAL = Pattern.compile("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)");
-    private static final Pattern DATE = Pattern.compile("(\\d{4})-(\\d{2})-(\\d{2})");
-    private static final Pattern DATETIME = Pattern.compile("(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})(:(\\d{2})(\\.\\d{1,3})?)?Z");
 
     private FieldValues() { }
 
@@ -56,7 +57,9 @@ public final class FieldValues {
             case "decimal" -> {
                 if (!(value instanceof String text) || !DECIMAL.matcher(text.trim()).matches()) return type();
                 Integer scale = integer(a.get("scale"));
-                if (scale != null && scaleOf(text.trim()) > scale) errors.add(new ValueError("", "scale"));
+                if (scale != null && Math.max(0, new BigDecimal(text.trim()).stripTrailingZeros().scale()) > scale) {
+                    errors.add(new ValueError("", "scale"));   // 末尾的零不算
+                }
                 range(value, a, errors);
             }
             case "boolean" -> {
@@ -139,31 +142,18 @@ public final class FieldValues {
         return value instanceof Long l && l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE ? Math.toIntExact(l) : null;
     }
 
-    /** 小数位数：末尾的零不算 */
-    private static int scaleOf(String text) {
-        int dot = text.indexOf('.');
-        if (dot < 0) return 0;
-        String fraction = text.substring(dot + 1).replaceAll("0+$", "");
-        return fraction.length();
-    }
+    /** 日期：线上的写法 {@code 2026-10-24}，要是真实存在的日子 */
+    private static boolean isDate(Object value) { return value instanceof String s && parses(LocalDate.class, s); }
 
-    private static boolean validDate(int year, int month, int day) {
-        if (month < 1 || month > 12 || day < 1) return false;
-        boolean leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-        int[] days = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-        return day <= days[month - 1];
-    }
+    /** 日期时间：线上的写法，换算成 UTC、带 {@code Z}（{@code 2026-10-24T08:00:00.123Z}） */
+    private static boolean isDateTime(Object value) { return value instanceof String s && s.endsWith("Z") && parses(Instant.class, s); }
 
-    static boolean isDate(Object value) {
-        if (!(value instanceof String s)) return false;
-        Matcher m = DATE.matcher(s);
-        return m.matches() && validDate(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)));
-    }
-
-    static boolean isDateTime(Object value) {
-        if (!(value instanceof String s)) return false;
-        Matcher m = DATETIME.matcher(s);
-        if (!m.matches() || !validDate(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)))) return false;
-        return Integer.parseInt(m.group(4)) < 24 && Integer.parseInt(m.group(5)) < 60 && (m.group(7) == null || Integer.parseInt(m.group(7)) < 60);
+    private static boolean parses(Class<?> type, String text) {
+        try {
+            Wire.parse(type, text);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 }

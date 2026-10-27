@@ -12,11 +12,14 @@ import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.TransferCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
+import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
+import org.dpdns.zerodep.flow.core.entity.CcEntity;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
+import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -51,10 +54,10 @@ public final class CollaborationHandler {
         return onMyItem(actor, command.workItemId(), (run, item, task) -> {
             requireAllowed(task.allow().transfer(), item, "transfer-not-allowed");
             requireSomeoneElse(actor, command.userId());
-            context.stores().workItems().cancel(item.id(), run.now());
+            WorkItems.cancel(context.db(), item.getId(), run.now());
             run.closed.add(item);
-            run.addEvent(FlowEvent.WORK_ITEM_TRANSFERRED, task, null, null, item.id(), command.reason(), to(command.userId()));
-            run.handOver(item, command.userId(), "transfer", null, WorkItem.OPEN);
+            run.addEvent(EventEntity.WORK_ITEM_TRANSFERRED, task, null, null, item.getId(), command.reason(), to(command.userId()));
+            run.handOver(item, command.userId(), "transfer", null, WorkItemEntity.OPEN);
         });
     }
 
@@ -63,9 +66,9 @@ public final class CollaborationHandler {
         return onMyItem(actor, command.workItemId(), (run, item, task) -> {
             requireAllowed(task.allow().delegate(), item, "delegate-not-allowed");
             requireSomeoneElse(actor, command.userId());
-            context.stores().workItems().changeState(item.id(), WorkItem.OPEN, WorkItem.WAITING);
-            run.addEvent(FlowEvent.WORK_ITEM_DELEGATED, task, null, null, item.id(), command.reason(), to(command.userId()));
-            run.handOver(item, command.userId(), "delegate", "delegate", WorkItem.OPEN);
+            WorkItems.changeState(context.db(), item.getId(), WorkItemEntity.OPEN, WorkItemEntity.WAITING);
+            run.addEvent(EventEntity.WORK_ITEM_DELEGATED, task, null, null, item.getId(), command.reason(), to(command.userId()));
+            run.handOver(item, command.userId(), "delegate", "delegate", WorkItemEntity.OPEN);
         });
     }
 
@@ -81,14 +84,14 @@ public final class CollaborationHandler {
             List<Long> users = command.users().stream().distinct().toList();
             if (users.isEmpty()) throw FlowErrors.invalid("users", "required");
             for (Long user : users) requireSomeoneElse(actor, user);
-            if ("before".equals(mode)) context.stores().workItems().changeState(item.id(), WorkItem.OPEN, WorkItem.WAITING);
+            if ("before".equals(mode)) WorkItems.changeState(context.db(), item.getId(), WorkItemEntity.OPEN, WorkItemEntity.WAITING);
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("users", users);
             // 名字存快照：流转记录上显示"加签：张三、李四"，不用再查组织
             data.put("userNames", users.stream().map(context.org()::userName).toList());
             data.put("mode", mode);
-            run.addEvent(FlowEvent.SIGNERS_ADDED, task, null, null, item.id(), command.reason(), data);
-            String state = "after".equals(mode) ? WorkItem.WAITING : WorkItem.OPEN;
+            run.addEvent(EventEntity.SIGNERS_ADDED, task, null, null, item.getId(), command.reason(), data);
+            String state = "after".equals(mode) ? WorkItemEntity.WAITING : WorkItemEntity.OPEN;
             for (Long user : users) run.handOver(item, user, "addSign", mode, state);
         });
     }
@@ -97,19 +100,19 @@ public final class CollaborationHandler {
     public CommandResult removeSigners(Actor actor, RemoveSignersCommand command) {
         return context.transaction(() -> {
             Locked locked = lock(command.workItemId());
-            WorkItem item = locked.item();
-            if (!actor.id().equals(item.assigneeId())) throw FlowErrors.notCandidate(item.id());
+            WorkItemVO item = locked.item();
+            if (!actor.id().equals(item.getAssigneeId())) throw FlowErrors.notCandidate(item.getId());
             Execution run = locked.execution(actor);
-            ProcessNode.Task task = (ProcessNode.Task) run.graph().node(item.node());
-            for (WorkItem child : context.stores().workItems().children(item.id())) {
-                boolean pending = WorkItem.OPEN.equals(child.state()) || WorkItem.WAITING.equals(child.state());
-                if (!pending || !command.users().contains(child.assigneeId())) continue;
-                context.stores().workItems().cancel(child.id(), run.now());
+            ProcessNode.Task task = (ProcessNode.Task) run.graph().node(item.getNode());
+            for (WorkItemVO child : WorkItems.children(context.db(), item.getId())) {
+                boolean pending = WorkItemEntity.OPEN.equals(child.getState()) || WorkItemEntity.WAITING.equals(child.getState());
+                if (!pending || !command.users().contains(child.getAssigneeId())) continue;
+                WorkItems.cancel(context.db(), child.getId(), run.now());
                 run.closed.add(child);
                 Map<String, Object> data = new LinkedHashMap<>();
-                data.put("userId", child.assigneeId());
-                data.put("userName", child.assigneeName());
-                run.addEvent(FlowEvent.SIGNERS_REMOVED, task, null, null, child.id(), null, data);
+                data.put("userId", child.getAssigneeId());
+                data.put("userName", child.getAssigneeName());
+                run.addEvent(EventEntity.SIGNERS_REMOVED, task, null, null, child.getId(), null, data);
             }
             SubItems.resumeIfSettled(context, run, item);
             run.flush(null);
@@ -121,13 +124,13 @@ public final class CollaborationHandler {
     public CommandResult release(Actor actor, ReleaseCommand command) {
         return context.transaction(() -> {
             Locked locked = lock(command.workItemId());
-            WorkItem item = locked.item();
-            if (!WorkItem.CLAIMED.equals(item.assignment()) || !actor.id().equals(item.assigneeId())) {
-                throw FlowErrors.forbidden("workItem", item.id(), "not-claimed-by-you");
+            WorkItemVO item = locked.item();
+            if (!WorkItemEntity.CLAIMED.equals(item.getAssignment()) || !actor.id().equals(item.getAssigneeId())) {
+                throw FlowErrors.forbidden("workItem", item.getId(), "not-claimed-by-you");
             }
             Execution run = locked.execution(actor);
-            if (!context.stores().workItems().release(item.id(), actor.id())) throw FlowErrors.notOpen(item.id());
-            run.addEvent(FlowEvent.WORK_ITEM_RELEASED, run.graph().node(item.node()), null, null, item.id(), command.reason());
+            if (!release(item.getId(), actor.id())) throw FlowErrors.notOpen(item.getId());
+            run.addEvent(EventEntity.WORK_ITEM_RELEASED, run.graph().node(item.getNode()), null, null, item.getId(), command.reason());
             run.flush(null);
             return run.result();
         });
@@ -139,17 +142,16 @@ public final class CollaborationHandler {
      */
     public CommandResult remind(Actor actor, RemindCommand command) {
         return context.transaction(() -> {
-            InstanceRecord instance = context.stores().instances().find(command.instanceId())
-                .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
+            InstanceEntity instance = Instances.find(context.db(), command.instanceId());
             ClaimHandler.requireActive(instance);
             Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
-                instance.rev());
+                instance.getRev());
             Instant notBefore = run.now().minus(REMIND_INTERVAL);
-            for (WorkItem item : context.stores().workItems().ofInstance(instance.id())) {
-                if (!WorkItem.OPEN.equals(item.state()) || (command.workItemId() != null && !command.workItemId().equals(item.id()))) continue;
-                ProcessNode.Task task = (ProcessNode.Task) run.graph().node(item.node());
-                if (!task.allow().remind() || !context.stores().workItems().remind(item.id(), run.now(), notBefore)) continue;
-                run.addEvent(FlowEvent.WORK_ITEM_REMINDED, task, null, null, item.id(), command.message());
+            for (WorkItemVO item : WorkItems.ofInstance(context.db(), instance.getId())) {
+                if (!WorkItemEntity.OPEN.equals(item.getState()) || (command.workItemId() != null && !command.workItemId().equals(item.getId()))) continue;
+                ProcessNode.Task task = (ProcessNode.Task) run.graph().node(item.getNode());
+                if (!task.allow().remind() || !WorkItems.remind(context.db(), item.getId(), run.now(), notBefore)) continue;
+                run.addEvent(EventEntity.WORK_ITEM_REMINDED, task, null, null, item.getId(), command.message());
             }
             run.publish();
             return run.result();
@@ -160,11 +162,10 @@ public final class CollaborationHandler {
     public CommandResult comment(Actor actor, CommentCommand command) {
         if (command.text() == null || command.text().isBlank()) throw FlowErrors.invalid("text", "required");
         return context.transaction(() -> {
-            InstanceRecord instance = context.stores().instances().find(command.instanceId())
-                .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
+            InstanceEntity instance = Instances.find(context.db(), command.instanceId());
             Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
-                instance.rev());
-            run.addEvent(FlowEvent.INSTANCE_COMMENTED, null, null, null, null, command.text());
+                instance.getRev());
+            run.addEvent(EventEntity.INSTANCE_COMMENTED, null, null, null, null, command.text());
             run.publish();
             return run.result();
         });
@@ -175,13 +176,13 @@ public final class CollaborationHandler {
         if (command.userId() == null) throw FlowErrors.invalid("userId", "required");
         return context.transaction(() -> {
             Locked locked = lock(command.workItemId());
-            WorkItem item = locked.item();
+            WorkItemVO item = locked.item();
             Execution run = locked.execution(actor);
             String name = context.org().userName(command.userId());
-            if (!context.stores().workItems().designate(item.id(), actor.id(), command.userId(), name)) {
-                throw FlowErrors.forbidden("workItem", item.id(), "not-awaiting-your-designation");
+            if (!WorkItems.assignTo(context.db(), item.getId(), command.userId(), name, WorkItemEntity.DESIGNATED, actor.id())) {
+                throw FlowErrors.forbidden("workItem", item.getId(), "not-awaiting-your-designation");
             }
-            run.addEvent(FlowEvent.WORK_ITEM_ASSIGNED, run.graph().node(item.node()), null, null, item.id(), null, to(command.userId()));
+            run.addEvent(EventEntity.WORK_ITEM_ASSIGNED, run.graph().node(item.getNode()), null, null, item.getId(), null, to(command.userId()));
             run.flush(null);
             return run.result();
         });
@@ -191,10 +192,9 @@ public final class CollaborationHandler {
     public CommandResult cc(Actor actor, CcCommand command) {
         if (command.users().isEmpty()) throw FlowErrors.invalid("users", "required");
         return context.transaction(() -> {
-            InstanceRecord instance = context.stores().instances().find(command.instanceId())
-                .orElseThrow(() -> FlowErrors.notFound("instance", command.instanceId()));
+            InstanceEntity instance = Instances.find(context.db(), command.instanceId());
             Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
-                instance.rev());
+                instance.getRev());
             run.copyTo(null, command.users(), command.message());
             run.publish();
             return run.result();
@@ -203,7 +203,11 @@ public final class CollaborationHandler {
 
     /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
     public int readCc(Actor actor, ReadCcCommand command) {
-        return context.stores().ccs().markRead(command.instanceId(), actor.id(), context.clock().instant());
+        Instant now = context.clock().instant();
+        return (int) context.db().updatable(CcEntity.class)
+            .setColumns(c -> c.readAt().set(now))
+            .where(c -> { c.instanceId().eq(command.instanceId()); c.recipientId().eq(actor.id()); c.readAt().isNull(); })
+            .executeRows();
     }
 
     // ───────── 共用的步骤 ─────────
@@ -211,48 +215,63 @@ public final class CollaborationHandler {
     /** 对自己的一个待办做一件事 */
     @FunctionalInterface
     private interface ItemAction {
-        void apply(Execution run, WorkItem item, ProcessNode.Task task);
+        void apply(Execution run, WorkItemVO item, ProcessNode.Task task);
     }
 
     /** 锁住实例、重读待办；还在收件箱里时候选人先认领；只有它的处理人能做；做完重算、写回 */
     private CommandResult onMyItem(Actor actor, Long workItemId, ItemAction action) {
         return context.transaction(() -> {
             Locked locked = lock(workItemId);
-            WorkItem item = locked.item();
-            if (item.assigneeId() == null) claims.claim(actor, item);
-            else if (!item.assigneeId().equals(actor.id())) throw FlowErrors.notCandidate(item.id());
+            WorkItemVO item = locked.item();
+            if (item.getAssigneeId() == null) claims.claim(actor, item);
+            else if (!item.getAssigneeId().equals(actor.id())) throw FlowErrors.notCandidate(item.getId());
             Execution run = locked.execution(actor);
-            action.apply(run, item, (ProcessNode.Task) run.graph().node(item.node()));
+            action.apply(run, item, (ProcessNode.Task) run.graph().node(item.getNode()));
             run.flush(null);
             return run.result();
         });
     }
 
     /** 锁住的实例与重读的待办 */
-    private record Locked(InstanceRecord instance, int rev, WorkItem item, LoadedDefinition definition, EngineContext context) {
+    private record Locked(InstanceEntity instance, WorkItemVO item, LoadedDefinition definition, EngineContext context) {
         Execution execution(Actor actor) {
-            return new Execution(context, actor, context.clock().instant(), definition, instance, formOf(), rev);
-        }
-
-        private FormValues formOf() {
-            return context.stores().formData().read(instance.id()).map(f -> f.values()).orElse(FormValues.empty());
+            return new Execution(context, actor, context.clock().instant(), definition, instance, Instances.form(context.db(), instance.getId()),
+                instance.getRev());
         }
     }
 
     /** 锁住待办所在的实例（版本加一），重读实例与待办：待办要打开着、实例要进行中 */
     private Locked lock(Long workItemId) {
-        WorkItem found = context.stores().workItems().find(workItemId).orElseThrow(() -> FlowErrors.notFound("workItem", workItemId));
-        int rev = context.stores().instances().lock(found.instanceId()).orElseThrow(() -> FlowErrors.notFound("instance", found.instanceId()));
-        InstanceRecord instance = context.stores().instances().find(found.instanceId()).orElseThrow();
+        WorkItemVO found = WorkItems.find(context.db(), workItemId);
+        InstanceEntity instance = Instances.lock(context.db(), found.getInstanceId());
         ClaimHandler.requireActive(instance);
-        WorkItem item = context.stores().workItems().find(workItemId).orElseThrow();
-        if (!WorkItem.OPEN.equals(item.state())) throw FlowErrors.notOpen(item.id());
-        return new Locked(instance, rev, item, definitions.of(instance), context);
+        WorkItemVO item = WorkItems.find(context.db(), workItemId);
+        if (!WorkItemEntity.OPEN.equals(item.getState())) throw FlowErrors.notOpen(item.getId());
+        return new Locked(instance, item, definitions.of(instance), context);
+    }
+
+    /** 认领的人退回收件箱：清掉处理人，这个人以后不能再认领这一条（加一行 excluded 候选）；返回是否改到 */
+    private boolean release(Long workItemId, Long userId) {
+        long changed = context.db().updatable(WorkItemEntity.class)
+            .setColumns(w -> {
+                w.assigneeId().set((Long) null);
+                w.assigneeName().set((String) null);
+                w.claimedAt().set((Instant) null);
+                w.assignment().set(WorkItemEntity.POOL);
+                w.rev().increment();
+            })
+            .where(w -> { w.id().eq(workItemId); w.state().eq(WorkItemEntity.OPEN); w.assigneeId().eq(userId); w.assignment().eq(WorkItemEntity.CLAIMED); })
+            .executeRows();
+        if (changed != 1) return false;
+        CandidateEntity excluded = new CandidateEntity(CandidateEntity.EXCLUDED, userId);
+        excluded.setWorkItemId(workItemId);
+        context.db().insertable(excluded).executeRows();
+        return true;
     }
 
     /** 节点上关掉了这个动作 */
-    private static void requireAllowed(boolean allowed, WorkItem item, String reason) {
-        if (!allowed) throw FlowErrors.forbidden("workItem", item.id(), reason);
+    private static void requireAllowed(boolean allowed, WorkItemVO item, String reason) {
+        if (!allowed) throw FlowErrors.forbidden("workItem", item.getId(), reason);
     }
 
     /** 转办、委派、加签要交给别人，不能是自己 */

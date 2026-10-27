@@ -79,7 +79,7 @@
             "type": "workItem.transferred",
             "comment": "我休假",
             "data": {
-              "toUserId": 1003,
+              "toUserId": "1003",
               "toUserName": "沈若水"
             }
           },
@@ -393,7 +393,7 @@
           {
             "type": "workItem.reassigned",
             "data": {
-              "toUserId": 1003
+              "toUserId": "1003"
             }
           }
         ]

@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.spring;
 
+import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
@@ -13,19 +14,7 @@ import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.identity.PermissionPolicy;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
-import org.dpdns.zerodep.flow.core.store.CcStore;
-import org.dpdns.zerodep.flow.core.store.DefinitionStore;
-import org.dpdns.zerodep.flow.core.store.EventStore;
-import org.dpdns.zerodep.flow.core.store.FormDataStore;
-import org.dpdns.zerodep.flow.core.store.FormStore;
-import org.dpdns.zerodep.flow.core.store.InstanceStore;
-import org.dpdns.zerodep.flow.core.store.JobStore;
-import org.dpdns.zerodep.flow.core.store.RequestStore;
-import org.dpdns.zerodep.flow.core.store.StepStore;
-import org.dpdns.zerodep.flow.core.store.WaitStore;
-import org.dpdns.zerodep.flow.core.store.WorkItemStore;
 import org.dpdns.zerodep.flow.spring.http.FlowHttpController;
-import org.dpdns.zerodep.query.spring.SpringConnections;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -35,31 +24,30 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.ZoneId;
+import javax.sql.DataSource;
 
 /**
  * 引擎在 Spring Boot 里的自动配置（docs/decisions/0006 的 7.1）。应用只要：
  * <ol>
- *   <li>引入 flow-spring 与一个 MySQL 驱动；</li>
+ *   <li>引入 flow-spring 与一个 MySQL 驱动，打开 easy-query 的 starter（{@code easy-query.enable=true}、{@code easy-query.database=mysql}）：
+ *       引擎用它建的 {@code EasyEntityQuery} 读写，事务跟着 Spring 走；</li>
  *   <li>声明一个 {@link OrgDirectory} Bean（接自己的用户、部门、角色；引擎没有默认的组织架构）；</li>
  *   <li>当前操作人：用了 Spring Security 且登录后的 principal 实现了 {@link Actor} 时自动取；否则声明一个 {@link ActorProvider} Bean；</li>
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
- * 其余扩展点（权限、时钟、工作日历、十一个存储）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
+ * 其余扩展点（权限、时钟、工作日历）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
  * 声明的 {@link PeopleResolver}、{@link OutcomeGuard}、{@link ServiceAction} Bean 按名字注册成解析器、守卫、动作，
  * {@link JobHandler} Bean 注册成作业的处理，{@link FlowListener} Bean 注册成监听（提交后的等 Spring 的事务提交了再调），{@link CommandInterceptor} Bean 按 {@code @Order} 套在命令外面。到期的作业默认由 {@link FlowJobPoller} 定时做（{@code flow.jobs.*}）。
  * 引擎注入成 {@code FlowEngine<自己的用户类型>} 即可。
  */
 @AutoConfiguration(afterName = {
-    // Spring Boot 3 与 4 的数据源、事务管理器自动配置在不同的包里，按名字写，两条线都认
+    // Spring Boot 3 与 4 的数据源自动配置在不同的包里，按名字写，两条线都认；easy-query 的 starter 建好 EasyEntityQuery 之后再组装
     "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
-    "org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration",
     "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
-    "org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration"})
+    "com.easy.query.sql.starter.EasyQueryStarterBuildAutoConfiguration"})
 @ConditionalOnClass(FlowEngine.class)
 @EnableConfigurationProperties(FlowProperties.class)
 public class FlowAutoConfiguration {
@@ -71,13 +59,10 @@ public class FlowAutoConfiguration {
     @ConditionalOnMissingBean
     @SuppressWarnings({"rawtypes", "unchecked"})
     public FlowEngine flowEngine(BeanFactory beans, FlowProperties properties,
-                                 ObjectProvider<FlowSchemaMigration> migration,
+                                 ObjectProvider<FlowSchemaMigration> migration, ObjectProvider<EasyEntityQuery> easyQuery,
                                  ObjectProvider<OrgDirectory> org, ObjectProvider<ActorProvider> actors,
                                  ObjectProvider<PermissionPolicy> permissions, ObjectProvider<Clock> clock,
-                                 ObjectProvider<DefinitionStore> definitionStore, ObjectProvider<FormStore> formStore,
-                                 ObjectProvider<FormDataStore> formDataStore, ObjectProvider<InstanceStore> instanceStore,
-                                 ObjectProvider<WorkItemStore> workItemStore, ObjectProvider<EventStore> eventStore,
-                                 ObjectProvider<JobStore> jobStore, ObjectProvider<CcStore> ccStore, ObjectProvider<WaitStore> waitStore, ObjectProvider<RequestStore> requestStore, ObjectProvider<StepStore> stepStore, ObjectProvider<WorkCalendar> calendar,
+                                 ObjectProvider<WorkCalendar> calendar,
                                  ObjectProvider<JobHandler> jobHandlers, ObjectProvider<FlowListener> listeners,
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
                                  ObjectProvider<OutcomeGuard> guards, ObjectProvider<ServiceAction> actions,
@@ -87,25 +72,14 @@ public class FlowAutoConfiguration {
         if (directory == null) {
             throw new IllegalStateException("the flow engine needs an OrgDirectory bean: connect it to your users, departments and roles");
         }
-        // 引擎的连接：选定的数据源，事务交给它的事务管理器（外面已有事务时加入）
-        DataSource dataSource = pick(beans, DataSource.class, properties.getDatasource(), "flow.datasource");
-        PlatformTransactionManager transactions = pick(beans, PlatformTransactionManager.class, properties.getTransactionManager(),
-            "flow.transaction-manager");
-        FlowEngine.Builder builder = FlowEngine.builder(SpringConnections.of(dataSource, transactions)).orgDirectory(directory);
+        EasyEntityQuery db = easyQuery.getIfUnique();
+        if (db == null) {
+            throw new IllegalStateException("the flow engine needs one EasyEntityQuery bean: add easy-query's Spring Boot starter and set easy-query.enable=true");
+        }
+        FlowEngine.Builder builder = FlowEngine.builder(db).orgDirectory(directory);
         actors.ifAvailable(builder::actorProvider);
         permissions.ifAvailable(builder::permissionPolicy);
         clock.ifUnique(builder::clock);
-        definitionStore.ifAvailable(builder::definitionStore);
-        formStore.ifAvailable(builder::formStore);
-        formDataStore.ifAvailable(builder::formDataStore);
-        instanceStore.ifAvailable(builder::instanceStore);
-        workItemStore.ifAvailable(builder::workItemStore);
-        eventStore.ifAvailable(builder::eventStore);
-        jobStore.ifAvailable(builder::jobStore);
-        ccStore.ifAvailable(builder::ccStore);
-        waitStore.ifAvailable(builder::waitStore);
-        requestStore.ifAvailable(builder::requestStore);
-        stepStore.ifAvailable(builder::stepStore);
         builder.workCalendar(calendar.getIfAvailable(() -> WorkCalendar.weekdays(ZoneId.of(properties.getCalendar().getZone()))));
         jobHandlers.orderedStream().forEach(builder::jobHandler);
         listeners.orderedStream().forEach(builder::listener);

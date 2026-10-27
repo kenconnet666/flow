@@ -1,13 +1,14 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import com.easy.query.api.proxy.client.EasyEntityQuery;
+import org.dpdns.zerodep.flow.core.db.FlowEasyQuery;
 import org.dpdns.zerodep.flow.core.listener.AfterCommit;
 import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.listener.FlowNotice;
+import org.dpdns.zerodep.flow.core.view.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.InstanceVO;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.query.exec.Database;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,11 +48,11 @@ public final class EventDispatcher {
     }
 
     /** 在引擎的事务里做；最外层做完（提交了）发提交后的通知，出错时丢掉 */
-    <T> T transaction(Database db, Supplier<T> work) {
+    <T> T transaction(EasyEntityQuery db, Supplier<T> work) {
         Pending current = pending.get();
         current.depth++;
         try {
-            T result = db.transaction(work);
+            T result = FlowEasyQuery.transaction(db, work);
             if (current.depth == 1) deliverLater(current);
             return result;
         } catch (RuntimeException e) {
@@ -63,10 +64,10 @@ public final class EventDispatcher {
     }
 
     /** 写下了这些流转记录（带编号）：事务内的监听马上调，提交后的记下 */
-    void published(List<FlowEvent> events, ProcessInstance instance, ProcessGraph graph) {
+    void published(List<FlowEventVO> events, InstanceVO instance, ProcessGraph graph) {
         if (inTransaction.isEmpty() && afterCommit.isEmpty()) return;
-        for (FlowEvent event : events) {
-            FlowNotice notice = new FlowNotice(event, instance, metaOf(graph, event.node()));
+        for (FlowEventVO event : events) {
+            FlowNotice notice = new FlowNotice(event, instance, metaOf(graph, event.getNode()));
             for (FlowListener listener : inTransaction) {
                 if (accepts(listener, notice)) listener.on(notice);
             }
@@ -89,15 +90,15 @@ public final class EventDispatcher {
                 try {
                     listener.on(notice);
                 } catch (RuntimeException e) {
-                    LOG.log(System.Logger.Level.ERROR, "flow listener " + listener.getClass().getName() + " failed on " + notice.event().type(), e);
+                    LOG.log(System.Logger.Level.ERROR, "flow listener " + listener.getClass().getName() + " failed on " + notice.event().getType(), e);
                 }
             }
         }
     }
 
     private static boolean accepts(FlowListener listener, FlowNotice notice) {
-        return (listener.types().isEmpty() || listener.types().contains(notice.event().type()))
-            && (listener.processes().isEmpty() || listener.processes().contains(notice.instance().processKey()));
+        return (listener.types().isEmpty() || listener.types().contains(notice.event().getType()))
+            && (listener.processes().isEmpty() || listener.processes().contains(notice.instance().getProcessKey()));
     }
 
     private static Map<String, Object> metaOf(ProcessGraph graph, String nodeId) {

@@ -1,8 +1,5 @@
 package org.dpdns.zerodep.flow.core.view;
 
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
-import org.dpdns.zerodep.flow.model.runtime.WorkItem;
-
 import java.util.List;
 
 /**
@@ -16,7 +13,7 @@ import java.util.List;
  * @param completable 我能处理（落到我的；或在收件箱里、我是候选——处理时顺带认领）
  * @param actions   处理之外我现在能做的协作（审批页上的"转办""委派"……按钮）
  */
-public record WorkItemView(WorkItem workItem, ProcessInstance instance, FormView form, List<OutcomeView> outcomes,
+public record WorkItemView(WorkItemVO workItem, InstanceVO instance, FormView form, List<OutcomeView> outcomes,
                            boolean claimable, boolean completable, Actions actions) {
     /**
      * 处理之外我现在能做的协作：能处理、节点上的 {@code allow} 没关掉时才能做（0005 人工节点的 allow、0006 的 3.1）。

@@ -3,11 +3,10 @@ package org.dpdns.zerodep.flow.core.engine;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
-import org.dpdns.zerodep.flow.core.store.InstanceStore.InstanceRecord;
+import org.dpdns.zerodep.flow.core.entity.EventEntity;
+import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.definition.Ref;
-import org.dpdns.zerodep.flow.model.runtime.FlowEvent;
-import org.dpdns.zerodep.flow.model.runtime.ProcessInstance;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,15 +34,15 @@ final class CallActivities {
 
     /** 到达调用节点（轮次已经加过）：发起子实例；同步的停下等，异步的接着走 */
     static void call(Execution run, ProcessNode.Call call) {
-        InstanceRecord parent = run.instance();
-        int round = parent.state().round(call.id());
+        InstanceEntity parent = run.instance();
+        int round = parent.getState().round(call.id());
         List<Object> items = call.forEach() == null ? Collections.singletonList(null) : list(run.read(call.forEach().ref()));
         boolean sync = "sync".equals(call.mode());
         if (sync && !items.isEmpty()) run.waitForChildren(call.id(), items.size());
 
         StartHandler starter = new StartHandler(run.context());
         LoadedDefinition child = starter.latestActive(call.process());
-        Long root = parent.rootInstanceId() != null ? parent.rootInstanceId() : parent.id();
+        Long root = parent.getRootInstanceId() != null ? parent.getRootInstanceId() : parent.getId();
         for (Object item : items) {
             Function<String, Object> read = name -> scoped(name, call.as(), item, run::read);
             Map<String, Object> form = new LinkedHashMap<>();
@@ -53,8 +52,8 @@ final class CallActivities {
                 if (target.startsWith("form.")) form.put(target.substring("form.".length()), resolved);
                 else variables.put(target, resolved);
             });
-            StartHandler.Launch launch = new StartHandler.Launch(parent.startedBy(), parent.startedByName(), parent.businessKey(), parent.priority(),
-                Variables.of(variables), FormValues.of(form), true, new StartHandler.ChildOf(parent.id(), call.id(), round, root, run), Map.of());
+            StartHandler.Launch launch = new StartHandler.Launch(parent.getStartedBy(), parent.getStartedByName(), parent.getBusinessKey(), parent.getPriority(),
+                Variables.of(variables), FormValues.of(form), true, new StartHandler.ChildOf(parent.getId(), call.id(), round, root, run), Map.of());
             Execution childRun = starter.launch(child, run.actor(), launch, run.now());
             childRun.flush(null);
             run.created.addAll(childRun.created);
@@ -67,20 +66,23 @@ final class CallActivities {
      * 父实例是这个命令里调用它的那个时直接接着推进；否则锁住父实例重读，推进完写回。
      */
     static void childEnded(Execution child) {
-        InstanceRecord ended = child.instance();
+        InstanceEntity ended = child.instance();
         Execution parentRun = child.caller;
         boolean loaded = parentRun == null;
         if (loaded) {
-            parentRun = load(child, ended.parentInstanceId());
+            parentRun = load(child, ended.getParentInstanceId());
             if (parentRun == null) return;
         }
-        RunState state = parentRun.instance().state();
-        String node = ended.parentNode();
-        if (!state.waits().containsKey(node) || state.round(node) != ended.parentRound()) return;   // 异步调用的，或父实例已经不等它了
+        RunState state = parentRun.instance().getState();
+        String node = ended.getParentNode();
+        if (!state.waits().containsKey(node) || state.round(node) != ended.getParentRound()) return;   // 异步调用的，或父实例已经不等它了
         if (parentRun.childArrived(node)) {
             ProcessNode.Call call = (ProcessNode.Call) parentRun.graph().node(node);
-            List<InstanceRecord> children = child.context().stores().instances().children(ended.parentInstanceId(), node, ended.parentRound()).stream()
-                .map(c -> c.id().equals(ended.id()) ? ended : c).toList();
+            // 这一轮的子实例；刚结束的这个用推进到此刻的（还没写回）
+            List<InstanceEntity> children = child.context().db().queryable(InstanceEntity.class)
+                .where(i -> { i.parentInstanceId().eq(ended.getParentInstanceId()); i.parentNode().eq(node); i.parentRound().eq(ended.getParentRound()); })
+                .orderBy(i -> i.id().asc()).toList().stream()
+                .map(c -> c.getId().equals(ended.getId()) ? ended : c).toList();
             parentRun.callReturned(call, outcomeOf(children), outputOf(call, children, child));
         }
         if (loaded) {
@@ -93,14 +95,16 @@ final class CallActivities {
     /** 父实例终止、撤回：没结束的子实例一起终止（子实例的子实例也一样），不再回到父实例 */
     static void terminateChildren(Execution parentRun, String reason) {
         EngineContext context = parentRun.context();
-        for (InstanceRecord found : context.stores().instances().activeChildren(parentRun.instance().id())) {
-            int rev = context.stores().instances().lock(found.id()).orElseThrow();
-            InstanceRecord instance = context.stores().instances().find(found.id()).orElseThrow();
-            if (instance.endedAt() != null) continue;
+        List<Long> active = context.db().queryable(InstanceEntity.class)
+            .where(i -> { i.parentInstanceId().eq(parentRun.instance().getId()); i.endedAt().isNull(); })
+            .orderBy(i -> i.id().asc()).selectColumn(i -> i.id()).toList();
+        for (Long id : active) {
+            InstanceEntity instance = Instances.lock(context.db(), id);
+            if (instance.getEndedAt() != null) continue;
             Execution childRun = new Execution(context, parentRun.actor(), parentRun.now(), context.definitions().of(instance), instance,
-                FormValues.empty(), rev);
+                FormValues.empty(), instance.getRev());
             childRun.quiet = true;
-            childRun.finish(ProcessInstance.TERMINATED, ProcessInstance.TERMINATED, FlowEvent.INSTANCE_TERMINATED, reason);
+            childRun.finish(InstanceEntity.TERMINATED, InstanceEntity.TERMINATED, EventEntity.INSTANCE_TERMINATED, reason);
             childRun.flush(null);
             parentRun.closed.addAll(childRun.closed);
         }
@@ -109,27 +113,25 @@ final class CallActivities {
     /** 锁住父实例重读；结束了、暂停了的不推进（返回 null） */
     private static Execution load(Execution child, Long parentId) {
         EngineContext context = child.context();
-        int rev = context.stores().instances().lock(parentId).orElse(-1);
-        if (rev < 0) return null;
-        InstanceRecord parent = context.stores().instances().find(parentId).orElseThrow();
-        if (!ProcessInstance.ACTIVE.equals(parent.status())) return null;
-        FormValues form = context.stores().formData().read(parentId).map(f -> f.values()).orElse(FormValues.empty());
-        return new Execution(context, child.actor(), child.now(), context.definitions().of(parent), parent, form, rev);
+        InstanceEntity parent = Instances.lockIfExists(context.db(), parentId);
+        if (parent == null || !InstanceEntity.ACTIVE.equals(parent.getStatus())) return null;
+        FormValues form = Instances.form(context.db(), parentId);
+        return new Execution(context, child.actor(), child.now(), context.definitions().of(parent), parent, form, parent.getRev());
     }
 
     /** 几个子实例都是同一个结束结果才按它，否则为 null（走没写结果的出边） */
-    private static String outcomeOf(List<InstanceRecord> children) {
-        String first = children.isEmpty() ? null : children.get(0).result();
-        return children.stream().allMatch(c -> Objects.equals(c.result(), first)) ? first : null;
+    private static String outcomeOf(List<InstanceEntity> children) {
+        String first = children.isEmpty() ? null : children.get(0).getResult();
+        return children.stream().allMatch(c -> Objects.equals(c.getResult(), first)) ? first : null;
     }
 
     /** output：父实例的流程变量 ← 子实例那一侧的值；forEach 时收成列表（按发起的先后） */
-    private static Map<String, Object> outputOf(ProcessNode.Call call, List<InstanceRecord> children, Execution child) {
+    private static Map<String, Object> outputOf(ProcessNode.Call call, List<InstanceEntity> children, Execution child) {
         Map<String, Object> out = new LinkedHashMap<>();
         if (call.output().isEmpty()) return out;
         EngineContext context = child.context();
-        List<FormValues> forms = children.stream().map(c -> c.id().equals(child.instance().id()) ? child.form()
-            : context.stores().formData().read(c.id()).map(f -> f.values()).orElse(FormValues.empty())).toList();
+        List<FormValues> forms = children.stream().map(c -> c.getId().equals(child.instance().getId()) ? child.form()
+            : Instances.form(context.db(), c.getId())).toList();
         call.output().forEach((target, name) -> {
             List<Object> values = new ArrayList<>();
             for (int i = 0; i < children.size(); i++) values.add(References.read(name, children.get(i), forms.get(i)));

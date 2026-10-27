@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.it.scenario;
 
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.dpdns.zerodep.wire.Json;
+import org.dpdns.zerodep.wire.Wire;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -63,7 +64,8 @@ record Scenario(String file, String name, List<FormFile> forms, List<String> pro
 
     /** 读一个场景文件 */
     static Scenario read(String file) {
-        Map<String, Object> tree = object(Json.read(text(DIR.resolve(file))), file);
+        // 场景文件同线上的请求：typed JSON，按 wire 还原（没标类型的数是 JavaScript 的数）
+        Map<String, Object> tree = object(Wire.fromJson(text(DIR.resolve(file))), file);
         List<FormFile> forms = new ArrayList<>();
         for (Object path : list(tree.get("forms"))) {
             Map<String, Object> form = object(Json.read(text(DIR.resolve((String) path))), (String) path);
