@@ -38,6 +38,16 @@ export const MigrateDialog = _component(({ detail, _open: open = _bindable(false
     { params: () => (version ? Number(version) : null) },
   );
 
+  // 多半是迁到最新的版本：版本列表读回来后先选上它
+  watch(
+    () => versions.data,
+    (list) => {
+      // 列表新的在前；实例已经在最新版本上时不替人选
+      const latest = list?.[0];
+      if (version == null && latest && latest.version > detail.instance.version) version = String(latest.version);
+    },
+  );
+
   watch(
     () => open,
     (now) => {

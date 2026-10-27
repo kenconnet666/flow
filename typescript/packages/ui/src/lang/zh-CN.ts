@@ -2,7 +2,7 @@
  * flow-ui 的中文文案：界面上的字、定义的问题代号、流转记录的事件名、自动提醒的原因。键与 en-US.ts 一一对应（FlowMessages 管着）。
  */
 import type { FlowMessages } from './messages';
-import { NODE_EVENTS, names, problemText, standInsOf, text, type ProblemText } from './texts';
+import { asRecord, NODE_EVENTS, names, problemText, standInsOf, text, type ProblemText } from './texts';
 
 const zhProblems: Record<string, string> = {
   required: '必填',
@@ -410,6 +410,8 @@ export const zhCN: FlowMessages = {
     if (type === 'workItem.unclaimed') return `转收件箱的负责人指定${text(data['designatorName']) ? `：${text(data['designatorName'])}` : ''}`;
     if (type === 'instance.cc') return `抄送给 ${names(data['userNames']).join('、')}`;
     if (type === 'call.started') return text(data['title']);
+    if (type === 'instance.migrated') return `第 ${String(data['fromVersion'] ?? '?')} 版 → 第 ${String(data['toVersion'] ?? '?')} 版`;
+    if (type === 'instance.dataChanged') return `改了 ${[...Object.keys(asRecord(data['form'])), ...Object.keys(asRecord(data['variables']))].join('、')}`;
     if (type === 'node.skipped') return `${text(data['userName']) ?? ''} ${data['reason'] === 'initiator' ? '是发起人' : '刚处理过上一步'}`.trim();
     if (type === 'instance.commented') return names(data['mentionNames']).map((name) => `@${name}`).join(' ') || null;
     if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);

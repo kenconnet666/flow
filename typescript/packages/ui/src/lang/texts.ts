@@ -14,6 +14,10 @@ export const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.
 
 /** 事件数据里的名字（引擎存的快照） */
 export const text = (value: unknown) => (typeof value === 'string' ? value : null);
+
+/** 流转记录 data 里的一个对象；不是对象时当空的 */
+export const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 export const names = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
 /** 到达记录里的代理（后端 OrgDirectory.standIn 换了人时写的 standIns）：谁代谁 */
 export const standInsOf = (data: Readonly<Record<string, unknown>>) =>

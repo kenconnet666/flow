@@ -2,7 +2,7 @@
  * flow-ui 的英文文案：同 zh-CN.ts 的结构。
  */
 import type { FlowMessages } from './messages';
-import { NODE_EVENTS, names, problemText, standInsOf, text, type ProblemText } from './texts';
+import { asRecord, NODE_EVENTS, names, problemText, standInsOf, text, type ProblemText } from './texts';
 import type { ProblemCode } from './zh-CN';
 
 const enProblems: Record<string, string> = {
@@ -411,6 +411,8 @@ export const enUS: FlowMessages = {
     if (type === 'workItem.unclaimed') return 'Handed to the inbox manager';
     if (type === 'instance.cc') return `To ${names(data['userNames']).join(', ')}`;
     if (type === 'call.started') return text(data['title']);
+    if (type === 'instance.migrated') return `version ${String(data['fromVersion'] ?? '?')} → ${String(data['toVersion'] ?? '?')}`;
+    if (type === 'instance.dataChanged') return `changed ${[...Object.keys(asRecord(data['form'])), ...Object.keys(asRecord(data['variables']))].join(', ')}`;
     if (type === 'node.skipped') return `${text(data['userName']) ?? ''} ${data['reason'] === 'initiator' ? 'is the starter' : 'handled the previous step'}`.trim();
     if (type === 'instance.commented') return names(data['mentionNames']).map((name) => `@${name}`).join(' ') || null;
     if (type === 'signal.received' || type === 'signal.ignored') return text(data['event']);

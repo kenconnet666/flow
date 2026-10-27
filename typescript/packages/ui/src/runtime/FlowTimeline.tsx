@@ -16,11 +16,13 @@ import {
   CircleStop,
   CornerDownLeft,
   Forward,
+  GitBranch,
   Hand,
   Inbox,
   Mail,
   MessageSquare,
   Pause,
+  PencilLine,
   Play,
   Redo2,
   SkipForward,
@@ -75,6 +77,9 @@ const LOOKS: Readonly<Record<string, { icon: TimelineItem['icon']; tone?: Status
   'instance.jumped': { icon: Redo2, tone: 'warning' },
   'node.skipped': { icon: SkipForward },
   'call.started': { icon: Workflow },
+  // 管理员改过的：迁移版本、改数据，看流转记录的人要知道
+  'instance.migrated': { icon: GitBranch, tone: 'warning' },
+  'instance.dataChanged': { icon: PencilLine, tone: 'warning' },
 };
 
 /** 处理结果的名字：引擎在处理的记录上存了快照（data.outcomeLabel） */
