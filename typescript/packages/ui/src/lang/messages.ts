@@ -241,6 +241,11 @@ export interface FlowMessages {
   readonly publish: string;
   readonly publishNote: string;
   readonly published: (version: number) => string;
+  /** 表单发了新版本，这些流程还定在旧版本上 */
+  readonly formOutdatedUsages: (usages: readonly { name: string; version: number }[], latest: number) => string;
+  readonly upgradeUsages: (count: number) => string;
+  readonly upgradeNote: (formKey: string, version: number) => string;
+  readonly usagesUpgraded: (count: number, version: number) => string;
   /** 发布时撞了别人的：标识已被占用（key-taken），或打开后别人又发布过（newer-version） */
   readonly publishConflict: (reason: 'key-taken' | 'newer-version', latest: number, by: string | null) => string;
   readonly noProblems: string;

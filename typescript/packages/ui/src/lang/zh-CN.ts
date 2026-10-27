@@ -316,6 +316,11 @@ export const zhCN: FlowMessages = {
   publish: '发布',
   publishNote: '发布说明',
   published: (version) => `已发布第 ${version} 版`,
+  formOutdatedUsages: (usages, latest) =>
+    `${usages.map((u) => `${u.name}（第 ${u.version} 版）`).join('、')} 还在用旧表单，重新发布后新发起的才用第 ${latest} 版`,
+  upgradeUsages: (count) => `重新发布这 ${count} 个流程`,
+  upgradeNote: (formKey, version) => `换成表单 ${formKey} 第 ${version} 版`,
+  usagesUpgraded: (count, version) => `${count} 个流程已换成第 ${version} 版表单，新发起的就用它`,
   publishConflict: (reason, latest, by) =>
     reason === 'key-taken'
       ? `这个标识已经被用了（${by ? `${by} 发布的` : ''}第 ${latest} 版）。换一个标识，或者在列表里打开它再改`

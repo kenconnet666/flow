@@ -44,7 +44,8 @@ public class FormQueries {
     public List<FormUsage> usages(String formKey) {
         form(formKey);
         return context.getDb().queryable(ProcessEntity.class).where(p -> p.latest().formKey().eq(formKey)).orderBy(p -> p.name().asc())
-            .toList().stream().map(p -> new FormUsage(p.getProcessKey(), p.getName(), p.getLatestVersion())).toList();
+            .include(p -> p.latest())
+            .toList().stream().map(p -> new FormUsage(p.getProcessKey(), p.getName(), p.getLatestVersion(), p.getLatest().getFormVersion())).toList();
     }
 
     /** 表单的全部版本，新的在前 */

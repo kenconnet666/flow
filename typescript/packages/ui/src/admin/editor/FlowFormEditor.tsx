@@ -11,7 +11,7 @@
  *
  *   <FlowFormEditor formKey={key} onPublished={(result) => toaster.success(…)} />
  */
-import { validateManifest, type FormManifest } from '@zerodep-dev/flow-model';
+import { parseDefinition, validateManifest, type FormManifest } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
@@ -37,7 +37,7 @@ import {
 import { CodeEditor, type CodeEditorHandle } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { watch } from 'vue';
 import { useFlowClient } from '../../client/flow-client';
-import type { CompileProblem, PublishedForm } from '../../client/types';
+import type { CompileProblem, FormUsage, PublishedForm } from '../../client/types';
 import { applyEdits } from '../../form-tools/design/edit';
 import { useFormCompiler } from '../../form/compiler';
 import { FlowForm } from '../../form/FlowForm';
@@ -102,6 +102,8 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   let analysis = _state<Analysis>({ manifest: null, problems: [] });
   let failure = _state<string | null>(null);
   let notice = _state<string | null>(null);
+  /** 刚发布了第几版，以及还定在旧版本上的流程（重新发布它们，新发起的才用新表单） */
+  let outdated = _state.raw<{ version: number; usages: readonly FormUsage[] } | null>(null);
   let busy = _state<string | null>(null);
   let editor: CodeEditorHandle | undefined;
   /** 编辑器里是哪个已发布的版本（或基于它的草稿）；新建时为 null */
@@ -235,6 +237,26 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     mode = next;
   }
 
+  /** 还定在旧表单上的流程各重新发布一版（表单引用不写版本，发布时定在最新的；带上看到的最新版本，别人改过就不覆盖） */
+  async function upgradeUsages() {
+    if (!outdated) return;
+    busy = 'upgrade';
+    failure = null;
+    try {
+      for (const usage of outdated.usages) {
+        const definition = parseDefinition((await flow.definitionJson(usage.processKey)).json);
+        const json = JSON.stringify({ ...definition, ...(definition.form ? { form: { key: definition.form.key } } : {}) }, null, 2);
+        await flow.publishDefinition(json, messages.upgradeNote(key.trim(), outdated.version), usage.version);
+      }
+      notice = messages.usagesUpgraded(outdated.usages.length, outdated.version);
+      outdated = null;
+    } catch (error) {
+      failure = publishConflictText(error, messages) ?? errorText(error);
+    } finally {
+      busy = null;
+    }
+  }
+
   async function publish() {
     const current = await analyze();
     analysis = current;
@@ -257,6 +279,8 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       guard.published(result.version);
       note = '';
       notice = messages.published(result.version);
+      const usages = (await flow.formUsages(result.key)).filter((u) => u.formVersion < result.version);
+      outdated = usages.length ? { version: result.version, usages } : null;
       draft.published();
       openedDraft = null;
       baseVersion = result.version;
@@ -286,6 +310,16 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       <Flex direction="column" gap="md">
         {failure && <Alert tone="danger" onClose={() => (failure = null)}>{failure}</Alert>}
         {notice && <Alert tone="success" onClose={() => (notice = null)}>{notice}</Alert>}
+        {outdated && (
+          <Alert tone="warning" onClose={() => (outdated = null)}>
+            <Flex gap="sm" align="center" wrap>
+              {messages.formOutdatedUsages(outdated.usages.map((u) => ({ name: u.processName, version: u.formVersion })), outdated.version)}
+              <Button size="sm" variant="outline" loading={busy === 'upgrade'} disabled={busy != null} onClick={upgradeUsages}>
+                {messages.upgradeUsages(outdated.usages.length)}
+              </Button>
+            </Flex>
+          </Alert>
+        )}
         <DraftBanner opened={openedDraft} status={draft.status} onDiscard={discardDraft} onReload={reloadDraft} />
         <Flex gap="md" wrap align="end">
           <Field label={messages.columnKey} required>

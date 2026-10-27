@@ -317,6 +317,11 @@ export const enUS: FlowMessages = {
   publish: 'Publish',
   publishNote: 'Release note',
   published: (version) => `Published version ${version}`,
+  formOutdatedUsages: (usages, latest) =>
+    `${usages.map((u) => `${u.name} (version ${u.version})`).join(', ')} still use an older form; republish them so new starts use version ${latest}`,
+  upgradeUsages: (count) => `Republish ${count} process${count > 1 ? 'es' : ''}`,
+  upgradeNote: (formKey, version) => `Use form ${formKey} version ${version}`,
+  usagesUpgraded: (count, version) => `${count} process${count > 1 ? 'es' : ''} now use form version ${version} for new starts`,
   publishConflict: (reason, latest, by) =>
     reason === 'key-taken'
       ? `This key is already taken (version ${latest}${by ? ` published by ${by}` : ''}). Use another key, or open it from the list`

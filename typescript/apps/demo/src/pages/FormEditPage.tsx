@@ -1,5 +1,5 @@
 /**
- * 表单的编辑：/admin/forms/new 新建，/admin/forms/:key 编辑已有的。字段清单或代码两种写法，右边是预览；发布后回到表单管理。
+ * 表单的编辑：/admin/forms/new 新建，/admin/forms/:key 编辑已有的。字段清单或代码两种写法，右边是预览；发布后留在编辑器里。
  */
 import { FlowFormEditor } from '@zerodep-dev/flow-ui/admin';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
@@ -22,9 +22,10 @@ export const FormEditPage = _component(() => {
         key={String(route.params['key'])}
         {...(key() ? { formKey: key()! } : {})}
         people={people}
+        // 发布后留在编辑器里（编辑器会提示还在用旧版本的流程）；新建的换到它自己的地址，同流程的编辑页
         onPublished={(result) => {
           toaster.success(`已发布 ${result.key} 第 ${result.version} 版`);
-          void router.push('/admin/forms');
+          if (!key()) void router.replace(`/admin/forms/${result.key}`);
         }}
       />
     </Flex>

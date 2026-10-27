@@ -136,6 +136,8 @@ export interface FormUsage {
   readonly processKey: string;
   readonly processName: string;
   readonly version: number;
+  /** 那个流程版本定下的表单版本；比表单最新的旧时要重新发布流程 */
+  readonly formVersion: number;
 }
 
 export interface FormVersion {
