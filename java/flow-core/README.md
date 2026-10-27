@@ -61,5 +61,8 @@ CommandResult { instance, workItems（新生成的）, closed（结束的）, ev
 
 ## 建表
 
+只支持 MySQL。命令要在读已提交的事务里跑：引擎自己开的事务会设；在自己的 `@Transactional` 里调命令时要写
+`isolation = Isolation.READ_COMMITTED`，否则报错（0007 第 5 节）。
+
 脚本在 `src/main/resources/db/flow/mysql`（V1 起，执行过的不再改），推荐交给 Flyway 单独一套执行（docs/decisions/0007 第 9 节）。
 归档表（V11 的 `*_archive`）默认不用，打开归档后由 `FlowEngine.archive` 搬（0007 第 6 节）。

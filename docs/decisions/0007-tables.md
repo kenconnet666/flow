@@ -130,7 +130,7 @@
 | `started_by`、`started_by_name`、`started_at`、`ended_at` | | |
 | `rev`、`updated_at` | | 推进前先 `rev = rev + 1` 锁行 |
 
-索引：（租户, `status`, `process_key`, `started_at`）；（租户, `started_by`, `started_at`）；（租户, `business_key`）；（`parent_instance_id`）；（`root_instance_id`）；（租户, `ended_at`）（归档用）。
+索引：（租户, `status`, `process_key`, `started_at`）；（租户, `started_by`, `started_at`）；（租户, `business_key`）；（`parent_instance_id`）；（`root_instance_id`）；（租户, `ended_at`）（归档用）；（租户, `started_at`）（管理端看全部，V12）。
 
 **`flow_work_item`**：待办
 
@@ -196,7 +196,7 @@
 | `comment`、`attachments` | `TEXT`、JSON | |
 | `data` | JSON | 附加：退回的目标、改了哪些表单字段（旧值、新值，0004 的 4.5）、事件带来的数据 |
 
-索引：（`instance_id`, `instance_rev`, `id`）；（租户, `actor_id`, `type`, `at`）（我参与过的、工作量统计）；（租户, `type`, `at`）（按节点、按流程统计，随第 4 节补）。量大时可以用 query 的按月分表（query 的 0008），见第 6 节。
+索引：（`instance_id`, `instance_rev`, `id`）；（租户, `actor_id`, `type`, `at`）（我参与过的、工作量统计）；（租户, `type`, `at`）（按节点、按流程统计，随第 4 节补）。不分表（第 6 节）。
 
 ### 3.4 协作
 
@@ -273,12 +273,13 @@
 | 按摘要筛选、排序待办 | 连实例表取 `summary`；只在"我的待办"这个小集合里筛 | 实例主键 |
 | 已办 | `completed_by = 我`，默认只查最近 90 天（可改）；翻到很后面时改用"按上一页最后一条的时间往后取"，不用越来越大的偏移 | （租户, `completed_by`, `completed_at`） |
 | 我发起的 | `started_by = 我` | `flow_instance`（租户, `started_by`, `started_at`） |
+| 管理端搜实例 | 带状态、流程时按它们过滤；都不带（看全部、按标题关键字）时只按租户，按发起时间倒序取一页（2026-10-27 实测后补） | 带状态：（租户, `status`, `process_key`, `started_at`）；都不带：（租户, `started_at`）（V12），倒着读够一页就停。标题关键字是 `LIKE %…%`，总数要扫全部 |
 | 抄送我的 | `recipient_id = 我`，未读在前 | `flow_cc`（租户, `recipient_id`, `read_at`, `created_at`） |
 | 实例详情、进度 | 实例主键 + 它的待办 + 它的流转记录 | （`instance_id`, `state`）、（`instance_id`, `instance_rev`, `id`） |
 | 领取到期作业 | `state = 'pending' AND due_at <= 现在 AND (locked_until IS NULL OR locked_until < 现在)` 按 `due_at` 取一批，再逐个带条件 UPDATE 抢 | `flow_job`（`state`, `due_at`） |
 | 外部事件 | `event = ? AND business_key = ?` | `flow_wait`（租户, `event`, `business_key`） |
 | 统计 | 待办办完、节点离开时，流转记录的 `data` 里直接记下停留时长与是否超时，统计只对一种记录分组求和，不用把到达与离开配对 | `flow_event`（租户, `type`, `at`）（第 3 节随第 4 节补的索引）；大的统计建议在只读库或数仓里做 |
-| 统计（实现，2026-10-27） | 改成直接取待办：各环节取一段时间里处理完的待办（`state = 'done' AND completed_at >= ?`，按 `process_key` 过滤），停留 = `completed_at - created_at`，超时 = 晚于 `due_at`；处理人的工作量按 `completed_by` 分组。待办上本来就有这几列，不用在流转记录里另记 | `flow_work_item`（租户, `state`, `completed_at`, `process_key`）（V10） |
+| 统计（实现，2026-10-27） | 改成直接取待办：各环节取一段时间里处理完的待办（`state = 'done' AND completed_at >= ?`，按 `process_key` 过滤），停留 = `completed_at - created_at`，超时 = 晚于 `due_at`；处理人的工作量按 `completed_by` 分组。待办上本来就有这几列，不用在流转记录里另记。都在库里按节点分组算（个数、平均停留、带条件的计数），不取回明细 | `flow_work_item`（租户, `state`, `completed_at`, `process_key`）（V10） |
 | 归档 | `ended_at < 现在 - N 天` 分批 | `flow_instance`（租户, `ended_at`） |
 
 ## 5. 写入（已定，用户 2026-10-26）
@@ -293,6 +294,10 @@
 | 外部事件 | 带条件删掉 `flow_wait` 的那一行，删到了再推进 |
 | 幂等 | 命令的事务里先插 `flow_request` |
 
+**事务的隔离级别是读已提交**（2026-10-27 并发测试后补，Camunda 也这样要求）：锁实例行之后读到的会签兄弟待办、表单的值要是最新提交的；
+MySQL 默认的可重复读下，锁之前读过一次就一直是那时的快照（几个人同时会签同意，实例停住不走）。引擎自己开的事务用读已提交；
+加入接入方的事务时核对，不是读已提交就报错（`@Transactional(isolation = Isolation.READ_COMMITTED)`，或者把库、连接池的默认设成它）。
+
 ## 6. 数据量与归档（已定，用户 2026-10-26）
 
 - 估算：一个实例 5–20 个待办、20–60 条流转记录。每天 1000 个实例时，一年约 36 万实例、700 万待办、2000 万流转记录。
@@ -300,10 +305,17 @@
   实现（2026-10-27）：V11 用 `CREATE TABLE … LIKE` 建归档表；`FlowEngine.archive(olderThan)` 一批 200 个、一批一个事务，不分租户，按列名搬（读 information_schema，原表加列只要归档表也加）；
   Spring 里 `flow.archive.enabled`、`flow.archive.after`（默认 180 天）由作业轮询每小时搬一次。实例详情在热表里找不到时自动读归档表；
   我已办、我发起的、抄送我的带 `archived=true` 只看归档的（不和热表合在一页）。读归档用同一个实体换表名（easy-query 的 asTable）。
-- **流转记录按月分表**（可选）：用 query 的按月分表（query 的 0008，`shard(Event, monthly(...))`）。**分表键是实例的发起月份**，不是记录自己的时间：
+- **实测（2026-10-27，`QueryVolumeProbe`）**：5 万实例、8.5 万待办、49 万流转记录（经引擎造 1000 个再按编号偏移复制 50 份，人也换批）时，
+  一个人的待办、已办、我发起的、抄送我的、实例与待办详情都在 10–55ms（几条查询加装配，计划里都走索引、扫的行在 500 以内）；
+  管理端看全部实例原来 140ms（只用上租户这一列，扫一半再排序）→ 补 V12 之后列表本身不到 1ms，整页（含总数，扫全部）140ms → 65ms，按标题关键字 150ms → 70ms；
+  统计 70–250ms（造的数据都在 30 天内，时间条件筛不掉，是最坏情况）；环节统计原来把处理完的待办全取回内存算，改成在库里分组（170ms → 135ms，主要省了传输与装配）。
+- **流转记录不分表（2026-10-27 定）**：下面原计划用 query 的按月分表，持久层换成 easy-query、query 暂不维护之后不做。
+  流转记录只按实例（`instance_id` 开头的索引，一个实例几十条）或按人、按种类加时间范围读，49 万行时详情的时间线仍是毫秒级；
+  热表的大小由归档控制。真到单表几千万行、归档也嫌慢时，再考虑 MySQL 的分区表（按 `instance_id` 的范围），不改引擎的查询。
+- ~~**流转记录按月分表**（可选）~~（不做，见上一条）：用 query 的按月分表（query 的 0008，`shard(Event, monthly(...))`）。**分表键是实例的发起月份**，不是记录自己的时间：
   流转记录上加一列 `instance_started_on`（`DATE`，实例的发起日期，打开分表时才有；query 的按月规则按日期列分），一个实例的记录都在同一张表里；查一个实例的记录时引擎从实例行带上这个月份，只查一张表。
   按记录时间分表的话，"查一个实例的流转记录"不带时间条件，会把所有月份的表都扫一遍。"我参与过的"这类跨实例的查询要带时间范围，按范围选表。
-- **按需打开**：量不大时都不开；量大时先开归档（热表一直小），流转记录还嫌大再分表。
+- **按需打开**：量不大时不开；量大时开归档（热表一直小）。
 - **定期清理**：`flow_request` 默认保留 7 天、失败的作业默认保留 30 天，由作业删掉（天数可配）。
 - 候选表与作业表只存"现在还有用的行"，不会随时间增长。
 

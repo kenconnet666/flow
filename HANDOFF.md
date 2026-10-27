@@ -176,6 +176,8 @@
 | ⑥ 表单设计器第二步（2026-10-27） | 单选组 RadioGroup、多选组 CheckboxGroup（form.Field 按清单补选项与值的转换，与 Select 共用）；预览里填的值在重新编译后留着、"只读预览"；前端代码的问题（语法、清单写法）与后端代码的编译问题点一条跳到代码位置（组件库 CodeEditorHandle 加 `goTo`）；发布时存前端的编译结果与编译器版本（组件库 browser-compile 导出 `COMPILER_VERSION`），FlowForm 只在版本一样时直接执行存下的代码 | UI 单测补了编译器版本的两种情况；浏览器里走过加单选组、预览选中后重编仍选中、只读预览 |
 | ⑧ 补齐小缺口（2026-10-27） | 开发 MySQL 搬进本仓库的 `infra/mysql`（query 暂不维护；`live-env.sh` 设实库测试与示例后端的连接，主机取 WSL 地址）；待办已读（`readWorkItem`，收件箱标"新"，换处理人时清掉）；实例详情的流程变量只给流程管理员（`OrgDirectory.administrators`）；留言 @ 人（`mentions`，通知 `mentioned`） | 场景 read-work-item、call-process 加两步；实库 NotificationTest 加一例 |
 | ⑨ 引擎能力补全（2026-10-27） | 发起前存草稿（draft 实例，`saveStartDraft`、`discardStartDraft`、`startDrafts`，`start` 带 `draftId`；前端"存草稿"与 `FlowStartDrafts`）；预测下一步（`NextSteps`，结果与发起页带 `next`，审批面板写"通过 → 总经理审批（总经理）"）；扩展口 `CustomNode`（x- 节点，当场做完或等事件）、`CountersignRule`、`FieldType`（发布认得、提交暂存时查）、`TodoQueryCustomizer`（待办连接入方的表，`biz.` 参数、`TodoItem.business`） | 场景 start-draft、custom-node、field-type，purchase-views 加 next；实库 TodoCustomizerTest；Java 实库 49、UI 41 |
+| ⑩ 组件库收拢、整理、归档（2026-10-27） | 组件库收进四样通用的：`scopeHttp`（带前缀的请求简写，引擎客户端建在它上面）、`useAutosave`（设计草稿的自动保存）、diagram 的 `layoutLayers`（流程图的分层排版）、`dayRangeBounds`（列表筛选换成 DateRangePicker）。列表与组件库表格对齐：后端 `Page` 的 `size` 改名 `pageSize`；`sort` 用 formatSorts 的写法（`SortOrder`，每个列表一份白名单，easy-query 的 orderByObject）。整理：文案按语言分文件（lang/zh-CN.ts、en-US.ts）；HTTP 接口按路径分四个控制器（`FlowHttpSupport` 共用）；表单设计器的画布位置挪进 canvas.ts；package-info 删掉，包的分工写进 flow-core 的 README。归档：V11 的 `*_archive`，`FlowEngine.archive`，`flow.archive.*`；实例详情自动读归档，列表带 `archived` | 实库 ArchiveTest、admin-queries 加了排序；组件库补了 http、autosave、layout、date 的测试；数据量探针 `QueryVolumeProbe`（`-Dflow.perf=true`） |
+| ⑪ 数据量与多租户（2026-10-27） | 探针造 5 万实例、49 万流转记录：个人的列表与详情 10–55ms，都走索引；管理端看全部补 V12（租户, `started_at`），列表 80ms → 不到 1ms；环节统计改在库里分组算；流转记录不分表（0007 第 6 节）。多租户隔离的专项测试；`PermissionPolicy` 的操作名清单补全。并发测试查出一个真问题：几个人同时会签同意时实例停住不走（可重复读的快照），改成命令的事务用读已提交，加入外面的事务时核对 | 实库 TenantIsolationTest、ConcurrencyTest（同时认领、连点处理、同时会签、撤回与处理同时到、外面是可重复读时报错）、AdminOpsTest 补了停留与超时比例 |
 | 重做（已完成，2026-10-27） | 用户定：① 删掉 Node 后端（TS 引擎、flow-nuxt、Nitro 示例后端）；② 持久层换成 easy-query——去掉 12 个存储接口，`entity` 包的实体写库、`view` 包的 VO 读给前端，待办行、抄送行用 `selectAutoInclude` 映射成带 `instance` 的对象树，租户与修改时间交给拦截器；③ wire 迁成独立仓库 json-wire，接口的 typed JSON 由接入方集成；④ 表单的值是强类型（json-wire 还原，模型包按类型校验，spec 与场景文件改成 typed JSON），前端时刻是 ZonedDateTime | Java 154（模型 121、实库 33）、TS 120、UI 26 全部通过；浏览器里走过发起（金额 350.25 原样存成 typed JSON）、财务处理、我已办、流程监控；顺带修了自动排版的数字控件把小数对齐成整数的问题 |
 
 ### 无人值守时按推荐定（2026-10-27，待用户过目）
@@ -223,11 +225,16 @@
 38. **自定义节点能等事件**：等的事件也由 `signal` 送来，和等事件节点共用 `flow_wait`；自定义会签规则的参与人一起处理（不支持依次）。
 39. **注册的字段类型只查顶层字段**：明细表里的列用了注册类型时后端不查它的值。
 40. **待办连表给 easy-query 的代理**：`TodoQueryCustomizer.filter` 直接拿 `WorkItemEntityProxy`，接入方用导航或 exists 子查询；筛选参数是字符串（HTTP 的 `biz.` 参数），业务列是 Map（列由接入方定，没法强类型）。
+41. **排序只认白名单**：列名就是实体的属性名，各列表一份（我发起的、管理端搜实例、我已办、抄送我的）；我的待办是两段合并，不支持排序；默认顺序接在用户的排序后面，翻页稳定。
+42. **归档不和热表合在一页**：列表带 `archived=true` 时只看归档表；实例详情例外，热表里找不到就读归档表（旧链接照样打开）。归档不分租户，一批 200 个、一批一个事务。
+43. **目前只支持 MySQL**（2026-10-27 用户定）：建表脚本、归档（`CREATE TABLE … LIKE`、`information_schema`）、实库测试都只按 MySQL 做，别的库以后再说。
+44. **命令的事务是读已提交**：引擎自己开的事务设成读已提交；加入接入方的事务时查 `@@transaction_isolation`，不是就报错。
 
 下面是还没做的、按优先级（阶段三起，2026-10-27 的规划）：
 
-0. 阶段三：归档（`*_archive`）、实库造数据量看慢查询、流转记录按月分表要不要开；阶段五：示例的端到端测试、移动端宽度；阶段六：接入指南、依赖换版本号。
+0. 阶段三已完成（⑩⑪）。阶段五：示例的端到端测试、移动端宽度；阶段六：接入指南、依赖换版本号。
+   成熟可用还要补的（用户同意继续做，只做 MySQL）：**谁能看实例**——0006 第 6 节定了 `ViewPolicy`，一直没做，现在同租户的人知道编号就能打开任何实例、待办、调表单的 actions（要先定默认多严、管理员怎么放行）；
+   作业积压、失败重试、归档进度的指标；CHANGELOG 与升级说明（迁移脚本、运行中的实例怎么办）。
 1. 表单设计器余下的：标签页 Tabs（组件库的 Tabs 要 TabList、Tab、TabPanel 三层，设计器要能认整组）、明细表 form.List、附件控件（要接入方给上传接口）；
    编译放 Worker（`createCompileClient`，flow-ui 是库，`?worker` 的导入要由应用的 Vite 给，需要设计一个传入口）；预览时套用某个流程节点的权限（要先有"哪些流程用了这张表单"的查询）。
 2. 发布 json-wire、vue-tsx-pro 0.2 到 npm / Maven（用户手动），之后本仓库从 `link:` 换成版本号。
-3. 性能：实库里造一批数据量看慢查询（收件箱的候选匹配、我已办、统计），按 0007 的索引再核一遍。
