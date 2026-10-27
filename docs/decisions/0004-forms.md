@@ -550,6 +550,19 @@ registerFormComponent({
 - 审批页面只引 `/form`，设计器在 `/form-designer`，两者分开打包，审批页面不会带上设计器和编译器。
 - 设计器照 vue-tsx-pro 的做法开着演示站做（用组件库的 `/docs-kit`），每个部件边做边看。
 
+## 实现状态（2026-10-27）
+
+第一版在 `typescript/packages/ui`：
+
+- **form-tools/design**（不依赖 Vue）：`parseDesign`（源码 → 字段列表、组件树、没摆的字段、导入）、`edit.ts`（3.3 的写回，返回按改之前位置的几处修改）、
+  `print.ts`（新代码的小打印器）、`registry.ts`（2.1、2.4 的组件登记）、`designSource`（3.2 的 `data-form-node`：直接加进设计时编译的源码，不另写 Babel 插件）。
+- **admin/form-designer**：`FormDesigner`（面板、字段列表、画布与操作层、预览模式）、`PropertyPanel`（2.3 的两组属性）；`FlowFormEditor` 的"设计"写法，
+  与"代码"共用一个代码编辑器，设计操作经 `CodeEditorHandle.edit` 派发，单独成一步撤销，属性面板里逐字输入合成一步（3.1）。
+- **控件补属性**（form/controls.ts）：`form.Field` 按字段类型给控件补没写的属性——`NumberField` 的 Decimal 与步长、日期控件的 `valueType`、`Select` 的选项、
+  `PeoplePicker` 的数据源、文字的长度。所以 2.1 的控件都写成不带属性的 `<Select />`，选项改了不用同步 JSX。
+- 还没做：标签页与明细表 `form.List`、单选组等要写子元素的控件、附件；编译放 Worker 防抖（组件库已有 `createCompileClient`；现在每次改动用 `compileInThread` 在主线程编译，表单小时察觉不到）；
+  重新编译后保留预览里填的值；预览时选流程节点套权限；问题列表跳到代码位置。
+
 ## 待实测
 
 - 1.5 的 Spring Boot：打成可执行的 fat jar 运行，在线的 Java 代码能 import 应用自己的类、注入 Bean（嵌套 jar 的 classpath 要自己实现 `JavaFileManager`）。

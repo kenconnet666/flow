@@ -28,14 +28,19 @@ const CONDITION_TYPES: Readonly<Record<string, ConditionFieldType>> = {
   select: 'select',
 };
 
-/** 条件里能用的字段：表单的字段（form.名字）与流程变量 */
-export function conditionFields(definition: ProcessDefinition, manifest: FormManifest | null, formGroup: string, variableLabel: (name: string) => string): ConditionField[] {
-  const fromForm = Object.entries(manifest ?? {}).flatMap(([name, field]): ConditionField[] => {
+/** 条件里能用的表单字段（form.名字）；group 是条件构造器里的分组名，不给时不分组 */
+export function formConditionFields(manifest: FormManifest | null, group?: string): ConditionField[] {
+  return Object.entries(manifest ?? {}).flatMap(([name, field]): ConditionField[] => {
     const type = CONDITION_TYPES[field.type];
     if (!type) return [];
     const options = Array.isArray(field.options) ? field.options.map((o) => ({ value: o.value, label: o.label })) : undefined;
-    return [{ name: `form.${name}`, label: field.label ?? name, type, group: formGroup, ...(options ? { options } : {}) }];
+    return [{ name: `form.${name}`, label: field.label ?? name, type, ...(group ? { group } : {}), ...(options ? { options } : {}) }];
   });
+}
+
+/** 条件里能用的字段：表单的字段（form.名字）与流程变量 */
+export function conditionFields(definition: ProcessDefinition, manifest: FormManifest | null, formGroup: string, variableLabel: (name: string) => string): ConditionField[] {
+  const fromForm = formConditionFields(manifest, formGroup);
   const variables = (definition.variables ?? []).flatMap((v): ConditionField[] => {
     const type = CONDITION_TYPES[v.type];
     return type ? [{ name: v.name, label: v.label ?? variableLabel(v.name), type }] : [];

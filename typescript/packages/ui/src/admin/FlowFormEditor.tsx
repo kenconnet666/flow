@@ -1,7 +1,9 @@
 /**
- * 表单的编辑（管理端，表单设计器之前的写法），两种写法：
+ * 表单的编辑（管理端），三种写法：
  *   - 字段清单：只写 0004 的字段清单 JSON，表单按清单自动排版；
+ *   - 设计：表单设计器（FormDesigner）里拖组件、改属性，改的是下面那份代码；
  *   - 代码：写表单的 TSX（defineFields + defineFlowForm），字段清单从代码里取出（不执行代码）。
+ * 设计与代码是同一份源码、同一个代码编辑器（设计时藏起来但不卸载），撤销重做只有代码编辑器的一个历史（0004 的 3.1）。
  * 边改边看：清单的问题（字段名、类型、属性……）随改随列出，没问题时右边的预览跟着变；发布定一个新版本。
  * 打开已有的表单时载入最新版本，也能载入以前的某个版本；新建时给一个最小的骨架。发布时只存源码，审批页在浏览器里编译。
  *
@@ -25,11 +27,13 @@ import {
   useRequest,
   type PeopleSource,
 } from '@zerodep-dev/vue-tsx-pro-ui';
-import { CodeEditor } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
+import { CodeEditor, type CodeEditorHandle } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { watch } from 'vue';
 import { useFlowClient } from '../client/flow-client';
 import type { PublishedForm } from '../client/types';
+import { applyEdits } from '../form-tools/design/edit';
 import { FlowForm } from '../form/FlowForm';
+import { FormDesigner } from './form-designer/FormDesigner';
 import { useFlowMessages } from '../lang/messages';
 
 /** FlowFormEditor 的属性 */
@@ -42,8 +46,8 @@ export interface FlowFormEditorProps {
   onPublished?: (result: PublishedForm) => void;
 }
 
-/** 写法：字段清单（自动排版）或代码 */
-type Mode = 'manifest' | 'code';
+/** 写法：字段清单（自动排版）、设计或代码 */
+type Mode = 'manifest' | 'design' | 'code';
 
 /** 新建时的骨架：一个必填的标题 */
 const SKELETON: FormManifest = { title: { label: '标题', type: 'text', required: true } };
@@ -73,6 +77,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   let failure = _state<string | null>(null);
   let notice = _state<string | null>(null);
   let busy = _state<string | null>(null);
+  let editor: CodeEditorHandle | undefined;
 
   const versions = useRequest((k: string | null, signal) => (k ? flow.formVersions(k, signal) : Promise.resolve([])), {
     params: () => formKey ?? null,
@@ -88,7 +93,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         return { manifest: null, problems: [messages.jsonInvalid((error as Error).message)] };
       }
     } else {
-      // 取清单要解析 TSX（Babel），用到时才加载
+      // 取清单要解析 TSX（Babel），用到时才加载（设计、代码两种写法都是）
       const { extractFields } = await import('../form-tools');
       try {
         const result = extractFields(source);
@@ -122,17 +127,17 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       category = doc.category ?? '';
       manifestText = JSON.stringify(JSON.parse(doc.manifest), null, 2);
       source = doc.clientSource ?? '';
-      mode = doc.clientSource ? 'code' : 'manifest';
+      mode = doc.clientSource ? 'design' : 'manifest';
     } catch (error) {
       failure = errorText(error);
     }
   }
   void load();
 
-  /** 换写法：清单换成代码时按清单生成一份；代码换回清单时用代码里取出的清单（代码丢掉） */
+  /** 换写法：清单换成设计、代码时按清单生成一份；代码换回清单时用代码里取出的清单（代码丢掉） */
   async function switchMode(next: Mode) {
     if (next === mode) return;
-    if (next === 'code' && !source.trim()) {
+    if (next !== 'manifest' && !source.trim()) {
       const parsed = analysis.manifest ?? SKELETON;
       const { codeFromManifest } = await import('../form-tools');
       source = codeFromManifest(parsed);
@@ -154,7 +159,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         name: name.trim(),
         ...(category.trim() ? { category: category.trim() } : {}),
         manifest: current.manifest,
-        ...(mode === 'code' ? { clientSource: source } : {}),
+        ...(mode !== 'manifest' ? { clientSource: source } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
       });
       note = '';
@@ -199,13 +204,24 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         </Flex>
         <ToggleGroup aria-label={messages.formMode} required _value={mode} onUpdate:_value={(next: string) => void switchMode(next as Mode)}>
           <ToggleItem value="manifest">{messages.formModeManifest}</ToggleItem>
+          <ToggleItem value="design">{messages.formModeDesign}</ToggleItem>
           <ToggleItem value="code">{messages.formModeCode}</ToggleItem>
         </ToggleGroup>
-        <Grid minItemWidth="24rem" gap="md">
+        {mode === 'design' && (
+          <FormDesigner
+            source={source}
+            onEdit={(edits, merge) => (editor ? editor.edit(edits, { merge }) : (source = applyEdits(source, edits)))}
+            onUndo={() => editor?.undo()}
+            onRedo={() => editor?.redo()}
+            {...(people ? { people } : {})}
+          />
+        )}
+        {/* 设计时代码编辑器藏起来但不卸载：设计操作派发进它，撤销历史只有它一个 */}
+        <Grid minItemWidth="24rem" gap="md" style={mode === 'design' ? { display: 'none' } : undefined}>
           {mode === 'manifest' ? (
             <CodeEditor key="manifest" _value={manifestText} aria-label={messages.formModeManifest} style={{ height: '30rem' }} />
           ) : (
-            <CodeEditor key="code" _value={source} aria-label={messages.formModeCode} style={{ height: '30rem' }} />
+            <CodeEditor key="code" _value={source} aria-label={messages.formModeCode} style={{ height: '30rem' }} onReady={(handle) => (editor = handle)} />
           )}
           <Card header={messages.formPreview}>
             {analysis.manifest ? (
@@ -216,7 +232,7 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
                   access: { default: 'editable' },
                   start: true,
                   compiled: null,
-                  source: mode === 'code' ? source : null,
+                  source: mode === 'manifest' ? null : source,
                 }}
                 {...(people ? { people } : {})}
               />

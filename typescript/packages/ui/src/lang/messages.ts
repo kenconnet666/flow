@@ -100,6 +100,7 @@ export interface FlowMessages {
   readonly formEditor: string;
   readonly formMode: string;
   readonly formModeManifest: string;
+  readonly formModeDesign: string;
   readonly formModeCode: string;
   readonly formPreview: string;
   /** 清单有问题、取不出时预览的位置 */
@@ -454,6 +455,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     formEditor: '表单',
     formMode: '写法',
     formModeManifest: '字段清单（自动排版）',
+    formModeDesign: '设计',
     formModeCode: '代码',
     formPreview: '预览',
     formPreviewBlocked: '改好下面的问题后显示预览',
@@ -615,6 +617,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     formEditor: 'Form',
     formMode: 'Written as',
     formModeManifest: 'Field list (auto layout)',
+    formModeDesign: 'Design',
     formModeCode: 'Code',
     formPreview: 'Preview',
     formPreviewBlocked: 'Fix the problems below to see the preview',

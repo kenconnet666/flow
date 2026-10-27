@@ -40,7 +40,7 @@ export function extractFields(source: string): ExtractResult {
 }
 
 /** `export const fields = defineFields(参数)` 的参数 */
-function findFieldsCall(program: Program): { argument: ObjectExpression } | { problem: ExtractProblem } {
+export function findFieldsCall(program: Program): { argument: ObjectExpression } | { problem: ExtractProblem } {
   for (const statement of program.body) {
     if (statement.type !== 'ExportNamedDeclaration' || statement.declaration?.type !== 'VariableDeclaration') continue;
     for (const declarator of statement.declaration.declarations) {
@@ -68,7 +68,7 @@ function unwrap(node: Expression | null | undefined): Expression | null | undefi
 }
 
 /** 字面量 → JSON 值；遇到不是字面量的写法记一条问题、返回 null */
-function literal(node: Node, problems: ExtractProblem[]): unknown {
+export function literal(node: Node, problems: ExtractProblem[]): unknown {
   switch (node.type) {
     case 'StringLiteral':
     case 'NumericLiteral':
