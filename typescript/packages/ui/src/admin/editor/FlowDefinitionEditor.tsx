@@ -32,11 +32,12 @@ import { CodeEditor } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { watch } from 'vue';
 import { useFlowClient } from '../../client/flow-client';
 import type { DefinitionProblem, PublishedDefinition } from '../../client/types';
-import { useDesignerMessages } from '../../lang/process-designer-messages';
+import { useDesignerMessages, type FlowDesignerMessages } from '../../lang/process-designer-messages';
 import { useFlowMessages } from '../../lang/messages';
 import { DefinitionDiffView } from './DefinitionDiffView';
 import { DraftBanner } from './DraftBanner';
 import { useDesignDraft } from './design-draft';
+import { defaultOutcomes } from '../process-designer/editing';
 import { FlowDesigner } from '../process-designer/FlowDesigner';
 
 /** FlowDefinitionEditor 的属性 */
@@ -52,21 +53,24 @@ export interface FlowDefinitionEditorProps {
 /** 写法 */
 type Mode = 'design' | 'json';
 
-/** 新建时的骨架：一个人工节点，通过就结束 */
-const SKELETON: ProcessDefinition = {
-  schema: DEFINITION_SCHEMA,
-  key: 'new-process',
-  name: '新流程',
-  nodes: [
-    { id: 'start', type: 'start', name: '提交' },
-    { id: 'approve', type: 'task', name: '审批', assignees: [{ initiator: true }], outcomes: [{ key: 'ok', label: '同意' }] },
-    { id: 'end', type: 'end', name: '结束', result: 'approved' },
-  ],
-  edges: [
-    { id: 'submit', from: 'start', to: 'approve' },
-    { id: 'approved', from: 'approve', to: 'end', outcome: 'ok' },
-  ],
-};
+/** 新建时的骨架：一个人工节点，同意就结束，不同意直接结束流程 */
+function skeleton(messages: FlowDesignerMessages): ProcessDefinition {
+  const texts = messages.skeleton;
+  return {
+    schema: DEFINITION_SCHEMA,
+    key: 'new-process',
+    name: texts.process,
+    nodes: [
+      { id: 'start', type: 'start', name: texts.start },
+      { id: 'approve', type: 'task', name: texts.task, assignees: [{ initiator: true }], outcomes: defaultOutcomes({ approve: messages.approveOutcome, reject: messages.rejectOutcome }) },
+      { id: 'end', type: 'end', name: texts.end, result: 'approved' },
+    ],
+    edges: [
+      { id: 'submit', from: 'start', to: 'approve' },
+      { id: 'approved', from: 'approve', to: 'end', outcome: 'approve' },
+    ],
+  };
+}
 
 /** 排版好的 JSON */
 const pretty = (definition: ProcessDefinition) => JSON.stringify(definition, null, 2);
@@ -79,8 +83,9 @@ export const FlowDefinitionEditor = _component(({ processKey, people, onPublishe
   const errorText = useErrorMessage();
   let mode = _state<Mode>('design');
   // 定义只整体换（设计器每改一步给出新的一份），不做深层代理
-  let definition = _state.raw<ProcessDefinition>(SKELETON);
-  let text = _state(pretty(SKELETON));
+  const blank = skeleton(designerMessages);
+  let definition = _state.raw<ProcessDefinition>(blank);
+  let text = _state(pretty(blank));
   let loaded = _state(!processKey);
   let note = _state('');
   let problems = _state<readonly DefinitionProblem[] | null>(null);

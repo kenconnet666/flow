@@ -19,8 +19,11 @@ export interface FlowDesignerMessages {
   readonly steps: Readonly<Record<'move' | 'connect' | 'reconnect' | 'node' | 'edge' | 'process', string>>;
   /** 节点的种类 */
   readonly nodeTypes: Readonly<Record<string, string>>;
-  /** 新节点的默认名字与人工节点默认的结果 */
-  readonly defaultOutcome: string;
+  /** 人工节点默认的两个结果 */
+  readonly approveOutcome: string;
+  readonly rejectOutcome: string;
+  /** 新建流程时骨架里的名字 */
+  readonly skeleton: Readonly<Record<'process' | 'start' | 'task' | 'end', string>>;
   readonly processPanel: string;
   readonly nodePanel: string;
   readonly edgePanel: string;
@@ -144,7 +147,9 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
       call: '子流程',
       end: '结束',
     },
-    defaultOutcome: '同意',
+    approveOutcome: '同意',
+    rejectOutcome: '不同意',
+    skeleton: { process: '新流程', start: '提交', task: '审批', end: '结束' },
     processPanel: '流程',
     nodePanel: '节点',
     edgePanel: '连线',
@@ -260,7 +265,9 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
       call: 'Subprocess',
       end: 'End',
     },
-    defaultOutcome: 'Approve',
+    approveOutcome: 'Approve',
+    rejectOutcome: 'Reject',
+    skeleton: { process: 'New process', start: 'Submit', task: 'Approve', end: 'End' },
     processPanel: 'Process',
     nodePanel: 'Node',
     edgePanel: 'Connection',

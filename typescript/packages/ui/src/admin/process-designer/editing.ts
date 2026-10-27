@@ -5,8 +5,8 @@
  *   let { definition, id } = addNode(definition, 'task', { name: '审批', outcome: '同意' }, { x: 200, y: 80 });
  *   definition = connect(definition, 'start', id).definition;
  */
-import { isBranching, type ProcessDefinition, type ProcessEdge, type ProcessNode } from '@zerodep-dev/flow-model';
-import { layoutDiagram } from '../../runtime/parts/diagram-layout';
+import { GATEWAY_TYPES, isBranching, type Outcome, type ProcessDefinition, type ProcessEdge, type ProcessNode } from '@zerodep-dev/flow-model';
+import { layoutDiagram, sizeOf } from '../../runtime/parts/diagram-layout';
 
 /** 设计器的工具栏里能加的节点（开始节点每个流程有且只有一个，不在里面） */
 export const PALETTE = ['task', 'exclusive', 'parallel', 'inclusive', 'service', 'timer', 'receive', 'cc', 'call', 'end'] as const;
@@ -20,7 +20,9 @@ export type NewNodeType = PaletteType | `x-${string}`;
 /** 新节点的文字：节点名，人工节点默认的一个处理结果的名字 */
 export interface NewNodeTexts {
   readonly name: string;
-  readonly outcome: string;
+  /** 人工节点默认的两个结果：同意往下走，不同意直接结束流程（结果 rejected） */
+  readonly approve: string;
+  readonly reject: string;
 }
 
 /** 画布上的一个节点：定义里的节点加上位置与大小 */
@@ -51,7 +53,7 @@ export function newNode(type: NewNodeType, id: string, texts: NewNodeTexts): Pro
   const base = { id, name: texts.name };
   switch (type) {
     case 'task':
-      return { ...base, type, assignees: [], outcomes: [{ key: 'approve', label: texts.outcome }] };
+      return { ...base, type, assignees: [], outcomes: defaultOutcomes(texts) };
     case 'service':
       return { ...base, type, action: '' };
     case 'timer':
@@ -67,6 +69,14 @@ export function newNode(type: NewNodeType, id: string, texts: NewNodeTexts): Pro
   }
 }
 
+/** 人工节点默认的结果：没有"不同意"的审批几乎用不上，新画的节点直接带上，不要的在属性面板里删 */
+export function defaultOutcomes(texts: Pick<NewNodeTexts, 'approve' | 'reject'>): Outcome[] {
+  return [
+    { key: 'approve', label: texts.approve },
+    { key: 'reject', label: texts.reject, kind: 'terminate', result: 'rejected', comment: 'required' },
+  ];
+}
+
 /** 节点放在 at（画布坐标，节点的左上角） */
 export function addNode(
   definition: ProcessDefinition,
@@ -80,6 +90,51 @@ export function addNode(
   );
   const next = { ...definition, nodes: [...definition.nodes, newNode(type, id, texts)] };
   return { definition: withPositions(next, [{ id, x: at.x, y: at.y }]), id };
+}
+
+/**
+ * 加在一个节点后面（设计器里选中一个节点，再点左边的节点类型）：
+ * - 它不是网关、只有一条出边时插进这条线中间：原来的线改连到新节点（结果、条件照旧），新节点再连到原来的终点（新的是结束节点时不连），
+ *   原来在它右边的节点往右让出新节点的位置；
+ * - 网关后面加的是一条新分支：新节点放在已有分支的下方，不叠在一起；已有分支直接通向结束或汇合的网关时，新分支也连过去；
+ * - 别的节点没有出边、或有几条时同网关，新开一条。
+ */
+export function addAfter(
+  definition: ProcessDefinition,
+  anchorId: string,
+  type: NewNodeType,
+  texts: NewNodeTexts,
+  gap: number,
+): { definition: ProcessDefinition; id: string } {
+  const boxes = placeNodes(definition);
+  const anchor = boxes.find((b) => b.id === anchorId)!;
+  const size = sizeOf(type);
+  const outgoing = definition.edges.filter((e) => e.from === anchorId);
+  const x = anchor.x + anchor.width + gap;
+  const middle = anchor.y + (anchor.height - size.height) / 2;
+  if (outgoing.length === 1 && !GATEWAY_TYPES.has(anchor.node.type)) {
+    const line = outgoing[0]!;
+    const added = addNode(definition, type, texts, { x, y: middle });
+    const pushed = boxes.filter((b) => b.id !== anchorId && b.x >= x).map((b) => ({ id: b.id, x: b.x + size.width + gap, y: b.y }));
+    let next = withPositions(added.definition, pushed);
+    next = { ...next, edges: next.edges.map((e) => (e.id === line.id ? { ...e, to: added.id } : e)) };
+    if (type !== 'end') next = connect(next, added.id, line.to)?.definition ?? next;
+    return { definition: next, id: added.id };
+  }
+  const targets = boxes.filter((b) => outgoing.some((e) => e.to === b.id));
+  const y = targets.length ? Math.max(...targets.map((b) => b.y + b.height)) + gap / 2 : middle;
+  const added = addNode(definition, type, texts, { x, y });
+  let next = connect(added.definition, anchorId, added.id)?.definition ?? added.definition;
+  const rejoin = targets.find((b) => b.node.type === 'end' || GATEWAY_TYPES.has(b.node.type));
+  if (rejoin && type !== 'end') {
+    next = connect(next, added.id, rejoin.id)?.definition ?? next;
+    // 连回去的那个节点挡在新分支这一列时，它和它右边的往右让开，线不用往回绕
+    if (rejoin.x < x + size.width + gap) {
+      const shift = x + size.width + gap - rejoin.x;
+      next = withPositions(next, boxes.filter((b) => b.x >= rejoin.x && b.id !== anchorId).map((b) => ({ id: b.id, x: b.x + shift, y: b.y })));
+    }
+  }
+  return { definition: next, id: added.id };
 }
 
 /**

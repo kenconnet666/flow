@@ -62,7 +62,7 @@ import { toRaw, watch } from 'vue';
 import { useFlowClient } from '../../client/flow-client';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { useFlowMessages } from '../../lang/messages';
-import { addNode, autoLayout, connect, PALETTE, placeNodes, reconnect, removeItems, replaceEdge, replaceNode, withPositions, type NewNodeType, type PlacedNode } from './editing';
+import { addAfter, addNode, autoLayout, connect, PALETTE, placeNodes, reconnect, removeItems, replaceEdge, replaceNode, withPositions, type NewNodeType, type PlacedNode } from './editing';
 import { declaredOutcomes, entryOf, registeredIn } from './extensions';
 import { EdgePanel } from './EdgePanel';
 import { NodePanel } from './NodePanel';
@@ -221,15 +221,19 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
     return controller.toDiagram(rect.left + rect.width / 2, rect.top + rect.height / 2);
   }
 
-  /** 加一个节点：选中了一个节点时放在它右边并连上，否则放在 at 或视口中间 */
+  /** 加一个节点：选中了一个节点时加在它后面（只有一条出边时插进线中间，见 addAfter），否则放在 at 或视口中间 */
   function add(type: NewNodeType, at?: { x: number; y: number }) {
-    const texts = { name: typeName(type), outcome: messages.defaultOutcome };
+    const texts = { name: typeName(type), approve: messages.approveOutcome, reject: messages.rejectOutcome };
     const anchor = !at && selection.nodes.length === 1 ? boxes().find((b) => b.id === selection.nodes[0]) : undefined;
-    const position = at ?? (anchor ? { x: anchor.x + anchor.width + GAP, y: anchor.y } : centered(viewportCenter()));
-    let { definition: next, id } = addNode(definition, type, texts, position);
-    if (anchor && anchor.node.type !== 'end') next = connect(next, anchor.id, id)?.definition ?? next;
+    const { definition: next, id } =
+      anchor && anchor.node.type !== 'end'
+        ? addAfter(definition, anchor.id, type, texts, GAP)
+        : addNode(definition, type, texts, at ?? (anchor ? { x: anchor.x + anchor.width + GAP, y: anchor.y } : centered(viewportCenter())));
     apply(next, messages.add(texts.name));
     selection = { nodes: [id], edges: [] };
+    // 加在后面时新节点可能落在看得见的区域外（插进线中间还会把后面的往右推）：平移过去
+    const placed = boxes().find((b) => b.id === id);
+    if (placed) controller.reveal(placed);
   }
   /** 节点的中心落在 point 上时的左上角 */
   const centered = (point: { x: number; y: number }) => ({ x: point.x - 70, y: point.y - 26 });

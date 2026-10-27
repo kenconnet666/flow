@@ -3,6 +3,7 @@ import type { ProcessDefinition } from '@zerodep-dev/flow-model';
 import { validateProcess } from '@zerodep-dev/flow-model';
 import { describe, expect, it } from 'vitest';
 import {
+  addAfter,
   addNode,
   autoLayout,
   connect,
@@ -15,7 +16,7 @@ import {
   withPositions,
 } from '../src/admin/process-designer/editing';
 
-const TEXTS = { name: '审批', outcome: '同意' };
+const TEXTS = { name: '审批', approve: '同意', reject: '不同意' };
 
 const base: ProcessDefinition = {
   key: 'p',
@@ -83,7 +84,7 @@ describe('设计器的编辑', () => {
     definition = connect(definition, id, 'end')!.definition;
     const task = definition.nodes.find((n) => n.id === id)!;
     if (task.type !== 'task') throw new Error('not a task');
-    definition = replaceNode(definition, id, { ...task, outcomes: [{ key: 'pass', label: '通过' }] });
+    definition = replaceNode(definition, id, { ...task, outcomes: [{ key: 'pass', label: '通过' }, ...task.outcomes.slice(1)] });
     expect(definition.edges[0]).toMatchObject({ from: id, to: 'end', outcome: 'pass' });
   });
 
@@ -106,6 +107,56 @@ describe('设计器的编辑', () => {
     let definition = replaceEdge(b.definition, a.id, { ...edgeOf(b.definition, a.id), default: true });
     definition = replaceEdge(definition, b.id, { ...edgeOf(definition, b.id), default: true });
     expect(definition.edges.filter((e) => e.default).map((e) => e.id)).toEqual([b.id]);
+  });
+
+  it('新的人工节点带同意与不同意：不同意直接结束流程、意见必填，不用连线', () => {
+    const { definition, id } = addNode(base, 'task', TEXTS, { x: 0, y: 0 });
+    const task = definition.nodes.find((n) => n.id === id)!;
+    expect(task.type === 'task' && task.outcomes).toEqual([
+      { key: 'approve', label: '同意' },
+      { key: 'reject', label: '不同意', kind: 'terminate', result: 'rejected', comment: 'required' },
+    ]);
+  });
+
+  describe('加在选中的节点后面', () => {
+    /** 开始 → 审批 → 结束，排好位置 */
+    const chain = () => {
+      const task = addNode(base, 'task', TEXTS, { x: 0, y: 0 });
+      let definition = connect(task.definition, 'start', task.id)!.definition;
+      definition = connect(definition, task.id, 'end')!.definition;
+      return { definition: autoLayout(definition), task: task.id };
+    };
+    const pairs = (definition: ProcessDefinition) => definition.edges.map((e) => `${e.from}>${e.to}`).sort();
+    const at = (definition: ProcessDefinition, id: string) => placeNodes(definition).find((p) => p.id === id)!;
+
+    it('只有一条出边时插进这条线中间，后面的往右让开', () => {
+      const { definition, task } = chain();
+      const endBefore = at(definition, 'end').x;
+      const added = addAfter(definition, task, 'task', TEXTS, 40);
+      expect(pairs(added.definition)).toEqual(['start>' + task, `${added.id}>end`, `${task}>${added.id}`].sort());
+      expect(at(added.definition, added.id).x).toBeGreaterThan(at(added.definition, task).x);
+      expect(at(added.definition, 'end').x).toBeGreaterThan(endBefore);
+    });
+
+    it('网关后面加一条新分支：排在已有分支下面，连回结束', () => {
+      const { definition, task } = chain();
+      const gate = addAfter(definition, task, 'exclusive', TEXTS, 40);
+      const first = addAfter(gate.definition, gate.id, 'task', TEXTS, 40);
+      const second = addAfter(first.definition, gate.id, 'task', TEXTS, 40);
+      const result = second.definition;
+      expect(pairs(result)).toEqual(
+        [`start>${task}`, `${task}>${gate.id}`, `${gate.id}>end`, `${gate.id}>${first.id}`, `${first.id}>end`, `${gate.id}>${second.id}`, `${second.id}>end`].sort(),
+      );
+      expect(at(result, second.id).y).toBeGreaterThan(at(result, first.id).y);
+      expect(at(result, 'end').x).toBeGreaterThan(at(result, first.id).x);
+      expect(validateProcess(result).filter((p) => p.code === 'edge.overlap')).toEqual([]);
+    });
+
+    it('结束节点不往后接', () => {
+      const { definition } = chain();
+      const added = addAfter(definition, 'end', 'task', TEXTS, 40);
+      expect(added.definition.edges.filter((e) => e.from === 'end')).toEqual([]);
+    });
   });
 
   it('位置：layout 里有的用它，没有的自动排；自动排版写回全部节点', () => {
