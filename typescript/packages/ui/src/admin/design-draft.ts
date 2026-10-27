@@ -37,20 +37,28 @@ export function useDesignDraft(options: DesignDraftOptions) {
   const flow = useFlowClient();
   /** 草稿行的版本：存的时候带上，别人先存过时后端报冲突 */
   let rev: number | null = null;
+  /** rev 是哪个标识下的那一行：新建时改了标识，草稿换到新标识下从头存，旧标识下的那份删掉（不然带着旧行的版本去存新行会误报冲突） */
+  let revKey: string | null = null;
   const autosave = useAutosave<DesignDraft>({
     content: options.content,
     enabled: () => options.key() != null,
     isConflict: (error) => error instanceof HttpError && error.code === 'flow.concurrent-modification',
     save: async (content) => {
+      const key = options.key()!;
+      if (revKey !== null && revKey !== key) {
+        await flow.discardDesignDraft(options.kind, revKey);
+        rev = null;
+      }
       const saved = await flow.saveDesignDraft({
         kind: options.kind,
-        key: options.key()!,
+        key,
         name: options.name(),
         content,
         baseVersion: options.baseVersion(),
         rev,
       });
       rev = saved.rev;
+      revKey = key;
       return saved;
     },
   });
@@ -62,6 +70,7 @@ export function useDesignDraft(options: DesignDraftOptions) {
     const key = options.key();
     opened = key ? await flow.designDraft(options.kind, key) : null;
     rev = opened?.rev ?? null;
+    revKey = opened ? key : null;
     return opened;
   }
 
@@ -80,6 +89,7 @@ export function useDesignDraft(options: DesignDraftOptions) {
       const key = options.key();
       if (key) await flow.discardDesignDraft(options.kind, key);
       rev = null;
+      revKey = null;
       opened = null;
     },
 
@@ -92,6 +102,7 @@ export function useDesignDraft(options: DesignDraftOptions) {
     /** 发布成功：后端已经删了草稿，之后再改重新开一份 */
     published() {
       rev = null;
+      revKey = null;
       opened = null;
       autosave.start();
     },
