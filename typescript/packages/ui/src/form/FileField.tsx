@@ -70,8 +70,9 @@ export const FileField = _component(
         {...(maxSize ? { maxSize } : {})}
         {...(maxCount ? { maxFiles: maxCount } : {})}
         multiple={maxCount !== 1}
-        readonly={readonly === true || !source}
-        disabled={disabled === true}
+        // 只在确定时给：显式的 false 会盖掉 form.Field 传下来的只读、禁用（办理页上只读的附件还能删、还有上传区）
+        {...(readonly === true || !source ? { readonly: true } : {})}
+        {...(disabled === true ? { disabled: true } : {})}
       />
     );
   },
