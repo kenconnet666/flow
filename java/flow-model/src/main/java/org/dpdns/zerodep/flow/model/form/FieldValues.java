@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.model.form;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.model.Values;
 import org.dpdns.zerodep.flow.model.definition.OrgId;
 
@@ -18,24 +19,24 @@ import java.util.regex.Pattern;
  * <p>值是 json-wire 还原出的强类型：decimal 是 BigDecimal、date 是 LocalDate、datetime 是 Instant（{@link FormManifest#VALUE_KINDS}），
  * number 是 JavaScript 的数（Integer、Double），其余照 JSON。类型不对就是 {@code type}，不再从文字里认。
  */
-public final class FieldValues {
+public class FieldValues {
     private FieldValues() { }
 
-    /**
-     * 值的一个问题。
-     *
-     * @param path 相对这个字段的路径：字段自己是空串，明细表的格子是 {@code [0].price}
-     * @param code 原因：{@code type}、{@code minLength}、{@code maxLength}、{@code pattern}、{@code min}、{@code max}、{@code integer}、
-     *             {@code scale}、{@code option}、{@code peopleType}、{@code maxCount}、{@code maxSize}、{@code minItems}、{@code maxItems}
-     */
-    public record ValueError(String path, String code) { }
+    /** 值的一个问题。 */
+    @Data
+    public static class ValueError {
+        /** 相对这个字段的路径：字段自己是空串，明细表的格子是 {@code [0].price} */
+        private final String path;
+        /** 原因：{@code type}、{@code minLength}、{@code maxLength}、{@code pattern}、{@code min}、{@code max}、{@code integer}、 {@code scale}、{@code option}、{@code peopleType}、{@code maxCount}、{@code maxSize}、{@code minItems}、{@code maxItems} */
+        private final String code;
+    }
 
     /** 一个值合不合这个字段；空值（null、空文字、空数组）不查，必填由调用方另查 */
     public static List<ValueError> check(FormManifest.Field field, Object value) {
         List<ValueError> errors = new ArrayList<>();
         if (Values.isBlank(value)) return errors;
-        Map<String, Object> a = field.attributes();
-        switch (field.type()) {
+        Map<String, Object> a = field.getAttributes();
+        switch (field.getType()) {
             case "text" -> {
                 if (!(value instanceof String text)) return type();
                 Integer min = integer(a.get("minLength"));
@@ -64,11 +65,11 @@ public final class FieldValues {
                 if (!(value instanceof Boolean)) return type();
             }
             case "date", "datetime" -> {
-                if (!(field.type().equals("date") ? value instanceof LocalDate : value instanceof Instant)) return type();
+                if (!(field.getType().equals("date") ? value instanceof LocalDate : value instanceof Instant)) return type();
                 range(value, a, errors);
             }
             case "select" -> {
-                List<?> items = field.multiple() ? (value instanceof List<?> l ? l : null) : List.of(value);
+                List<?> items = field.isMultiple() ? (value instanceof List<?> l ? l : null) : List.of(value);
                 if (items == null || items.stream().anyMatch(i -> !(i instanceof String) && !(i instanceof Number))) return type();
                 if (a.get("options") instanceof List<?> options
                     && items.stream().anyMatch(item -> options.stream().noneMatch(o -> o instanceof Map<?, ?> m && sameOption(m.get("value"), item)))) {
@@ -100,12 +101,12 @@ public final class FieldValues {
                 Integer maxItems = integer(a.get("maxItems"));
                 if (minItems != null && rows.size() < minItems) errors.add(new ValueError("", "minItems"));
                 if (maxItems != null && rows.size() > maxItems) errors.add(new ValueError("", "maxItems"));
-                if (field.columns() != null) {
+                if (field.getColumns() != null) {
                     for (int i = 0; i < rows.size(); i++) {
                         Map<?, ?> row = (Map<?, ?>) rows.get(i);
-                        for (Map.Entry<String, FormManifest.Field> column : field.columns().fields().entrySet()) {
+                        for (Map.Entry<String, FormManifest.Field> column : field.getColumns().fields().entrySet()) {
                             for (ValueError e : check(column.getValue(), row.get(column.getKey()))) {
-                                errors.add(new ValueError("[" + i + "]." + column.getKey() + e.path(), e.code()));
+                                errors.add(new ValueError("[" + i + "]." + column.getKey() + e.getPath(), e.getCode()));
                             }
                         }
                     }

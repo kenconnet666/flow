@@ -6,7 +6,6 @@ import org.dpdns.zerodep.flow.core.command.CcCommand;
 import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
-import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
@@ -17,6 +16,7 @@ import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
@@ -44,7 +44,7 @@ import java.util.Map;
  * 表单的值、流程变量里的小数、日期、大整数还原成 BigDecimal、LocalDate、Long……（没标类型的数是 JavaScript 的数）。
  * 字段名同命令的参数（docs/decisions/0006 第 3 节）；JSON 写错、该是对象的不是对象时报 {@code flow.validation-failed}。
  */
-final class RequestBody {
+class RequestBody {
     private final Map<String, Object> fields;
 
     private RequestBody(Map<String, Object> fields) { this.fields = fields; }

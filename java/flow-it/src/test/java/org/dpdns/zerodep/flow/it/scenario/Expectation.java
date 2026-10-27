@@ -8,7 +8,7 @@ import java.util.Map;
  * 场景里的期望怎样比（README 的"期望"）：只比写出来的字段；列表一样长、逐项比；{@code null} 表示为空或没有；
  * 期望是一串文字、实际是一串事件（带 type 的对象）时按事件种类比；数字按数值比。
  */
-final class Expectation {
+class Expectation {
     private Expectation() { }
 
     /** 不符时报 AssertionError，消息里带出不符的路径 */

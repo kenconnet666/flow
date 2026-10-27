@@ -6,7 +6,7 @@ import java.util.function.Supplier;
  * 当前租户的临时切换：工作进程替所有租户做作业（{@link JobRunner}），做每个作业时切到它的租户，
  * easy-query 的租户拦截器（{@code db.FlowInterceptors}）在查询里加的条件、插入时填的租户就都是它的。不在切换里时用接入方给的当前租户。
  */
-public final class TenantScope {
+public class TenantScope {
     private static final ThreadLocal<Long> CURRENT = new ThreadLocal<>();
 
     private TenantScope() { }

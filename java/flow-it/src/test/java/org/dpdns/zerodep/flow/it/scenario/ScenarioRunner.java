@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.it.scenario;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.FlowEngine;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
@@ -8,7 +9,6 @@ import org.dpdns.zerodep.flow.core.command.ClaimCommand;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
-import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
@@ -19,6 +19,7 @@ import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
 import org.dpdns.zerodep.flow.core.command.ResumeCommand;
 import org.dpdns.zerodep.flow.core.command.RetryJobCommand;
+import org.dpdns.zerodep.flow.core.command.SaveDraftCommand;
 import org.dpdns.zerodep.flow.core.command.SignalCommand;
 import org.dpdns.zerodep.flow.core.command.SkipJobCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
@@ -53,7 +54,7 @@ import java.util.regex.Pattern;
  * 跑一个场景：清库建表（自增的编号从 1 开始，两个后端跑出来的编号相同），组装一个固定时钟的引擎，发布表单与流程，再逐步执行命令、比期望。
  * 每一步的结果写成线上的 JSON 形状（{@link Wire#encode}：编号、小数、时间都是文字），TS 一侧写成同样的形状，所以两边比的是同一份期望。
  */
-final class ScenarioRunner {
+class ScenarioRunner {
     /** 发布表单与流程的人 */
     private static final TestUser ADMIN = new TestUser(1000L, "管理员", Set.of(), Set.of());
     /** 引用：$名字.路径 或 $.路径（上一步） */
@@ -69,32 +70,32 @@ final class ScenarioRunner {
     ScenarioRunner(Scenario scenario) {
         this.scenario = scenario;
         LiveMysql.recreateTables();
-        this.clock = new MovableClock(scenario.clock());
+        this.clock = new MovableClock(scenario.getClock());
         FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.easyQuery())
-            .orgDirectory(new TestOrg(scenario.actors().values()))
+            .orgDirectory(new TestOrg(scenario.getActors().values()))
             .clock(clock);
         this.engine = new TestExtensions().register(builder).build();
     }
 
     /** 发布，再逐步执行；哪一步不符就报 AssertionError，消息里带步骤的序号 */
     void run() {
-        for (Scenario.FormFile form : scenario.forms()) {
-            engine.publishForm(ADMIN, new FormPublication(form.key(), form.name(), null, form.manifest(), null, null, null, null, null, null));
+        for (Scenario.FormFile form : scenario.getForms()) {
+            engine.publishForm(ADMIN, new FormPublication(form.getKey(), form.getName(), null, form.getManifest(), null, null, null, null, null, null));
         }
-        for (String process : scenario.processes()) {
+        for (String process : scenario.getProcesses()) {
             try {
                 engine.publishDefinition(ADMIN, process, null);
             } catch (FlowException e) {
                 throw new AssertionError("publishing a process failed: " + e.errors(), e);   // 定义写错了：列出问题代号与位置
             }
         }
-        List<Step> steps = scenario.steps();
+        List<Step> steps = scenario.getSteps();
         for (int i = 0; i < steps.size(); i++) {
             Step step = steps.get(i);
-            String where = "step " + (i + 1) + " (" + step.as() + " " + step.command() + ")";
+            String where = "step " + (i + 1) + " (" + step.getAs() + " " + step.getCommand() + ")";
             Map<String, Object> result = execute(step, where);
             check(step, result, where);
-            if (step.id() != null) named.put(step.id(), result);
+            if (step.getId() != null) named.put(step.getId(), result);
             previous = result;
         }
     }
@@ -102,15 +103,15 @@ final class ScenarioRunner {
     /** 执行一步：成功时是结果，出了带码的错时是 {@code { error: … }} */
     private Map<String, Object> execute(Step step, String where) {
         // 拨时钟、做到期的作业：引擎自己做的事，没有操作人
-        if ("runJobs".equals(step.command())) {
-            clock.moveTo(Instant.parse((String) step.args().get("at")));
+        if ("runJobs".equals(step.getCommand())) {
+            clock.moveTo(Instant.parse((String) step.getArgs().get("at")));
             return Map.of("ran", engine.runDueJobs());
         }
-        TestUser actor = scenario.actors().get(step.as());
-        if (actor == null) throw new IllegalArgumentException(where + ": unknown actor " + step.as());
-        Arguments args = new Arguments(resolve(step.args()));
+        TestUser actor = scenario.getActors().get(step.getAs());
+        if (actor == null) throw new IllegalArgumentException(where + ": unknown actor " + step.getAs());
+        Arguments args = new Arguments(resolve(step.getArgs()));
         try {
-            return switch (step.command()) {
+            return switch (step.getCommand()) {
                 case "start" -> commandResult(engine.start(actor, new StartCommand(args.text("key"), FormValues.of(args.map("form")),
                     Variables.of(args.map("variables")), args.text("businessKey"), args.text("title"), args.number("priority", 0), args.picks())));
                 case "claim" -> commandResult(engine.claim(actor, new ClaimCommand(args.id("workItem"))));
@@ -170,7 +171,7 @@ final class ScenarioRunner {
                     engine.publishDefinition(actor, Json.write(args.raw("definition")), null);
                     yield Map.of();
                 }
-                default -> throw new IllegalArgumentException(where + ": unknown command " + step.command());
+                default -> throw new IllegalArgumentException(where + ": unknown command " + step.getCommand());
             };
         } catch (FlowException e) {
             Map<String, Object> error = new LinkedHashMap<>();
@@ -183,20 +184,20 @@ final class ScenarioRunner {
 
     /** 比期望：期望出错时结果必须是错；没期望出错时结果不能是错 */
     private static void check(Step step, Map<String, Object> result, String where) {
-        boolean expectsError = step.expect().containsKey("error");
+        boolean expectsError = step.getExpect().containsKey("error");
         if (result.containsKey("error") && !expectsError) throw new AssertionError(where + ": unexpected " + result.get("error"));
-        if (!result.containsKey("error") && expectsError) throw new AssertionError(where + ": expected " + step.expect().get("error") + " but it succeeded");
-        Expectation.check(where, step.expect(), result);
+        if (!result.containsKey("error") && expectsError) throw new AssertionError(where + ": expected " + step.getExpect().get("error") + " but it succeeded");
+        Expectation.check(where, step.getExpect(), result);
     }
 
     // ───────── 结果写成线上的 JSON 形状 ─────────
 
     private static Map<String, Object> commandResult(CommandResult r) {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("instance", r.instance());
-        out.put("workItems", r.created());
-        out.put("closed", r.closed());
-        out.put("events", r.events());
+        out.put("instance", r.getInstance());
+        out.put("workItems", r.getCreated());
+        out.put("closed", r.getClosed());
+        out.put("events", r.getEvents());
         return wire(out);
     }
 
@@ -245,7 +246,10 @@ final class ScenarioRunner {
     }
 
     /** 一步的参数，按名字取 */
-    private record Arguments(Map<String, Object> values) {
+    @Data
+    private static class Arguments {
+        private final Map<String, Object> values;
+
         String text(String name) { return (String) values.get(name); }
 
         /** 编号：引用解出来的是线上的文字，直接写的是数字（用户编号） */

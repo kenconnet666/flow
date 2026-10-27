@@ -68,8 +68,8 @@ class ValidatorSpecTest {
     private static List<String> normalize(List<Problem> problems) {
         List<String> out = new ArrayList<>();
         for (Problem p : problems) {
-            out.add(Values.toText(Arrays.asList(p.code(), p.severity().name().toLowerCase(Locale.ROOT), p.node(), p.edge(), p.lane(),
-                p.params().isEmpty() ? null : p.params())));
+            out.add(Values.toText(Arrays.asList(p.getCode(), p.getSeverity().name().toLowerCase(Locale.ROOT), p.getNode(), p.getEdge(), p.getLane(),
+                p.getParams().isEmpty() ? null : p.getParams())));
         }
         out.sort(null);
         return out;

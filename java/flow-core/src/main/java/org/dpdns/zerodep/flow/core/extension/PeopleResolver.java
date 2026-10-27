@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.extension;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.view.InstanceVO;
 
 import java.util.List;
@@ -17,12 +18,14 @@ public interface PeopleResolver {
     /** 算出的人（用户编号），按先后；一个也没有时返回空列表，按节点的 {@code emptyAssignee} 处理 */
     List<Long> resolve(Context context);
 
-    /**
-     * 解析时能拿到的。
-     *
-     * @param instance 实例
-     * @param args     定义里写的参数，其中的 {@code { ref }} 已经换成值
-     * @param read     按引用的名字取值（{@code form.amount}、{@code sys.initiator}……）
-     */
-    record Context(InstanceVO instance, Map<String, Object> args, Function<String, Object> read) { }
+    /** 解析时能拿到的。 */
+    @Data
+    static class Context {
+        /** 实例 */
+        private final InstanceVO instance;
+        /** 定义里写的参数，其中的 {@code { ref }} 已经换成值 */
+        private final Map<String, Object> args;
+        /** 按引用的名字取值（{@code form.amount}、{@code sys.initiator}……） */
+        private final Function<String, Object> read;
+    }
 }

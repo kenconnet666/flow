@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
@@ -29,23 +30,23 @@ import java.util.Map;
  * </ol>
  * 调用流程（0005 的 4.2）发起子实例也走这里的 {@link #launch}：同一个事务，不查发起人名单，记下父实例。
  */
-public final class StartHandler {
+public class StartHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
     public StartHandler(EngineContext context) {
         this.context = context;
-        this.definitions = context.definitions();
+        this.definitions = context.getDefinitions();
     }
 
     /** 发起；出错时抛带业务错误码的异常，整个事务回滚 */
     public CommandResult handle(Actor actor, StartCommand command) {
         return context.transaction(() -> {
-            LoadedDefinition definition = latestActive(command.key());
-            if (!CandidateRules.isStarter(actor, definition.model().starters())) throw FlowErrors.forbidden("process", command.key(), "not-a-starter");
-            Execution run = launch(definition, actor, new Launch(actor.id(), actor.name(), command.businessKey(), command.priority(),
-                command.variables(), command.form(), false, null, command.picks()), context.clock().instant());
-            run.flush(command.title());
+            LoadedDefinition definition = latestActive(command.getKey());
+            if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", command.getKey(), "not-a-starter");
+            Execution run = launch(definition, actor, new Launch(actor.getId(), actor.getName(), command.getBusinessKey(), command.getPriority(),
+                command.getVariables(), command.getForm(), false, null, command.getPicks()), context.getClock().instant());
+            run.flush(command.getTitle());
             return run.result();
         });
     }
@@ -58,26 +59,37 @@ public final class StartHandler {
         return definitions.latest(process);
     }
 
-    /**
-     * 发起时给的东西。
-     *
-     * @param starterId   发起人：发起命令是操作人，子流程是父实例的发起人
-     * @param fullForm    表单的值原样存（子流程按 input 给的值），否则只收开始节点上能改的字段
-     * @param parent      父实例；不是子流程时为 null
-     * @param picks       第一步要选处理人的节点 → 选的人
-     */
-    record Launch(Long starterId, String starterName, String businessKey, int priority, Variables variables, FormValues form,
-                  boolean fullForm, ChildOf parent, Map<String, List<Long>> picks) { }
+    /** 发起时给的东西。 */
+    @Data
+    static class Launch {
+        /** 发起人：发起命令是操作人，子流程是父实例的发起人 */
+        private final Long starterId;
+        private final String starterName;
+        private final String businessKey;
+        private final int priority;
+        private final Variables variables;
+        private final FormValues form;
+        /** 表单的值原样存（子流程按 input 给的值），否则只收开始节点上能改的字段 */
+        private final boolean fullForm;
+        /** 父实例；不是子流程时为 null */
+        private final ChildOf parent;
+        /** 第一步要选处理人的节点 → 选的人 */
+        private final Map<String, List<Long>> picks;
+    }
 
-    /**
-     * 子实例记下的父实例。
-     *
-     * @param node  父实例里调用它的节点
-     * @param round 那个节点是第几轮
-     * @param root  最外层的实例
-     * @param caller 这个命令里调用它的父实例的推进：子实例马上就结束时直接回到它（见 CallActivities）
-     */
-    record ChildOf(Long instanceId, String node, int round, Long root, Execution caller) { }
+    /** 子实例记下的父实例。 */
+    @Data
+    static class ChildOf {
+        private final Long instanceId;
+        /** 父实例里调用它的节点 */
+        private final String node;
+        /** 那个节点是第几轮 */
+        private final int round;
+        /** 最外层的实例 */
+        private final Long root;
+        /** 这个命令里调用它的父实例的推进：子实例马上就结束时直接回到它（见 CallActivities） */
+        private final Execution caller;
+    }
 
     /**
      * 第 2–4 步：写实例、存表单、记"实例发起"、从开始节点往前走；返回还没写回的推进（调用方 {@link Execution#flush}）。
@@ -86,58 +98,58 @@ public final class StartHandler {
      */
     Execution launch(LoadedDefinition definition, Actor actor, Launch launch, Instant now) {
         ProcessDefinition model = definition.model();
-        ChildOf parent = launch.parent();
+        ChildOf parent = launch.getParent();
         InstanceEntity instance = new InstanceEntity();
-        instance.setProcessKey(model.key());
-        instance.setDefinitionId(definition.stored().getId());
-        instance.setVersion(definition.stored().getVersion());
-        instance.setBusinessKey(launch.businessKey());
-        instance.setTitle(model.name());
-        instance.setPriority(launch.priority());
+        instance.setProcessKey(model.getKey());
+        instance.setDefinitionId(definition.getStored().getId());
+        instance.setVersion(definition.getStored().getVersion());
+        instance.setBusinessKey(launch.getBusinessKey());
+        instance.setTitle(model.getName());
+        instance.setPriority(launch.getPriority());
         instance.setSummary(Map.of());
         instance.setStatus(InstanceEntity.ACTIVE);
         instance.setCurrent(List.of());
-        instance.setVariables(initialVariables(model, launch.variables()));
+        instance.setVariables(initialVariables(model, launch.getVariables()));
         instance.setState(RunState.INITIAL);
-        instance.setStartedBy(launch.starterId());
-        instance.setStartedByName(launch.starterName());
+        instance.setStartedBy(launch.getStarterId());
+        instance.setStartedByName(launch.getStarterName());
         instance.setStartedAt(now);
         if (parent != null) {
-            instance.setParentInstanceId(parent.instanceId());
-            instance.setParentNode(parent.node());
-            instance.setParentRound(parent.round());
-            instance.setRootInstanceId(parent.root());
+            instance.setParentInstanceId(parent.getInstanceId());
+            instance.setParentNode(parent.getNode());
+            instance.setParentRound(parent.getRound());
+            instance.setRootInstanceId(parent.getRoot());
         }
         instance.setRev(0);
         // 先写实例拿到数据库给的编号，后面的待办、表单的值、流转记录都要用它
-        context.db().insertable(instance).executeRows(true);
+        context.getDb().insertable(instance).executeRows(true);
         Execution run = new Execution(context, actor, now, definition, instance, FormValues.empty(), instance.getRev());
-        if (parent != null) run.caller = parent.caller();
-        run.picks(launch.picks());
+        if (parent != null) run.caller = parent.getCaller();
+        run.picks(launch.getPicks());
 
-        ProcessNode.Start start = definition.graph().start();
+        ProcessNode.Start start = definition.getGraph().start();
         if (definition.hasForm()) {
             // 子流程的表单值来自定义里的 input（人写的 JSON）：按清单的字段类型读成强类型
-            run.form(launch.fullForm() ? FormValues.of(definition.manifest().typed(launch.form().asMap()))
-                : FormSubmission.merge(definition.manifest(), start.form(), true, FormValues.empty(), launch.form(), run::read));
+            run.form(launch.isFullForm() ? FormValues.of(definition.getManifest().typed(launch.getForm().asMap()))
+                : FormSubmission.merge(definition.getManifest(), start.getForm(), true, FormValues.empty(), launch.getForm(), run::read));
             FormDataEntity data = new FormDataEntity();
             data.setInstanceId(instance.getId());
             data.setFormVersionId(definition.form().getId());
             data.setValues(run.form());
             data.setRev(0);
-            context.db().insertable(data).executeRows();
+            context.getDb().insertable(data).executeRows();
         }
-        Map<String, Object> origin = parent == null ? Map.of() : Map.of("parentInstanceId", parent.instanceId(), "parentNode", parent.node());
+        Map<String, Object> origin = parent == null ? Map.of() : Map.of("parentInstanceId", parent.getInstanceId(), "parentNode", parent.getNode());
         run.addEvent(EventEntity.INSTANCE_STARTED, start, null, null, null, null, origin);
-        run.leave(start.id(), null);
+        run.leave(start.getId(), null);
         return run;
     }
 
     /** 定义里声明了默认值的变量，盖上命令给的初值 */
     private static Variables initialVariables(ProcessDefinition model, Variables given) {
         Map<String, Object> values = new LinkedHashMap<>();
-        for (ProcessDefinition.Variable v : model.variables()) {
-            if (v.defaultValue() != null) values.put(v.name(), v.defaultValue());
+        for (ProcessDefinition.Variable v : model.getVariables()) {
+            if (v.getDefaultValue() != null) values.put(v.getName(), v.getDefaultValue());
         }
         return Variables.of(values).with(given.asMap());
     }

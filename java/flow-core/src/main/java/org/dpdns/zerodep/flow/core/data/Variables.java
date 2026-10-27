@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * 流程变量（0005 第 2 节的 {@code variables}）：名字 → 值，定义里声明，发起时给初值，连线上的副作用改它们。只给管理员看。
  */
-public final class Variables extends JsonFields {
+public class Variables extends JsonFields {
     private static final Variables EMPTY = new Variables(Map.of());
 
     private Variables(Map<String, ?> fields) { super(fields); }

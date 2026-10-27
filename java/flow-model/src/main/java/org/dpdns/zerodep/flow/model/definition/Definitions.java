@@ -19,7 +19,7 @@ import java.util.function.BiFunction;
  * ProcessDefinition definition = Definitions.parse(Json.read(text));
  * }</pre>
  */
-public final class Definitions {
+public class Definitions {
     /** 节点上共同的键；自定义节点的 attributes 不含它们 */
     private static final Set<String> COMMON_KEYS =
         Set.of("id", "type", "name", "lane", "description", "meta", "offline", "emptyAssignee", "autoSkip", "notify");

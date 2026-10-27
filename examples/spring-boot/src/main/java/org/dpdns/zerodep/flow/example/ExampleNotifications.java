@@ -19,19 +19,19 @@ public class ExampleNotifications implements NotificationChannel, FlowListener {
 
     @Override
     public void send(Notification notification) {
-        String title = notification.instance().getTitle();
-        String node = notification.event().getNodeName();
-        String text = switch (notification.kind()) {
+        String title = notification.getInstance().getTitle();
+        String node = notification.getEvent().getNodeName();
+        String text = switch (notification.getKind()) {
             case Notification.ARRIVED -> "新待办「" + title + "」" + node;
             case Notification.RETURNED -> "被退回「" + title + "」" + node;
             case Notification.REMINDED -> "催办「" + title + "」" + node;
             case Notification.DUE_SOON -> "即将到期「" + title + "」" + node;
             case Notification.OVERDUE -> "已超时「" + title + "」" + node;
             case Notification.CC -> "抄送「" + title + "」";
-            default -> "「" + title + "」已结束，结果 " + notification.event().getOutcome();
+            default -> "「" + title + "」已结束，结果 " + notification.getEvent().getOutcome();
         };
-        String template = notification.template() == null ? "" : "（模板 " + notification.template() + "）";
-        LOG.log(System.Logger.Level.INFO, "[通知] 发给 " + notification.recipients() + "：" + text + template);
+        String template = notification.getTemplate() == null ? "" : "（模板 " + notification.getTemplate() + "）";
+        LOG.log(System.Logger.Level.INFO, "[通知] 发给 " + notification.getRecipients() + "：" + text + template);
     }
 
     @Override
@@ -39,7 +39,7 @@ public class ExampleNotifications implements NotificationChannel, FlowListener {
 
     @Override
     public void on(FlowNotice notice) {
-        LOG.log(System.Logger.Level.INFO, "[通知] 异常「" + notice.instance().getTitle() + "」" + notice.event().getNodeName() + "："
-            + notice.event().getData().get("error") + "，通知管理员处理");
+        LOG.log(System.Logger.Level.INFO, "[通知] 异常「" + notice.getInstance().getTitle() + "」" + notice.getEvent().getNodeName() + "："
+            + notice.getEvent().getData().get("error") + "，通知管理员处理");
     }
 }

@@ -43,7 +43,7 @@ class ManifestSpecTest {
             Map<?, ?> sample = (Map<?, ?>) Wire.decode(item);   // 值同线上：typed JSON 还原成 BigDecimal、LocalDate……
             tests.add(DynamicTest.dynamicTest((String) sample.get("name"), () -> {
                 FormManifest.Field field = FormManifest.parse(Map.of("f", sample.get("field"))).field("f");
-                List<List<String>> actual = FieldValues.check(field, sample.get("value")).stream().map(e -> List.of(e.path(), e.code())).toList();
+                List<List<String>> actual = FieldValues.check(field, sample.get("value")).stream().map(e -> List.of(e.getPath(), e.getCode())).toList();
                 assertEquals(sample.get("expect"), actual);
             }));
         }
@@ -53,7 +53,7 @@ class ManifestSpecTest {
     private static List<String> normalize(List<Problem> problems) {
         List<String> out = new ArrayList<>();
         for (Problem p : problems) {
-            out.add(Values.toText(Arrays.asList(p.code(), p.severity().name().toLowerCase(Locale.ROOT), p.field(), p.params().isEmpty() ? null : p.params())));
+            out.add(Values.toText(Arrays.asList(p.getCode(), p.getSeverity().name().toLowerCase(Locale.ROOT), p.getField(), p.getParams().isEmpty() ? null : p.getParams())));
         }
         out.sort(null);
         return out;

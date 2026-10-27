@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.model.definition;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.model.Values;
 
 import java.util.ArrayList;
@@ -17,40 +18,50 @@ import java.util.TreeSet;
  * <pre>{@code
  * ProcessDiff diff = ProcessDiff.of(Json.read(v1), Json.read(v2), false);
  * }</pre>
- *
- * @param process 流程级不一样的属性（节点、连线、泳道、布局、版本号以外），按名字排序
- * @param lanes   泳道的差别
- * @param nodes   节点的差别
- * @param edges   连线的差别
- * @param layout  只在要求比布局时有：位置变了的节点、拐点变了的连线
  */
-public record ProcessDiff(List<String> process, ItemDiff lanes, ItemDiff nodes, ItemDiff edges, LayoutDiff layout) {
+@Data
+public class ProcessDiff {
+    /** 流程级不一样的属性（节点、连线、泳道、布局、版本号以外），按名字排序 */
+    private final List<String> process;
+    /** 泳道的差别 */
+    private final ItemDiff lanes;
+    /** 节点的差别 */
+    private final ItemDiff nodes;
+    /** 连线的差别 */
+    private final ItemDiff edges;
+    /** 只在要求比布局时有：位置变了的节点、拐点变了的连线 */
+    private final LayoutDiff layout;
+
     private static final Set<String> PROCESS_SKIP = Set.of("nodes", "edges", "lanes", "layout", "version");
 
-    /**
-     * 一类东西的差别。
-     *
-     * @param added   新版本里才有的，按新版本里的先后
-     * @param removed 旧版本里才有的，按旧版本里的先后
-     * @param changed 两边都有但不一样的，按新版本里的先后
-     */
-    public record ItemDiff(List<String> added, List<String> removed, List<Change> changed) { }
+    /** 一类东西的差别。 */
+    @Data
+    public static class ItemDiff {
+        /** 新版本里才有的，按新版本里的先后 */
+        private final List<String> added;
+        /** 旧版本里才有的，按旧版本里的先后 */
+        private final List<String> removed;
+        /** 两边都有但不一样的，按新版本里的先后 */
+        private final List<Change> changed;
+    }
 
-    /**
-     * 一处改动。
-     *
-     * @param id   标识
-     * @param keys 不一样的属性，按名字排序
-     */
-    public record Change(String id, List<String> keys) { }
+    /** 一处改动。 */
+    @Data
+    public static class Change {
+        /** 标识 */
+        private final String id;
+        /** 不一样的属性，按名字排序 */
+        private final List<String> keys;
+    }
 
-    /**
-     * 布局的差别。
-     *
-     * @param nodes 位置变了的节点，按标识排序
-     * @param edges 拐点变了的连线，按标识排序
-     */
-    public record LayoutDiff(List<String> nodes, List<String> edges) { }
+    /** 布局的差别。 */
+    @Data
+    public static class LayoutDiff {
+        /** 位置变了的节点，按标识排序 */
+        private final List<String> nodes;
+        /** 拐点变了的连线，按标识排序 */
+        private final List<String> edges;
+    }
 
     /** 两个版本（JSON 树）的差别；layout 为 true 时连布局一起比 */
     public static ProcessDiff of(Object before, Object after, boolean layout) {

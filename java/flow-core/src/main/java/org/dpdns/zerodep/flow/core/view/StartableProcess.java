@@ -1,11 +1,16 @@
 package org.dpdns.zerodep.flow.core.view;
 
-/**
- * 我能发起的一个流程（发起列表上的一项）。
- *
- * @param key      流程标识
- * @param name     名称
- * @param category 分类
- * @param version  最新发布的版本号
- */
-public record StartableProcess(String key, String name, String category, int version) { }
+import lombok.Data;
+
+/** 我能发起的一个流程（发起列表上的一项）。 */
+@Data
+public class StartableProcess {
+    /** 流程标识 */
+    private final String key;
+    /** 名称 */
+    private final String name;
+    /** 分类 */
+    private final String category;
+    /** 最新发布的版本号 */
+    private final int version;
+}

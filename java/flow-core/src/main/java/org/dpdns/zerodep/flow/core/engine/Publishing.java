@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.entity.FormEntity;
 import org.dpdns.zerodep.flow.core.entity.FormVersionEntity;
@@ -33,7 +34,7 @@ import java.util.Map;
  * 版本号：第一次发布时建上流程（表单）本身、是 1，之后最新版本号加一——只在最新版本还是读到的那个时改到，两个人同时发布时后到的失败。
  * 草稿、复制、导入导出、比较版本随设计器补上。
  */
-public final class Publishing {
+public class Publishing {
     private final EngineContext context;
 
     public Publishing(EngineContext context) { this.context = context; }
@@ -46,61 +47,61 @@ public final class Publishing {
         ProcessDefinition model = parseDefinition(json);
         DefinitionProblem disabled = disabledForm(model);
         if (disabled != null) {
-            throw new FlowException(FlowErrorCode.DEFINITION_INVALID, "the form " + model.form().key() + " is disabled",
-                List.of(new ErrorDetail(disabled.code(), disabled.field(), null, null, null, disabled.params())));
+            throw new FlowException(FlowErrorCode.DEFINITION_INVALID, "the form " + model.getForm().getKey() + " is disabled",
+                List.of(new ErrorDetail(disabled.getCode(), disabled.getField(), null, null, null, disabled.getParams())));
         }
-        FormVersionEntity form = model.form() == null ? null : formOf(model.form());
+        FormVersionEntity form = model.getForm() == null ? null : formOf(model.getForm());
         FormManifest manifest = form == null ? null : FormManifest.parse(Json.read(form.getManifest()));
-        List<Problem> errors = errorsOnly(ProcessValidator.validate(model, new PublishContext(manifest, context.extensions())));
+        List<Problem> errors = errorsOnly(ProcessValidator.validate(model, new PublishContext(manifest, context.getExtensions())));
         if (!errors.isEmpty()) {
             throw new FlowException(FlowErrorCode.DEFINITION_INVALID, "the definition has " + errors.size() + " error(s)",
                 errors.stream().map(ErrorDetail::of).toList());
         }
         return context.transaction(() -> {
-            Instant now = context.clock().instant();
+            Instant now = context.getClock().instant();
             int version = nextProcessVersion(actor, model, now);
             ProcessVersionEntity row = new ProcessVersionEntity();
-            row.setProcessKey(model.key());
+            row.setProcessKey(model.getKey());
             row.setVersion(version);
             row.setModel(json);
             row.setFormKey(form == null ? null : form.getFormKey());
             row.setFormVersion(form == null ? null : form.getVersion());
             row.setNote(note);
-            row.setPublishedBy(actor.id());
-            row.setPublishedByName(actor.name());
+            row.setPublishedBy(actor.getId());
+            row.setPublishedByName(actor.getName());
             row.setPublishedAt(now);
-            context.db().insertable(row).executeRows(true);
+            context.getDb().insertable(row).executeRows(true);
             return row;
         });
     }
 
     /** 流程本身：没有时建上（版本 1），有时最新版本号加一并换上名称、分类；返回新的版本号 */
     private int nextProcessVersion(Actor actor, ProcessDefinition model, Instant now) {
-        ProcessEntity process = context.db().queryable(ProcessEntity.class).where(p -> p.processKey().eq(model.key())).singleOrNull();
+        ProcessEntity process = context.getDb().queryable(ProcessEntity.class).where(p -> p.processKey().eq(model.getKey())).singleOrNull();
         if (process == null) {
             ProcessEntity created = new ProcessEntity();
-            created.setProcessKey(model.key());
-            created.setName(model.name());
-            created.setCategory(model.category());
+            created.setProcessKey(model.getKey());
+            created.setName(model.getName());
+            created.setCategory(model.getCategory());
             created.setStatus(ProcessEntity.ACTIVE);
             created.setLatestVersion(1);
             created.setRev(0);
             created.setCreatedAt(now);
-            created.setUpdatedBy(actor.id());
-            context.db().insertable(created).executeRows();
+            created.setUpdatedBy(actor.getId());
+            context.getDb().insertable(created).executeRows();
             return 1;
         }
         int current = process.getLatestVersion();
-        context.db().updatable(ProcessEntity.class)
+        context.getDb().updatable(ProcessEntity.class)
             .setColumns(p -> {
                 p.latestVersion().set(current + 1);
-                p.name().set(model.name());
-                p.category().set(model.category());
-                p.updatedBy().set(actor.id());
+                p.name().set(model.getName());
+                p.category().set(model.getCategory());
+                p.updatedBy().set(actor.getId());
                 p.rev().increment();
             })
-            .where(p -> { p.processKey().eq(model.key()); p.latestVersion().eq(current); })
-            .executeRows(1, "process " + model.key() + " was published by someone else at the same time");
+            .where(p -> { p.processKey().eq(model.getKey()); p.latestVersion().eq(current); })
+            .executeRows(1, "process " + model.getKey() + " was published by someone else at the same time");
         return current + 1;
     }
 
@@ -115,111 +116,111 @@ public final class Publishing {
             return List.of(new DefinitionProblem("malformed", "error", null, null, null, null, Map.of("reason", String.valueOf(e.getMessage()))));
         }
         FormManifest manifest = null;
-        if (model.form() != null) {
-            FormVersionEntity form = findForm(model.form());
+        if (model.getForm() != null) {
+            FormVersionEntity form = findForm(model.getForm());
             if (form == null) {
-                return List.of(new DefinitionProblem("form-unknown", "error", null, null, null, "form", Map.of("key", model.form().key())));
+                return List.of(new DefinitionProblem("form-unknown", "error", null, null, null, "form", Map.of("key", model.getForm().getKey())));
             }
             manifest = FormManifest.parse(Json.read(form.getManifest()));
         }
         List<DefinitionProblem> problems = new ArrayList<>();
         DefinitionProblem disabled = disabledForm(model);
         if (disabled != null) problems.add(disabled);
-        ProcessValidator.validate(model, new PublishContext(manifest, context.extensions())).stream()
-            .map(p -> new DefinitionProblem(p.code(), p.severity().name().toLowerCase(Locale.ROOT), p.node(), p.edge(), p.lane(),
-                p.field(), p.params()))
+        ProcessValidator.validate(model, new PublishContext(manifest, context.getExtensions())).stream()
+            .map(p -> new DefinitionProblem(p.getCode(), p.getSeverity().name().toLowerCase(Locale.ROOT), p.getNode(), p.getEdge(), p.getLane(),
+                p.getField(), p.getParams()))
             .forEach(problems::add);
         return problems;
     }
 
     /** 引用的表单停用了（0004 的 5.3：停用后新发布的流程不能再选它）：{@code form-disabled}；没停用、没引用表单时为 null */
     private DefinitionProblem disabledForm(ProcessDefinition model) {
-        if (model.form() == null) return null;
-        boolean off = context.db().queryable(FormEntity.class)
-            .where(f -> { f.formKey().eq(model.form().key()); f.status().eq(FormEntity.DISABLED); })
+        if (model.getForm() == null) return null;
+        boolean off = context.getDb().queryable(FormEntity.class)
+            .where(f -> { f.formKey().eq(model.getForm().getKey()); f.status().eq(FormEntity.DISABLED); })
             .any();
-        return off ? new DefinitionProblem("form-disabled", "error", null, null, null, "form", Map.of("key", model.form().key())) : null;
+        return off ? new DefinitionProblem("form-disabled", "error", null, null, null, "form", Map.of("key", model.getForm().getKey())) : null;
     }
 
     /** 停用、启用流程：停用后不能再发起，进行中的照常走完 */
     public ProcessSummary setStatus(String processKey, boolean active) {
         String status = active ? ProcessEntity.ACTIVE : ProcessEntity.DISABLED;
-        long changed = context.db().updatable(ProcessEntity.class)
+        long changed = context.getDb().updatable(ProcessEntity.class)
             .setColumns(p -> { p.status().set(status); p.rev().increment(); })
             .where(p -> p.processKey().eq(processKey))
             .executeRows();
         if (changed == 0) throw FlowErrors.notFound("process", processKey);
-        ProcessEntity p = context.db().queryable(ProcessEntity.class).where(r -> r.processKey().eq(processKey)).singleNotNull();
+        ProcessEntity p = context.getDb().queryable(ProcessEntity.class).where(r -> r.processKey().eq(processKey)).singleNotNull();
         return new ProcessSummary(p.getProcessKey(), p.getName(), p.getCategory(), p.getStatus(), p.getLatestVersion());
     }
 
     /** 停用、启用表单：停用后新发布的流程不能再选它，已经引用它的流程照常用 */
     public FormSummary setFormStatus(String formKey, boolean active) {
         String status = active ? FormEntity.ACTIVE : FormEntity.DISABLED;
-        long changed = context.db().updatable(FormEntity.class)
+        long changed = context.getDb().updatable(FormEntity.class)
             .setColumns(f -> { f.status().set(status); f.rev().increment(); })
             .where(f -> f.formKey().eq(formKey))
             .executeRows();
         if (changed == 0) throw FlowErrors.notFound("form", formKey);
-        FormEntity f = context.db().queryable(FormEntity.class).where(r -> r.formKey().eq(formKey)).singleNotNull();
+        FormEntity f = context.getDb().queryable(FormEntity.class).where(r -> r.formKey().eq(formKey)).singleNotNull();
         return new FormSummary(f.getFormKey(), f.getName(), f.getCategory(), f.getStatus(), f.getLatestVersion());
     }
 
     /** 发布一张表单：先校验字段清单本身（0004 的 1.2），有错误时报 {@code flow.validation-failed} */
     public FormVersionEntity publishForm(Actor actor, FormPublication form) {
-        FormManifest manifest = parseManifest(form.manifest());
+        FormManifest manifest = parseManifest(form.getManifest());
         List<Problem> errors = errorsOnly(ManifestValidator.validate(manifest, ManifestValidator.BUILTIN_TYPES::contains));
         if (!errors.isEmpty()) {
             throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form manifest has " + errors.size() + " error(s)",
                 errors.stream().map(ErrorDetail::of).toList());
         }
         return context.transaction(() -> {
-            Instant now = context.clock().instant();
+            Instant now = context.getClock().instant();
             FormVersionEntity row = new FormVersionEntity();
-            row.setFormKey(form.key());
+            row.setFormKey(form.getKey());
             row.setVersion(nextFormVersion(actor, form, now));
-            row.setManifest(form.manifest());
-            row.setClientSource(form.clientSource());
-            row.setClientCompiled(form.clientCompiled());
-            row.setCompilerVersion(form.compilerVersion());
-            row.setServerLanguage(form.serverLanguage());
-            row.setServerSource(form.serverSource());
-            row.setNote(form.note());
-            row.setPublishedBy(actor.id());
-            row.setPublishedByName(actor.name());
+            row.setManifest(form.getManifest());
+            row.setClientSource(form.getClientSource());
+            row.setClientCompiled(form.getClientCompiled());
+            row.setCompilerVersion(form.getCompilerVersion());
+            row.setServerLanguage(form.getServerLanguage());
+            row.setServerSource(form.getServerSource());
+            row.setNote(form.getNote());
+            row.setPublishedBy(actor.getId());
+            row.setPublishedByName(actor.getName());
             row.setPublishedAt(now);
-            context.db().insertable(row).executeRows(true);
+            context.getDb().insertable(row).executeRows(true);
             return row;
         });
     }
 
     /** 表单本身：同 {@link #nextProcessVersion} */
     private int nextFormVersion(Actor actor, FormPublication form, Instant now) {
-        FormEntity existing = context.db().queryable(FormEntity.class).where(f -> f.formKey().eq(form.key())).singleOrNull();
+        FormEntity existing = context.getDb().queryable(FormEntity.class).where(f -> f.formKey().eq(form.getKey())).singleOrNull();
         if (existing == null) {
             FormEntity created = new FormEntity();
-            created.setFormKey(form.key());
-            created.setName(form.name());
-            created.setCategory(form.category());
+            created.setFormKey(form.getKey());
+            created.setName(form.getName());
+            created.setCategory(form.getCategory());
             created.setStatus(FormEntity.ACTIVE);
             created.setLatestVersion(1);
             created.setRev(0);
             created.setCreatedAt(now);
-            created.setUpdatedBy(actor.id());
-            context.db().insertable(created).executeRows();
+            created.setUpdatedBy(actor.getId());
+            context.getDb().insertable(created).executeRows();
             return 1;
         }
         int current = existing.getLatestVersion();
-        context.db().updatable(FormEntity.class)
+        context.getDb().updatable(FormEntity.class)
             .setColumns(f -> {
                 f.latestVersion().set(current + 1);
-                f.name().set(form.name());
-                f.category().set(form.category());
-                f.updatedBy().set(actor.id());
+                f.name().set(form.getName());
+                f.category().set(form.getCategory());
+                f.updatedBy().set(actor.getId());
                 f.rev().increment();
             })
-            .where(f -> { f.formKey().eq(form.key()); f.latestVersion().eq(current); })
-            .executeRows(1, "form " + form.key() + " was published by someone else at the same time");
+            .where(f -> { f.formKey().eq(form.getKey()); f.latestVersion().eq(current); })
+            .executeRows(1, "form " + form.getKey() + " was published by someone else at the same time");
         return current + 1;
     }
 
@@ -246,28 +247,32 @@ public final class Publishing {
     /** 定义引用的表单：写了版本取那个版本，没写取最新的；没有时报 {@code flow.not-found} */
     private FormVersionEntity formOf(ProcessDefinition.FormRef ref) {
         FormVersionEntity form = findForm(ref);
-        if (form == null) throw FlowErrors.notFound("form", ref.version() == null ? ref.key() : ref.key() + "@" + ref.version());
+        if (form == null) throw FlowErrors.notFound("form", ref.getVersion() == null ? ref.getKey() : ref.getKey() + "@" + ref.getVersion());
         return form;
     }
 
     /** 同上，没有时为 null（只读编号、标识、版本号与字段清单） */
     private FormVersionEntity findForm(ProcessDefinition.FormRef ref) {
-        return context.db().queryable(FormVersionEntity.class)
-            .where(f -> { f.formKey().eq(ref.key()); if (ref.version() != null) f.version().eq(ref.version()); })
+        return context.getDb().queryable(FormVersionEntity.class)
+            .where(f -> { f.formKey().eq(ref.getKey()); if (ref.getVersion() != null) f.version().eq(ref.getVersion()); })
             .orderBy(f -> f.version().desc())
             .select(f -> f.FETCHER.id().formKey().version().manifest())
             .firstOrNull();
     }
 
     private static List<Problem> errorsOnly(List<Problem> problems) {
-        return problems.stream().filter(p -> p.severity() == Problem.Severity.ERROR).toList();
+        return problems.stream().filter(p -> p.getSeverity() == Problem.Severity.ERROR).toList();
     }
 
     /**
      * 发布时的校验上下文：给出表单的字段清单（查 {@code form.} 引用）与注册了的解析器、动作、守卫（{@link Extensions}）。
      * 计算值、会签规则现在还没有注册口，定义里用到就报"未注册"；自定义节点类型不知道，不查。
      */
-    private record PublishContext(FormManifest form, Extensions extensions) implements ValidationContext {
+    @Data
+    private static class PublishContext implements ValidationContext {
+        private final FormManifest form;
+        private final Extensions extensions;
+
         @Override
         public Boolean isRegistered(ExtensionKind kind, String name) {
             return switch (kind) {

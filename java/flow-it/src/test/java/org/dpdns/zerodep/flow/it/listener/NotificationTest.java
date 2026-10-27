@@ -63,38 +63,38 @@ class NotificationTest {
     void 到达_被退回_结束各发给该发的人_定义里改过的照改() {
         var started = engine.start(ALICE, StartCommand.of("memo", Map.of()));
         Notification arrived = only();
-        assertEquals(Notification.ARRIVED, arrived.kind());
-        assertEquals("review-arrived", arrived.template());
-        assertEquals(List.of(1003L, 1005L, 1004L), arrived.recipients(), "收件箱的候选人（角色展开），加上 to 写的人");
-        assertEquals("初审", arrived.workItem().getNodeName());
+        assertEquals(Notification.ARRIVED, arrived.getKind());
+        assertEquals("review-arrived", arrived.getTemplate());
+        assertEquals(List.of(1003L, 1005L, 1004L), arrived.getRecipients(), "收件箱的候选人（角色展开），加上 to 写的人");
+        assertEquals("初审", arrived.getWorkItem().getNodeName());
 
-        Long review = started.created().get(0).getId();
+        Long review = started.getCreated().get(0).getId();
         engine.claim(CAROL, new ClaimCommand(review));
         var reviewed = engine.complete(CAROL, CompleteCommand.of(review, "ok"));
         Notification toBoss = only();
-        assertEquals(List.of(1004L), toBoss.recipients());
-        assertNull(toBoss.template(), "审批节点没改，用渠道的默认模板");
+        assertEquals(List.of(1004L), toBoss.getRecipients());
+        assertNull(toBoss.getTemplate(), "审批节点没改，用渠道的默认模板");
 
-        engine.cc(BOSS, new CcCommand(started.instance().getId(), List.of(1001L), "看一下"));
+        engine.cc(BOSS, new CcCommand(started.getInstance().getId(), List.of(1001L), "看一下"));
         assertEquals(List.of(), sent, "流程级关掉了抄送通知");
 
-        var returned = engine.complete(BOSS, CompleteCommand.of(reviewed.created().get(0).getId(), "back"));
+        var returned = engine.complete(BOSS, CompleteCommand.of(reviewed.getCreated().get(0).getId(), "back"));
         Notification back = only();
-        assertEquals(Notification.RETURNED, back.kind());
-        assertEquals(List.of(1003L), back.recipients(), "退回到原来的处理人");
+        assertEquals(Notification.RETURNED, back.getKind());
+        assertEquals(List.of(1003L), back.getRecipients(), "退回到原来的处理人");
 
-        var again = engine.complete(CAROL, CompleteCommand.of(returned.created().get(0).getId(), "ok"));
+        var again = engine.complete(CAROL, CompleteCommand.of(returned.getCreated().get(0).getId(), "ok"));
         sent.clear();
-        engine.complete(BOSS, CompleteCommand.of(again.created().get(0).getId(), "ok"));
+        engine.complete(BOSS, CompleteCommand.of(again.getCreated().get(0).getId(), "ok"));
         Notification finished = only();
-        assertEquals(Notification.FINISHED, finished.kind());
-        assertEquals(List.of(1001L), finished.recipients());
-        assertEquals("done", finished.event().getOutcome());
+        assertEquals(Notification.FINISHED, finished.getKind());
+        assertEquals(List.of(1001L), finished.getRecipients());
+        assertEquals("done", finished.getEvent().getOutcome());
     }
 
     /** 这一步只发了一条，取出来并清空 */
     private Notification only() {
-        assertEquals(1, sent.size(), () -> "应只发一条：" + sent.stream().map(Notification::kind).toList());
+        assertEquals(1, sent.size(), () -> "应只发一条：" + sent.stream().map(Notification::getKind).toList());
         Notification one = sent.get(0);
         sent.clear();
         return one;

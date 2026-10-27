@@ -20,7 +20,7 @@ import java.util.function.Supplier;
  * </ul>
  * 表与列的名字按 easy-query 默认的下划线命名（{@code processKey} ↔ {@code process_key}）。
  */
-public final class FlowEasyQuery {
+public class FlowEasyQuery {
     private FlowEasyQuery() { }
 
     /**

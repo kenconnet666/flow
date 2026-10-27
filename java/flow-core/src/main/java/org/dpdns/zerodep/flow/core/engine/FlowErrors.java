@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * 处理类里常抛的带业务错误码的异常（0006 第 8 节、0008），抛错的地方一行写完。参数是给前端文案填的文字，编号写成文字。
  */
-final class FlowErrors {
+class FlowErrors {
     private FlowErrors() { }
 
     /** 实例、待办、定义、表单不存在：{@code what} 是哪一种，{@code id} 是编号或标识 */

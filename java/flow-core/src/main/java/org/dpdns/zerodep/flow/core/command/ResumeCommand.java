@@ -1,8 +1,10 @@
 package org.dpdns.zerodep.flow.core.command;
 
-/**
- * 恢复（0006 的 3.4，管理员）：暂停的实例接着走。
- *
- * @param instanceId 实例
- */
-public record ResumeCommand(Long instanceId) implements FlowCommand { }
+import lombok.Data;
+
+/** 恢复（0006 的 3.4，管理员）：暂停的实例接着走。 */
+@Data
+public class ResumeCommand implements FlowCommand {
+    /** 实例 */
+    private final Long instanceId;
+}

@@ -6,7 +6,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 /** 场景里的时钟：停在一个时刻，{@code runJobs} 那一步把它拨到后面（看超时、提醒、定时节点） */
-final class MovableClock extends Clock {
+class MovableClock extends Clock {
     private Instant now;
 
     MovableClock(Instant start) { this.now = start; }

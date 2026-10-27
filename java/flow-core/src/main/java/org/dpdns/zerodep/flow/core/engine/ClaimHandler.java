@@ -14,24 +14,24 @@ import org.dpdns.zerodep.flow.core.view.WorkItemVO;
  * （{@code WHERE state = 'open' AND assignee_id IS NULL}，0007 第 5 节"认领"）。
  * "处理"一个还在收件箱里的待办时也先走这里（{@link #claim}）。
  */
-public final class ClaimHandler {
+public class ClaimHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
     public ClaimHandler(EngineContext context) {
         this.context = context;
-        this.definitions = context.definitions();
+        this.definitions = context.getDefinitions();
     }
 
     /** 认领，记一条"认领"的流转记录 */
     public CommandResult handle(Actor actor, ClaimCommand command) {
         return context.transaction(() -> {
-            WorkItemVO item = WorkItems.find(context.db(), command.workItemId());
-            InstanceEntity instance = Instances.find(context.db(), item.getInstanceId());
+            WorkItemVO item = WorkItems.find(context.getDb(), command.getWorkItemId());
+            InstanceEntity instance = Instances.find(context.getDb(), item.getInstanceId());
             requireActive(instance);
             claim(actor, item);
 
-            Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance,
+            Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance,
                 FormValues.empty(), instance.getRev());
             run.addEvent(EventEntity.WORK_ITEM_CLAIMED, run.graph().node(item.getNode()), null, null, item.getId(), null);
             run.publish();
@@ -46,18 +46,18 @@ public final class ClaimHandler {
     void claim(Actor actor, WorkItemVO item) {
         if (!WorkItemEntity.OPEN.equals(item.getState())) throw FlowErrors.notOpen(item.getId());
         if (item.getAssigneeId() != null) {
-            if (item.getAssigneeId().equals(actor.id())) return;
+            if (item.getAssigneeId().equals(actor.getId())) return;
             throw FlowErrors.alreadyClaimed(item.getId());
         }
-        if (!CandidateRules.isCandidate(actor, WorkItems.candidates(context.db(), item.getId()))) {
+        if (!CandidateRules.isCandidate(actor, WorkItems.candidates(context.getDb(), item.getId()))) {
             throw FlowErrors.notCandidate(item.getId());
         }
         // 两个人同时认领：带条件的更新只有一个改到
-        long claimed = context.db().updatable(WorkItemEntity.class)
+        long claimed = context.getDb().updatable(WorkItemEntity.class)
             .setColumns(w -> {
-                w.assigneeId().set(actor.id());
-                w.assigneeName().set(actor.name());
-                w.claimedAt().set(context.clock().instant());
+                w.assigneeId().set(actor.getId());
+                w.assigneeName().set(actor.getName());
+                w.claimedAt().set(context.getClock().instant());
                 w.assignment().set(WorkItemEntity.CLAIMED);
                 w.rev().increment();
             })

@@ -16,16 +16,16 @@ import java.util.Map;
  * 写成 typed JSON（编号、小数、时间写成文字，根上带 {@code $types}）由接入方集成的 wire 做（示例见 examples 的 {@code config/wire}），
  * 前端的请求层（vue-tsx-pro 的 {@code createHttpClient}）拆包时据此还原。
  */
-final class ResponseBody {
+class ResponseBody {
     private ResponseBody() { }
 
     /** 命令的结果：{@code { instance, workItems, closed, events }} */
     static Object of(CommandResult result) {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("instance", result.instance());
-        data.put("workItems", result.created());
-        data.put("closed", result.closed());
-        data.put("events", result.events());
+        data.put("instance", result.getInstance());
+        data.put("workItems", result.getCreated());
+        data.put("closed", result.getClosed());
+        data.put("events", result.getEvents());
         return data;
     }
 
@@ -47,11 +47,11 @@ final class ResponseBody {
     /** 整个响应体；没有的部分省掉 */
     static Map<String, Object> of(ApiResult<?> result) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("code", result.code());
-        if (result.message() != null) body.put("message", result.message());
-        if (result.params() != null && !result.params().isEmpty()) body.put("params", result.params());
-        if (result.errors() != null && !result.errors().isEmpty()) body.put("errors", errors(result.errors()));
-        if (result.data() != null) body.put("data", result.data());
+        body.put("code", result.getCode());
+        if (result.getMessage() != null) body.put("message", result.getMessage());
+        if (result.getParams() != null && !result.getParams().isEmpty()) body.put("params", result.getParams());
+        if (result.getErrors() != null && !result.getErrors().isEmpty()) body.put("errors", errors(result.getErrors()));
+        if (result.getData() != null) body.put("data", result.getData());
         return body;
     }
 
@@ -60,12 +60,12 @@ final class ResponseBody {
         List<Map<String, Object>> out = new ArrayList<>();
         for (ErrorDetail d : details) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("code", d.code());
-            if (d.field() != null) item.put("field", d.field());
-            if (d.node() != null) item.put("node", d.node());
-            if (d.edge() != null) item.put("edge", d.edge());
-            if (d.lane() != null) item.put("lane", d.lane());
-            if (!d.params().isEmpty()) item.put("params", d.params());
+            item.put("code", d.getCode());
+            if (d.getField() != null) item.put("field", d.getField());
+            if (d.getNode() != null) item.put("node", d.getNode());
+            if (d.getEdge() != null) item.put("edge", d.getEdge());
+            if (d.getLane() != null) item.put("lane", d.getLane());
+            if (!d.getParams().isEmpty()) item.put("params", d.getParams());
             out.add(item);
         }
         return out;

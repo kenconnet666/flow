@@ -20,7 +20,7 @@ import java.util.regex.PatternSyntaxException;
  * 字段清单自身的校验（docs/decisions/0004 的 1.2、1.3），与 TS 模型包的 {@code validate-manifest.ts} 同一套规则，
  * 两边跑 spec/manifests 的样例。问题的形状同流程定义的校验，位置写在 {@link Problem#field()} 上。
  */
-public final class ManifestValidator {
+public class ManifestValidator {
     /** 内置的字段类型 */
     public static final Set<String> BUILTIN_TYPES = Set.of("text", "number", "decimal", "boolean", "date", "datetime", "select", "people", "file", "list");
 
@@ -60,31 +60,31 @@ public final class ManifestValidator {
             String path = prefix + entry.getKey();
             FormManifest.Field field = entry.getValue();
             checkField(field, path, entry.getKey());
-            if (field.type().equals("list")) {
+            if (field.getType().equals("list")) {
                 if (inList) report("list-nested", path);
-                else if (field.columns() == null || field.columns().fields().isEmpty()) report("list-no-columns", path);
-                else visit(field.columns(), path + ".", true);
+                else if (field.getColumns() == null || field.getColumns().fields().isEmpty()) report("list-no-columns", path);
+                else visit(field.getColumns(), path + ".", true);
             }
         }
     }
 
     private void checkField(FormManifest.Field field, String path, String name) {
-        Map<String, Object> a = field.attributes();
+        Map<String, Object> a = field.getAttributes();
         if (!FIELD_NAME.matcher(name).matches()) report("field-name-invalid", path);
         if (!(a.get("label") instanceof String label) || label.isBlank()) report("field-label-missing", path);
-        if (!BUILTIN_TYPES.contains(field.type()) && !isFieldType.test(field.type())) report("field-type-unknown", path, "type", field.type());
+        if (!BUILTIN_TYPES.contains(field.getType()) && !isFieldType.test(field.getType())) report("field-type-unknown", path, "type", field.getType());
 
         for (String attribute : COUNTS) {
             Object value = a.get(attribute);
             if (value != null && !(value instanceof Long l && l >= 0)) report("attribute-invalid", path, "attribute", attribute);
         }
-        if (field.type().equals("people") && a.get("max") != null && !(a.get("max") instanceof Long l && l >= 1)) {
+        if (field.getType().equals("people") && a.get("max") != null && !(a.get("max") instanceof Long l && l >= 1)) {
             report("attribute-invalid", path, "attribute", "max");
         }
         if (a.get("pattern") instanceof String pattern && !compiles(pattern)) report("pattern-invalid", path);
         checkRanges(field, path);
 
-        if (field.type().equals("select") && a.get("options") instanceof List<?> options) {
+        if (field.getType().equals("select") && a.get("options") instanceof List<?> options) {
             if (options.isEmpty()) report("options-empty", path);
             Set<String> seen = new HashSet<>();
             Set<String> repeated = new LinkedHashSet<>();
@@ -96,8 +96,8 @@ public final class ManifestValidator {
             for (String value : repeated) report("option-duplicate", path, "value", value);
         }
 
-        if (field.visibleWhen() != null) checkCondition(field.visibleWhen(), path, "visibleWhen");
-        if (field.requiredWhen() != null) checkCondition(field.requiredWhen(), path, "requiredWhen");
+        if (field.getVisibleWhen() != null) checkCondition(field.getVisibleWhen(), path, "visibleWhen");
+        if (field.getRequiredWhen() != null) checkCondition(field.getRequiredWhen(), path, "requiredWhen");
         Object defaultValue = a.get("default");
         if (defaultValue != null && !FieldValues.check(field, defaultValue).isEmpty()) report("default-invalid", path);
     }
@@ -113,12 +113,12 @@ public final class ManifestValidator {
 
     /** 范围的属性：类型对、下限不大于上限 */
     private void checkRanges(FormManifest.Field field, String path) {
-        Map<String, Object> a = field.attributes();
+        Map<String, Object> a = field.getAttributes();
         if (a.get("minLength") instanceof Long min && a.get("maxLength") instanceof Long max && min > max) report("range-invalid", path, "attribute", "length");
         if (a.get("minItems") instanceof Long min && a.get("maxItems") instanceof Long max && min > max) report("range-invalid", path, "attribute", "items");
-        if (!RANGED.contains(field.type())) return;
+        if (!RANGED.contains(field.getType())) return;
         // 范围本身要是这种类型的合法值（decimal 的上下限是文字，date 的是日期）
-        FormManifest.Field plain = new FormManifest.Field(field.label(), field.type(), false, false, null, null, null, Map.of());
+        FormManifest.Field plain = new FormManifest.Field(field.getLabel(), field.getType(), false, false, null, null, null, Map.of());
         for (String attribute : List.of("min", "max")) {
             Object bound = a.get(attribute);
             if (bound != null && !FieldValues.check(plain, bound).isEmpty()) report("attribute-invalid", path, "attribute", attribute);

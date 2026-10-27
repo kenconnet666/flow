@@ -25,10 +25,10 @@ class ErrorCodesTest {
     @Test
     @DisplayName("响应：成功是 ok；FlowException 用它的码；认得的别的包原样用码；其余是 internal-error")
     void results() {
-        assertEquals("ok", ApiResult.ok(1).code());
+        assertEquals("ok", ApiResult.ok(1).getCode());
         ApiResult<Object> fail = ApiResult.fail(new FlowException(FlowErrorCode.WORK_ITEM_NOT_OPEN, Map.of("workItem", "7")));
-        assertEquals("flow.work-item-not-open", fail.code());
-        assertEquals(Map.of("workItem", "7"), fail.params());
-        assertEquals("flow.internal-error", ApiResult.fail(new IllegalStateException("x")).code());
+        assertEquals("flow.work-item-not-open", fail.getCode());
+        assertEquals(Map.of("workItem", "7"), fail.getParams());
+        assertEquals("flow.internal-error", ApiResult.fail(new IllegalStateException("x")).getCode());
     }
 }

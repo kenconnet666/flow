@@ -10,7 +10,7 @@ import org.dpdns.zerodep.flow.core.view.InstanceVO;
  * 几个处理类都要做的实例与表单值的读写。推进一个实例前先 {@link #lock}：版本加一，各库都会锁住这一行，
  * 并发的推进在这里排队（0001 第 3 条）。
  */
-final class Instances {
+class Instances {
     private Instances() { }
 
     /** 版本加一锁住这一行，再读出来；不存在时报 {@code flow.not-found} */

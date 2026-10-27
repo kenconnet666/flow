@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /** 定义里写的参数（解析器、动作的 {@code args}）：其中的 {@code { ref }} 换成值，对象、列表里的也换 */
-final class RefValues {
+class RefValues {
     private RefValues() { }
 
     /** 换好引用的参数 */
@@ -21,7 +21,7 @@ final class RefValues {
 
     @SuppressWarnings("unchecked")
     private static Object value(Object value, Function<String, Object> read) {
-        if (value instanceof Ref ref) return read.apply(ref.ref());
+        if (value instanceof Ref ref) return read.apply(ref.getRef());
         if (value instanceof Map<?, ?> map) return resolve((Map<String, Object>) map, read);
         if (value instanceof List<?> list) {
             List<Object> out = new ArrayList<>();

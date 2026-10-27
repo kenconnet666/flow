@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.model.form;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.model.Conditions;
 import org.dpdns.zerodep.flow.model.Values;
 import org.dpdns.zerodep.flow.model.definition.FieldAccess;
@@ -19,7 +20,7 @@ import java.util.function.Function;
  * {@code required} → 必填；{@code editable} → 按清单的 {@code required}、{@code requiredWhen}。
  * 明细表的列没单独写时跟着明细表；明细表隐藏时列都隐藏；明细表能改时才能增删行。
  */
-public final class FormAccess {
+public class FormAccess {
     private FormAccess() { }
 
     /** 不显示的原因 */
@@ -30,15 +31,18 @@ public final class FormAccess {
         CONDITION
     }
 
-    /**
-     * 一个字段在这个节点上的状态。
-     *
-     * @param visible  显示
-     * @param editable 能改；明细表能改时才能增删行
-     * @param required 必填
-     * @param hiddenBy 不显示的原因；显示时为 null
-     */
-    public record FieldState(boolean visible, boolean editable, boolean required, HiddenBy hiddenBy) {
+    /** 一个字段在这个节点上的状态。 */
+    @Data
+    public static class FieldState {
+        /** 显示 */
+        private final boolean visible;
+        /** 能改；明细表能改时才能增删行 */
+        private final boolean editable;
+        /** 必填 */
+        private final boolean required;
+        /** 不显示的原因；显示时为 null */
+        private final HiddenBy hiddenBy;
+
         static final FieldState BY_ACCESS = new FieldState(false, false, false, HiddenBy.ACCESS);
         static final FieldState BY_CONDITION = new FieldState(false, false, false, HiddenBy.CONDITION);
     }
@@ -52,19 +56,19 @@ public final class FormAccess {
      */
     public static Map<String, FieldState> fieldStates(FormManifest manifest, NodeFormAccess access, boolean isStart, Function<String, Object> read) {
         Map<String, FieldState> states = new LinkedHashMap<>();
-        FieldAccess fallback = access != null && access.defaultAccess() != null ? access.defaultAccess()
+        FieldAccess fallback = access != null && access.getDefaultAccess() != null ? access.getDefaultAccess()
             : isStart ? FieldAccess.EDITABLE : FieldAccess.READONLY;
-        Map<String, FieldAccess> own = access == null ? Map.of() : access.fields();
+        Map<String, FieldAccess> own = access == null ? Map.of() : access.getFields();
         for (Map.Entry<String, FormManifest.Field> entry : manifest.fields().entrySet()) {
             String name = entry.getKey();
             FieldAccess fieldAccess = own.getOrDefault(name, fallback);
             FieldState state = stateOf(entry.getValue(), fieldAccess, read);
             states.put(name, state);
-            FormManifest columns = entry.getValue().columns();
+            FormManifest columns = entry.getValue().getColumns();
             if (columns == null) continue;
             for (Map.Entry<String, FormManifest.Field> column : columns.fields().entrySet()) {
                 String path = name + "." + column.getKey();
-                states.put(path, state.visible() ? stateOf(column.getValue(), own.getOrDefault(path, fieldAccess), read) : state);
+                states.put(path, state.isVisible() ? stateOf(column.getValue(), own.getOrDefault(path, fieldAccess), read) : state);
             }
         }
         return Collections.unmodifiableMap(states);
@@ -72,33 +76,35 @@ public final class FormAccess {
 
     private static FieldState stateOf(FormManifest.Field field, FieldAccess access, Function<String, Object> read) {
         if (access == FieldAccess.HIDDEN) return FieldState.BY_ACCESS;
-        if (field.visibleWhen() != null && !Conditions.evaluate(field.visibleWhen(), read)) return FieldState.BY_CONDITION;
+        if (field.getVisibleWhen() != null && !Conditions.evaluate(field.getVisibleWhen(), read)) return FieldState.BY_CONDITION;
         if (access == FieldAccess.READONLY) return new FieldState(true, false, false, null);
-        boolean required = access == FieldAccess.REQUIRED || field.required()
-            || (field.requiredWhen() != null && Conditions.evaluate(field.requiredWhen(), read));
+        boolean required = access == FieldAccess.REQUIRED || field.isRequired()
+            || (field.getRequiredWhen() != null && Conditions.evaluate(field.getRequiredWhen(), read));
         return new FieldState(true, true, required, null);
     }
 
-    /**
-     * 提交时一个字段的问题。
-     *
-     * @param field 字段路径；明细表的列带行号：{@code lines[0].price}
-     * @param code  {@code required}：必填没填；其余见 {@link FieldValues.ValueError#code()}（类型、长度、范围、选项……）
-     */
-    public record SubmissionError(String field, String code) { }
+    /** 提交时一个字段的问题。 */
+    @Data
+    public static class SubmissionError {
+        /** 字段路径；明细表的列带行号：{@code lines[0].price} */
+        private final String field;
+        /** {@code required}：必填没填；其余见 {@link FieldValues.ValueError#code()}（类型、长度、范围、选项……） */
+        private final String code;
+    }
 
-    /**
-     * 合并的结果。
-     *
-     * @param values 合并后要存下的表单的值
-     * @param errors 问题
-     */
-    public record Submission(Map<String, Object> values, List<SubmissionError> errors) { }
+    /** 合并的结果。 */
+    @Data
+    public static class Submission {
+        /** 合并后要存下的表单的值 */
+        private final Map<String, Object> values;
+        /** 问题 */
+        private final List<SubmissionError> errors;
+    }
 
     /** 一个字段合并后的值：能改的取提交的，看得到但不能改、或节点上隐藏的用存着的，显示条件不成立的丢掉 */
     private static Object pick(FieldState state, Object stored, Object submitted) {
-        if (state.hiddenBy() == HiddenBy.CONDITION) return null;
-        return state.editable() ? submitted : stored;
+        if (state.getHiddenBy() == HiddenBy.CONDITION) return null;
+        return state.isEditable() ? submitted : stored;
     }
 
     /**
@@ -113,19 +119,19 @@ public final class FormAccess {
         for (Map.Entry<String, FormManifest.Field> entry : manifest.fields().entrySet()) {
             String name = entry.getKey();
             FieldState state = states.getOrDefault(name, FieldState.BY_ACCESS);
-            FormManifest columns = entry.getValue().columns();
+            FormManifest columns = entry.getValue().getColumns();
             Object given = submitted.containsKey(name) ? submitted.get(name) : stored.get(name);
-            Object value = columns != null && state.visible()
+            Object value = columns != null && state.isVisible()
                 ? mergeRows(name, columns, state, states, stored.get(name), given, errors)
                 : pick(state, stored.get(name), given);
             values.put(name, value);
-            if (state.required() && Values.isBlank(value)) errors.add(new SubmissionError(name, "required"));
-            else if (state.editable()) {
+            if (state.isRequired() && Values.isBlank(value)) errors.add(new SubmissionError(name, "required"));
+            else if (state.isEditable()) {
                 // 明细表在这里只查行数，各个格子在 mergeRows 里按列的权限查
                 FormManifest.Field field = entry.getValue();
                 FormManifest.Field shape = columns == null ? field
-                    : new FormManifest.Field(field.label(), field.type(), field.required(), field.multiple(), null, null, null, field.attributes());
-                for (FieldValues.ValueError e : FieldValues.check(shape, value)) errors.add(new SubmissionError(name + e.path(), e.code()));
+                    : new FormManifest.Field(field.getLabel(), field.getType(), field.isRequired(), field.isMultiple(), null, null, null, field.getAttributes());
+                for (FieldValues.ValueError e : FieldValues.check(shape, value)) errors.add(new SubmissionError(name + e.getPath(), e.getCode()));
             }
         }
         return new Submission(Collections.unmodifiableMap(values), List.copyOf(errors));
@@ -135,7 +141,7 @@ public final class FormAccess {
                                                        Object stored, Object submitted, List<SubmissionError> errors) {
         List<?> storedRows = stored instanceof List<?> l ? l : List.of();
         List<?> submittedRows = submitted instanceof List<?> l ? l : List.of();
-        int count = state.editable() ? submittedRows.size() : storedRows.size();
+        int count = state.isEditable() ? submittedRows.size() : storedRows.size();
         List<Map<String, Object>> rows = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             Map<?, ?> storedRow = i < storedRows.size() && storedRows.get(i) instanceof Map<?, ?> m ? m : Map.of();
@@ -145,10 +151,10 @@ public final class FormAccess {
                 FieldState columnState = states.getOrDefault(name + "." + column, FieldState.BY_ACCESS);
                 Object value = pick(columnState, storedRow.get(column), submittedRow.get(column));
                 row.put(column, value);
-                if (columnState.required() && Values.isBlank(value)) errors.add(new SubmissionError(name + "[" + i + "]." + column, "required"));
-                else if (columnState.editable()) {
+                if (columnState.isRequired() && Values.isBlank(value)) errors.add(new SubmissionError(name + "[" + i + "]." + column, "required"));
+                else if (columnState.isEditable()) {
                     for (FieldValues.ValueError e : FieldValues.check(columns.fields().get(column), value)) {
-                        errors.add(new SubmissionError(name + "[" + i + "]." + column + e.path(), e.code()));
+                        errors.add(new SubmissionError(name + "[" + i + "]." + column + e.getPath(), e.getCode()));
                     }
                 }
             }

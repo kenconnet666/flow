@@ -10,7 +10,7 @@ import javax.sql.DataSource;
  * 这是单独的一套 Flyway：脚本在 flow-core 的 {@code db/flow/mysql}，历史记在 {@code flow_schema_history}，
  * 和应用自己的 Flyway（{@code db/migration}、{@code flyway_schema_history}）互不干扰。
  */
-public final class FlowSchemaMigration {
+public class FlowSchemaMigration {
     private final MigrateResult result;
 
     /** 构造时就执行：引擎组装之前表已经建好 */

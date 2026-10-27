@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.command;
 
+import lombok.Data;
+
 import java.util.List;
 
 /**
@@ -10,12 +12,22 @@ import java.util.List;
  *   <li>{@code parallel} 并加：自己和加的人一起办，都办完才往下走。</li>
  * </ul>
  * 加的人办的结果只是意见：节点按自己的结果往下走。
- *
- * @param workItemId 待办
- * @param users      加谁
- * @param mode       {@code before}、{@code after}、{@code parallel}
- * @param reason     说明，记进流转记录
  */
-public record AddSignersCommand(Long workItemId, List<Long> users, String mode, String reason) implements FlowCommand {
-    public AddSignersCommand { users = users == null ? List.of() : List.copyOf(users); }
+@Data
+public class AddSignersCommand implements FlowCommand {
+    /** 待办 */
+    private final Long workItemId;
+    /** 加谁 */
+    private final List<Long> users;
+    /** {@code before}、{@code after}、{@code parallel} */
+    private final String mode;
+    /** 说明，记进流转记录 */
+    private final String reason;
+
+    public AddSignersCommand(Long workItemId, List<Long> users, String mode, String reason) { users = users == null ? List.of() : List.copyOf(users);
+        this.workItemId = workItemId;
+        this.users = users;
+        this.mode = mode;
+        this.reason = reason;
+    }
 }

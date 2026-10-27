@@ -17,26 +17,26 @@ import java.util.Set;
  * 当前节点的上游（沿前进的连线能走到当前节点）、这个实例里走到过的人工节点，按定义里的先后。
  * 不在当前节点之外的并行区域里——旁边的分支、已经汇合过的区域进去了汇合等不齐。
  */
-final class ReturnTargets {
+class ReturnTargets {
     private ReturnTargets() { }
 
     /** 当前节点 current 能退回到的人工节点 */
     static List<ProcessNode.Task> of(LoadedDefinition definition, RunState state, String current) {
-        ProcessGraph graph = definition.graph();
-        GatewayPairs pairs = definition.pairs();
+        ProcessGraph graph = definition.getGraph();
+        GatewayPairs pairs = definition.getPairs();
         Set<String> upstream = upstreamOf(graph, current);
         List<String> around = pairs.forksAround(current);
-        return graph.definition().nodes().stream()
-            .filter(node -> node instanceof ProcessNode.Task && !node.id().equals(current))
-            .filter(node -> upstream.contains(node.id()) && state.round(node.id()) > 0)
-            .filter(node -> around.containsAll(pairs.forksAround(node.id())))
+        return graph.definition().getNodes().stream()
+            .filter(node -> node instanceof ProcessNode.Task && !node.getId().equals(current))
+            .filter(node -> upstream.contains(node.getId()) && state.round(node.getId()) > 0)
+            .filter(node -> around.containsAll(pairs.forksAround(node.getId())))
             .map(node -> (ProcessNode.Task) node).toList();
     }
 
     /** 处理命令给的目标要是能选的一个：没给报 {@code returnTarget: required}，不能选报 {@code returnTarget: not-upstream} */
     static String check(LoadedDefinition definition, RunState state, String current, String target) {
         if (target == null || target.isBlank()) throw FlowErrors.invalid("returnTarget", "required");
-        boolean allowed = of(definition, state, current).stream().anyMatch(node -> node.id().equals(target));
+        boolean allowed = of(definition, state, current).stream().anyMatch(node -> node.getId().equals(target));
         if (!allowed) throw FlowErrors.invalid("returnTarget", "not-upstream");
         return target;
     }
@@ -47,7 +47,7 @@ final class ReturnTargets {
         Deque<String> queue = new ArrayDeque<>(List.of(node));
         while (!queue.isEmpty()) {
             for (ProcessEdge edge : graph.incoming(queue.poll())) {
-                if (!edge.isBackward() && seen.add(edge.from())) queue.add(edge.from());
+                if (!edge.isBackward() && seen.add(edge.getFrom())) queue.add(edge.getFrom());
             }
         }
         return seen;

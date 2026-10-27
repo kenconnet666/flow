@@ -14,7 +14,7 @@ import java.util.Map;
  * principal 不是 Actor（例如只是用户名）时，接入方声明一个自己的 {@link ActorProvider} Bean，按用户名查出自己的用户类型。
  * 没有登录时报 {@code flow.forbidden}。
  */
-public final class SecurityContextActorProvider implements ActorProvider<Actor> {
+public class SecurityContextActorProvider implements ActorProvider<Actor> {
     @Override
     public Actor current() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

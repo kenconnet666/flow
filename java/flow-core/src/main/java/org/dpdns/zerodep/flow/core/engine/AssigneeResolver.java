@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
  * </pre>
  * 几个来源取并集。
  */
-final class AssigneeResolver {
+class AssigneeResolver {
     private final EasyEntityQuery db;
     private final OrgDirectory org;
     private final Extensions extensions;
@@ -47,13 +48,14 @@ final class AssigneeResolver {
         this.extensions = extensions;
     }
 
-    /**
-     * 会签的一个参与人（0005 的 5.2）。
-     *
-     * @param user   用户
-     * @param weight 票签的权重：写在指定的人上（{@code { "user": 1001, "weight": 2 }}），其余是 1
-     */
-    record Participant(Long user, int weight) { }
+    /** 会签的一个参与人（0005 的 5.2）。 */
+    @Data
+    static class Participant {
+        /** 用户 */
+        private final Long user;
+        /** 票签的权重：写在指定的人上（{@code { "user": 1001, "weight": 2 }}），其余是 1 */
+        private final int weight;
+    }
 
     /**
      * 会签的参与人：来源列表里的人、角色与部门下的人（{@link OrgDirectory#members} 展开），或引用的 people 值；
@@ -62,19 +64,19 @@ final class AssigneeResolver {
     List<Participant> participants(ProcessNode.Task task, InstanceEntity instance, Function<String, Object> read,
                                    Map<String, List<Long>> picks) {
         Map<Long, Participant> out = new LinkedHashMap<>();
-        if (task.multi().participants() instanceof Ref ref) {
-            for (Long id : OrgIds.all(read.apply(ref.ref()))) out.putIfAbsent(id, new Participant(id, 1));
+        if (task.getMulti().getParticipants() instanceof Ref ref) {
+            for (Long id : OrgIds.all(read.apply(ref.getRef()))) out.putIfAbsent(id, new Participant(id, 1));
             return List.copyOf(out.values());
         }
         List<AssigneeSource> others = new ArrayList<>();
-        for (AssigneeSource source : task.multi().participantSources()) {
+        for (AssigneeSource source : task.getMulti().participantSources()) {
             if (source instanceof AssigneeSource.Pick pick) {
                 for (Long id : picked(task, pick, picks, instance, read)) out.putIfAbsent(id, new Participant(id, 1));
             } else {
                 others.add(source);
             }
         }
-        for (Participant p : people(others, instance, read)) out.putIfAbsent(p.user(), p);
+        for (Participant p : people(others, instance, read)) out.putIfAbsent(p.getUser(), p);
         return List.copyOf(out.values());
     }
 
@@ -86,21 +88,21 @@ final class AssigneeResolver {
         Map<Long, Participant> out = new LinkedHashMap<>();
         for (AssigneeSource source : sources) {
             if (source instanceof AssigneeSource.User user) {
-                int weight = user.weight() == null ? 1 : user.weight();
-                for (Long id : OrgIds.all(valueOf(user.user(), read))) out.putIfAbsent(id, new Participant(id, weight));
+                int weight = user.getWeight() == null ? 1 : user.getWeight();
+                for (Long id : OrgIds.all(valueOf(user.getUser(), read))) out.putIfAbsent(id, new Participant(id, weight));
             } else if (source instanceof AssigneeSource.Role role) {
-                for (Long id : OrgIds.all(valueOf(role.role(), read))) addMembers(out, CandidateEntity.ROLE, id);
+                for (Long id : OrgIds.all(valueOf(role.getRole(), read))) addMembers(out, CandidateEntity.ROLE, id);
             } else if (source instanceof AssigneeSource.Department dept) {
-                for (Long id : OrgIds.all(valueOf(dept.department(), read))) addMembers(out, CandidateEntity.DEPARTMENT, id);
+                for (Long id : OrgIds.all(valueOf(dept.getDepartment(), read))) addMembers(out, CandidateEntity.DEPARTMENT, id);
             } else if (source instanceof AssigneeSource.Initiator) {
                 out.putIfAbsent(instance.getStartedBy(), new Participant(instance.getStartedBy(), 1));
             } else if (source instanceof AssigneeSource.SameAs same) {
-                Long last = WorkItems.lastCompletedBy(db, instance.getId(), same.node());
+                Long last = WorkItems.lastCompletedBy(db, instance.getId(), same.getNode());
                 if (last != null) out.putIfAbsent(last, new Participant(last, 1));
             } else if (source instanceof AssigneeSource.Resolver resolver) {
                 for (Long id : named(resolver, instance, read)) out.putIfAbsent(id, new Participant(id, 1));
             } else if (source instanceof AssigneeSource.Group group) {
-                for (Long id : OrgIds.all(valueOf(group.id(), read))) addMembers(out, group.kind(), id);
+                for (Long id : OrgIds.all(valueOf(group.getId(), read))) addMembers(out, group.getKind(), id);
             } else {
                 throw new UnsupportedOperationException("assignee source " + source.getClass().getSimpleName() + " cannot be expanded into people yet");
             }
@@ -123,22 +125,22 @@ final class AssigneeResolver {
         Assignees out = Assignees.empty();
         for (AssigneeSource source : sourcesOf(task, graph)) {
             if (source instanceof AssigneeSource.Pick pick) {
-                out.users().addAll(picked(task, pick, picks, instance, read));
+                out.getUsers().addAll(picked(task, pick, picks, instance, read));
             } else if (source instanceof AssigneeSource.User user) {
-                out.users().addAll(OrgIds.all(valueOf(user.user(), read)));
+                out.getUsers().addAll(OrgIds.all(valueOf(user.getUser(), read)));
             } else if (source instanceof AssigneeSource.Role role) {
-                for (Long id : OrgIds.all(valueOf(role.role(), read))) out.inboxes().add(new CandidateEntity(CandidateEntity.ROLE, id));
+                for (Long id : OrgIds.all(valueOf(role.getRole(), read))) out.getInboxes().add(new CandidateEntity(CandidateEntity.ROLE, id));
             } else if (source instanceof AssigneeSource.Department dept) {
-                for (Long id : OrgIds.all(valueOf(dept.department(), read))) out.inboxes().add(new CandidateEntity(CandidateEntity.DEPARTMENT, id));
+                for (Long id : OrgIds.all(valueOf(dept.getDepartment(), read))) out.getInboxes().add(new CandidateEntity(CandidateEntity.DEPARTMENT, id));
             } else if (source instanceof AssigneeSource.Initiator) {
-                out.users().add(instance.getStartedBy());
+                out.getUsers().add(instance.getStartedBy());
             } else if (source instanceof AssigneeSource.SameAs same) {
-                Long last = WorkItems.lastCompletedBy(db, instance.getId(), same.node());
-                if (last != null) out.users().add(last);
+                Long last = WorkItems.lastCompletedBy(db, instance.getId(), same.getNode());
+                if (last != null) out.getUsers().add(last);
             } else if (source instanceof AssigneeSource.Resolver resolver) {
-                out.users().addAll(named(resolver, instance, read));
+                out.getUsers().addAll(named(resolver, instance, read));
             } else if (source instanceof AssigneeSource.Group group) {
-                for (Long id : OrgIds.all(valueOf(group.id(), read))) out.inboxes().add(new CandidateEntity(group.kind(), id));
+                for (Long id : OrgIds.all(valueOf(group.getId(), read))) out.getInboxes().add(new CandidateEntity(group.getKind(), id));
             } else {
                 throw new UnsupportedOperationException("assignee source " + source.getClass().getSimpleName() + " is not supported yet");
             }
@@ -152,12 +154,12 @@ final class AssigneeResolver {
      */
     private List<Long> picked(ProcessNode.Task task, AssigneeSource.Pick pick, Map<String, List<Long>> picks, InstanceEntity instance,
                               Function<String, Object> read) {
-        String field = "picks." + task.id();
-        List<Long> chosen = picks.getOrDefault(task.id(), List.of()).stream().distinct().toList();
+        String field = "picks." + task.getId();
+        List<Long> chosen = picks.getOrDefault(task.getId(), List.of()).stream().distinct().toList();
         if (chosen.isEmpty()) throw FlowErrors.invalid(field, "required");
-        if (pick.max() != null && chosen.size() > pick.max()) throw FlowErrors.invalid(field, "too-many");
-        if (!pick.from().isEmpty()) {
-            Set<Long> allowed = people(pick.from(), instance, read).stream().map(Participant::user).collect(Collectors.toSet());
+        if (pick.getMax() != null && chosen.size() > pick.getMax()) throw FlowErrors.invalid(field, "too-many");
+        if (!pick.getFrom().isEmpty()) {
+            Set<Long> allowed = people(pick.getFrom(), instance, read).stream().map(Participant::getUser).collect(Collectors.toSet());
             if (!allowed.containsAll(chosen)) throw FlowErrors.invalid(field, "not-allowed");
         }
         return chosen;
@@ -165,19 +167,19 @@ final class AssigneeResolver {
 
     /** 接入方注册的解析器算出的人；参数里的引用先换成值 */
     private List<Long> named(AssigneeSource.Resolver source, InstanceEntity instance, Function<String, Object> read) {
-        PeopleResolver resolver = extensions.resolver(source.name());
-        return resolver.resolve(new PeopleResolver.Context(Instances.view(db, instance.getId()), RefValues.resolve(source.args(), read), read));
+        PeopleResolver resolver = extensions.resolver(source.getName());
+        return resolver.resolve(new PeopleResolver.Context(Instances.view(db, instance.getId()), RefValues.resolve(source.getArgs(), read), read));
     }
 
     /** 节点上写的来源；没写时用所在泳道的收件箱 */
     private static List<AssigneeSource> sourcesOf(ProcessNode.Task task, ProcessGraph graph) {
-        if (!task.assignees().isEmpty()) return task.assignees();
-        Lane lane = graph.lane(task.lane());
-        return lane == null || lane.inbox() == null ? List.of() : List.of(lane.inbox().source());
+        if (!task.getAssignees().isEmpty()) return task.getAssignees();
+        Lane lane = graph.lane(task.getLane());
+        return lane == null || lane.getInbox() == null ? List.of() : List.of(lane.getInbox().getSource());
     }
 
     /** 定义里写的值：直接写的值原样，引用（{@link Ref}）去取 */
     private static Object valueOf(Object literalOrRef, Function<String, Object> read) {
-        return literalOrRef instanceof Ref ref ? read.apply(ref.ref()) : literalOrRef;
+        return literalOrRef instanceof Ref ref ? read.apply(ref.getRef()) : literalOrRef;
     }
 }

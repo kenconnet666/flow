@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.model.validate;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.model.Conditions;
 import org.dpdns.zerodep.flow.model.definition.AssigneeSource;
 import org.dpdns.zerodep.flow.model.definition.Due;
@@ -40,7 +41,7 @@ import java.util.regex.Pattern;
  * }</pre>
  * 要查注册情况的几条只在 {@link ValidationContext} 给出答案（不是 null）时才查，后端发布时给。
  */
-public final class ProcessValidator {
+public class ProcessValidator {
     /** 各代号的严重程度；没列出的都是错误 */
     private static final Set<String> WARNINGS = Set.of(
         "node-unreachable", "edge-default-not-gateway", "gateway-edge-unconditional", "parallel-edge-condition", "parallel-useless",
@@ -68,7 +69,7 @@ public final class ProcessValidator {
         validator.checkIdentities();
         validator.checkStartAndEnd();
         validator.checkEdges();
-        for (ProcessNode node : definition.nodes()) validator.checkNode(node);
+        for (ProcessNode node : definition.getNodes()) validator.checkNode(node);
         validator.checkReachability();
         validator.checkGateways();
         validator.checkReturnsAndEscalations();
@@ -106,13 +107,13 @@ public final class ProcessValidator {
     // ---------- 标识、开始与结束、连线 ----------
 
     private void checkIdentities() {
-        for (String id : duplicates(definition.nodes().stream().map(ProcessNode::id).toList())) atNode("node-duplicate", id);
-        for (String id : duplicates(definition.edges().stream().map(ProcessEdge::id).toList())) atEdge("edge-duplicate", id);
-        for (String id : duplicates(definition.lanes().stream().map(Lane::id).toList())) report("lane-duplicate", null, null, id);
-        for (ProcessNode node : definition.nodes()) {
-            if (!ProcessNode.BUILTIN_TYPES.contains(node.type()) && !node.type().startsWith("x-")) atNode("node-type-unknown", node.id(), "type", node.type());
-            if (node.lane() != null && definition.lanes().stream().noneMatch(l -> l.id().equals(node.lane()))) {
-                atNode("lane-unknown", node.id(), "lane", node.lane());
+        for (String id : duplicates(definition.getNodes().stream().map(ProcessNode::getId).toList())) atNode("node-duplicate", id);
+        for (String id : duplicates(definition.getEdges().stream().map(ProcessEdge::getId).toList())) atEdge("edge-duplicate", id);
+        for (String id : duplicates(definition.getLanes().stream().map(Lane::getId).toList())) report("lane-duplicate", null, null, id);
+        for (ProcessNode node : definition.getNodes()) {
+            if (!ProcessNode.BUILTIN_TYPES.contains(node.getType()) && !node.getType().startsWith("x-")) atNode("node-type-unknown", node.getId(), "type", node.getType());
+            if (node.getLane() != null && definition.getLanes().stream().noneMatch(l -> l.getId().equals(node.getLane()))) {
+                atNode("lane-unknown", node.getId(), "lane", node.getLane());
             }
         }
     }
@@ -126,112 +127,112 @@ public final class ProcessValidator {
     }
 
     private void checkStartAndEnd() {
-        List<ProcessNode> starts = definition.nodes().stream().filter(n -> n.type().equals("start")).toList();
+        List<ProcessNode> starts = definition.getNodes().stream().filter(n -> n.getType().equals("start")).toList();
         if (starts.isEmpty()) atDefinition("start-missing");
-        for (ProcessNode extra : starts.subList(Math.min(1, starts.size()), starts.size())) atNode("start-multiple", extra.id());
-        for (ProcessNode start : starts) if (!graph.incoming(start.id()).isEmpty()) atNode("start-incoming", start.id());
-        if (definition.nodes().stream().noneMatch(n -> n.type().equals("end"))) atDefinition("end-missing");
+        for (ProcessNode extra : starts.subList(Math.min(1, starts.size()), starts.size())) atNode("start-multiple", extra.getId());
+        for (ProcessNode start : starts) if (!graph.incoming(start.getId()).isEmpty()) atNode("start-incoming", start.getId());
+        if (definition.getNodes().stream().noneMatch(n -> n.getType().equals("end"))) atDefinition("end-missing");
     }
 
     private void checkEdges() {
-        for (ProcessEdge edge : definition.edges()) {
-            if (graph.node(edge.from()) == null) atEdge("edge-unknown-node", edge.id(), "side", "from", "node", edge.from());
-            if (graph.node(edge.to()) == null) atEdge("edge-unknown-node", edge.id(), "side", "to", "node", edge.to());
-            ProcessNode from = graph.node(edge.from());
+        for (ProcessEdge edge : definition.getEdges()) {
+            if (graph.node(edge.getFrom()) == null) atEdge("edge-unknown-node", edge.getId(), "side", "from", "node", edge.getFrom());
+            if (graph.node(edge.getTo()) == null) atEdge("edge-unknown-node", edge.getId(), "side", "to", "node", edge.getTo());
+            ProcessNode from = graph.node(edge.getFrom());
             if (from == null) continue;
-            if (edge.outcome() != null) {
-                if (!ProcessNode.BRANCHING_TYPES.contains(from.type())) atEdge("edge-outcome-not-branching", edge.id(), "outcome", edge.outcome());
+            if (edge.getOutcome() != null) {
+                if (!ProcessNode.BRANCHING_TYPES.contains(from.getType())) atEdge("edge-outcome-not-branching", edge.getId(), "outcome", edge.getOutcome());
                 else {
                     List<String> declared = declaredOutcomes(from);
-                    if (declared != null && !declared.contains(edge.outcome())) atEdge("edge-unknown-outcome", edge.id(), "outcome", edge.outcome());
+                    if (declared != null && !declared.contains(edge.getOutcome())) atEdge("edge-unknown-outcome", edge.getId(), "outcome", edge.getOutcome());
                 }
             }
-            if (edge.isDefault() && !from.type().equals("exclusive") && !from.type().equals("inclusive")) atEdge("edge-default-not-gateway", edge.id());
-            if (edge.when() != null && !Conditions.isComplete(edge.when())) atEdge("condition-incomplete", edge.id());
+            if (edge.isDefault() && !from.getType().equals("exclusive") && !from.getType().equals("inclusive")) atEdge("edge-default-not-gateway", edge.getId());
+            if (edge.getWhen() != null && !Conditions.isComplete(edge.getWhen())) atEdge("condition-incomplete", edge.getId());
         }
     }
 
     /** 节点写明了的结果；自动节点、调用流程的结果由运行时给出，没有清单 */
     private static List<String> declaredOutcomes(ProcessNode node) {
-        if (node instanceof ProcessNode.Task task) return task.outcomes().stream().map(Outcome::key).toList();
-        if (node instanceof ProcessNode.Receive receive) return receive.outcomes();
+        if (node instanceof ProcessNode.Task task) return task.getOutcomes().stream().map(Outcome::getKey).toList();
+        if (node instanceof ProcessNode.Receive receive) return receive.getOutcomes();
         return null;
     }
 
     // ---------- 各类节点 ----------
 
     private void checkNode(ProcessNode node) {
-        List<ProcessEdge> out = graph.outgoing(node.id());
-        if (node.type().equals("end")) {
-            if (!out.isEmpty()) atNode("end-outgoing", node.id());
+        List<ProcessEdge> out = graph.outgoing(node.getId());
+        if (node.getType().equals("end")) {
+            if (!out.isEmpty()) atNode("end-outgoing", node.getId());
             return;
         }
-        if (out.isEmpty()) atNode("node-no-outgoing", node.id());
+        if (out.isEmpty()) atNode("node-no-outgoing", node.getId());
         if (node instanceof ProcessNode.Task task) checkTask(task);
         if (node instanceof ProcessNode.Receive receive) {
-            for (String key : duplicates(receive.outcomes())) atNode("outcome-duplicate", node.id(), "outcome", key);
-            checkUnrouted(node.id(), receive.outcomes(), out);
-            if (receive.overdue() != null && "complete".equals(receive.overdue().action()) && !receive.outcomes().contains(receive.overdue().outcome())) {
-                atNode("overdue-unknown-outcome", node.id(), "outcome", receive.overdue().outcome());
+            for (String key : duplicates(receive.getOutcomes())) atNode("outcome-duplicate", node.getId(), "outcome", key);
+            checkUnrouted(node.getId(), receive.getOutcomes(), out);
+            if (receive.getOverdue() != null && "complete".equals(receive.getOverdue().getAction()) && !receive.getOutcomes().contains(receive.getOverdue().getOutcome())) {
+                atNode("overdue-unknown-outcome", node.getId(), "outcome", receive.getOverdue().getOutcome());
             }
         }
-        if (node.type().equals("exclusive") || node.type().equals("inclusive")) {
-            if (out.stream().filter(ProcessEdge::isDefault).count() > 1) atNode("gateway-multiple-default", node.id());
-            if (out.size() > 1) for (ProcessEdge edge : out) if (edge.when() == null && !edge.isDefault()) atEdge("gateway-edge-unconditional", edge.id());
+        if (node.getType().equals("exclusive") || node.getType().equals("inclusive")) {
+            if (out.stream().filter(ProcessEdge::isDefault).count() > 1) atNode("gateway-multiple-default", node.getId());
+            if (out.size() > 1) for (ProcessEdge edge : out) if (edge.getWhen() == null && !edge.isDefault()) atEdge("gateway-edge-unconditional", edge.getId());
         }
-        if (node.type().equals("parallel")) {
-            for (ProcessEdge edge : out) if (edge.when() != null) atEdge("parallel-edge-condition", edge.id());
-            if (out.size() == 1 && graph.incoming(node.id()).size() == 1) atNode("parallel-useless", node.id());
+        if (node.getType().equals("parallel")) {
+            for (ProcessEdge edge : out) if (edge.getWhen() != null) atEdge("parallel-edge-condition", edge.getId());
+            if (out.size() == 1 && graph.incoming(node.getId()).size() == 1) atNode("parallel-useless", node.getId());
         }
     }
 
     private void checkTask(ProcessNode.Task node) {
-        List<String> keys = node.outcomes().stream().map(Outcome::key).toList();
-        if (keys.isEmpty()) atNode("task-no-outcome", node.id());
-        for (String key : duplicates(keys)) atNode("outcome-duplicate", node.id(), "outcome", key);
+        List<String> keys = node.getOutcomes().stream().map(Outcome::getKey).toList();
+        if (keys.isEmpty()) atNode("task-no-outcome", node.getId());
+        for (String key : duplicates(keys)) atNode("outcome-duplicate", node.getId(), "outcome", key);
         // 终止的结果、处理时选退回节点的结果不走出边
-        checkUnrouted(node.id(), node.outcomes().stream().filter(o -> !"terminate".equals(o.kind()) && !o.choosesTarget())
-            .map(Outcome::key).toList(), graph.outgoing(node.id()));
-        for (Outcome outcome : node.outcomes()) {
-            if (outcome.target() != null && !outcome.choosesTarget()) atNode("return-target-invalid", node.id(), "outcome", outcome.key());
+        checkUnrouted(node.getId(), node.getOutcomes().stream().filter(o -> !"terminate".equals(o.getKind()) && !o.choosesTarget())
+            .map(Outcome::getKey).toList(), graph.outgoing(node.getId()));
+        for (Outcome outcome : node.getOutcomes()) {
+            if (outcome.getTarget() != null && !outcome.choosesTarget()) atNode("return-target-invalid", node.getId(), "outcome", outcome.getKey());
         }
-        if (node.overdue() != null && "complete".equals(node.overdue().action()) && !keys.contains(node.overdue().outcome())) {
-            atNode("overdue-unknown-outcome", node.id(), "outcome", node.overdue().outcome());
+        if (node.getOverdue() != null && "complete".equals(node.getOverdue().getAction()) && !keys.contains(node.getOverdue().getOutcome())) {
+            atNode("overdue-unknown-outcome", node.getId(), "outcome", node.getOverdue().getOutcome());
         }
         // 引擎自己选的结果（超时自动完成、会签没达到门槛时的 fallback）没人选退回的节点
-        if (node.overdue() != null && "complete".equals(node.overdue().action())) checkNotChoosing(node, node.overdue().outcome());
-        if (node.multi() != null && node.multi().fallback() != null) checkNotChoosing(node, node.multi().fallback());
-        Lane lane = graph.lane(node.lane());
-        if (node.assignees().isEmpty() && (lane == null || lane.inbox() == null)) atNode("assignee-missing", node.id());
-        List<AssigneeSource> sources = new ArrayList<>(node.assignees());
-        if (node.multi() != null) sources.addAll(node.multi().participantSources());
+        if (node.getOverdue() != null && "complete".equals(node.getOverdue().getAction())) checkNotChoosing(node, node.getOverdue().getOutcome());
+        if (node.getMulti() != null && node.getMulti().getFallback() != null) checkNotChoosing(node, node.getMulti().getFallback());
+        Lane lane = graph.lane(node.getLane());
+        if (node.getAssignees().isEmpty() && (lane == null || lane.getInbox() == null)) atNode("assignee-missing", node.getId());
+        List<AssigneeSource> sources = new ArrayList<>(node.getAssignees());
+        if (node.getMulti() != null) sources.addAll(node.getMulti().participantSources());
         for (AssigneeSource source : flatten(sources)) {
-            if (source instanceof AssigneeSource.SameAs sameAs && !(graph.node(sameAs.node()) instanceof ProcessNode.Task)) {
-                atNode("assignee-unknown-node", node.id(), "sameAs", sameAs.node());
+            if (source instanceof AssigneeSource.SameAs sameAs && !(graph.node(sameAs.getNode()) instanceof ProcessNode.Task)) {
+                atNode("assignee-unknown-node", node.getId(), "sameAs", sameAs.getNode());
             }
         }
-        MultiInstance multi = node.multi();
-        if (multi != null && (multi.complete().equals("ratio") || multi.complete().equals("votes"))) {
-            if (multi.fallback() == null) atNode("multi-no-fallback", node.id());
-            else if (!keys.contains(multi.fallback())) atNode("multi-no-fallback", node.id(), "fallback", multi.fallback());
+        MultiInstance multi = node.getMulti();
+        if (multi != null && (multi.getComplete().equals("ratio") || multi.getComplete().equals("votes"))) {
+            if (multi.getFallback() == null) atNode("multi-no-fallback", node.getId());
+            else if (!keys.contains(multi.getFallback())) atNode("multi-no-fallback", node.getId(), "fallback", multi.getFallback());
         }
-        if (multi != null && !MultiInstance.BUILTIN.contains(multi.complete())
-            && Boolean.FALSE.equals(context.isRegistered(ExtensionKind.COMPLETION, multi.complete()))) {
-            atNode("extension-unknown", node.id(), "kind", "completion", "name", multi.complete());
+        if (multi != null && !MultiInstance.BUILTIN.contains(multi.getComplete())
+            && Boolean.FALSE.equals(context.isRegistered(ExtensionKind.COMPLETION, multi.getComplete()))) {
+            atNode("extension-unknown", node.getId(), "kind", "completion", "name", multi.getComplete());
         }
     }
 
     /** 引擎自己选的结果不能是要处理人选退回节点的 */
     private void checkNotChoosing(ProcessNode.Task node, String key) {
-        boolean choosing = node.outcomes().stream().anyMatch(o -> o.key().equals(key) && o.choosesTarget());
-        if (choosing) atNode("outcome-choose-automatic", node.id(), "outcome", key);
+        boolean choosing = node.getOutcomes().stream().anyMatch(o -> o.getKey().equals(key) && o.choosesTarget());
+        if (choosing) atNode("outcome-choose-automatic", node.getId(), "outcome", key);
     }
 
     /** 每个结果都要有出边：写明这个结果的，或没写结果的 */
     private void checkUnrouted(String nodeId, List<String> outcomes, List<ProcessEdge> out) {
-        boolean catchAll = out.stream().anyMatch(e -> e.outcome() == null);
+        boolean catchAll = out.stream().anyMatch(e -> e.getOutcome() == null);
         for (String key : new LinkedHashSet<>(outcomes)) {
-            if (!catchAll && out.stream().noneMatch(e -> key.equals(e.outcome()))) atNode("outcome-unrouted", nodeId, "outcome", key);
+            if (!catchAll && out.stream().noneMatch(e -> key.equals(e.getOutcome()))) atNode("outcome-unrouted", nodeId, "outcome", key);
         }
     }
 
@@ -240,7 +241,7 @@ public final class ProcessValidator {
         List<AssigneeSource> out = new ArrayList<>();
         for (AssigneeSource source : sources) {
             out.add(source);
-            if (source instanceof AssigneeSource.Pick pick) out.addAll(flatten(pick.from()));
+            if (source instanceof AssigneeSource.Pick pick) out.addAll(flatten(pick.getFrom()));
         }
         return out;
     }
@@ -250,13 +251,13 @@ public final class ProcessValidator {
     private void checkReachability() {
         ProcessNode.Start start = graph.start();
         if (start == null) return;
-        Set<String> reached = walk(List.of(start.id()), id -> graph.outgoing(id).stream().map(ProcessEdge::to).toList());
-        for (ProcessNode node : definition.nodes()) if (!reached.contains(node.id())) atNode("node-unreachable", node.id());
-        List<String> ends = definition.nodes().stream().filter(n -> n.type().equals("end")).map(ProcessNode::id).toList();
+        Set<String> reached = walk(List.of(start.getId()), id -> graph.outgoing(id).stream().map(ProcessEdge::getTo).toList());
+        for (ProcessNode node : definition.getNodes()) if (!reached.contains(node.getId())) atNode("node-unreachable", node.getId());
+        List<String> ends = definition.getNodes().stream().filter(n -> n.getType().equals("end")).map(ProcessNode::getId).toList();
         if (ends.isEmpty()) return;
-        Set<String> reachesEnd = walk(ends, id -> graph.incoming(id).stream().map(ProcessEdge::from).toList());
-        for (ProcessNode node : definition.nodes()) {
-            if (reached.contains(node.id()) && !reachesEnd.contains(node.id())) atNode("node-dead-end", node.id());
+        Set<String> reachesEnd = walk(ends, id -> graph.incoming(id).stream().map(ProcessEdge::getFrom).toList());
+        for (ProcessNode node : definition.getNodes()) {
+            if (reached.contains(node.getId()) && !reachesEnd.contains(node.getId())) atNode("node-dead-end", node.getId());
         }
     }
 
@@ -274,8 +275,8 @@ public final class ProcessValidator {
 
     /** 去掉退回、提级连线后的前进图 */
     private List<ProcessEdge> forwardEdges() {
-        return definition.edges().stream()
-            .filter(e -> !e.isBackward() && graph.node(e.from()) != null && graph.node(e.to()) != null).toList();
+        return definition.getEdges().stream()
+            .filter(e -> !e.isBackward() && graph.node(e.getFrom()) != null && graph.node(e.getTo()) != null).toList();
     }
 
     /** 并行、包容的分叉与汇合要配对（算法在 GatewayPairs，引擎推进时用同一份） */
@@ -287,23 +288,23 @@ public final class ProcessValidator {
 
     private void checkReturnsAndEscalations() {
         List<ProcessEdge> edges = forwardEdges();
-        Function<String, List<String>> next = id -> edges.stream().filter(e -> e.from().equals(id)).map(ProcessEdge::to).toList();
-        for (ProcessEdge edge : definition.edges()) {
-            if (graph.node(edge.from()) == null || graph.node(edge.to()) == null) continue;
-            if ("return".equals(edge.kind()) && !walk(List.of(edge.to()), next).contains(edge.from())) atEdge("return-not-upstream", edge.id());
-            if ("escalate".equals(edge.kind())) {
-                if (!(graph.node(edge.to()) instanceof ProcessNode.Task target) || !hasInbox(target)) atEdge("escalate-no-inbox", edge.id());
+        Function<String, List<String>> next = id -> edges.stream().filter(e -> e.getFrom().equals(id)).map(ProcessEdge::getTo).toList();
+        for (ProcessEdge edge : definition.getEdges()) {
+            if (graph.node(edge.getFrom()) == null || graph.node(edge.getTo()) == null) continue;
+            if ("return".equals(edge.getKind()) && !walk(List.of(edge.getTo()), next).contains(edge.getFrom())) atEdge("return-not-upstream", edge.getId());
+            if ("escalate".equals(edge.getKind())) {
+                if (!(graph.node(edge.getTo()) instanceof ProcessNode.Task target) || !hasInbox(target)) atEdge("escalate-no-inbox", edge.getId());
             }
         }
     }
 
     /** 人工节点有没有收件箱：处理人里有角色、部门或扩展的种类，或者没写处理人而泳道有收件箱 */
     private boolean hasInbox(ProcessNode.Task node) {
-        if (node.assignees().isEmpty()) {
-            Lane lane = graph.lane(node.lane());
-            return lane != null && lane.inbox() != null;
+        if (node.getAssignees().isEmpty()) {
+            Lane lane = graph.lane(node.getLane());
+            return lane != null && lane.getInbox() != null;
         }
-        return node.assignees().stream().anyMatch(AssigneeSource::isInbox);
+        return node.getAssignees().stream().anyMatch(AssigneeSource::isInbox);
     }
 
     // ---------- 引用（0005 的 1.1） ----------
@@ -312,36 +313,43 @@ public final class ProcessValidator {
     private enum Expect { ANY, PEOPLE, DATE, LIST }
 
     /** 一处引用 */
-    private record Reference(String name, String node, String edge, boolean inCondition, Expect expect) { }
+    @Data
+    private static class Reference {
+        private final String name;
+        private final String node;
+        private final String edge;
+        private final boolean inCondition;
+        private final Expect expect;
+    }
 
     private void checkReferences() {
         Map<String, ProcessDefinition.Variable> variables = new HashMap<>();
-        for (ProcessDefinition.Variable v : definition.variables()) variables.putIfAbsent(v.name(), v);
+        for (ProcessDefinition.Variable v : definition.getVariables()) variables.putIfAbsent(v.getName(), v);
         for (Reference ref : collectReferences()) {
             String[] problem = resolve(ref, variables);
             if (problem != null) {
                 String[] params = java.util.Arrays.copyOfRange(problem, 1, problem.length);
-                report(problem[0], ref.node(), ref.edge(), null, params);
+                report(problem[0], ref.getNode(), ref.getEdge(), null, params);
             }
         }
-        for (ProcessEdge edge : definition.edges()) {
-            for (ProcessEdge.Effect effect : edge.effects()) {
-                if (!variables.containsKey(effect.target())) atEdge("ref-unknown", edge.id(), "ref", effect.target());
+        for (ProcessEdge edge : definition.getEdges()) {
+            for (ProcessEdge.Effect effect : edge.getEffects()) {
+                if (!variables.containsKey(effect.getTarget())) atEdge("ref-unknown", edge.getId(), "ref", effect.getTarget());
             }
         }
     }
 
     /** 引用有问题时返回 {代号, 参数名, 参数值, ...}，没问题时为 null */
     private String[] resolve(Reference ref, Map<String, ProcessDefinition.Variable> variables) {
-        String name = ref.name();
+        String name = ref.getName();
         String[] unknown = {"ref-unknown", "ref", name};
         if (name.startsWith("form.")) {
-            if (definition.form() == null) return unknown;
+            if (definition.getForm() == null) return unknown;
             FormManifest form = context.form();
             if (form == null) return null;
             FormManifest.Field field = form.field(name.substring(5));
             if (field == null) return unknown;
-            return mismatch(ref.expect(), field.type(), field.multiple()) ? new String[] {"ref-type-mismatch", "ref", name, "type", field.type()} : null;
+            return mismatch(ref.getExpect(), field.getType(), field.isMultiple()) ? new String[] {"ref-type-mismatch", "ref", name, "type", field.getType()} : null;
         }
         if (name.startsWith("sys.")) {
             String rest = name.substring(4);
@@ -350,13 +358,13 @@ public final class ProcessValidator {
             return unknown;
         }
         if (name.startsWith("fn.")) {
-            if (!ref.inCondition()) return unknown;
+            if (!ref.isInCondition()) return unknown;
             return Boolean.FALSE.equals(context.isRegistered(ExtensionKind.COMPUTED, name.substring(3)))
                 ? new String[] {"extension-unknown", "kind", "computed", "name", name.substring(3)} : null;
         }
         ProcessDefinition.Variable variable = variables.get(name);
         if (variable == null) return unknown;
-        return mismatch(ref.expect(), variable.type(), false) ? new String[] {"ref-type-mismatch", "ref", name, "type", variable.type()} : null;
+        return mismatch(ref.getExpect(), variable.getType(), false) ? new String[] {"ref-type-mismatch", "ref", name, "type", variable.getType()} : null;
     }
 
     /** 引用的类型用不上 */
@@ -372,65 +380,65 @@ public final class ProcessValidator {
     /** 定义里所有的引用，连同它们在哪；先后同 TS 一侧 */
     private List<Reference> collectReferences() {
         List<Reference> refs = new ArrayList<>();
-        for (String name : definition.summary()) refs.add(new Reference(name, null, null, false, Expect.ANY));
-        if (definition.title() != null) {
-            Matcher m = PLACEHOLDER.matcher(definition.title());
+        for (String name : definition.getSummary()) refs.add(new Reference(name, null, null, false, Expect.ANY));
+        if (definition.getTitle() != null) {
+            Matcher m = PLACEHOLDER.matcher(definition.getTitle());
             while (m.find()) refs.add(new Reference(m.group(1).trim(), null, null, false, Expect.ANY));
         }
-        addSources(refs, definition.starters(), null);
-        for (Lane lane : definition.lanes()) if (lane.inbox() != null) addSources(refs, lane.inbox().manager(), null);
-        for (ProcessNode node : definition.nodes()) {
-            String at = node.id();
+        addSources(refs, definition.getStarters(), null);
+        for (Lane lane : definition.getLanes()) if (lane.getInbox() != null) addSources(refs, lane.getInbox().getManager(), null);
+        for (ProcessNode node : definition.getNodes()) {
+            String at = node.getId();
             if (node instanceof ProcessNode.Task task) {
-                addSources(refs, task.assignees(), at);
-                if (task.multi() != null) {
-                    if (task.multi().participants() instanceof Ref r) add(refs, r, at, null, Expect.LIST);
-                    else addSources(refs, task.multi().participantSources(), at);
+                addSources(refs, task.getAssignees(), at);
+                if (task.getMulti() != null) {
+                    if (task.getMulti().getParticipants() instanceof Ref r) add(refs, r, at, null, Expect.LIST);
+                    else addSources(refs, task.getMulti().participantSources(), at);
                 }
-                addDue(refs, task.due(), at);
+                addDue(refs, task.getDue(), at);
             } else if (node instanceof ProcessNode.Timer timer) {
-                addDue(refs, timer.waitFor(), at);
+                addDue(refs, timer.getWaitFor(), at);
             } else if (node instanceof ProcessNode.Receive receive) {
-                addDue(refs, receive.due(), at);
+                addDue(refs, receive.getDue(), at);
             } else if (node instanceof ProcessNode.Cc cc) {
-                addSources(refs, cc.to(), at);
+                addSources(refs, cc.getTo(), at);
             } else if (node instanceof ProcessNode.Call call) {
-                add(refs, call.forEach(), at, null, Expect.LIST);
-                for (Object value : call.input().values()) {
+                add(refs, call.getForEach(), at, null, Expect.LIST);
+                for (Object value : call.getInput().values()) {
                     // forEach 循环里那一项（及它的字段 as.名字）只在 input 里有效
-                    if (value instanceof Ref r && call.as() != null && (r.ref().equals(call.as()) || r.ref().startsWith(call.as() + "."))) continue;
+                    if (value instanceof Ref r && call.getAs() != null && (r.getRef().equals(call.getAs()) || r.getRef().startsWith(call.getAs() + "."))) continue;
                     add(refs, value, at, null, Expect.ANY);
                 }
             } else if (node instanceof ProcessNode.Service service) {
-                for (Object value : service.args().values()) add(refs, value, at, null, Expect.ANY);
+                for (Object value : service.getArgs().values()) add(refs, value, at, null, Expect.ANY);
             }
         }
-        for (ProcessEdge edge : definition.edges()) {
-            if (edge.when() != null) {
-                for (String field : Conditions.fields(edge.when())) refs.add(new Reference(field, null, edge.id(), true, Expect.ANY));
+        for (ProcessEdge edge : definition.getEdges()) {
+            if (edge.getWhen() != null) {
+                for (String field : Conditions.fields(edge.getWhen())) refs.add(new Reference(field, null, edge.getId(), true, Expect.ANY));
             }
-            for (ProcessEdge.Effect effect : edge.effects()) {
-                if (effect instanceof ProcessEdge.Effect.Set set) add(refs, set.value(), null, edge.id(), Expect.ANY);
+            for (ProcessEdge.Effect effect : edge.getEffects()) {
+                if (effect instanceof ProcessEdge.Effect.Set set) add(refs, set.getValue(), null, edge.getId(), Expect.ANY);
             }
         }
         return refs;
     }
 
     private static void add(List<Reference> refs, Object value, String node, String edge, Expect expect) {
-        if (value instanceof Ref r) refs.add(new Reference(r.ref(), node, edge, false, expect));
+        if (value instanceof Ref r) refs.add(new Reference(r.getRef(), node, edge, false, expect));
     }
 
     private static void addSources(List<Reference> refs, List<AssigneeSource> sources, String node) {
         for (AssigneeSource source : flatten(sources)) {
-            if (source instanceof AssigneeSource.User u) add(refs, u.user(), node, null, Expect.PEOPLE);
-            if (source instanceof AssigneeSource.Role r) add(refs, r.role(), node, null, Expect.ANY);
-            if (source instanceof AssigneeSource.Department d) add(refs, d.department(), node, null, Expect.ANY);
-            if (source instanceof AssigneeSource.Group g) add(refs, g.id(), node, null, Expect.ANY);
+            if (source instanceof AssigneeSource.User u) add(refs, u.getUser(), node, null, Expect.PEOPLE);
+            if (source instanceof AssigneeSource.Role r) add(refs, r.getRole(), node, null, Expect.ANY);
+            if (source instanceof AssigneeSource.Department d) add(refs, d.getDepartment(), node, null, Expect.ANY);
+            if (source instanceof AssigneeSource.Group g) add(refs, g.getId(), node, null, Expect.ANY);
         }
     }
 
     private static void addDue(List<Reference> refs, Due due, String node) {
-        if (due instanceof Due.Until until) add(refs, until.value(), node, null, Expect.DATE);
+        if (due instanceof Due.Until until) add(refs, until.getValue(), node, null, Expect.DATE);
     }
 
     // ---------- 组织的编号 ----------
@@ -440,28 +448,28 @@ public final class ProcessValidator {
      * 引用（{@code { ref }}）到运行时才有值，不在这里查。走的来源同 {@link #collectReferences}，另加泳道的收件箱本身。
      */
     private void checkOrgIds() {
-        checkOrgIds(definition.starters(), null);
-        for (Lane lane : definition.lanes()) {
-            if (lane.inbox() == null) continue;
-            checkOrgIds(List.of(lane.inbox().source()), null);
-            checkOrgIds(lane.inbox().manager(), null);
+        checkOrgIds(definition.getStarters(), null);
+        for (Lane lane : definition.getLanes()) {
+            if (lane.getInbox() == null) continue;
+            checkOrgIds(List.of(lane.getInbox().getSource()), null);
+            checkOrgIds(lane.getInbox().getManager(), null);
         }
-        for (ProcessNode node : definition.nodes()) {
+        for (ProcessNode node : definition.getNodes()) {
             if (node instanceof ProcessNode.Task task) {
-                checkOrgIds(task.assignees(), node.id());
-                if (task.multi() != null && !(task.multi().participants() instanceof Ref)) checkOrgIds(task.multi().participantSources(), node.id());
+                checkOrgIds(task.getAssignees(), node.getId());
+                if (task.getMulti() != null && !(task.getMulti().getParticipants() instanceof Ref)) checkOrgIds(task.getMulti().participantSources(), node.getId());
             } else if (node instanceof ProcessNode.Cc cc) {
-                checkOrgIds(cc.to(), node.id());
+                checkOrgIds(cc.getTo(), node.getId());
             }
         }
     }
 
     private void checkOrgIds(List<AssigneeSource> sources, String node) {
         for (AssigneeSource source : flatten(sources)) {
-            Object id = source instanceof AssigneeSource.User u ? u.user()
-                : source instanceof AssigneeSource.Role r ? r.role()
-                : source instanceof AssigneeSource.Department d ? d.department()
-                : source instanceof AssigneeSource.Group g ? g.id()
+            Object id = source instanceof AssigneeSource.User u ? u.getUser()
+                : source instanceof AssigneeSource.Role r ? r.getRole()
+                : source instanceof AssigneeSource.Department d ? d.getDepartment()
+                : source instanceof AssigneeSource.Group g ? g.getId()
                 : null;
             if (id != null && !(id instanceof Ref) && !OrgId.isValid(id)) atNode("org-id-invalid", node, "value", String.valueOf(id));
         }
@@ -472,61 +480,61 @@ public final class ProcessValidator {
     private void checkForm() {
         FormManifest manifest = context.form();
         if (manifest == null) return;
-        for (ProcessNode node : definition.nodes()) {
-            var access = node instanceof ProcessNode.Task t ? t.form() : node instanceof ProcessNode.Start s ? s.form() : null;
+        for (ProcessNode node : definition.getNodes()) {
+            var access = node instanceof ProcessNode.Task t ? t.getForm() : node instanceof ProcessNode.Start s ? s.getForm() : null;
             if (access == null) continue;
-            for (String path : access.fields().keySet()) {
-                if (manifest.field(path) == null) atNode("form-field-unknown", node.id(), "field", path);
+            for (String path : access.getFields().keySet()) {
+                if (manifest.field(path) == null) atNode("form-field-unknown", node.getId(), "field", path);
             }
         }
-        ProcessNode.Start start = definition.nodes().stream()
-            .filter(n -> n.type().equals("start")).findFirst()
+        ProcessNode.Start start = definition.getNodes().stream()
+            .filter(n -> n.getType().equals("start")).findFirst()
             .filter(n -> n instanceof ProcessNode.Start).map(n -> (ProcessNode.Start) n).orElse(null);
         if (start == null) return;
         for (Map.Entry<String, FormManifest.Field> entry : manifest.fields().entrySet()) {
             FieldAccess access = startAccess(start, entry.getKey());
-            if (entry.getValue().required() && (access == FieldAccess.HIDDEN || access == FieldAccess.READONLY)) {
-                atNode("form-required-unfillable", start.id(), "field", entry.getKey());
+            if (entry.getValue().isRequired() && (access == FieldAccess.HIDDEN || access == FieldAccess.READONLY)) {
+                atNode("form-required-unfillable", start.getId(), "field", entry.getKey());
             }
         }
     }
 
     private static FieldAccess startAccess(ProcessNode.Start start, String field) {
-        if (start.form() == null) return FieldAccess.EDITABLE;
-        FieldAccess own = start.form().fields().get(field);
+        if (start.getForm() == null) return FieldAccess.EDITABLE;
+        FieldAccess own = start.getForm().getFields().get(field);
         if (own != null) return own;
-        return start.form().defaultAccess() == null ? FieldAccess.EDITABLE : start.form().defaultAccess();
+        return start.getForm().getDefaultAccess() == null ? FieldAccess.EDITABLE : start.getForm().getDefaultAccess();
     }
 
     // ---------- 只在发布时查的（要后端的注册情况） ----------
 
     private void checkPublishOnly() {
-        for (ProcessNode node : definition.nodes()) {
-            if (node.type().startsWith("x-")) need(ExtensionKind.NODE, node.type(), node.id());
-            if (node instanceof ProcessNode.Service service) need(ExtensionKind.ACTION, service.action(), node.id());
+        for (ProcessNode node : definition.getNodes()) {
+            if (node.getType().startsWith("x-")) need(ExtensionKind.NODE, node.getType(), node.getId());
+            if (node instanceof ProcessNode.Service service) need(ExtensionKind.ACTION, service.getAction(), node.getId());
             if (node instanceof ProcessNode.Task task) {
-                for (Outcome outcome : task.outcomes()) for (String guard : outcome.guards()) need(ExtensionKind.GUARD, guard, node.id());
-                for (AssigneeSource source : flatten(task.assignees())) {
-                    if (source instanceof AssigneeSource.Resolver resolver) need(ExtensionKind.RESOLVER, resolver.name(), node.id());
+                for (Outcome outcome : task.getOutcomes()) for (String guard : outcome.getGuards()) need(ExtensionKind.GUARD, guard, node.getId());
+                for (AssigneeSource source : flatten(task.getAssignees())) {
+                    if (source instanceof AssigneeSource.Resolver resolver) need(ExtensionKind.RESOLVER, resolver.getName(), node.getId());
                 }
             }
         }
-        for (ProcessNode node : definition.nodes()) {
-            if (node instanceof ProcessNode.Call call && Boolean.FALSE.equals(context.processExists(call.process()))) {
-                atNode("call-unknown-process", node.id(), "process", call.process());
+        for (ProcessNode node : definition.getNodes()) {
+            if (node instanceof ProcessNode.Call call && Boolean.FALSE.equals(context.processExists(call.getProcess()))) {
+                atNode("call-unknown-process", node.getId(), "process", call.getProcess());
             }
         }
-        List<String> calls = definition.nodes().stream()
-            .filter(n -> n instanceof ProcessNode.Call).map(n -> ((ProcessNode.Call) n).process()).toList();
+        List<String> calls = definition.getNodes().stream()
+            .filter(n -> n instanceof ProcessNode.Call).map(n -> ((ProcessNode.Call) n).getProcess()).toList();
         if (!calls.isEmpty() && context.callsOf(calls.get(0)) != null) {
             Set<String> reaches = walk(calls, key -> {
-                if (key.equals(definition.key())) return List.of();
+                if (key.equals(definition.getKey())) return List.of();
                 List<String> next = context.callsOf(key);
                 return next == null ? List.of() : next;
             });
-            if (reaches.contains(definition.key())) atDefinition("call-cycle", "process", definition.key());
+            if (reaches.contains(definition.getKey())) atDefinition("call-cycle", "process", definition.getKey());
         }
-        String calendar = definition.settings().calendar();
+        String calendar = definition.getSettings().getCalendar();
         if (calendar != null && Boolean.FALSE.equals(context.calendarExists(calendar))) atDefinition("due-unknown-calendar", "calendar", calendar);
     }
 

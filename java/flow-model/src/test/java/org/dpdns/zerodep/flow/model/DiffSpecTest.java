@@ -30,16 +30,16 @@ class DiffSpecTest {
     /** 差别写成与样例同形的 JSON 树 */
     private static Map<String, Object> json(ProcessDiff diff) {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("process", diff.process());
-        out.put("lanes", items(diff.lanes()));
-        out.put("nodes", items(diff.nodes()));
-        out.put("edges", items(diff.edges()));
-        if (diff.layout() != null) out.put("layout", Map.of("nodes", diff.layout().nodes(), "edges", diff.layout().edges()));
+        out.put("process", diff.getProcess());
+        out.put("lanes", items(diff.getLanes()));
+        out.put("nodes", items(diff.getNodes()));
+        out.put("edges", items(diff.getEdges()));
+        if (diff.getLayout() != null) out.put("layout", Map.of("nodes", diff.getLayout().getNodes(), "edges", diff.getLayout().getEdges()));
         return out;
     }
 
     private static Map<String, Object> items(ProcessDiff.ItemDiff items) {
-        return Map.of("added", items.added(), "removed", items.removed(),
-            "changed", items.changed().stream().map(c -> Map.of("id", c.id(), "keys", c.keys())).toList());
+        return Map.of("added", items.getAdded(), "removed", items.getRemoved(),
+            "changed", items.getChanged().stream().map(c -> Map.of("id", c.getId(), "keys", c.getKeys())).toList());
     }
 }

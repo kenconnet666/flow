@@ -30,30 +30,30 @@ import java.util.function.BiConsumer;
  * 管理员命令（0006 的 3.4）：终止、暂停与恢复、跳转、改派、失败的作业重试或跳过。谁能做由 {@code PermissionPolicy} 定（默认放行，接入方收紧）；
  * 引擎只管实例的状态对不对：已结束的实例什么也不能做，暂停的实例只能恢复或终止。都先锁住实例，做完写回、写流转记录。
  */
-public final class AdminHandler {
+public class AdminHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
     public AdminHandler(EngineContext context) {
         this.context = context;
-        this.definitions = context.definitions();
+        this.definitions = context.getDefinitions();
     }
 
     /** 终止：打开着的待办都取消，实例结束，结果是 {@code terminated}（进行中、暂停的都能终止） */
     public CommandResult terminate(Actor actor, TerminateCommand command) {
-        return onInstance(actor, command.instanceId(), false, (run, instance) ->
-            run.finish(InstanceEntity.TERMINATED, InstanceEntity.TERMINATED, EventEntity.INSTANCE_TERMINATED, command.reason()));
+        return onInstance(actor, command.getInstanceId(), false, (run, instance) ->
+            run.finish(InstanceEntity.TERMINATED, InstanceEntity.TERMINATED, EventEntity.INSTANCE_TERMINATED, command.getReason()));
     }
 
     /** 暂停：实例停在原地，待办都不能处理（认领、处理、协作都报 {@code flow.instance-not-active}） */
     public CommandResult suspend(Actor actor, SuspendCommand command) {
-        return onInstance(actor, command.instanceId(), true, (run, instance) ->
-            run.changeStatus(InstanceEntity.SUSPENDED, EventEntity.INSTANCE_SUSPENDED, command.reason()));
+        return onInstance(actor, command.getInstanceId(), true, (run, instance) ->
+            run.changeStatus(InstanceEntity.SUSPENDED, EventEntity.INSTANCE_SUSPENDED, command.getReason()));
     }
 
     /** 恢复：暂停的实例接着走 */
     public CommandResult resume(Actor actor, ResumeCommand command) {
-        return onInstance(actor, command.instanceId(), false, (run, instance) -> {
+        return onInstance(actor, command.getInstanceId(), false, (run, instance) -> {
             if (!InstanceEntity.SUSPENDED.equals(instance.getStatus())) throw FlowErrors.forbidden("instance", instance.getId(), "not-suspended");
             run.changeStatus(InstanceEntity.ACTIVE, EventEntity.INSTANCE_RESUMED, null);
         });
@@ -61,33 +61,33 @@ public final class AdminHandler {
 
     /** 跳转：原来还没办完的待办都取消，从指定的节点重新走（开始节点不行） */
     public CommandResult jump(Actor actor, JumpCommand command) {
-        return onInstance(actor, command.instanceId(), true, (run, instance) -> {
-            ProcessNode node = run.graph().node(command.node());
+        return onInstance(actor, command.getInstanceId(), true, (run, instance) -> {
+            ProcessNode node = run.graph().node(command.getNode());
             if (node == null || node instanceof ProcessNode.Start) throw FlowErrors.invalid("node", "unknown-node");
-            run.jumpTo(node.id(), command.reason());
+            run.jumpTo(node.getId(), command.getReason());
         });
     }
 
     /** 改派：待办直接落到这个人，候选删掉（收件箱里的、认领了的、直接落到人的都能改） */
     public CommandResult reassign(Actor actor, ReassignCommand command) {
-        if (command.userId() == null) throw FlowErrors.invalid("userId", "required");
-        WorkItemVO found = WorkItems.find(context.db(), command.workItemId());
+        if (command.getUserId() == null) throw FlowErrors.invalid("userId", "required");
+        WorkItemVO found = WorkItems.find(context.getDb(), command.getWorkItemId());
         return onInstance(actor, found.getInstanceId(), true, (run, instance) -> {
-            WorkItemVO item = WorkItems.find(context.db(), found.getId());
+            WorkItemVO item = WorkItems.find(context.getDb(), found.getId());
             if (!WorkItemEntity.OPEN.equals(item.getState())) throw FlowErrors.notOpen(item.getId());
-            String name = context.org().userName(command.userId());
-            if (!WorkItems.assignTo(context.db(), item.getId(), command.userId(), name, WorkItemEntity.DIRECT, null)) throw FlowErrors.notOpen(item.getId());
+            String name = context.getOrg().userName(command.getUserId());
+            if (!WorkItems.assignTo(context.getDb(), item.getId(), command.getUserId(), name, WorkItemEntity.DIRECT, null)) throw FlowErrors.notOpen(item.getId());
             Map<String, Object> data = new LinkedHashMap<>();
-            data.put("toUserId", command.userId());
+            data.put("toUserId", command.getUserId());
             data.put("toUserName", name);
-            run.addEvent(EventEntity.WORK_ITEM_REASSIGNED, run.graph().node(item.getNode()), null, null, item.getId(), command.reason(), data);
+            run.addEvent(EventEntity.WORK_ITEM_REASSIGNED, run.graph().node(item.getNode()), null, null, item.getId(), command.getReason(), data);
         });
     }
 
     /** 失败的作业重新来过：改回等着做、马上到期；不是失败的作业时报 {@code flow.not-found} */
     public boolean retryJob(Actor actor, RetryJobCommand command) {
-        Instant now = context.clock().instant();
-        long revived = context.db().updatable(JobEntity.class)
+        Instant now = context.getClock().instant();
+        long revived = context.getDb().updatable(JobEntity.class)
             .setColumns(j -> {
                 j.state().set(JobEntity.PENDING);
                 j.attempts().set(0);
@@ -95,9 +95,9 @@ public final class AdminHandler {
                 j.lockedBy().set((String) null);
                 j.lockedUntil().set((Instant) null);
             })
-            .where(j -> { j.id().eq(command.jobId()); j.state().eq(JobEntity.FAILED); })
+            .where(j -> { j.id().eq(command.getJobId()); j.state().eq(JobEntity.FAILED); })
             .executeRows();
-        if (revived == 0) throw FlowErrors.notFound("job", command.jobId());
+        if (revived == 0) throw FlowErrors.notFound("job", command.getJobId());
         return true;
     }
 
@@ -106,29 +106,29 @@ public final class AdminHandler {
      * 实例要进行中（暂停的先恢复）、还停在那个节点的那一轮上；结果要是节点出边上写的，不填时要有一条没写结果的出边。
      */
     public CommandResult skipJob(Actor actor, SkipJobCommand command) {
-        JobEntity job = context.db().queryable(JobEntity.class).where(j -> { j.id().eq(command.jobId()); j.state().eq(JobEntity.FAILED); })
-            .singleNotNull(() -> FlowErrors.notFound("job", command.jobId()));
+        JobEntity job = context.getDb().queryable(JobEntity.class).where(j -> { j.id().eq(command.getJobId()); j.state().eq(JobEntity.FAILED); })
+            .singleNotNull(() -> FlowErrors.notFound("job", command.getJobId()));
         if (!BuiltinJobs.ACTION.equals(job.getKind())) throw FlowErrors.invalid("jobId", "not-skippable");
-        String outcome = command.outcome() == null || command.outcome().isBlank() ? null : command.outcome();
+        String outcome = command.getOutcome() == null || command.getOutcome().isBlank() ? null : command.getOutcome();
         return onInstance(actor, job.getInstanceId(), true, (run, instance) -> {
             if (!BuiltinJobs.stillWaiting(job, instance.getState())) throw FlowErrors.forbidden("job", job.getId(), "not-waiting");
             ProcessNode.Service service = (ProcessNode.Service) run.graph().node(BuiltinJobs.nodeOf(job));
-            if (outcome == null ? !hasPlainEdge(run.graph(), service.id()) : !skipOutcomes(run.graph(), service.id()).contains(outcome)) {
+            if (outcome == null ? !hasPlainEdge(run.graph(), service.getId()) : !skipOutcomes(run.graph(), service.getId()).contains(outcome)) {
                 throw FlowErrors.invalid("outcome", outcome == null ? "required" : "unknown-outcome");
             }
-            context.db().deletable(JobEntity.class).allowDeleteStatement(true).whereById(job.getId()).executeRows();
-            run.skipAction(service, job.getId(), outcome, command.reason());
+            context.getDb().deletable(JobEntity.class).allowDeleteStatement(true).whereById(job.getId()).executeRows();
+            run.skipAction(service, job.getId(), outcome, command.getReason());
         });
     }
 
     /** 跳过时能选的结果：节点出边上写的，按出边的先后、去重 */
     static List<String> skipOutcomes(ProcessGraph graph, String node) {
-        return graph.outgoing(node).stream().map(ProcessEdge::outcome).filter(Objects::nonNull).distinct().toList();
+        return graph.outgoing(node).stream().map(ProcessEdge::getOutcome).filter(Objects::nonNull).distinct().toList();
     }
 
     /** 有没写结果的出边（跳过时可以不选结果） */
     private static boolean hasPlainEdge(ProcessGraph graph, String node) {
-        return graph.outgoing(node).stream().anyMatch(edge -> edge.outcome() == null);
+        return graph.outgoing(node).stream().anyMatch(edge -> edge.getOutcome() == null);
     }
 
     /**
@@ -136,12 +136,12 @@ public final class AdminHandler {
      */
     private CommandResult onInstance(Actor actor, Long instanceId, boolean mustBeActive, BiConsumer<Execution, InstanceEntity> action) {
         return context.transaction(() -> {
-            InstanceEntity instance = Instances.lock(context.db(), instanceId);
+            InstanceEntity instance = Instances.lock(context.getDb(), instanceId);
             boolean active = InstanceEntity.ACTIVE.equals(instance.getStatus());
             boolean suspended = InstanceEntity.SUSPENDED.equals(instance.getStatus());
             if (mustBeActive ? !active : !(active || suspended)) throw FlowErrors.notActive(instance);
-            FormValues form = Instances.form(context.db(), instanceId);
-            Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, form, instance.getRev());
+            FormValues form = Instances.form(context.getDb(), instanceId);
+            Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, form, instance.getRev());
             action.accept(run, instance);
             run.flush(null);
             return run.result();

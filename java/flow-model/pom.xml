@@ -16,6 +16,11 @@
         <automatic.module.name>org.dpdns.zerodep.flow.model</automatic.module.name>
     </properties>
     <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- 只用它的 Json.read 读定义：零依赖，不经 double 读数字 -->
         <dependency>
             <groupId>org.dpdns.zerodep</groupId>

@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.view.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.MultiInstance;
@@ -22,19 +23,26 @@ import java.util.List;
  * {@code veto}（一票否决）只对 ratio、votes 有意义：有人选了它，节点立即按它结束。
  * 只看这个节点这一轮的待办（同一节点再到一次是新的一轮）。
  */
-final class Countersign {
+class Countersign {
     private Countersign() { }
 
     /** 处理完一个人之后的决定 */
-    sealed interface Decision {
+    interface Decision {
         /** 还要等别人（并行的会签有人没处理完） */
-        record Wait() implements Decision { }
+        @Data
+        static class Wait implements Decision {
+        }
 
         /** 轮到下一个人（依次会签） */
-        record Next() implements Decision { }
+        @Data
+        static class Next implements Decision {
+        }
 
         /** 节点结束，按这个结果往下走 */
-        record Finish(String outcome) implements Decision { }
+        @Data
+        static class Finish implements Decision {
+            private final String outcome;
+        }
     }
 
     /**
@@ -48,23 +56,23 @@ final class Countersign {
     static Decision decide(MultiInstance multi, Outcome chosen, List<WorkItemVO> items, int waiting) {
         boolean approve = "approve".equals(chosen.kindOrDefault());
         boolean someoneOpen = items.stream().anyMatch(i -> WorkItemEntity.OPEN.equals(i.getState()) || WorkItemEntity.WAITING.equals(i.getState())) || waiting > 0;
-        return switch (multi.complete()) {
-            case "any" -> new Decision.Finish(chosen.key());
-            case "all" -> !approve || !someoneOpen ? new Decision.Finish(chosen.key()) : new Decision.Wait();
-            case "sequential" -> !approve ? new Decision.Finish(chosen.key()) : waiting > 0 ? new Decision.Next() : new Decision.Finish(chosen.key());
+        return switch (multi.getComplete()) {
+            case "any" -> new Decision.Finish(chosen.getKey());
+            case "all" -> !approve || !someoneOpen ? new Decision.Finish(chosen.getKey()) : new Decision.Wait();
+            case "sequential" -> !approve ? new Decision.Finish(chosen.getKey()) : waiting > 0 ? new Decision.Next() : new Decision.Finish(chosen.getKey());
             case "ratio", "votes" -> threshold(multi, chosen, items, someoneOpen);
-            default -> throw new UnsupportedOperationException("countersign rule '" + multi.complete() + "' is not supported");
+            default -> throw new UnsupportedOperationException("countersign rule '" + multi.getComplete() + "' is not supported");
         };
     }
 
     /** 票签：一票否决立即结束；这个结果达到门槛就按它结束；都处理完还没有达到的就按 fallback */
     private static Decision threshold(MultiInstance multi, Outcome chosen, List<WorkItemVO> items, boolean someoneOpen) {
-        if (chosen.veto()) return new Decision.Finish(chosen.key());
-        List<WorkItemVO> same = items.stream().filter(i -> chosen.key().equals(i.getOutcome())).toList();
-        boolean reached = "ratio".equals(multi.complete())
-            ? BigDecimal.valueOf(same.size()).divide(BigDecimal.valueOf(items.size()), 6, RoundingMode.HALF_UP).compareTo(multi.ratio()) >= 0
-            : same.stream().mapToInt(i -> i.getWeight() == null ? 1 : i.getWeight()).sum() >= multi.votes();
-        if (reached) return new Decision.Finish(chosen.key());
-        return someoneOpen ? new Decision.Wait() : new Decision.Finish(multi.fallback());
+        if (chosen.isVeto()) return new Decision.Finish(chosen.getKey());
+        List<WorkItemVO> same = items.stream().filter(i -> chosen.getKey().equals(i.getOutcome())).toList();
+        boolean reached = "ratio".equals(multi.getComplete())
+            ? BigDecimal.valueOf(same.size()).divide(BigDecimal.valueOf(items.size()), 6, RoundingMode.HALF_UP).compareTo(multi.getRatio()) >= 0
+            : same.stream().mapToInt(i -> i.getWeight() == null ? 1 : i.getWeight()).sum() >= multi.getVotes();
+        if (reached) return new Decision.Finish(chosen.getKey());
+        return someoneOpen ? new Decision.Wait() : new Decision.Finish(multi.getFallback());
     }
 }

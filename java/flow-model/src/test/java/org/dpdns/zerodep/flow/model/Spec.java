@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /** 读仓库根目录 spec/ 下两个后端共用的样例（测试的工作目录是模块目录 java/flow-model） */
-final class Spec {
+class Spec {
     private static final Path ROOT = Path.of("..", "..", "spec");
 
     private Spec() { }

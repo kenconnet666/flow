@@ -37,7 +37,7 @@ class RoutingAccessSpecTest {
                 Map<?, ?> file = Spec.read((String) sample.get("definitionFile"));
                 ProcessGraph graph = ProcessGraph.of(Definitions.parse(file.get("definition")));
                 List<ProcessEdge> edges = Routing.selectEdges(graph, (String) sample.get("node"), (String) sample.get("outcome"), values::get);
-                assertEquals(sample.get("expect"), edges.stream().map(ProcessEdge::id).toList());
+                assertEquals(sample.get("expect"), edges.stream().map(ProcessEdge::getId).toList());
             }));
         }
         for (Object item : (List<?>) spec.get("effects")) {
@@ -64,9 +64,9 @@ class RoutingAccessSpecTest {
             tests.add(DynamicTest.dynamicTest((String) sample.get("name"), () -> {
                 Map<String, FormAccess.FieldState> states = states(manifest, sample);
                 Map<String, Object> actual = new LinkedHashMap<>();
-                states.forEach((path, s) -> actual.put(path, s.visible()
-                    ? List.of(s.visible(), s.editable(), s.required())
-                    : List.of(s.visible(), s.editable(), s.required(), s.hiddenBy().name().toLowerCase())));
+                states.forEach((path, s) -> actual.put(path, s.isVisible()
+                    ? List.of(s.isVisible(), s.isEditable(), s.isRequired())
+                    : List.of(s.isVisible(), s.isEditable(), s.isRequired(), s.getHiddenBy().name().toLowerCase())));
                 assertEquals(sample.get("states"), actual);
             }));
         }
@@ -76,8 +76,8 @@ class RoutingAccessSpecTest {
                 @SuppressWarnings("unchecked")
                 FormAccess.Submission result = FormAccess.mergeSubmission(manifest, states(manifest, sample),
                     (Map<String, Object>) sample.get("stored"), (Map<String, Object>) sample.get("submitted"));
-                assertEquals(sample.get("expectValues"), result.values());
-                List<Map<String, String>> errors = result.errors().stream().map(e -> Map.of("field", e.field(), "code", e.code())).toList();
+                assertEquals(sample.get("expectValues"), result.getValues());
+                List<Map<String, String>> errors = result.getErrors().stream().map(e -> Map.of("field", e.getField(), "code", e.getCode())).toList();
                 assertEquals(sample.get("expectErrors"), errors);
             }));
         }

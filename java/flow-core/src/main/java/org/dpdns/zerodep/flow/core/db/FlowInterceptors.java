@@ -8,6 +8,7 @@ import com.easy.query.core.expression.parser.core.base.WherePredicate;
 import com.easy.query.core.expression.sql.builder.EntityInsertExpressionBuilder;
 import com.easy.query.core.expression.sql.builder.EntityUpdateExpressionBuilder;
 import com.easy.query.core.expression.sql.builder.LambdaEntityExpressionBuilder;
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.entity.Tenanted;
 import org.dpdns.zerodep.flow.core.entity.Touched;
 
@@ -22,7 +23,7 @@ import java.util.function.Supplier;
  *   <li>{@link Touch}：带修改时间的表（{@link Touched}）在插入、更新时填当前时刻。</li>
  * </ul>
  */
-public final class FlowInterceptors {
+public class FlowInterceptors {
     /** 租户拦截器的名字 */
     public static final String TENANT = "flow-tenant";
     /** 修改时间拦截器的名字 */
@@ -31,7 +32,10 @@ public final class FlowInterceptors {
     private FlowInterceptors() { }
 
     /** 租户：tenant 给出当前租户，不用多租户时是 {@code () -> 0L} */
-    record Tenant(Supplier<Long> tenant) implements PredicateFilterInterceptor, EntityInterceptor {
+    @Data
+    static class Tenant implements PredicateFilterInterceptor, EntityInterceptor {
+        private final Supplier<Long> tenant;
+
         @Override public String name() { return TENANT; }
 
         @Override public boolean apply(Class<?> entityClass) { return Tenanted.class.isAssignableFrom(entityClass); }
@@ -51,7 +55,10 @@ public final class FlowInterceptors {
     }
 
     /** 修改时间 */
-    record Touch(Clock clock) implements EntityInterceptor, UpdateSetInterceptor {
+    @Data
+    static class Touch implements EntityInterceptor, UpdateSetInterceptor {
+        private final Clock clock;
+
         @Override public String name() { return TOUCH; }
 
         @Override public boolean apply(Class<?> entityClass) { return Touched.class.isAssignableFrom(entityClass); }

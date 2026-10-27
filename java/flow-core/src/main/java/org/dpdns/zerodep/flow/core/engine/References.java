@@ -13,7 +13,7 @@ import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
  * </pre>
  * 推进时由 {@link Execution} 用（表单与实例随推进在变），查询时直接用（算字段在某个待办上的权限）。
  */
-final class References {
+class References {
     private References() { }
 
     /** 在这个实例、这份表单的值上取 name 的值；没有时为 null */

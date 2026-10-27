@@ -1,31 +1,41 @@
 package org.dpdns.zerodep.flow.core.data;
 
+import lombok.Data;
+
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 实例的运行状态（0007 的 {@code flow_instance.state}，引擎内部用，不给前端）。不可变：推进时换出新的一份。
- *
- * @param rounds  节点 → 到过几轮（{@code sys.round.节点}、待办的轮次）
- * @param waiting 并行、包容的汇合 → 还有几条分支没到（分叉时记下走了几条，每到一条减一，减到 0 汇合才往下走）
- * @param returns 被退回的节点 → 退回它的节点：退回它的节点写了 {@code returnTo: "resubmit"}，重新提交后直接回去（0005 的 5.4）
- * @param queues  依次会签的节点 → 还没轮到的人（0005 的 5.2 {@code sequential}）
- * @param waits   停着等的节点（定时节点、异步的自动节点）→ 等到什么时候（实例的"正在处理的节点"也列出它们）
- */
-public record RunState(Map<String, Integer> rounds, Map<String, Integer> waiting, Map<String, String> returns,
-                       Map<String, List<Long>> queues, Map<String, Instant> waits) {
+/** 实例的运行状态（0007 的 {@code flow_instance.state}，引擎内部用，不给前端）。不可变：推进时换出新的一份。 */
+@Data
+public class RunState {
+    /** 节点 → 到过几轮（{@code sys.round.节点}、待办的轮次） */
+    private final Map<String, Integer> rounds;
+    /** 并行、包容的汇合 → 还有几条分支没到（分叉时记下走了几条，每到一条减一，减到 0 汇合才往下走） */
+    private final Map<String, Integer> waiting;
+    /** 被退回的节点 → 退回它的节点：退回它的节点写了 {@code returnTo: "resubmit"}，重新提交后直接回去（0005 的 5.4） */
+    private final Map<String, String> returns;
+    /** 依次会签的节点 → 还没轮到的人（0005 的 5.2 {@code sequential}） */
+    private final Map<String, List<Long>> queues;
+    /** 停着等的节点（定时节点、异步的自动节点）→ 等到什么时候（实例的"正在处理的节点"也列出它们） */
+    private final Map<String, Instant> waits;
+
     /** 刚发起 */
     public static final RunState INITIAL = new RunState(Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
     /** 复制并冻结 */
-    public RunState {
+    public RunState(Map<String, Integer> rounds, Map<String, Integer> waiting, Map<String, String> returns, Map<String, List<Long>> queues, Map<String, Instant> waits) {
         rounds = rounds == null ? Map.of() : Map.copyOf(rounds);
         waiting = waiting == null ? Map.of() : Map.copyOf(waiting);
         returns = returns == null ? Map.of() : Map.copyOf(returns);
         queues = queues == null ? Map.of() : Map.copyOf(queues);
         waits = waits == null ? Map.of() : Map.copyOf(waits);
+        this.rounds = rounds;
+        this.waiting = waiting;
+        this.returns = returns;
+        this.queues = queues;
+        this.waits = waits;
     }
 
     // ───────── 轮次 ─────────

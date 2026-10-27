@@ -19,7 +19,7 @@ import java.util.Objects;
  * </pre>
  * 写的不是整数时报 {@code flow.definition-invalid}：多半是定义里把角色写成了名字。
  */
-final class OrgIds {
+class OrgIds {
     private OrgIds() { }
 
     /** 一个编号，或一组编号；空的值不算 */

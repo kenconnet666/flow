@@ -11,7 +11,7 @@ import java.util.Map;
  * List<String> reviewers = form.texts("reviewers");
  * }</pre>
  */
-public final class FormValues extends JsonFields {
+public class FormValues extends JsonFields {
     private static final FormValues EMPTY = new FormValues(Map.of());
 
     private FormValues(Map<String, ?> fields) { super(fields); }

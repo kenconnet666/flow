@@ -23,30 +23,30 @@ import java.util.Map;
  *   <li>实例暂停了：报 {@code flow.instance-not-active}，业务系统过后重发。</li>
  * </ul>
  */
-public final class SignalHandler {
+public class SignalHandler {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
     public SignalHandler(EngineContext context) {
         this.context = context;
-        this.definitions = context.definitions();
+        this.definitions = context.getDefinitions();
     }
 
     /** 送来一个事件，返回每个往下走了（或记了一笔）的实例这一步的结果 */
     public List<CommandResult> signal(Actor actor, SignalCommand command) {
-        if (command.event() == null || command.event().isBlank()) throw FlowErrors.invalid("event", "required");
-        if (command.instanceId() == null && command.businessKey() == null) throw FlowErrors.invalid("instanceId", "required");
+        if (command.getEvent() == null || command.getEvent().isBlank()) throw FlowErrors.invalid("event", "required");
+        if (command.getInstanceId() == null && command.getBusinessKey() == null) throw FlowErrors.invalid("instanceId", "required");
         return context.transaction(() -> {
-            List<WaitEntity> waits = context.db().queryable(WaitEntity.class)
+            List<WaitEntity> waits = context.getDb().queryable(WaitEntity.class)
                 .where(w -> {
-                    w.event().eq(command.event());
-                    if (command.instanceId() != null) w.instanceId().eq(command.instanceId());
-                    else w.businessKey().eq(command.businessKey());
+                    w.event().eq(command.getEvent());
+                    if (command.getInstanceId() != null) w.instanceId().eq(command.getInstanceId());
+                    else w.businessKey().eq(command.getBusinessKey());
                 })
                 .orderBy(w -> w.id().asc()).toList();
             List<CommandResult> results = new ArrayList<>();
             if (waits.isEmpty()) {
-                if (command.instanceId() != null) results.add(ignored(actor, command.instanceId(), command));
+                if (command.getInstanceId() != null) results.add(ignored(actor, command.getInstanceId(), command));
             } else {
                 for (WaitEntity wait : waits) {
                     CommandResult result = deliver(actor, wait, command);
@@ -59,19 +59,19 @@ public final class SignalHandler {
 
     /** 送到一个等待：锁住实例、删掉这一行；实例还停在那个节点上时往下走，否则（跳转走了）记一笔 */
     private CommandResult deliver(Actor actor, WaitEntity wait, SignalCommand command) {
-        InstanceEntity instance = Instances.lock(context.db(), wait.getInstanceId());
+        InstanceEntity instance = Instances.lock(context.getDb(), wait.getInstanceId());
         ClaimHandler.requireActive(instance);
-        long removed = context.db().deletable(WaitEntity.class).allowDeleteStatement(true).whereById(wait.getId()).executeRows();
+        long removed = context.getDb().deletable(WaitEntity.class).allowDeleteStatement(true).whereById(wait.getId()).executeRows();
         if (removed == 0) return null;   // 并发的同一个事件先到了
-        FormValues form = Instances.form(context.db(), instance.getId());
-        Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, form, instance.getRev());
+        FormValues form = Instances.form(context.getDb(), instance.getId());
+        Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, form, instance.getRev());
         ProcessNode.Receive receive = (ProcessNode.Receive) run.graph().node(wait.getNode());
-        if (!instance.getState().waits().containsKey(wait.getNode())) {
-            run.addEvent(EventEntity.SIGNAL_IGNORED, receive, null, command.outcome(), null, null, eventData(command));
+        if (!instance.getState().getWaits().containsKey(wait.getNode())) {
+            run.addEvent(EventEntity.SIGNAL_IGNORED, receive, null, command.getOutcome(), null, null, eventData(command));
         } else {
-            if (!receive.outcomes().isEmpty() && !receive.outcomes().contains(command.outcome())) throw FlowErrors.invalid("outcome", "unknown-outcome");
-            run.addEvent(EventEntity.SIGNAL_RECEIVED, receive, null, command.outcome(), null, null, eventData(command));
-            run.received(receive, command.outcome(), command.data());
+            if (!receive.getOutcomes().isEmpty() && !receive.getOutcomes().contains(command.getOutcome())) throw FlowErrors.invalid("outcome", "unknown-outcome");
+            run.addEvent(EventEntity.SIGNAL_RECEIVED, receive, null, command.getOutcome(), null, null, eventData(command));
+            run.received(receive, command.getOutcome(), command.getData());
         }
         run.flush(null);
         return run.result();
@@ -79,18 +79,18 @@ public final class SignalHandler {
 
     /** 实例不在等这个事件：只记一笔（不锁实例，同留言） */
     private CommandResult ignored(Actor actor, Long instanceId, SignalCommand command) {
-        InstanceEntity instance = Instances.find(context.db(), instanceId);
-        Execution run = new Execution(context, actor, context.clock().instant(), definitions.of(instance), instance, FormValues.empty(),
+        InstanceEntity instance = Instances.find(context.getDb(), instanceId);
+        Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, FormValues.empty(),
             instance.getRev());
-        run.addEvent(EventEntity.SIGNAL_IGNORED, null, null, command.outcome(), null, null, eventData(command));
+        run.addEvent(EventEntity.SIGNAL_IGNORED, null, null, command.getOutcome(), null, null, eventData(command));
         run.publish();
         return run.result();
     }
 
     private static Map<String, Object> eventData(SignalCommand command) {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("event", command.event());
-        if (!command.data().isEmpty()) data.put("data", command.data());
+        data.put("event", command.getEvent());
+        if (!command.getData().isEmpty()) data.put("data", command.getData());
         return data;
     }
 }

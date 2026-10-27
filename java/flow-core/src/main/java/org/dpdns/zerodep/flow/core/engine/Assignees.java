@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 
 import java.util.ArrayList;
@@ -10,18 +11,21 @@ import java.util.Set;
 /**
  * 一个人工节点解析出来的处理人（0005 的 3.2）：几个来源取并集，分成"人"和"收件箱"（角色、部门）两类。
  * 只有一个人、没有收件箱时直接落到这个人；否则进收件箱，人和收件箱都作为候选，谁先认领谁办。
- *
- * @param users   解析出的人（用户编号），保持先后、去重
- * @param inboxes 收件箱：角色、部门的候选
  */
-record Assignees(Set<Long> users, List<CandidateEntity> inboxes) {
+@Data
+class Assignees {
+    /** 解析出的人（用户编号），保持先后、去重 */
+    private final Set<Long> users;
+    /** 收件箱：角色、部门的候选 */
+    private final List<CandidateEntity> inboxes;
+
     /** 空的一份，解析时往里加 */
     static Assignees empty() { return new Assignees(new LinkedHashSet<>(), new ArrayList<>()); }
 
     /** 只有这一个人 */
     static Assignees of(Long user) {
         Assignees one = empty();
-        one.users().add(user);
+        one.getUsers().add(user);
         return one;
     }
 

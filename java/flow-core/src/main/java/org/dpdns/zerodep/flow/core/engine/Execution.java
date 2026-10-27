@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
@@ -67,7 +68,7 @@ import java.util.Map;
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
  */
-final class Execution {
+class Execution {
     /** 一次推进最多经过多少个节点：网关绕成圈、条件永远成立时停下来报错，而不是一直走 */
     private static final int MAX_STEPS = 1000;
 
@@ -112,13 +113,13 @@ final class Execution {
      */
     Execution(EngineContext context, Actor actor, Instant now, LoadedDefinition definition, InstanceEntity instance, FormValues form, int rev) {
         this.context = context;
-        this.assignees = new AssigneeResolver(context.db(), context.org(), context.extensions());
+        this.assignees = new AssigneeResolver(context.getDb(), context.getOrg(), context.getExtensions());
         this.actor = actor;
         this.now = now;
-        this.graph = definition.graph();
-        this.pairs = definition.pairs();
-        this.manifest = definition.manifest();
-        this.deadlines = new Deadlines(context.calendar(), definition.model().settings().calendar());
+        this.graph = definition.getGraph();
+        this.pairs = definition.getPairs();
+        this.manifest = definition.getManifest();
+        this.deadlines = new Deadlines(context.getCalendar(), definition.model().getSettings().getCalendar());
         this.instance = instance;
         this.form = form;
         this.rev = rev;
@@ -128,7 +129,7 @@ final class Execution {
     InstanceEntity instance() { return instance; }
 
     /** 实例给前端、监听的样子（从库里读，{@link #flush} 之后才是这一步之后的） */
-    InstanceVO view() { return Instances.view(context.db(), instance.getId()); }
+    InstanceVO view() { return Instances.view(context.getDb(), instance.getId()); }
 
     /** 表单现在的值 */
     FormValues form() { return form; }
@@ -184,19 +185,19 @@ final class Execution {
         if (join != null) instance.setState(instance.getState().fork(join, edges.size()));
         else if (edges.size() > 1) throw new IllegalStateException("node " + nodeId + " leaves on several edges but has no paired join");
         // 从开始节点出来的待办是"发起"来的，其余是"流转"来的（待办的 arrival）
-        String arrival = graph.start().id().equals(nodeId) ? "start" : "forward";
+        String arrival = graph.start().getId().equals(nodeId) ? "start" : "forward";
         for (ProcessEdge edge : edges) {
             if (!InstanceEntity.ACTIVE.equals(instance.getStatus())) return;   // 前一条分支走到了终止的结束节点
-            addEvent(EventEntity.NODE_LEFT, graph.node(nodeId), edge.id(), outcome, null, null);
-            if (!edge.effects().isEmpty()) {
-                Map<String, Object> changed = Routing.applyEffects(edge.effects(), instance.getVariables().asMap(), this::read);
+            addEvent(EventEntity.NODE_LEFT, graph.node(nodeId), edge.getId(), outcome, null, null);
+            if (!edge.getEffects().isEmpty()) {
+                Map<String, Object> changed = Routing.applyEffects(edge.getEffects(), instance.getVariables().asMap(), this::read);
                 instance.setVariables(Variables.of(changed));
             }
             if (edge.isBackward()) {
-                leaveRegions(nodeId, edge.to());
-                rememberResubmit(nodeId, edge.to(), edge.kind());
+                leaveRegions(nodeId, edge.getTo());
+                rememberResubmit(nodeId, edge.getTo(), edge.getKind());
             }
-            enter(edge.to(), edge.isBackward() ? edge.kind() : arrival);
+            enter(edge.getTo(), edge.isBackward() ? edge.getKind() : arrival);
         }
     }
 
@@ -222,7 +223,7 @@ final class Execution {
     private void leaveRegions(String from, String to) {
         for (String fork : pairs.forksAround(from)) {
             if (pairs.region(fork).contains(to)) return;
-            for (WorkItemVO item : WorkItems.cancelOpenAt(context.db(), instance.getId(), pairs.region(fork), now)) {
+            for (WorkItemVO item : WorkItems.cancelOpenAt(context.getDb(), instance.getId(), pairs.region(fork), now)) {
                 closed.add(item);
                 addEvent(EventEntity.WORK_ITEM_CANCELED, graph.node(item.getNode()), null, null, item.getId(), null);
             }
@@ -234,7 +235,7 @@ final class Execution {
 
     /** 退回它的节点写了 {@code returnTo: "resubmit"}：记下来，被退回的节点重新提交后直接回来 */
     private void rememberResubmit(String from, String to, String kind) {
-        if ("return".equals(kind) && graph.node(from) instanceof ProcessNode.Task task && "resubmit".equals(task.returnTo())) {
+        if ("return".equals(kind) && graph.node(from) instanceof ProcessNode.Task task && "resubmit".equals(task.getReturnTo())) {
             instance.setState(instance.getState().returned(to, from));
         }
     }
@@ -269,12 +270,12 @@ final class Execution {
         } else if (node instanceof ProcessNode.Receive receive) {
             arriveAtReceive(receive);
         } else if (node instanceof ProcessNode.Call call) {
-            instance.setState(instance.getState().enter(call.id()));
+            instance.setState(instance.getState().enter(call.getId()));
             CallActivities.call(this, call);
         } else if (node instanceof ProcessNode.End end) {
-            finish(InstanceEntity.COMPLETED, end.result(), EventEntity.INSTANCE_FINISHED, null);
+            finish(InstanceEntity.COMPLETED, end.getResult(), EventEntity.INSTANCE_FINISHED, null);
         } else {
-            throw new UnsupportedOperationException("node type '" + node.type() + "' (" + nodeId + ") is not supported yet");
+            throw new UnsupportedOperationException("node type '" + node.getType() + "' (" + nodeId + ") is not supported yet");
         }
     }
 
@@ -296,14 +297,14 @@ final class Execution {
      * 到时候作业调 {@link #timerFired}。时刻已经过了、引用的字段没有值时直接往下走。
      */
     private void arriveAtTimer(ProcessNode.Timer timer) {
-        instance.setState(instance.getState().enter(timer.id()));
-        Instant until = deadlines.of(timer.waitFor(), now, this::read);
+        instance.setState(instance.getState().enter(timer.getId()));
+        Instant until = deadlines.of(timer.getWaitFor(), now, this::read);
         if (until == null || !until.isAfter(now)) {
-            leave(timer.id(), null);
+            leave(timer.getId(), null);
             return;
         }
-        instance.setState(instance.getState().waitUntil(timer.id(), until));
-        Map<String, Object> payload = Map.of(BuiltinJobs.NODE, timer.id(), BuiltinJobs.ROUND, instance.getState().round(timer.id()));
+        instance.setState(instance.getState().waitUntil(timer.getId(), until));
+        Map<String, Object> payload = Map.of(BuiltinJobs.NODE, timer.getId(), BuiltinJobs.ROUND, instance.getState().round(timer.getId()));
         schedule(BuiltinJobs.TIMER, null, until, payload, BuiltinJobs.MAX_ATTEMPTS);
     }
 
@@ -318,20 +319,20 @@ final class Execution {
      * 异步的（默认）停在这里、排一个 action 作业，事务提交后由作业做（{@link #performAction}），失败按节点的 retry 重试。
      */
     private void arriveAtService(ProcessNode.Service service) {
-        instance.setState(instance.getState().enter(service.id()));
-        if ("sync".equals(service.mode())) {
+        instance.setState(instance.getState().enter(service.getId()));
+        if ("sync".equals(service.getMode())) {
             performAction(service);
             return;
         }
-        instance.setState(instance.getState().waitUntil(service.id(), now));
+        instance.setState(instance.getState().waitUntil(service.getId(), now));
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put(BuiltinJobs.NODE, service.id());
-        payload.put(BuiltinJobs.ROUND, instance.getState().round(service.id()));
-        if (service.retryBackoff() != null) {
-            payload.put(BuiltinJobs.BACKOFF_SECONDS, deadlines.plus(service.retryBackoff(), now).getEpochSecond() - now.getEpochSecond());
+        payload.put(BuiltinJobs.NODE, service.getId());
+        payload.put(BuiltinJobs.ROUND, instance.getState().round(service.getId()));
+        if (service.getRetryBackoff() != null) {
+            payload.put(BuiltinJobs.BACKOFF_SECONDS, deadlines.plus(service.getRetryBackoff(), now).getEpochSecond() - now.getEpochSecond());
         }
         // retry.times 是失败后再试几次：一共做 times + 1 次
-        int attempts = service.retryTimes() == null ? BuiltinJobs.MAX_ATTEMPTS : service.retryTimes() + 1;
+        int attempts = service.getRetryTimes() == null ? BuiltinJobs.MAX_ATTEMPTS : service.getRetryTimes() + 1;
         schedule(BuiltinJobs.ACTION, null, now, payload, attempts);
     }
 
@@ -340,28 +341,28 @@ final class Execution {
      * 去重键是"实例:节点:轮次"：同一轮重试时相同。动作抛的不是业务错误码的异常包成 {@code flow.extension-failed}。
      */
     void performAction(ProcessNode.Service service) {
-        String key = instance.getId() + ":" + service.id() + ":" + instance.getState().round(service.id());
-        ServiceAction.Context actionContext = new ServiceAction.Context(view(), service.id(), RefValues.resolve(service.args(), this::read),
+        String key = instance.getId() + ":" + service.getId() + ":" + instance.getState().round(service.getId());
+        ServiceAction.Context actionContext = new ServiceAction.Context(view(), service.getId(), RefValues.resolve(service.getArgs(), this::read),
             key, this::read);
         ServiceAction.Result result;
         try {
-            result = context.extensions().action(service.action()).perform(actionContext);
+            result = context.getExtensions().action(service.getAction()).perform(actionContext);
         } catch (FlowException e) {
             throw e;
         } catch (RuntimeException e) {
-            throw new FlowException(FlowErrorCode.EXTENSION_FAILED, "action " + service.action() + " failed at " + service.id(),
-                Map.of("kind", "action", "name", service.action()), List.of(), e);
+            throw new FlowException(FlowErrorCode.EXTENSION_FAILED, "action " + service.getAction() + " failed at " + service.getId(),
+                Map.of("kind", "action", "name", service.getAction()), List.of(), e);
         }
-        if (!result.variables().isEmpty()) instance.setVariables(instance.getVariables().with(result.variables()));
-        instance.setState(instance.getState().waitDone(service.id()));
-        leave(service.id(), result.outcome());
+        if (!result.getVariables().isEmpty()) instance.setVariables(instance.getVariables().with(result.getVariables()));
+        instance.setState(instance.getState().waitDone(service.getId()));
+        leave(service.getId(), result.getOutcome());
     }
 
     /** 管理员跳过失败的动作（{@code skipJob}）：记一条，不再等，按指定的结果往下走 */
     void skipAction(ProcessNode.Service service, Long jobId, String outcome, String reason) {
         addEvent(EventEntity.JOB_SKIPPED, service, null, outcome, null, reason, Map.of("jobId", jobId));
-        instance.setState(instance.getState().waitDone(service.id()));
-        leave(service.id(), outcome);
+        instance.setState(instance.getState().waitDone(service.getId()));
+        leave(service.getId(), outcome);
     }
 
     /**
@@ -369,17 +370,17 @@ final class Execution {
      * 写了 {@code due} 时排一个超时作业。事件到了由 {@code SignalHandler} 调 {@link #received}。
      */
     private void arriveAtReceive(ProcessNode.Receive receive) {
-        instance.setState(instance.getState().enter(receive.id()).waitUntil(receive.id(), now));
+        instance.setState(instance.getState().enter(receive.getId()).waitUntil(receive.getId(), now));
         WaitEntity wait = new WaitEntity();
         wait.setInstanceId(instance.getId());
-        wait.setNode(receive.id());
-        wait.setEvent(receive.event());
+        wait.setNode(receive.getId());
+        wait.setEvent(receive.getEvent());
         wait.setBusinessKey(instance.getBusinessKey());
         wait.setCreatedAt(now);
-        context.db().insertable(wait).executeRows();
-        Instant due = receive.due() == null ? null : deadlines.of(receive.due(), now, this::read);
+        context.getDb().insertable(wait).executeRows();
+        Instant due = receive.getDue() == null ? null : deadlines.of(receive.getDue(), now, this::read);
         if (due == null) return;
-        Map<String, Object> payload = Map.of(BuiltinJobs.NODE, receive.id(), BuiltinJobs.ROUND, instance.getState().round(receive.id()));
+        Map<String, Object> payload = Map.of(BuiltinJobs.NODE, receive.getId(), BuiltinJobs.ROUND, instance.getState().round(receive.getId()));
         schedule(BuiltinJobs.RECEIVE_TIMEOUT, null, due, payload, BuiltinJobs.MAX_ATTEMPTS);
     }
 
@@ -390,7 +391,7 @@ final class Execution {
     void received(ProcessNode.Receive receive, String outcome, Map<String, Object> data) {
         Map<String, Object> formChanges = new LinkedHashMap<>();
         Map<String, Object> variableChanges = new LinkedHashMap<>();
-        receive.output().forEach((target, key) -> {
+        receive.getOutput().forEach((target, key) -> {
             if (target.startsWith("form.")) formChanges.put(target.substring("form.".length()), data.get(key));
             else variableChanges.put(target, data.get(key));
         });
@@ -399,11 +400,11 @@ final class Execution {
             // 业务系统送来的数据未必标了类型：按清单的字段类型读成强类型
             merged.putAll(manifest == null ? formChanges : manifest.typed(formChanges));
             form = FormValues.of(merged);
-            Instances.saveForm(context.db(), instance.getId(), form);
+            Instances.saveForm(context.getDb(), instance.getId(), form);
         }
         if (!variableChanges.isEmpty()) instance.setVariables(instance.getVariables().with(variableChanges));
-        instance.setState(instance.getState().waitDone(receive.id()));
-        leave(receive.id(), outcome);
+        instance.setState(instance.getState().waitDone(receive.getId()));
+        leave(receive.getId(), outcome);
     }
 
     /** 同步调用流程：停在调用节点上，等 count 个子实例结束（等的个数记在汇合的计数里，键是调用节点） */
@@ -421,15 +422,15 @@ final class Execution {
     /** 子实例都结束了：output 收进流程变量，按结果往下走 */
     void callReturned(ProcessNode.Call call, String outcome, Map<String, Object> variables) {
         if (!variables.isEmpty()) instance.setVariables(instance.getVariables().with(variables));
-        instance.setState(instance.getState().waitDone(call.id()));
-        leave(call.id(), outcome);
+        instance.setState(instance.getState().waitDone(call.getId()));
+        leave(call.getId(), outcome);
     }
 
     /** 到达抄送节点：抄送给节点上写的人（角色、部门展开成人），不停，接着往下走 */
     private void arriveAtCc(ProcessNode.Cc cc) {
-        List<Long> users = assignees.people(cc.to(), instance, this::read).stream().map(AssigneeResolver.Participant::user).toList();
-        copyTo(cc, users, cc.message());
-        leave(cc.id(), null);
+        List<Long> users = assignees.people(cc.getTo(), instance, this::read).stream().map(AssigneeResolver.Participant::getUser).toList();
+        copyTo(cc, users, cc.getMessage());
+        leave(cc.getId(), null);
     }
 
     /**
@@ -440,15 +441,15 @@ final class Execution {
     void copyTo(ProcessNode.Cc node, List<Long> users, String message) {
         List<Long> recipients = users.stream().distinct().toList();
         if (recipients.isEmpty()) return;
-        Long fromId = node == null ? actor.id() : null;
-        String fromName = node == null ? actor.name() : null;
-        List<String> names = recipients.stream().map(context.org()::userName).toList();
+        Long fromId = node == null ? actor.getId() : null;
+        String fromName = node == null ? actor.getName() : null;
+        List<String> names = recipients.stream().map(context.getOrg()::userName).toList();
         List<CcEntity> rows = new ArrayList<>();
         for (int i = 0; i < recipients.size(); i++) {
             CcEntity cc = new CcEntity();
             cc.setInstanceId(instance.getId());
-            cc.setNode(node == null ? null : node.id());
-            cc.setNodeName(node == null ? null : node.name());
+            cc.setNode(node == null ? null : node.getId());
+            cc.setNodeName(node == null ? null : node.getName());
             cc.setRecipientId(recipients.get(i));
             cc.setRecipientName(names.get(i));
             cc.setFromUserId(fromId);
@@ -457,7 +458,7 @@ final class Execution {
             cc.setCreatedAt(now);
             rows.add(cc);
         }
-        context.db().insertable(rows).executeRows();
+        context.getDb().insertable(rows).executeRows();
         addEvent(EventEntity.INSTANCE_CC, node, null, null, null, message, Map.of("users", recipients, "userNames", names));
     }
 
@@ -466,8 +467,8 @@ final class Execution {
      * 否则进收件箱（{@code pool}），人和角色、部门都存成候选，谁先认领谁办。
      */
     private void arriveAtTask(ProcessNode.Task task, String arrival) {
-        instance.setState(instance.getState().enter(task.id()));
-        if (task.multi() != null) {
+        instance.setState(instance.getState().enter(task.getId()));
+        if (task.getMulti() != null) {
             arriveAtCountersign(task, arrival);
             return;
         }
@@ -480,8 +481,8 @@ final class Execution {
         if (skip != null) {
             Long user = who.directUser();
             addEvent(EventEntity.NODE_SKIPPED, task, null, approveOutcome(task), null, null,
-                Map.of("reason", skip, "userId", user, "userName", context.org().userName(user)));
-            leave(task.id(), approveOutcome(task));
+                Map.of("reason", skip, "userId", user, "userName", context.getOrg().userName(user)));
+            leave(task.getId(), approveOutcome(task));
             return;
         }
         createWorkItem(task, arrival, who, null, null);
@@ -494,7 +495,7 @@ final class Execution {
      */
     private String skipReason(ProcessNode.Task task, String arrival, Assignees who) {
         if (!("start".equals(arrival) || "forward".equals(arrival)) || !who.isDirect() || approveOutcome(task) == null) return null;
-        Map<String, Object> rules = task.info().autoSkip().isEmpty() ? graph.definition().settings().autoSkip() : task.info().autoSkip();
+        Map<String, Object> rules = task.getInfo().getAutoSkip().isEmpty() ? graph.definition().getSettings().getAutoSkip() : task.getInfo().getAutoSkip();
         Long user = who.directUser();
         if (Boolean.TRUE.equals(rules.get("initiator")) && user.equals(instance.getStartedBy())) return "initiator";
         if (Boolean.TRUE.equals(rules.get("sameAsPrevious")) && user.equals(previousHandler())) return "sameAsPrevious";
@@ -503,13 +504,13 @@ final class Execution {
 
     /** 上一步的处理人：这个实例最近处理完的待办的处理人；还没人处理过时是发起人（发起算第一步） */
     private Long previousHandler() {
-        Long last = WorkItems.lastCompletedBy(context.db(), instance.getId(), null);
+        Long last = WorkItems.lastCompletedBy(context.getDb(), instance.getId(), null);
         return last != null ? last : instance.getStartedBy();
     }
 
     /** 节点上第一个"同意"类的结果；没有时为 null */
     private static String approveOutcome(ProcessNode.Task task) {
-        return task.outcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::key).findFirst().orElse(null);
+        return task.getOutcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::getKey).findFirst().orElse(null);
     }
 
     /**
@@ -522,44 +523,47 @@ final class Execution {
             handleEmptyAssignee(task);
             return;
         }
-        boolean sequential = "sequential".equals(task.multi().complete());
-        boolean weighted = "votes".equals(task.multi().complete());
+        boolean sequential = "sequential".equals(task.getMulti().getComplete());
+        boolean weighted = "votes".equals(task.getMulti().getComplete());
         List<AssigneeResolver.Participant> first = sequential ? participants.subList(0, 1) : participants;
         for (int i = 0; i < first.size(); i++) {
             AssigneeResolver.Participant p = first.get(i);
-            createWorkItem(task, arrival, Assignees.of(p.user()), i + 1, weighted ? p.weight() : null);
+            createWorkItem(task, arrival, Assignees.of(p.getUser()), i + 1, weighted ? p.getWeight() : null);
         }
         if (sequential) {
-            List<Long> rest = participants.subList(1, participants.size()).stream().map(AssigneeResolver.Participant::user).toList();
-            instance.setState(instance.getState().queue(task.id(), rest));
+            List<Long> rest = participants.subList(1, participants.size()).stream().map(AssigneeResolver.Participant::getUser).toList();
+            instance.setState(instance.getState().queue(task.getId(), rest));
         }
     }
 
     /** 依次会签：轮到排队的下一个人（前一个人同意了） */
     void nextSigner(ProcessNode.Task task, int seq) {
-        List<Long> queue = instance.getState().queue(task.id());
-        instance.setState(instance.getState().queue(task.id(), queue.subList(1, queue.size())));
+        List<Long> queue = instance.getState().queue(task.getId());
+        instance.setState(instance.getState().queue(task.getId(), queue.subList(1, queue.size())));
         createWorkItem(task, "forward", Assignees.of(queue.get(0)), seq, null);
     }
 
     /** 会签节点结束了：其余还开着的待办取消，排队的人也不用再等 */
     void closeCountersign(ProcessNode.Task task) {
-        instance.setState(instance.getState().queue(task.id(), List.of()));
-        for (WorkItemVO item : WorkItems.cancelOpenAt(context.db(), instance.getId(), List.of(task.id()), now)) {
+        instance.setState(instance.getState().queue(task.getId(), List.of()));
+        for (WorkItemVO item : WorkItems.cancelOpenAt(context.getDb(), instance.getId(), List.of(task.getId()), now)) {
             closed.add(item);
             addEvent(EventEntity.WORK_ITEM_CANCELED, task, null, null, item.getId(), null);
         }
     }
 
-    /**
-     * 待办从哪来：转办、委派、加签的人与原来的待办。流转生成的待办是 {@link #NONE}。
-     *
-     * @param fromUserId   转办、委派、加签的人
-     * @param fromUserName 那个人的名字（快照）
-     * @param parentItemId 委派、加签时原来的待办；转办时为 null（原来的那一份取消了）
-     * @param addMode      {@code delegate}、{@code before}、{@code after}、{@code parallel}；转办时为 null
-     */
-    record Origin(Long fromUserId, String fromUserName, Long parentItemId, String addMode) {
+    /** 待办从哪来：转办、委派、加签的人与原来的待办。流转生成的待办是 {@link #NONE}。 */
+    @Data
+    static class Origin {
+        /** 转办、委派、加签的人 */
+        private final Long fromUserId;
+        /** 那个人的名字（快照） */
+        private final String fromUserName;
+        /** 委派、加签时原来的待办；转办时为 null（原来的那一份取消了） */
+        private final Long parentItemId;
+        /** {@code delegate}、{@code before}、{@code after}、{@code parallel}；转办时为 null */
+        private final String addMode;
+
         static final Origin NONE = new Origin(null, null, null, null);
     }
 
@@ -570,7 +574,7 @@ final class Execution {
      * @param weight  票签的权重；不是票签时为 null
      */
     private WorkItemVO createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight) {
-        Instant due = task.due() == null ? null : deadlines.of(task.due(), now, this::read);
+        Instant due = task.getDue() == null ? null : deadlines.of(task.getDue(), now, this::read);
         return createWorkItem(task, arrival, who, signSeq, weight, Origin.NONE, WorkItemEntity.OPEN, due);
     }
 
@@ -582,17 +586,17 @@ final class Execution {
     private WorkItemVO createWorkItem(ProcessNode.Task task, String arrival, Assignees who, Integer signSeq, Integer weight,
                                     Origin origin, String state, Instant dueAt) {
         Long assigneeId = who.isDirect() ? who.directUser() : null;
-        String assigneeName = assigneeId == null ? null : context.org().userName(assigneeId);
+        String assigneeName = assigneeId == null ? null : context.getOrg().userName(assigneeId);
         String assignment = assigneeId != null ? WorkItemEntity.DIRECT : WorkItemEntity.POOL;
         CandidateEntity inbox = who.firstInbox();
-        int round = instance.getState().round(task.id());
+        int round = instance.getState().round(task.getId());
 
         WorkItemEntity row = new WorkItemEntity();
         row.setInstanceId(instance.getId());
         row.setProcessKey(instance.getProcessKey());
         row.setPriority(instance.getPriority());
-        row.setNode(task.id());
-        row.setNodeName(task.name());
+        row.setNode(task.getId());
+        row.setNodeName(task.getName());
         row.setRound(round);
         row.setSignSeq(signSeq);
         row.setWeight(weight);
@@ -603,16 +607,16 @@ final class Execution {
         row.setInboxId(inbox == null ? null : inbox.getTargetId());
         row.setAssigneeId(assigneeId);
         row.setAssigneeName(assigneeName);
-        row.setFromUserId(origin.fromUserId());
-        row.setFromUserName(origin.fromUserName());
-        row.setParentItemId(origin.parentItemId());
-        row.setAddMode(origin.addMode());
+        row.setFromUserId(origin.getFromUserId());
+        row.setFromUserName(origin.getFromUserName());
+        row.setParentItemId(origin.getParentItemId());
+        row.setAddMode(origin.getAddMode());
         row.setCreatedAt(now);
         row.setDueAt(dueAt);
         row.setRemindCount(0);
         row.setNeedsDesignation(false);
         row.setRev(0);
-        WorkItemVO item = WorkItems.insert(context.db(), row, assigneeId != null ? List.of() : who.candidates());
+        WorkItemVO item = WorkItems.insert(context.getDb(), row, assigneeId != null ? List.of() : who.candidates());
         created.add(item);
         scheduleTimeouts(task, item);
         // 直接落到人的记下名字快照：流转记录上显示"到达 某节点 · 处理人 张三"；在收件箱里的没有
@@ -631,7 +635,7 @@ final class Execution {
      */
     WorkItemVO handOver(WorkItemVO from, Long userId, String arrival, String addMode, String state) {
         ProcessNode.Task task = (ProcessNode.Task) graph.node(from.getNode());
-        Origin origin = new Origin(actor.id(), actor.name(), addMode == null ? null : from.getId(), addMode);
+        Origin origin = new Origin(actor.getId(), actor.getName(), addMode == null ? null : from.getId(), addMode);
         return createWorkItem(task, arrival, Assignees.of(userId), from.getSignSeq(), from.getWeight(), origin, state, from.getDueAt());
     }
 
@@ -643,16 +647,16 @@ final class Execution {
     private void scheduleTimeouts(ProcessNode.Task task, WorkItemVO item) {
         if (item.getDueAt() != null) {
             schedule(BuiltinJobs.OVERDUE, item.getId(), item.getDueAt(), Map.of(), BuiltinJobs.MAX_ATTEMPTS);
-            for (int i = 0; i < task.reminders().size(); i++) {
-                TaskRules.Reminder reminder = task.reminders().get(i);
-                Instant at = reminder.before() != null ? deadlines.minus(reminder.before(), item.getDueAt()) : deadlines.plus(reminder.every(), item.getDueAt());
+            for (int i = 0; i < task.getReminders().size(); i++) {
+                TaskRules.Reminder reminder = task.getReminders().get(i);
+                Instant at = reminder.getBefore() != null ? deadlines.minus(reminder.getBefore(), item.getDueAt()) : deadlines.plus(reminder.getEvery(), item.getDueAt());
                 if (at.isAfter(now)) {
                     schedule(BuiltinJobs.REMIND, item.getId(), at, Map.of(BuiltinJobs.REMINDER, i, BuiltinJobs.SENT, 0), BuiltinJobs.MAX_ATTEMPTS);
                 }
             }
         }
-        if (task.unclaimed() != null && item.getAssigneeId() == null) {
-            schedule(BuiltinJobs.UNCLAIMED, item.getId(), deadlines.plus(task.unclaimed().after(), now), Map.of(), BuiltinJobs.MAX_ATTEMPTS);
+        if (task.getUnclaimed() != null && item.getAssigneeId() == null) {
+            schedule(BuiltinJobs.UNCLAIMED, item.getId(), deadlines.plus(task.getUnclaimed().getAfter(), now), Map.of(), BuiltinJobs.MAX_ATTEMPTS);
         }
     }
 
@@ -673,7 +677,7 @@ final class Execution {
         job.setAttempts(0);
         job.setMaxAttempts(maxAttempts);
         job.setCreatedAt(now);
-        context.db().insertable(job).executeRows();
+        context.getDb().insertable(job).executeRows();
     }
 
     /**
@@ -682,11 +686,11 @@ final class Execution {
      */
     private Assignees assigneesFor(ProcessNode.Task task, String arrival) {
         if ("return".equals(arrival) || "resubmit".equals(arrival)) {
-            Long last = WorkItems.lastCompletedBy(context.db(), instance.getId(), task.id());
+            Long last = WorkItems.lastCompletedBy(context.getDb(), instance.getId(), task.getId());
             if (last != null) return Assignees.of(last);
         }
         Assignees who = assignees.resolve(task, graph, instance, this::read, picks);
-        return "escalate".equals(arrival) && !who.inboxes().isEmpty() ? who.inboxesOnly() : who;
+        return "escalate".equals(arrival) && !who.getInboxes().isEmpty() ? who.inboxesOnly() : who;
     }
 
     /**
@@ -695,20 +699,20 @@ final class Execution {
      * 其余（{@code error}，默认）报 {@code assignee-empty}，整个命令回滚。
      */
     private void handleEmptyAssignee(ProcessNode.Task task) {
-        String rule = task.info().emptyAssignee() != null ? task.info().emptyAssignee() : graph.definition().settings().emptyAssignee();
+        String rule = task.getInfo().getEmptyAssignee() != null ? task.getInfo().getEmptyAssignee() : graph.definition().getSettings().getEmptyAssignee();
         if ("autoPass".equals(rule)) {
-            leave(task.id(), approveOutcome(task));
+            leave(task.getId(), approveOutcome(task));
             return;
         }
-        List<Long> admins = "admin".equals(rule) ? context.org().administrators() : List.of();
+        List<Long> admins = "admin".equals(rule) ? context.getOrg().administrators() : List.of();
         if (!admins.isEmpty()) {
             Assignees who = Assignees.empty();
-            who.users().addAll(admins);
+            who.getUsers().addAll(admins);
             createWorkItem(task, "emptyAssignee", who, null, null);
             return;
         }
-        throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "nobody can handle node " + task.id(),
-            List.of(ErrorDetail.node(task.id(), "assignee-empty")));
+        throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "nobody can handle node " + task.getId(),
+            List.of(ErrorDetail.node(task.getId(), "assignee-empty")));
     }
 
     /** 撤回刚处理的一步：运行状态、流程变量换回处理之前的 */
@@ -725,7 +729,7 @@ final class Execution {
 
     /** 管理员跳转：还没办完的待办都取消，等待中的汇合、队列都不再记，从这个节点重新走 */
     void jumpTo(String nodeId, String reason) {
-        for (WorkItemVO item : WorkItems.cancelOpen(context.db(), instance.getId(), now)) {
+        for (WorkItemVO item : WorkItems.cancelOpen(context.getDb(), instance.getId(), now)) {
             closed.add(item);
             addEvent(EventEntity.WORK_ITEM_CANCELED, graph.node(item.getNode()), null, null, item.getId(), null);
         }
@@ -743,17 +747,17 @@ final class Execution {
      * @param comment   原因（终止、撤回时）
      */
     void finish(String status, String result, String eventType, String comment) {
-        for (WorkItemVO item : WorkItems.cancelOpen(context.db(), instance.getId(), now)) {
+        for (WorkItemVO item : WorkItems.cancelOpen(context.getDb(), instance.getId(), now)) {
             closed.add(item);
             addEvent(EventEntity.WORK_ITEM_CANCELED, graph.node(item.getNode()), null, null, item.getId(), null);
         }
         instance.end(status, result, now);
         // 还没做的作业、等待、撤回用的快照都不再要（失败的作业留着给管理员看）
         Long id = instance.getId();
-        context.db().deletable(JobEntity.class).allowDeleteStatement(true)
+        context.getDb().deletable(JobEntity.class).allowDeleteStatement(true)
             .where(j -> { j.instanceId().eq(id); j.state().eq(JobEntity.PENDING); }).executeRows();
-        context.db().deletable(WaitEntity.class).allowDeleteStatement(true).where(w -> w.instanceId().eq(id)).executeRows();
-        context.db().deletable(StepEntity.class).allowDeleteStatement(true).where(st -> st.instanceId().eq(id)).executeRows();
+        context.getDb().deletable(WaitEntity.class).allowDeleteStatement(true).where(w -> w.instanceId().eq(id)).executeRows();
+        context.getDb().deletable(StepEntity.class).allowDeleteStatement(true).where(st -> st.instanceId().eq(id)).executeRows();
         addEvent(eventType, null, null, result, null, comment);
         // 调用流程：终止、撤回时子实例一起终止；子实例结束了回到父实例（0005 的 4.2）
         if (InstanceEntity.TERMINATED.equals(status) || InstanceEntity.WITHDRAWN.equals(status)) CallActivities.terminateChildren(this, comment);
@@ -771,13 +775,13 @@ final class Execution {
         event.setInstanceId(instance.getId());
         event.setWorkItemId(workItemId);
         event.setType(type);
-        event.setNode(node == null ? null : node.id());
-        event.setNodeName(node == null ? null : node.name());
+        event.setNode(node == null ? null : node.getId());
+        event.setNodeName(node == null ? null : node.getName());
         event.setEdge(edge);
         event.setOutcome(outcome);
         event.setInstanceRev(rev);
-        event.setActorId(actor.id());
-        event.setActorName(actor.name());
+        event.setActorId(actor.getId());
+        event.setActorName(actor.getName());
         event.setAt(now);
         event.setComment(comment);
         event.setData(data);
@@ -792,8 +796,8 @@ final class Execution {
      * @param fixedTitle 发起时显式给的标题；为 null 时按模板生成
      */
     void flush(String fixedTitle) {
-        InstanceDisplay.refresh(instance, graph.definition(), fixedTitle, this::read, context.db());
-        context.db().updatable(instance).executeRows();
+        InstanceDisplay.refresh(instance, graph.definition(), fixedTitle, this::read, context.getDb());
+        context.getDb().updatable(instance).executeRows();
         publish();
     }
 
@@ -803,16 +807,16 @@ final class Execution {
      */
     void publish() {
         if (pending.isEmpty()) return;
-        context.db().insertable(pending).executeRows(true);
+        context.getDb().insertable(pending).executeRows(true);
         List<Long> ids = pending.stream().map(EventEntity::getId).toList();
         pending.clear();
-        List<FlowEventVO> saved = context.db().queryable(EventEntity.class).where(e -> e.id().in(ids)).orderBy(e -> e.id().asc())
+        List<FlowEventVO> saved = context.getDb().queryable(EventEntity.class).where(e -> e.id().in(ids)).orderBy(e -> e.id().asc())
             .select(FlowEventVO.class).toList();
         events.addAll(saved);
         InstanceVO current = view();
-        List<Notification> notifications = context.dispatcher().notifies()
-            ? Notifications.plan(saved, context, graph, current, sources -> assignees.people(sources, instance, this::read).stream().map(AssigneeResolver.Participant::user).toList())
+        List<Notification> notifications = context.getDispatcher().notifies()
+            ? Notifications.plan(saved, context, graph, current, sources -> assignees.people(sources, instance, this::read).stream().map(AssigneeResolver.Participant::getUser).toList())
             : List.of();
-        context.dispatcher().published(saved, current, graph, notifications);
+        context.getDispatcher().published(saved, current, graph, notifications);
     }
 }

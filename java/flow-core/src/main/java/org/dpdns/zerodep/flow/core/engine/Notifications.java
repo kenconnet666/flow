@@ -30,7 +30,7 @@ import java.util.function.Function;
  * </pre>
  * 定义里的 {@code notify}（节点上的盖过流程级的）按种类改：{@code false} 不发；{@code { template, to }} 换模板、加收件人。
  */
-final class Notifications {
+class Notifications {
     private final EngineContext context;
     private final ProcessGraph graph;
     private final InstanceVO instance;
@@ -55,21 +55,21 @@ final class Notifications {
     private void add(FlowEventVO event) {
         switch (event.getType()) {
             case EventEntity.WORK_ITEM_CREATED -> {
-                WorkItemVO item = WorkItems.find(context.db(), event.getWorkItemId());
+                WorkItemVO item = WorkItems.find(context.getDb(), event.getWorkItemId());
                 // 后加签先生成、等着的待办打开时才算到达
                 if (!WorkItemEntity.OPEN.equals(item.getState())) return;
                 send("return".equals(item.getArrival()) ? Notification.RETURNED : Notification.ARRIVED, event, item, handlers(item));
             }
             case EventEntity.WORK_ITEM_REMINDED -> {
-                WorkItemVO item = WorkItems.find(context.db(), event.getWorkItemId());
+                WorkItemVO item = WorkItems.find(context.getDb(), event.getWorkItemId());
                 Object reason = event.getData().get("reason");
                 String kind = "dueSoon".equals(reason) ? Notification.DUE_SOON : "overdue".equals(reason) ? Notification.OVERDUE : Notification.REMINDED;
                 send(kind, event, item, handlers(item));
             }
             case EventEntity.WORK_ITEM_OVERDUE -> {
-                WorkItemVO item = WorkItems.find(context.db(), event.getWorkItemId());
+                WorkItemVO item = WorkItems.find(context.getDb(), event.getWorkItemId());
                 Set<Long> to = new LinkedHashSet<>(handlers(item));
-                if (item.getInboxKind() != null) context.org().inboxManager(item.getInboxKind(), item.getInboxId()).ifPresent(to::add);
+                if (item.getInboxKind() != null) context.getOrg().inboxManager(item.getInboxKind(), item.getInboxId()).ifPresent(to::add);
                 send(Notification.OVERDUE, event, item, to);
             }
             case EventEntity.INSTANCE_CC -> send(Notification.CC, event, null, ids(event.getData().get("users")));
@@ -96,8 +96,8 @@ final class Notifications {
     /** 这种通知的设置：节点上写了的用节点的，否则用流程级的；都没写时为 null（照默认发） */
     private Object settingOf(String kind, String nodeId) {
         ProcessNode node = nodeId == null ? null : graph.node(nodeId);
-        if (node != null && node.info().notifications().containsKey(kind)) return node.info().notifications().get(kind);
-        return graph.definition().settings().notifications().get(kind);
+        if (node != null && node.getInfo().getNotifications().containsKey(kind)) return node.getInfo().getNotifications().get(kind);
+        return graph.definition().getSettings().getNotifications().get(kind);
     }
 
     /** 待办的处理人：落到人的是他；在收件箱里的是候选人（角色、部门经 {@code OrgDirectory.members} 展开，接入方没实现时略过），去掉被排除的 */
@@ -108,13 +108,13 @@ final class Notifications {
             return out;
         }
         Set<Long> excluded = new LinkedHashSet<>();
-        for (CandidateEntity candidate : WorkItems.candidates(context.db(), item.getId())) {
+        for (CandidateEntity candidate : WorkItems.candidates(context.getDb(), item.getId())) {
             switch (candidate.getKind()) {
                 case CandidateEntity.USER -> out.add(candidate.getTargetId());
                 case CandidateEntity.EXCLUDED -> excluded.add(candidate.getTargetId());
                 default -> {
                     try {
-                        out.addAll(context.org().members(candidate.getKind(), candidate.getTargetId()));
+                        out.addAll(context.getOrg().members(candidate.getKind(), candidate.getTargetId()));
                     } catch (UnsupportedOperationException ignored) {
                         // 没实现 members 时收件箱只通知写明的人；角色、部门的人自己到收件箱里看
                     }

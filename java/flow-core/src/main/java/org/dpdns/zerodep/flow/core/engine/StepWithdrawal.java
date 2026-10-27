@@ -29,7 +29,7 @@ import java.util.Set;
  * </ul>
  * 撤回时取消那一步生成的待办，运行状态、流程变量、表单的值恢复成快照，待办回到我手里重新处理。
  */
-public final class StepWithdrawal {
+public class StepWithdrawal {
     /** 那一步只走过这些节点时才能撤回 */
     private static final Set<String> UNDOABLE = Set.of("task", "exclusive", "parallel", "inclusive", "cc", "end");
 
@@ -58,25 +58,25 @@ public final class StepWithdrawal {
     /** 撤回；不能撤回时报 {@code flow.forbidden}（原因在明细里） */
     public CommandResult withdraw(Actor actor, WithdrawStepCommand command) {
         return context.transaction(() -> {
-            WorkItemVO found = WorkItems.find(context.db(), command.workItemId());
-            InstanceEntity instance = Instances.lock(context.db(), found.getInstanceId());
-            WorkItemVO item = WorkItems.find(context.db(), found.getId());
-            LoadedDefinition definition = context.definitions().of(instance);
+            WorkItemVO found = WorkItems.find(context.getDb(), command.getWorkItemId());
+            InstanceEntity instance = Instances.lock(context.getDb(), found.getInstanceId());
+            WorkItemVO item = WorkItems.find(context.getDb(), found.getId());
+            LoadedDefinition definition = context.getDefinitions().of(instance);
             // 锁住实例时版本加了一：快照要是上一个版本的
-            StepEntity snapshot = check(actor, item, definition.graph(), instance, instance.getRev() - 1);
+            StepEntity snapshot = check(actor, item, definition.getGraph(), instance, instance.getRev() - 1);
             if (snapshot == null) throw FlowErrors.forbidden("workItem", item.getId(), "cannot-withdraw-step");
 
-            Execution run = new Execution(context, actor, context.clock().instant(), definition, instance, snapshot.getForm(), instance.getRev());
+            Execution run = new Execution(context, actor, context.getClock().instant(), definition, instance, snapshot.getForm(), instance.getRev());
             for (WorkItemVO next : createdAt(instance.getId(), snapshot.getRev())) {
-                WorkItems.cancel(context.db(), next.getId(), run.now());
+                WorkItems.cancel(context.getDb(), next.getId(), run.now());
                 run.closed.add(next);
                 run.addEvent(EventEntity.WORK_ITEM_CANCELED, run.graph().node(next.getNode()), null, null, next.getId(), null);
             }
             run.restore(snapshot.getState(), snapshot.getVariables());
-            if (definition.hasForm()) Instances.saveForm(context.db(), instance.getId(), snapshot.getForm());
+            if (definition.hasForm()) Instances.saveForm(context.getDb(), instance.getId(), snapshot.getForm());
             reopen(item.getId());
-            context.db().deletable(StepEntity.class).allowDeleteStatement(true).where(s -> s.instanceId().eq(instance.getId())).executeRows();
-            run.addEvent(EventEntity.WORK_ITEM_WITHDRAWN, run.graph().node(item.getNode()), null, item.getOutcome(), item.getId(), command.reason());
+            context.getDb().deletable(StepEntity.class).allowDeleteStatement(true).where(s -> s.instanceId().eq(instance.getId())).executeRows();
+            run.addEvent(EventEntity.WORK_ITEM_WITHDRAWN, run.graph().node(item.getNode()), null, item.getOutcome(), item.getId(), command.getReason());
             run.flush(null);
             return run.result();
         });
@@ -89,17 +89,17 @@ public final class StepWithdrawal {
 
     /** 能撤回时返回快照，否则为 null；rev 是处理那一步时实例应有的版本 */
     private StepEntity check(Actor actor, WorkItemVO item, ProcessGraph graph, InstanceEntity instance, int rev) {
-        if (!WorkItemEntity.DONE.equals(item.getState()) || !actor.id().equals(item.getCompletedBy())) return null;
+        if (!WorkItemEntity.DONE.equals(item.getState()) || !actor.getId().equals(item.getCompletedBy())) return null;
         if (!InstanceEntity.ACTIVE.equals(instance.getStatus())) return null;
-        if (!(graph.node(item.getNode()) instanceof ProcessNode.Task task) || !task.allow().withdraw()) return null;
-        StepEntity snapshot = context.db().queryable(StepEntity.class)
+        if (!(graph.node(item.getNode()) instanceof ProcessNode.Task task) || !task.getAllow().isWithdraw()) return null;
+        StepEntity snapshot = context.getDb().queryable(StepEntity.class)
             .where(s -> { s.instanceId().eq(instance.getId()); s.workItemId().eq(item.getId()); s.rev().eq(rev); })
             .singleOrNull();
         if (snapshot == null) return null;
-        List<String> entered = context.db().queryable(EventEntity.class)
+        List<String> entered = context.getDb().queryable(EventEntity.class)
             .where(e -> { e.instanceId().eq(instance.getId()); e.instanceRev().eq(rev); e.type().eq(EventEntity.NODE_ENTERED); })
             .selectColumn(e -> e.node()).toList();
-        boolean simple = entered.stream().allMatch(node -> graph.node(node) != null && UNDOABLE.contains(graph.node(node).type()));
+        boolean simple = entered.stream().allMatch(node -> graph.node(node) != null && UNDOABLE.contains(graph.node(node).getType()));
         boolean untouched = createdAt(instance.getId(), rev).stream()
             .allMatch(w -> WorkItemEntity.PENDING.contains(w.getState()) && !WorkItemEntity.CLAIMED.equals(w.getAssignment()));
         return simple && untouched ? snapshot : null;
@@ -107,16 +107,16 @@ public final class StepWithdrawal {
 
     /** 那一步生成的待办 */
     private List<WorkItemVO> createdAt(Long instanceId, int rev) {
-        List<Long> ids = context.db().queryable(EventEntity.class)
+        List<Long> ids = context.getDb().queryable(EventEntity.class)
             .where(e -> { e.instanceId().eq(instanceId); e.instanceRev().eq(rev); e.type().eq(EventEntity.WORK_ITEM_CREATED); e.workItemId().isNotNull(); })
             .selectColumn(e -> e.workItemId()).toList();
         if (ids.isEmpty()) return List.of();
-        return context.db().queryable(WorkItemEntity.class).where(w -> w.id().in(ids)).orderBy(w -> w.id().asc()).select(WorkItemVO.class).toList();
+        return context.getDb().queryable(WorkItemEntity.class).where(w -> w.id().in(ids)).orderBy(w -> w.id().asc()).select(WorkItemVO.class).toList();
     }
 
     /** 已处理的待办改回打开着，清掉处理结果、意见、处理人与处理时间 */
     private void reopen(Long workItemId) {
-        context.db().updatable(WorkItemEntity.class)
+        context.getDb().updatable(WorkItemEntity.class)
             .setColumns(w -> {
                 w.state().set(WorkItemEntity.OPEN);
                 w.outcome().set((String) null);

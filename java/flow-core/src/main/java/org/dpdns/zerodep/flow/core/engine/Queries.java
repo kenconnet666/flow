@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.core.engine;
 
 import com.easy.query.api.proxy.entity.select.EntityQueryable;
 import com.easy.query.core.func.def.enums.OrderByModeEnum;
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
@@ -60,24 +61,27 @@ import java.util.function.Function;
  * 列表按 VO 读（{@code select(InstanceVO.class)}）；行上要带实例的（待办、抄送）按对象树读：
  * {@code selectAutoInclude(TodoItem.class)} 把导航 {@code instance} 一起读出。
  */
-public final class Queries {
+public class Queries {
     private final EngineContext context;
     private final DefinitionCache definitions;
 
     public Queries(EngineContext context) {
         this.context = context;
-        this.definitions = context.definitions();
+        this.definitions = context.getDefinitions();
     }
 
-    /**
-     * 管理端搜实例的条件：不写的不限。
-     *
-     * @param status     状态
-     * @param processKey 流程
-     * @param keyword    标题里有这几个字
-     * @param startedBy  发起人
-     */
-    public record InstanceSearch(String status, String processKey, String keyword, Long startedBy) { }
+    /** 管理端搜实例的条件：不写的不限。 */
+    @Data
+    public static class InstanceSearch {
+        /** 状态 */
+        private final String status;
+        /** 流程 */
+        private final String processKey;
+        /** 标题里有这几个字 */
+        private final String keyword;
+        /** 发起人 */
+        private final Long startedBy;
+    }
 
     /** 我能发起的流程：启用着、发起人名单里有我（名单只认写死的值），按分类、名称排 */
     public List<StartableProcess> startable(Actor actor) {
@@ -85,7 +89,7 @@ public final class Queries {
         List<ProcessEntity> active = definitions.processes().where(p -> p.status().eq(ProcessEntity.ACTIVE))
             .orderBy(p -> { p.category().asc(); p.name().asc(); }).toList();
         for (ProcessEntity process : active) {
-            if (!CandidateRules.isStarter(actor, definitions.latest(process).model().starters())) continue;
+            if (!CandidateRules.isStarter(actor, definitions.latest(process).model().getStarters())) continue;
             out.add(new StartableProcess(process.getProcessKey(), process.getName(), process.getCategory(), process.getLatestVersion()));
         }
         return out;
@@ -97,10 +101,10 @@ public final class Queries {
             .singleNotNull(() -> FlowErrors.notFound("process", key));
         if (!ProcessEntity.ACTIVE.equals(process.getStatus())) throw FlowErrors.forbidden("process", key, "disabled");
         LoadedDefinition definition = definitions.latest(process);
-        if (!CandidateRules.isStarter(actor, definition.model().starters())) throw FlowErrors.forbidden("process", key, "not-a-starter");
-        Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.id() : null;
-        FormView form = definition.hasForm() ? formView(definition, definition.graph().start().form(), true, FormValues.empty(), read) : null;
-        List<PickView> picks = new PickPreview(definition.graph(), context).after(definition.graph().start().id(), null, read);
+        if (!CandidateRules.isStarter(actor, definition.model().getStarters())) throw FlowErrors.forbidden("process", key, "not-a-starter");
+        Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.getId() : null;
+        FormView form = definition.hasForm() ? formView(definition, definition.getGraph().start().getForm(), true, FormValues.empty(), read) : null;
+        List<PickView> picks = new PickPreview(definition.getGraph(), context).after(definition.getGraph().start().getId(), null, read);
         return new StartView(new StartableProcess(key, process.getName(), process.getCategory(), process.getLatestVersion()), form, picks);
     }
 
@@ -112,11 +116,11 @@ public final class Queries {
      */
     public Page<TodoItem> todo(Actor actor, int page, int size) {
         if (page < 1 || size < 1) throw new IllegalArgumentException("page and size start at 1");
-        Map<String, Set<Long>> memberships = new LinkedHashMap<>(actor.groups());
-        memberships.put(CandidateEntity.USER, Set.of(actor.id()));
-        memberships.put(CandidateEntity.ROLE, actor.roles());
-        memberships.put(CandidateEntity.DEPARTMENT, actor.departments());
-        Long me = actor.id();
+        Map<String, Set<Long>> memberships = new LinkedHashMap<>(actor.getGroups());
+        memberships.put(CandidateEntity.USER, Set.of(actor.getId()));
+        memberships.put(CandidateEntity.ROLE, actor.getRoles());
+        memberships.put(CandidateEntity.DEPARTMENT, actor.getDepartments());
+        Long me = actor.getId();
         long mine = assignedTo(me).count();
         long claimable = claimableBy(me, memberships).count();
         int head = page * size;
@@ -129,12 +133,12 @@ public final class Queries {
 
     /** 落到我的、打开着的 */
     private EntityQueryable<WorkItemEntityProxy, WorkItemEntity> assignedTo(Long me) {
-        return context.db().queryable(WorkItemEntity.class).where(w -> { w.assigneeId().eq(me); w.state().eq(WorkItemEntity.OPEN); });
+        return context.getDb().queryable(WorkItemEntity.class).where(w -> { w.assigneeId().eq(me); w.state().eq(WorkItemEntity.OPEN); });
     }
 
     /** 收件箱里我能认领的：候选里有我、我的角色、部门或扩展种类，而且我没被排除 */
     private EntityQueryable<WorkItemEntityProxy, WorkItemEntity> claimableBy(Long me, Map<String, Set<Long>> memberships) {
-        return context.db().queryable(WorkItemEntity.class).where(w -> {
+        return context.getDb().queryable(WorkItemEntity.class).where(w -> {
             w.assigneeId().isNull();
             w.state().eq(WorkItemEntity.OPEN);
             w.candidates().any(c -> c.or(() -> memberships.forEach((kind, ids) -> {
@@ -146,18 +150,18 @@ public final class Queries {
 
     /** 我处理过的：按处理时间从新到旧，每行带实例与处理结果的名字 */
     public Page<TodoItem> done(Actor actor, int page, int size) {
-        Page<TodoItem> rows = Page.of(context.db().queryable(WorkItemEntity.class)
-            .where(w -> { w.completedBy().eq(actor.id()); w.state().eq(WorkItemEntity.DONE); })
+        Page<TodoItem> rows = Page.of(context.getDb().queryable(WorkItemEntity.class)
+            .where(w -> { w.completedBy().eq(actor.getId()); w.state().eq(WorkItemEntity.DONE); })
             .orderBy(w -> { w.completedAt().desc(); w.id().desc(); })
             .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
-        rows.rows().forEach(this::labelOutcome);
+        rows.getRows().forEach(this::labelOutcome);
         return rows;
     }
 
     /** 等我指定承办人的待办（无人认领超时、我是收件箱负责人），每行带实例 */
     public Page<TodoItem> designations(Actor actor, int page, int size) {
-        return Page.of(context.db().queryable(WorkItemEntity.class)
-            .where(w -> { w.designatorId().eq(actor.id()); w.needsDesignation().eq(true); w.state().eq(WorkItemEntity.OPEN); })
+        return Page.of(context.getDb().queryable(WorkItemEntity.class)
+            .where(w -> { w.designatorId().eq(actor.getId()); w.needsDesignation().eq(true); w.state().eq(WorkItemEntity.OPEN); })
             .orderBy(w -> { w.createdAt().desc(); w.id().desc(); })
             .selectAutoInclude(TodoItem.class).toPageResult(page, size), page, size);
     }
@@ -165,26 +169,26 @@ public final class Queries {
     /** 处理过的行带上结果的名字：按实例的定义版本找节点上的 outcome；隐式的结果（加签办完）没有名字 */
     private void labelOutcome(TodoItem item) {
         if (item.getOutcome() == null || item.getInstance() == null) return;
-        if (!(definitions.byId(item.getInstance().getDefinitionId()).graph().node(item.getNode()) instanceof ProcessNode.Task task)) return;
-        task.outcomes().stream().filter(o -> o.key().equals(item.getOutcome())).findFirst().ifPresent(o -> item.setOutcomeLabel(o.label()));
+        if (!(definitions.byId(item.getInstance().getDefinitionId()).getGraph().node(item.getNode()) instanceof ProcessNode.Task task)) return;
+        task.getOutcomes().stream().filter(o -> o.getKey().equals(item.getOutcome())).findFirst().ifPresent(o -> item.setOutcomeLabel(o.getLabel()));
     }
 
     /** 抄送我的：未读在前，已读的按读的时间从新到旧，同样的按抄送时间从新到旧；每行带实例 */
     public Page<CcItem> ccList(Actor actor, int page, int size) {
-        return Page.of(context.db().queryable(CcEntity.class)
-            .where(c -> c.recipientId().eq(actor.id()))
+        return Page.of(context.getDb().queryable(CcEntity.class)
+            .where(c -> c.recipientId().eq(actor.getId()))
             .orderBy(c -> { c.readAt().desc(true, OrderByModeEnum.NULLS_FIRST); c.createdAt().desc(); c.id().desc(); })
             .selectAutoInclude(CcItem.class).toPageResult(page, size), page, size);
     }
 
     /** 管理端搜实例：按发起时间从新到旧；有状态、流程时走（租户, 状态, 流程, 发起时间）的索引 */
     public Page<InstanceVO> instances(InstanceSearch search, int page, int size) {
-        return Page.of(context.db().queryable(InstanceEntity.class)
+        return Page.of(context.getDb().queryable(InstanceEntity.class)
             .where(i -> {
-                if (search.status() != null && !search.status().isBlank()) i.status().eq(search.status());
-                if (search.processKey() != null && !search.processKey().isBlank()) i.processKey().eq(search.processKey());
-                if (search.keyword() != null && !search.keyword().isBlank()) i.title().like(search.keyword().trim());
-                if (search.startedBy() != null) i.startedBy().eq(search.startedBy());
+                if (search.getStatus() != null && !search.getStatus().isBlank()) i.status().eq(search.getStatus());
+                if (search.getProcessKey() != null && !search.getProcessKey().isBlank()) i.processKey().eq(search.getProcessKey());
+                if (search.getKeyword() != null && !search.getKeyword().isBlank()) i.title().like(search.getKeyword().trim());
+                if (search.getStartedBy() != null) i.startedBy().eq(search.getStartedBy());
             })
             .orderBy(i -> { i.startedAt().desc(); i.id().desc(); })
             .select(InstanceVO.class).toPageResult(page, size), page, size);
@@ -192,8 +196,8 @@ public final class Queries {
 
     /** 我发起的：按发起时间从新到旧 */
     public Page<InstanceVO> started(Actor actor, int page, int size) {
-        return Page.of(context.db().queryable(InstanceEntity.class)
-            .where(i -> i.startedBy().eq(actor.id()))
+        return Page.of(context.getDb().queryable(InstanceEntity.class)
+            .where(i -> i.startedBy().eq(actor.getId()))
             .orderBy(i -> { i.startedAt().desc(); i.id().desc(); })
             .select(InstanceVO.class).toPageResult(page, size), page, size);
     }
@@ -207,20 +211,20 @@ public final class Queries {
     /** 流程的全部版本，新的在前 */
     public List<ProcessVersionVO> versions(String processKey) {
         process(processKey);
-        return context.db().queryable(ProcessVersionEntity.class).where(v -> v.processKey().eq(processKey)).orderBy(v -> v.version().desc())
+        return context.getDb().queryable(ProcessVersionEntity.class).where(v -> v.processKey().eq(processKey)).orderBy(v -> v.version().desc())
             .select(ProcessVersionVO.class).toList();
     }
 
     /** 管理端的表单列表：停用的也在，按分类、名称排 */
     public List<FormSummary> forms() {
-        return context.db().queryable(FormEntity.class).orderBy(f -> { f.category().asc(); f.name().asc(); }).toList().stream()
+        return context.getDb().queryable(FormEntity.class).orderBy(f -> { f.category().asc(); f.name().asc(); }).toList().stream()
             .map(f -> new FormSummary(f.getFormKey(), f.getName(), f.getCategory(), f.getStatus(), f.getLatestVersion())).toList();
     }
 
     /** 表单的全部版本，新的在前 */
     public List<FormVersionVO> formVersions(String formKey) {
         form(formKey);
-        return context.db().queryable(FormVersionEntity.class).where(v -> v.formKey().eq(formKey)).orderBy(v -> v.version().desc())
+        return context.getDb().queryable(FormVersionEntity.class).where(v -> v.formKey().eq(formKey)).orderBy(v -> v.version().desc())
             .select(FormVersionVO.class).toList();
     }
 
@@ -228,7 +232,7 @@ public final class Queries {
     public FormDocument formDocument(String formKey, Integer version) {
         FormEntity form = form(formKey);
         int wanted = version == null ? form.getLatestVersion() : version;
-        FormVersionEntity source = context.db().queryable(FormVersionEntity.class)
+        FormVersionEntity source = context.getDb().queryable(FormVersionEntity.class)
             .where(v -> { v.formKey().eq(formKey); v.version().eq(wanted); })
             .select(v -> v.FETCHER.version().manifest().clientSource().serverLanguage().serverSource())
             .singleNotNull(() -> FlowErrors.notFound("form", formKey + "@" + wanted));
@@ -238,7 +242,7 @@ public final class Queries {
 
     /** 某个版本的定义（0005 的 JSON 文字，发布时的原样）；version 为 null 时取最新的 */
     public String definitionJson(String processKey, Integer version) {
-        return context.db().queryable(ProcessVersionEntity.class)
+        return context.getDb().queryable(ProcessVersionEntity.class)
             .where(v -> { v.processKey().eq(processKey); if (version != null) v.version().eq(version); })
             .orderBy(v -> v.version().desc())
             .selectColumn(v -> v.model())
@@ -247,7 +251,7 @@ public final class Queries {
 
     /** 异常：重试用完的作业，新的在前；instanceId 不为 null 时只看这个实例的 */
     public Page<IncidentView> incidents(Long instanceId, int page, int size) {
-        return Page.of(context.db().queryable(JobEntity.class)
+        return Page.of(context.getDb().queryable(JobEntity.class)
             .include(j -> j.instance())
             .include(j -> j.workItem())
             .where(j -> { j.state().eq(JobEntity.FAILED); if (instanceId != null) j.instanceId().eq(instanceId); })
@@ -264,12 +268,12 @@ public final class Queries {
             return new IncidentView(job.getId(), job.getKind(), job.getInstanceId(), null, null, node, null, job.getAttempts(), job.getLastError(),
                 job.getDueAt(), false, List.of());
         }
-        ProcessGraph graph = definitions.of(instance).graph();
+        ProcessGraph graph = definitions.of(instance).getGraph();
         ProcessNode target = graph.node(node);
         boolean skippable = BuiltinJobs.ACTION.equals(job.getKind()) && instance.getEndedAt() == null
             && BuiltinJobs.stillWaiting(job, instance.getState());
         return new IncidentView(job.getId(), job.getKind(), instance.getId(), instance.getTitle(), instance.getProcessKey(), node,
-            target == null ? null : target.name(), job.getAttempts(), job.getLastError(), job.getDueAt(), skippable,
+            target == null ? null : target.getName(), job.getAttempts(), job.getLastError(), job.getDueAt(), skippable,
             node == null ? List.of() : AdminHandler.skipOutcomes(graph, node));
     }
 
@@ -278,41 +282,41 @@ public final class Queries {
      * 待办已处理、实例已结束时照样能看，只是两样都不能做。
      */
     public WorkItemView workItem(Actor actor, Long workItemId) {
-        WorkItemVO item = WorkItems.find(context.db(), workItemId);
-        InstanceEntity instance = Instances.find(context.db(), item.getInstanceId());
+        WorkItemVO item = WorkItems.find(context.getDb(), workItemId);
+        InstanceEntity instance = Instances.find(context.getDb(), item.getInstanceId());
         LoadedDefinition definition = definitions.of(instance);
-        ProcessNode.Task task = (ProcessNode.Task) definition.graph().node(item.getNode());
+        ProcessNode.Task task = (ProcessNode.Task) definition.getGraph().node(item.getNode());
 
         boolean open = WorkItemEntity.OPEN.equals(item.getState()) && InstanceEntity.ACTIVE.equals(instance.getStatus());
-        boolean mine = actor.id().equals(item.getAssigneeId());
-        boolean candidate = item.getAssigneeId() == null && CandidateRules.isCandidate(actor, WorkItems.candidates(context.db(), item.getId()));
+        boolean mine = actor.getId().equals(item.getAssigneeId());
+        boolean candidate = item.getAssigneeId() == null && CandidateRules.isCandidate(actor, WorkItems.candidates(context.getDb(), item.getId()));
 
-        FormValues stored = Instances.form(context.db(), instance.getId());
+        FormValues stored = Instances.form(context.getDb(), instance.getId());
         Function<String, Object> read = name -> References.read(name, instance, stored);
         // 我暂存过的接着填：表单显示暂存的值
         WorkItemDraft draft = open && mine
-            ? context.db().queryable(WorkItemEntity.class).whereById(item.getId()).selectColumn(w -> w.draft()).singleOrNull()
+            ? context.getDb().queryable(WorkItemEntity.class).whereById(item.getId()).selectColumn(w -> w.draft()).singleOrNull()
             : null;
         FormValues shown = draft == null ? stored : stored.with(draft.getForm());
-        FormView form = definition.hasForm() ? formView(definition, task.form(), false, shown, read) : null;
+        FormView form = definition.hasForm() ? formView(definition, task.getForm(), false, shown, read) : null;
         boolean completable = open && (mine || candidate);
-        PickPreview preview = new PickPreview(definition.graph(), context);
-        List<WorkItemView.ReturnTarget> targets = completable && task.outcomes().stream().anyMatch(Outcome::choosesTarget)
+        PickPreview preview = new PickPreview(definition.getGraph(), context);
+        List<WorkItemView.ReturnTarget> targets = completable && task.getOutcomes().stream().anyMatch(Outcome::choosesTarget)
             ? returnTargets(definition, instance, item.getNode()) : List.of();
         // 选节点的退回在没有能退回的节点时（还在第一个人工节点上）不给：点了也做不成
-        List<OutcomeView> outcomes = task.outcomes().stream()
+        List<OutcomeView> outcomes = task.getOutcomes().stream()
             .filter(o -> !(completable && o.choosesTarget() && targets.isEmpty()))
-            .map(o -> outcomeView(o, completable ? preview.after(task.id(), o.key(), read) : List.of(), o.choosesTarget() ? targets : List.of()))
+            .map(o -> outcomeView(o, completable ? preview.after(task.getId(), o.getKey(), read) : List.of(), o.choosesTarget() ? targets : List.of()))
             .toList();
-        boolean assign = open && context.db().queryable(WorkItemEntity.class)
-            .where(w -> { w.id().eq(item.getId()); w.designatorId().eq(actor.id()); w.needsDesignation().eq(true); })
+        boolean assign = open && context.getDb().queryable(WorkItemEntity.class)
+            .where(w -> { w.id().eq(item.getId()); w.designatorId().eq(actor.getId()); w.needsDesignation().eq(true); })
             .any();
-        boolean withdrawStep = new StepWithdrawal(context).allowed(actor, item, definition.graph(), instance);
+        boolean withdrawStep = new StepWithdrawal(context).allowed(actor, item, definition.getGraph(), instance);
         WorkItemView.Actions actions = completable
-            ? new WorkItemView.Actions(task.allow().transfer(), task.allow().delegate(), task.allow().addSign(),
+            ? new WorkItemView.Actions(task.getAllow().isTransfer(), task.getAllow().isDelegate(), task.getAllow().isAddSign(),
                 mine && WorkItemEntity.CLAIMED.equals(item.getAssignment()), assign, withdrawStep)
             : new WorkItemView.Actions(false, false, false, false, assign, withdrawStep);
-        return new WorkItemView(item, Instances.view(context.db(), instance.getId()), form, outcomes, open && candidate, completable, actions,
+        return new WorkItemView(item, Instances.view(context.getDb(), instance.getId()), form, outcomes, open && candidate, completable, actions,
             draft == null ? null : new DraftVO(draft.getComment(), draft.getSavedAt()));
     }
 
@@ -321,42 +325,42 @@ public final class Queries {
      * 表单都只读，按流程级的 {@code formView} 去掉隐藏的字段（0004 的 4.3、0005 的 2.1）：在待办里看的人走待办详情。
      */
     public InstanceDetail instance(Actor actor, Long instanceId) {
-        InstanceEntity instance = Instances.find(context.db(), instanceId);
+        InstanceEntity instance = Instances.find(context.getDb(), instanceId);
         LoadedDefinition definition = definitions.of(instance);
-        FormValues stored = Instances.form(context.db(), instanceId);
+        FormValues stored = Instances.form(context.getDb(), instanceId);
         FormView form = definition.hasForm()
-            ? formView(definition, new NodeFormAccess(FieldAccess.READONLY, definition.model().settings().formView()), false, stored,
+            ? formView(definition, new NodeFormAccess(FieldAccess.READONLY, definition.model().getSettings().getFormView()), false, stored,
                 name -> References.read(name, instance, stored))
             : null;
-        List<WorkItemVO> items = WorkItems.ofInstance(context.db(), instanceId);
-        boolean starterOfActive = actor.id().equals(instance.getStartedBy()) && InstanceEntity.ACTIVE.equals(instance.getStatus());
+        List<WorkItemVO> items = WorkItems.ofInstance(context.getDb(), instanceId);
+        boolean starterOfActive = actor.getId().equals(instance.getStartedBy()) && InstanceEntity.ACTIVE.equals(instance.getStatus());
         InstanceDetail.Actions actions = new InstanceDetail.Actions(
             starterOfActive && WithdrawHandler.allowed(definition, items),
             starterOfActive && items.stream().anyMatch(w -> WorkItemEntity.OPEN.equals(w.getState())));
-        List<InstanceDetail.NodeRef> nodes = definition.model().nodes().stream()
+        List<InstanceDetail.NodeRef> nodes = definition.model().getNodes().stream()
             .filter(n -> !(n instanceof ProcessNode.Start) && !(n instanceof ProcessNode.Gateway))
-            .map(n -> new InstanceDetail.NodeRef(n.id(), n.name(), n.type())).toList();
-        List<FlowEventVO> timeline = context.db().queryable(EventEntity.class).where(e -> e.instanceId().eq(instanceId))
+            .map(n -> new InstanceDetail.NodeRef(n.getId(), n.getName(), n.getType())).toList();
+        List<FlowEventVO> timeline = context.getDb().queryable(EventEntity.class).where(e -> e.instanceId().eq(instanceId))
             .orderBy(e -> { e.instanceRev().asc(); e.id().asc(); })
             .select(FlowEventVO.class).toList();
-        InstanceVO view = Instances.view(context.db(), instanceId);
+        InstanceVO view = Instances.view(context.getDb(), instanceId);
         ProcessDiagram diagram = DiagramView.of(definition.model(), view, timeline);
         return new InstanceDetail(view, form, items, timeline, actions, nodes, diagram);
     }
 
     /** 全部流程，按分类、名称排 */
     private List<ProcessEntity> processEntities() {
-        return context.db().queryable(ProcessEntity.class).orderBy(p -> { p.category().asc(); p.name().asc(); }).toList();
+        return context.getDb().queryable(ProcessEntity.class).orderBy(p -> { p.category().asc(); p.name().asc(); }).toList();
     }
 
     /** 流程本身；没有时报 {@code flow.not-found} */
     private ProcessEntity process(String key) {
-        return context.db().queryable(ProcessEntity.class).where(p -> p.processKey().eq(key)).singleNotNull(() -> FlowErrors.notFound("process", key));
+        return context.getDb().queryable(ProcessEntity.class).where(p -> p.processKey().eq(key)).singleNotNull(() -> FlowErrors.notFound("process", key));
     }
 
     /** 表单本身；没有时报 {@code flow.not-found} */
     private FormEntity form(String key) {
-        return context.db().queryable(FormEntity.class).where(f -> f.formKey().eq(key)).singleNotNull(() -> FlowErrors.notFound("form", key));
+        return context.getDb().queryable(FormEntity.class).where(f -> f.formKey().eq(key)).singleNotNull(() -> FlowErrors.notFound("form", key));
     }
 
 
@@ -366,15 +370,15 @@ public final class Queries {
      */
     private FormView formView(LoadedDefinition definition, NodeFormAccess access, boolean isStart, FormValues values,
                               Function<String, Object> read) {
-        Map<String, FieldState> states = FormAccess.fieldStates(definition.manifest(), access, isStart, read);
+        Map<String, FieldState> states = FormAccess.fieldStates(definition.getManifest(), access, isStart, read);
         Map<String, Object> visible = new LinkedHashMap<>();
         values.asMap().forEach((name, value) -> {
             FieldState state = states.get(name);
-            if (state == null || state.hiddenBy() != FormAccess.HiddenBy.ACCESS) visible.put(name, value);
+            if (state == null || state.getHiddenBy() != FormAccess.HiddenBy.ACCESS) visible.put(name, value);
         });
         FormVersionEntity version = definition.form();
         // 源码与编译结果可能很大，只在要渲染表单时读
-        FormVersionEntity client = context.db().queryable(FormVersionEntity.class).whereById(version.getId())
+        FormVersionEntity client = context.getDb().queryable(FormVersionEntity.class).whereById(version.getId())
             .select(v -> v.FETCHER.clientSource().clientCompiled().compilerVersion())
             .singleNotNull();
         @SuppressWarnings("unchecked")
@@ -385,17 +389,17 @@ public final class Queries {
 
     /** 处理结果给前端的样子：没写意见要求时是 {@code none}（不收意见，0005 的人工节点） */
     private static OutcomeView outcomeView(Outcome outcome, List<PickView> picks, List<WorkItemView.ReturnTarget> targets) {
-        return new OutcomeView(outcome.key(), outcome.label(), outcome.kindOrDefault(), outcome.comment() == null ? "none" : outcome.comment(),
-            outcome.confirm(), picks, targets);
+        return new OutcomeView(outcome.getKey(), outcome.getLabel(), outcome.kindOrDefault(), outcome.getComment() == null ? "none" : outcome.getComment(),
+            outcome.isConfirm(), picks, targets);
     }
 
     /** 退回时能选的节点，带上次在那里处理的人（取这个节点最近处理完的待办） */
     private List<WorkItemView.ReturnTarget> returnTargets(LoadedDefinition definition, InstanceEntity instance, String current) {
-        List<WorkItemVO> items = WorkItems.ofInstance(context.db(), instance.getId());
+        List<WorkItemVO> items = WorkItems.ofInstance(context.getDb(), instance.getId());
         return ReturnTargets.of(definition, instance.getState(), current).stream().map(node -> {
-            String handler = items.stream().filter(i -> i.getNode().equals(node.id()) && i.getCompletedAt() != null)
+            String handler = items.stream().filter(i -> i.getNode().equals(node.getId()) && i.getCompletedAt() != null)
                 .max(Comparator.comparing(WorkItemVO::getCompletedAt)).map(WorkItemVO::getCompletedByName).orElse(null);
-            return new WorkItemView.ReturnTarget(node.id(), node.name(), handler);
+            return new WorkItemView.ReturnTarget(node.getId(), node.getName(), handler);
         }).toList();
     }
 }

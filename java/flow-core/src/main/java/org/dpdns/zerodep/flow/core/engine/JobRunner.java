@@ -18,7 +18,7 @@ import java.util.Map;
  * <p>失败的作业事务回滚，过一会儿重试（间隔由那一种的 {@link JobHandler#retryDelay} 定，默认 1、4、9……分钟），
  * 重试用完标成失败、留在表里给管理员看，再交给 {@link JobHandler#gaveUp} 善后。
  */
-public final class JobRunner {
+public class JobRunner {
     private static final System.Logger LOG = System.getLogger(JobRunner.class.getName());
     /** 一次最多做多少个 */
     private static final int BATCH = 50;
@@ -41,7 +41,7 @@ public final class JobRunner {
 
     /** 做一批到期的作业，返回做了几个（含失败的）；一批做满时调用方可以马上再调 */
     public int runDue() {
-        Instant now = context.clock().instant();
+        Instant now = context.getClock().instant();
         int ran = 0;
         for (JobEntity job : due(now)) {
             if (!lock(job.getId(), now)) continue;   // 别的进程先领了
@@ -53,7 +53,7 @@ public final class JobRunner {
 
     /** 到期、没人领着（或领的人超时了）的作业，按到期时间先后；跨租户 */
     private List<JobEntity> due(Instant now) {
-        return context.db().queryable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
+        return context.getDb().queryable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
             .where(j -> {
                 j.state().eq(JobEntity.PENDING);
                 j.dueAt().le(now);
@@ -65,7 +65,7 @@ public final class JobRunner {
 
     /** 抢一个作业：还等着、没人领着时记下是谁领的、领到什么时候；跨租户 */
     private boolean lock(Long jobId, Instant now) {
-        return context.db().updatable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
+        return context.getDb().updatable(JobEntity.class).noInterceptor(FlowInterceptors.TENANT)
             .setColumns(j -> { j.lockedBy().set(owner); j.lockedUntil().set(now.plus(LEASE)); })
             .where(j -> {
                 j.id().eq(jobId);
@@ -82,11 +82,11 @@ public final class JobRunner {
             context.transaction(() -> {
                 JobHandler.Next next = handler.run(job, now);
                 if (next == null) {
-                    context.db().deletable(JobEntity.class).allowDeleteStatement(true).whereById(job.getId()).executeRows();
+                    context.getDb().deletable(JobEntity.class).allowDeleteStatement(true).whereById(job.getId()).executeRows();
                 } else {
                     // 下次再做（每隔一段时间的提醒、实例暂停时往后推）：换上新的时刻与数据，放开
-                    context.db().updatable(JobEntity.class)
-                        .setColumns(j -> { j.dueAt().set(next.at()); j.payload().set(next.payload()); j.lockedBy().set((String) null); j.lockedUntil().set((Instant) null); })
+                    context.getDb().updatable(JobEntity.class)
+                        .setColumns(j -> { j.dueAt().set(next.getAt()); j.payload().set(next.getPayload()); j.lockedBy().set((String) null); j.lockedUntil().set((Instant) null); })
                         .whereById(job.getId()).executeRows();
                 }
             });
@@ -97,7 +97,7 @@ public final class JobRunner {
             boolean retry = attempts < job.getMaxAttempts();
             Instant again = retry ? now.plus(handler == null ? Duration.ofMinutes(1) : handler.retryDelay(job, attempts)) : null;
             // 失败了：失败次数加一、记下原因、放开；还能重试的过一会儿再做，重试用完的标成失败、留着给管理员看
-            context.db().updatable(JobEntity.class)
+            context.getDb().updatable(JobEntity.class)
                 .setColumns(j -> {
                     j.attempts().increment();
                     j.lastError().set(error);

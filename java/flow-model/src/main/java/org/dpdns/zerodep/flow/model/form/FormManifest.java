@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.model.form;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.model.Condition;
 import org.dpdns.zerodep.flow.model.Conditions;
 import org.dpdns.zerodep.wire.Wire;
@@ -15,7 +16,7 @@ import java.util.Map;
  * 表单的字段清单（docs/decisions/0004 的 1.3）：表单源码里 {@code defineFields({...})} 的字面量，保存时提取成 JSON 存下。
  * 与 TS 模型包的 {@code manifest.ts} 同一份形状；字段按清单里的先后。
  */
-public final class FormManifest {
+public class FormManifest {
     private final Map<String, Field> fields;
 
     private FormManifest(Map<String, Field> fields) { this.fields = Collections.unmodifiableMap(fields); }
@@ -23,19 +24,26 @@ public final class FormManifest {
     /**
      * 一个字段。类型专有的属性按 JSON 原样放在 {@code attributes} 里（{@code minLength}、{@code scale}、{@code options}……），
      * 引擎用到的几样有自己的字段。
-     *
-     * @param label        显示名
-     * @param type         类型：内置的十种，或接入方注册的
-     * @param required     必填
-     * @param multiple     select 能不能多选
-     * @param visibleWhen  显示条件；null 时总是显示
-     * @param requiredWhen 必填条件；null 时只看 required
-     * @param columns      list 的列；不是 list 时为 null
-     * @param attributes   字段的全部属性：JSON 原样，只有 decimal、date、datetime 的 {@code default}、{@code min}、{@code max}
-     *                     读成与值同样的强类型（BigDecimal、LocalDate、Instant；见 {@link #VALUE_KINDS}）
      */
-    public record Field(String label, String type, boolean required, boolean multiple, Condition visibleWhen,
-                        Condition requiredWhen, FormManifest columns, Map<String, Object> attributes) { }
+    @Data
+    public static class Field {
+        /** 显示名 */
+        private final String label;
+        /** 类型：内置的十种，或接入方注册的 */
+        private final String type;
+        /** 必填 */
+        private final boolean required;
+        /** select 能不能多选 */
+        private final boolean multiple;
+        /** 显示条件；null 时总是显示 */
+        private final Condition visibleWhen;
+        /** 必填条件；null 时只看 required */
+        private final Condition requiredWhen;
+        /** list 的列；不是 list 时为 null */
+        private final FormManifest columns;
+        /** 字段的全部属性：JSON 原样，只有 decimal、date、datetime 的 {@code default}、{@code min}、{@code max} 读成与值同样的强类型（BigDecimal、LocalDate、Instant；见 {@link #VALUE_KINDS}） */
+        private final Map<String, Object> attributes;
+    }
 
     /**
      * 值是强类型的字段类型在线上（json-wire）是哪一种：提交的值由 wire 还原成对应的 Java 类型，清单里人写的
@@ -95,16 +103,16 @@ public final class FormManifest {
     }
 
     private static Object typed(Field field, Object value) {
-        if (field.columns() != null && value instanceof List<?> rows) {
+        if (field.getColumns() != null && value instanceof List<?> rows) {
             List<Object> out = new ArrayList<>();
             for (Object row : rows) {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> cells = row instanceof Map<?, ?> map ? field.columns().typed((Map<String, Object>) map) : null;
+                Map<String, Object> cells = row instanceof Map<?, ?> map ? field.getColumns().typed((Map<String, Object>) map) : null;
                 out.add(cells == null ? row : cells);
             }
             return out;
         }
-        return typed(field.type(), value);
+        return typed(field.getType(), value);
     }
 
     /** 一个值：强类型字段的文字读成值的类型，读不出时原样 */
@@ -126,7 +134,7 @@ public final class FormManifest {
         int dot = path.indexOf('.');
         if (dot < 0) return fields.get(path);
         Field list = fields.get(path.substring(0, dot));
-        return list != null && list.columns() != null ? list.columns().field(path.substring(dot + 1)) : null;
+        return list != null && list.getColumns() != null ? list.getColumns().field(path.substring(dot + 1)) : null;
     }
 
     /** 全部字段的路径，明细表的列写成 {@code 列表.列} */
@@ -134,8 +142,8 @@ public final class FormManifest {
         List<String> paths = new ArrayList<>();
         for (Map.Entry<String, Field> entry : fields.entrySet()) {
             paths.add(entry.getKey());
-            if (entry.getValue().columns() != null) {
-                for (String column : entry.getValue().columns().fields().keySet()) paths.add(entry.getKey() + "." + column);
+            if (entry.getValue().getColumns() != null) {
+                for (String column : entry.getValue().getColumns().fields().keySet()) paths.add(entry.getKey() + "." + column);
             }
         }
         return paths;

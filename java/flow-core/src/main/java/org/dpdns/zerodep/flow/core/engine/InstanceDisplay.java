@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  *   <li>正在处理的节点：还开着的待办在哪些节点上（去重），加上停着等的定时节点、异步的自动节点；实例结束了就是空的。</li>
  * </ul>
  */
-final class InstanceDisplay {
+class InstanceDisplay {
     /** 标题模板里的占位：{form.title} */
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([^{}]+)\\}");
 
@@ -40,7 +40,7 @@ final class InstanceDisplay {
                         EasyEntityQuery db) {
         String title = fixedTitle != null ? fixedTitle : title(definition, read);
         Map<String, Object> summary = new LinkedHashMap<>();
-        for (String name : definition.summary()) summary.put(name, read.apply(name));
+        for (String name : definition.getSummary()) summary.put(name, read.apply(name));
         instance.setTitle(title);
         instance.setSummary(summary);
         instance.setCurrent(currentNodes(instance, definition, db));
@@ -48,8 +48,8 @@ final class InstanceDisplay {
 
     /** 按模板生成标题；不写模板时用流程名 */
     private static String title(ProcessDefinition definition, Function<String, Object> read) {
-        String template = definition.title();
-        if (template == null || template.isBlank()) return definition.name();
+        String template = definition.getTitle();
+        if (template == null || template.isBlank()) return definition.getName();
         Matcher m = PLACEHOLDER.matcher(template);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
@@ -68,8 +68,8 @@ final class InstanceDisplay {
         for (WorkItemVO item : WorkItems.ofInstance(db, instance.getId())) {
             if (WorkItemEntity.OPEN.equals(item.getState())) open.putIfAbsent(item.getNode(), new CurrentNode(item.getNode(), item.getNodeName()));
         }
-        for (String node : instance.getState().waits().keySet()) {
-            String name = definition.nodes().stream().filter(n -> n.id().equals(node)).map(ProcessNode::name).findFirst().orElse(null);
+        for (String node : instance.getState().getWaits().keySet()) {
+            String name = definition.getNodes().stream().filter(n -> n.getId().equals(node)).map(ProcessNode::getName).findFirst().orElse(null);
             open.putIfAbsent(node, new CurrentNode(node, name));
         }
         return List.copyOf(open.values());

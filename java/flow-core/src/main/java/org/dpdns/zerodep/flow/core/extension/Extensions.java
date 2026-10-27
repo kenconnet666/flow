@@ -13,7 +13,7 @@ import java.util.function.Function;
  * 同名的后注册的换掉先注册的。定义里写了没注册的名字，发布时就报 {@code extension-unknown}；万一用到（换了注册后旧版本的实例）报
  * {@code flow.extension-failed}。
  */
-public final class Extensions {
+public class Extensions {
     /** 什么也没注册 */
     public static final Extensions NONE = new Extensions(List.of(), List.of(), List.of());
 

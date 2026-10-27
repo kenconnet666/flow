@@ -18,7 +18,7 @@ import java.util.function.Function;
  * Map<String, Object> variables = Routing.applyEffects(edge.effects(), variables, scope::read);
  * }</pre>
  */
-public final class Routing {
+public class Routing {
     private static final BigDecimal LONG_MIN = BigDecimal.valueOf(Long.MIN_VALUE);
     private static final BigDecimal LONG_MAX = BigDecimal.valueOf(Long.MAX_VALUE);
 
@@ -39,18 +39,18 @@ public final class Routing {
     public static List<ProcessEdge> selectEdges(ProcessGraph graph, String nodeId, String outcome, Function<String, Object> read) {
         List<ProcessEdge> edges = graph.outgoing(nodeId);
         ProcessNode node = graph.node(nodeId);
-        String type = node == null ? null : node.type();
+        String type = node == null ? null : node.getType();
         if ("parallel".equals(type)) return List.copyOf(edges);
         List<ProcessEdge> candidates = new ArrayList<>();
         List<ProcessEdge> fallback = new ArrayList<>();
         for (ProcessEdge edge : edges) {
-            boolean fits = edge.outcome() == null || edge.outcome().equals(outcome);
+            boolean fits = edge.getOutcome() == null || edge.getOutcome().equals(outcome);
             if (!fits) continue;
             if (edge.isDefault()) fallback.add(edge);
-            else if (edge.when() == null || Conditions.evaluate(edge.when(), read)) candidates.add(edge);
+            else if (edge.getWhen() == null || Conditions.evaluate(edge.getWhen(), read)) candidates.add(edge);
         }
         if ("inclusive".equals(type)) return !candidates.isEmpty() ? candidates : fallback.stream().limit(1).toList();
-        ProcessEdge chosen = candidates.stream().filter(e -> e.outcome() != null && e.outcome().equals(outcome)).findFirst()
+        ProcessEdge chosen = candidates.stream().filter(e -> e.getOutcome() != null && e.getOutcome().equals(outcome)).findFirst()
             .orElse(candidates.isEmpty() ? (fallback.isEmpty() ? null : fallback.get(0)) : candidates.get(0));
         return chosen == null ? List.of() : List.of(chosen);
     }
@@ -63,9 +63,9 @@ public final class Routing {
         Map<String, Object> next = new LinkedHashMap<>(variables);
         for (ProcessEdge.Effect effect : effects) {
             if (effect instanceof ProcessEdge.Effect.Set set) {
-                next.put(set.target(), set.value() instanceof Ref ref ? read.apply(ref.ref()) : set.value());
+                next.put(set.getTarget(), set.getValue() instanceof Ref ref ? read.apply(ref.getRef()) : set.getValue());
             } else if (effect instanceof ProcessEdge.Effect.Increment increment) {
-                next.put(increment.target(), add(next.get(increment.target()), increment.by()));
+                next.put(increment.getTarget(), add(next.get(increment.getTarget()), increment.getBy()));
             }
         }
         return next;

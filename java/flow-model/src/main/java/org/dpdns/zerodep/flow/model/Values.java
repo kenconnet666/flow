@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  * </ul>
  * 值是 json-wire 还原出的形状（{@code Wire.decode}）：Map、List、String、Integer、Double、Long、BigDecimal、LocalDate、Instant、Boolean、null。
  */
-public final class Values {
+public class Values {
     private static final Pattern NUMERIC =
         Pattern.compile("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?");
 

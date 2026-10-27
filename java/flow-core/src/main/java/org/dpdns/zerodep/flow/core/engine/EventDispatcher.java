@@ -26,7 +26,7 @@ import java.util.function.Supplier;
  * </ul>
  * 作业里调处理类会嵌套事务：只在最外层做完时发。
  */
-public final class EventDispatcher {
+public class EventDispatcher {
     private static final System.Logger LOG = System.getLogger(EventDispatcher.class.getName());
 
     private final List<FlowListener> inTransaction;
@@ -36,7 +36,7 @@ public final class EventDispatcher {
     /** 这个线程上正在做的引擎事务：嵌套几层，提交后要发的通知 */
     private final ThreadLocal<Pending> pending = ThreadLocal.withInitial(Pending::new);
 
-    private static final class Pending {
+    private static class Pending {
         int depth;
         final List<FlowNotice> notices = new ArrayList<>();
         final List<Notification> notifications = new ArrayList<>();
@@ -109,7 +109,7 @@ public final class EventDispatcher {
                 try {
                     channel.send(notification);
                 } catch (RuntimeException e) {
-                    LOG.log(System.Logger.Level.ERROR, "notification channel " + channel.getClass().getName() + " failed on " + notification.kind(), e);
+                    LOG.log(System.Logger.Level.ERROR, "notification channel " + channel.getClass().getName() + " failed on " + notification.getKind(), e);
                 }
             }
         }
@@ -123,20 +123,20 @@ public final class EventDispatcher {
                 try {
                     listener.on(notice);
                 } catch (RuntimeException e) {
-                    LOG.log(System.Logger.Level.ERROR, "flow listener " + listener.getClass().getName() + " failed on " + notice.event().getType(), e);
+                    LOG.log(System.Logger.Level.ERROR, "flow listener " + listener.getClass().getName() + " failed on " + notice.getEvent().getType(), e);
                 }
             }
         }
     }
 
     private static boolean accepts(FlowListener listener, FlowNotice notice) {
-        return (listener.types().isEmpty() || listener.types().contains(notice.event().getType()))
-            && (listener.processes().isEmpty() || listener.processes().contains(notice.instance().getProcessKey()));
+        return (listener.types().isEmpty() || listener.types().contains(notice.getEvent().getType()))
+            && (listener.processes().isEmpty() || listener.processes().contains(notice.getInstance().getProcessKey()));
     }
 
     private static Map<String, Object> metaOf(ProcessGraph graph, String nodeId) {
         if (nodeId == null) return Map.of();
         ProcessNode node = graph.node(nodeId);
-        return node == null ? Map.of() : node.info().meta();
+        return node == null ? Map.of() : node.getInfo().getMeta();
     }
 }

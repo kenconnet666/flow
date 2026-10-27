@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 集群里别的节点发布新版本时不需要通知这里——新版本是新编号。
  * <p>版本总是连同它的表单一起读（导航 {@code form}；表单的源码与编译结果默认不读）。
  */
-public final class DefinitionCache {
+public class DefinitionCache {
     private final EasyEntityQuery db;
     private final Map<Long, LoadedDefinition> loaded = new ConcurrentHashMap<>();
 

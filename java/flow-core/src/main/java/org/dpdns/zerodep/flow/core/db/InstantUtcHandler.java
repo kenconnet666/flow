@@ -13,7 +13,7 @@ import java.time.ZoneOffset;
 /**
  * 时间列：引擎里是 {@link Instant}，库里是 UTC 的 DATETIME(3)（0001 的"UTC 时间"）。按本地时间读写，不经 JVM 与连接的时区换算。
  */
-final class InstantUtcHandler implements JdbcTypeHandler {
+class InstantUtcHandler implements JdbcTypeHandler {
     @Override
     public Object getValue(JdbcProperty property, StreamResultSet resultSet) throws SQLException {
         LocalDateTime value = resultSet.getObject(property.getJdbcIndex(), LocalDateTime.class);

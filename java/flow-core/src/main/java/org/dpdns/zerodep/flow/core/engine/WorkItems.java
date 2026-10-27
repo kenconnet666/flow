@@ -14,7 +14,7 @@ import java.util.List;
  * 几个处理类都要做的待办读写。状态的变化都写成带条件的更新（{@code WHERE state = 'open'}……），改到 0 行就是别人先改了；
  * 候选只在待办打开时存在（0007 的 1 节第 3 条），待办离开"打开"时一并删掉。只在一处用到的读写直接写在处理类里。
  */
-final class WorkItems {
+class WorkItems {
     private WorkItems() { }
 
     /** 读一个；不存在时报 {@code flow.not-found} */

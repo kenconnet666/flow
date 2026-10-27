@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.core.view;
 
 import com.easy.query.core.api.pagination.EasyPageResult;
+import lombok.Data;
 
 import java.util.List;
 import java.util.function.Function;
@@ -8,13 +9,24 @@ import java.util.function.Function;
 /**
  * 一页数据，同 vue-tsx-pro 的 {@code TablePage}：{@code { rows, total, page, size, totalPages }}，页码从 1 开始。
  * 条数是 int：编码成 typed JSON 时是普通的 JSON 数字（Long 会写成 bigint 的文字）。
- *
- * @param rows  本页的行
- * @param total 不分页时满足条件的总行数
  */
-public record Page<T>(List<T> rows, int total, int page, int size, int totalPages) {
-    public Page {
+@Data
+public class Page<T> {
+    /** 本页的行 */
+    private final List<T> rows;
+    /** 不分页时满足条件的总行数 */
+    private final int total;
+    private final int page;
+    private final int size;
+    private final int totalPages;
+
+    public Page(List<T> rows, int total, int page, int size, int totalPages) {
         rows = List.copyOf(rows);
+        this.rows = rows;
+        this.total = total;
+        this.page = page;
+        this.size = size;
+        this.totalPages = totalPages;
     }
 
     /** easy-query 的分页结果 */

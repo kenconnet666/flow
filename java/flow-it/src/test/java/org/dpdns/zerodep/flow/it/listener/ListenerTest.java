@@ -63,12 +63,12 @@ class ListenerTest {
         var started = engine.start(ALICE, StartCommand.of("memo", Map.of()));
         assertEquals(List.of(EventEntity.INSTANCE_STARTED, EventEntity.NODE_LEFT, EventEntity.NODE_ENTERED, EventEntity.WORK_ITEM_CREATED), types());
         FlowNotice created = delivered.get(3);
-        assertEquals("mail", created.nodeMeta().get("channel"));
-        assertEquals("memo", created.instance().getProcessKey());
-        assertTrue(created.event().getId() != null, "通知里的流转记录带数据库给的编号");
+        assertEquals("mail", created.getNodeMeta().get("channel"));
+        assertEquals("memo", created.getInstance().getProcessKey());
+        assertTrue(created.getEvent().getId() != null, "通知里的流转记录带数据库给的编号");
 
         delivered.clear();
-        engine.complete(BOSS, CompleteCommand.of(started.created().get(0).getId(), "ok"));
+        engine.complete(BOSS, CompleteCommand.of(started.getCreated().get(0).getId(), "ok"));
         assertEquals(EventEntity.INSTANCE_FINISHED, types().get(types().size() - 1));
     }
 
@@ -85,10 +85,10 @@ class ListenerTest {
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> engine.start(ALICE, StartCommand.of("memo", Map.of())));
         assertEquals("预算系统不同意", error.getMessage());
         assertEquals(List.of(), types(), "回滚了，提交后的监听什么也没收到");
-        assertEquals(0L, engine.started(ALICE, 1, 10).total(), "实例没留下");
+        assertEquals(0L, engine.started(ALICE, 1, 10).getTotal(), "实例没留下");
     }
 
     private List<String> types() {
-        return delivered.stream().map(n -> n.event().getType()).toList();
+        return delivered.stream().map(n -> n.getEvent().getType()).toList();
     }
 }

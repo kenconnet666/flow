@@ -4,9 +4,10 @@ import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Navigate;
 import com.easy.query.core.annotation.OrderByProperty;
-import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.annotation.Table;
+import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
@@ -106,7 +107,11 @@ public class InstanceEntity implements ProxyEntityAvailable<InstanceEntity, Inst
     private List<InstanceEntity> children;
 
     /** 正在处理的一个节点 */
-    public record CurrentNode(String node, String name) { }
+    @Data
+    public static class CurrentNode {
+        private final String node;
+        private final String name;
+    }
 
     /** 结束：状态、结果、结束时间，正在处理的节点清空 */
     public void end(String nextStatus, String nextResult, Instant at) {

@@ -16,8 +16,8 @@ public class ExamplePushAction implements ServiceAction {
 
     @Override
     public Result perform(Context context) {
-        if (Boolean.TRUE.equals(context.args().get("fail"))) throw new IllegalStateException("外部系统不可用（示例故意失败）");
-        Object outcome = context.args().get("outcome");
+        if (Boolean.TRUE.equals(context.getArgs().get("fail"))) throw new IllegalStateException("外部系统不可用（示例故意失败）");
+        Object outcome = context.getArgs().get("outcome");
         return outcome == null ? Result.DONE : Result.outcome(String.valueOf(outcome));
     }
 }

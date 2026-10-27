@@ -12,7 +12,7 @@ import java.util.Map;
  * graph.outgoing("check");   // 从"资料审核"出去的连线，按定义的先后
  * }</pre>
  */
-public final class ProcessGraph {
+public class ProcessGraph {
     private final ProcessDefinition definition;
     private final Map<String, ProcessNode> nodes = new HashMap<>();
     private final Map<String, Lane> lanes = new HashMap<>();
@@ -22,13 +22,13 @@ public final class ProcessGraph {
 
     private ProcessGraph(ProcessDefinition definition) {
         this.definition = definition;
-        for (ProcessNode node : definition.nodes()) nodes.putIfAbsent(node.id(), node);
-        for (Lane lane : definition.lanes()) lanes.putIfAbsent(lane.id(), lane);
-        for (ProcessEdge edge : definition.edges()) {
-            outgoing.computeIfAbsent(edge.from(), k -> new ArrayList<>()).add(edge);
-            incoming.computeIfAbsent(edge.to(), k -> new ArrayList<>()).add(edge);
+        for (ProcessNode node : definition.getNodes()) nodes.putIfAbsent(node.getId(), node);
+        for (Lane lane : definition.getLanes()) lanes.putIfAbsent(lane.getId(), lane);
+        for (ProcessEdge edge : definition.getEdges()) {
+            outgoing.computeIfAbsent(edge.getFrom(), k -> new ArrayList<>()).add(edge);
+            incoming.computeIfAbsent(edge.getTo(), k -> new ArrayList<>()).add(edge);
         }
-        start = (ProcessNode.Start) definition.nodes().stream().filter(n -> n instanceof ProcessNode.Start).findFirst().orElse(null);
+        start = (ProcessNode.Start) definition.getNodes().stream().filter(n -> n instanceof ProcessNode.Start).findFirst().orElse(null);
     }
 
     /** 建索引 */

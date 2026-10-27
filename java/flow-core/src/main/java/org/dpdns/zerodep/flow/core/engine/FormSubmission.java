@@ -18,7 +18,7 @@ import java.util.function.Function;
  * 收表单（0004 的 4.5）：按节点上的字段权限，能改的字段取提交的值，其余用存着的值，再查必填与值的类型。
  * 规则都在模型包（{@link FormAccess}），前端与两个后端用同一份。
  */
-final class FormSubmission {
+class FormSubmission {
     private FormSubmission() { }
 
     /**
@@ -40,11 +40,11 @@ final class FormSubmission {
 
         Map<String, FormAccess.FieldState> states = FormAccess.fieldStates(manifest, access, isStart, readAfterSubmit);
         FormAccess.Submission submission = FormAccess.mergeSubmission(manifest, states, stored.asMap(), submitted.asMap());
-        if (!submission.errors().isEmpty()) {
-            throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form has " + submission.errors().size() + " problem(s)",
-                submission.errors().stream().map(ErrorDetail::of).toList());
+        if (!submission.getErrors().isEmpty()) {
+            throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form has " + submission.getErrors().size() + " problem(s)",
+                submission.getErrors().stream().map(ErrorDetail::of).toList());
         }
-        return FormValues.of(submission.values());
+        return FormValues.of(submission.getValues());
     }
 
     /**
@@ -53,12 +53,12 @@ final class FormSubmission {
     static FormValues draft(FormManifest manifest, NodeFormAccess access, FormValues stored, FormValues submitted, Function<String, Object> read) {
         Map<String, FormAccess.FieldState> states = FormAccess.fieldStates(manifest, access, false, read);
         FormAccess.Submission submission = FormAccess.mergeSubmission(manifest, states, stored.asMap(), submitted.asMap());
-        List<ErrorDetail> problems = submission.errors().stream().filter(e -> !"required".equals(e.code())).map(ErrorDetail::of).toList();
+        List<ErrorDetail> problems = submission.getErrors().stream().filter(e -> !"required".equals(e.getCode())).map(ErrorDetail::of).toList();
         if (!problems.isEmpty()) throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the draft has " + problems.size() + " problem(s)", problems);
         Map<String, Object> editable = new LinkedHashMap<>();
         submitted.asMap().forEach((name, value) -> {
             FormAccess.FieldState state = states.get(name);
-            if (state != null && state.editable()) editable.put(name, value);
+            if (state != null && state.isEditable()) editable.put(name, value);
         });
         return FormValues.of(editable);
     }

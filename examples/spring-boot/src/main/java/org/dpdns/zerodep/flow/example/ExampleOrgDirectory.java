@@ -24,7 +24,7 @@ public class ExampleOrgDirectory implements OrgDirectory {
 
     @Override
     public String userName(Long userId) {
-        return Optional.ofNullable(USERS.get(userId)).map(ExampleUser::name).orElse(String.valueOf(userId));
+        return Optional.ofNullable(USERS.get(userId)).map(ExampleUser::getName).orElse(String.valueOf(userId));
     }
 
     /** 流程管理员：总经理（处理人为空、写了 emptyAssignee: admin 时转给他） */
@@ -39,7 +39,7 @@ public class ExampleOrgDirectory implements OrgDirectory {
     @Override
     public List<Long> members(String kind, Long id) {
         return USERS.values().stream()
-            .filter(user -> ("role".equals(kind) ? user.roles() : "department".equals(kind) ? user.departments() : Set.<Long>of()).contains(id))
-            .map(ExampleUser::id).sorted().toList();
+            .filter(user -> ("role".equals(kind) ? user.getRoles() : "department".equals(kind) ? user.getDepartments() : Set.<Long>of()).contains(id))
+            .map(ExampleUser::getId).sorted().toList();
     }
 }

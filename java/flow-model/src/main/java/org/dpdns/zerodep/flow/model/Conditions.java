@@ -17,7 +17,7 @@ import java.util.function.Function;
  * 字段的值是数组时（多选、人员字段的编号列表），比较对数组里的每一项做：等于、是其中之一、包含、大小这些是"有一项满足"，
  * 不等于、不在其中、不包含是"没有一项满足"；有值、没有值看数组是不是空的。
  */
-public final class Conditions {
+public class Conditions {
     private Conditions() { }
 
     /** 从 JSON 树（{@code Json.read} 读出来的 Map、List）读一个条件；形状不对时报 IllegalArgumentException，消息里带路径 */
@@ -48,18 +48,18 @@ public final class Conditions {
 
     /** 一条比较已经写完整：要值的有值，{@code between} 至少一端有值 */
     public static boolean isRuleComplete(Condition.Rule rule) {
-        if (!rule.op().needsValue()) return true;
-        if (rule.op() == ConditionOp.BETWEEN) {
-            return rule.value() instanceof List<?> ends && ends.stream().anyMatch(end -> !Values.isBlank(end));
+        if (!rule.getOp().needsValue()) return true;
+        if (rule.getOp() == ConditionOp.BETWEEN) {
+            return rule.getValue() instanceof List<?> ends && ends.stream().anyMatch(end -> !Values.isBlank(end));
         }
-        return !Values.isBlank(rule.value());
+        return !Values.isBlank(rule.getValue());
     }
 
     /** 整棵树都写完整：没有没写完的比较、没有空的组（流程里发布时要求这样，0005 的 6.2） */
     public static boolean isComplete(Condition condition) {
-        if (condition instanceof Condition.Not not) return isComplete(not.item());
-        if (condition instanceof Condition.All all) return !all.items().isEmpty() && all.items().stream().allMatch(Conditions::isComplete);
-        if (condition instanceof Condition.Any any) return !any.items().isEmpty() && any.items().stream().allMatch(Conditions::isComplete);
+        if (condition instanceof Condition.Not not) return isComplete(not.getItem());
+        if (condition instanceof Condition.All all) return !all.getItems().isEmpty() && all.getItems().stream().allMatch(Conditions::isComplete);
+        if (condition instanceof Condition.Any any) return !any.getItems().isEmpty() && any.getItems().stream().allMatch(Conditions::isComplete);
         return isRuleComplete((Condition.Rule) condition);
     }
 
@@ -71,10 +71,10 @@ public final class Conditions {
     }
 
     private static void collect(Condition condition, Set<String> fields) {
-        if (condition instanceof Condition.Not not) collect(not.item(), fields);
-        else if (condition instanceof Condition.All all) all.items().forEach(item -> collect(item, fields));
-        else if (condition instanceof Condition.Any any) any.items().forEach(item -> collect(item, fields));
-        else fields.add(((Condition.Rule) condition).field());
+        if (condition instanceof Condition.Not not) collect(not.getItem(), fields);
+        else if (condition instanceof Condition.All all) all.getItems().forEach(item -> collect(item, fields));
+        else if (condition instanceof Condition.Any any) any.getItems().forEach(item -> collect(item, fields));
+        else fields.add(((Condition.Rule) condition).getField());
     }
 
     /**
@@ -89,11 +89,11 @@ public final class Conditions {
     /** 求值；不加条件时为 null */
     private static Boolean evaluateOrSkip(Condition condition, Function<String, Object> read) {
         if (condition instanceof Condition.Not not) {
-            Boolean inner = evaluateOrSkip(not.item(), read);
+            Boolean inner = evaluateOrSkip(not.getItem(), read);
             return inner == null ? null : !inner;
         }
         if (condition instanceof Condition.All || condition instanceof Condition.Any) {
-            List<Condition> items = condition instanceof Condition.All all ? all.items() : ((Condition.Any) condition).items();
+            List<Condition> items = condition instanceof Condition.All all ? all.getItems() : ((Condition.Any) condition).getItems();
             boolean any = false;
             boolean all = true;
             boolean counted = false;
@@ -109,17 +109,17 @@ public final class Conditions {
         }
         Condition.Rule rule = (Condition.Rule) condition;
         if (!isRuleComplete(rule)) return null;
-        return matchesRule(rule, read.apply(rule.field()));
+        return matchesRule(rule, read.apply(rule.getField()));
     }
 
     private static boolean matchesRule(Condition.Rule rule, Object actual) {
-        ConditionOp op = rule.op();
+        ConditionOp op = rule.getOp();
         if (op == ConditionOp.EXISTS || op == ConditionOp.EMPTY || !(actual instanceof List<?> list)) {
-            return matchesOne(op, actual, rule.value());
+            return matchesOne(op, actual, rule.getValue());
         }
         return op.negative()
-            ? list.stream().allMatch(item -> matchesOne(op, item, rule.value()))
-            : list.stream().anyMatch(item -> matchesOne(op, item, rule.value()));
+            ? list.stream().allMatch(item -> matchesOne(op, item, rule.getValue()))
+            : list.stream().anyMatch(item -> matchesOne(op, item, rule.getValue()));
     }
 
     private static String lower(Object value) {

@@ -19,7 +19,7 @@ import java.util.function.Function;
  * 校验用它报 {@code gateway-unpaired}，引擎用它在分叉时记下"汇合要等几条分支"、在退回跳出区域时找出要取消的分支。
  * 与 TS 的 {@code gatewayPairs} 同一套算法。
  */
-public final class GatewayPairs {
+public class GatewayPairs {
     /** 结束节点都连到这个虚拟的出口，后支配树才有唯一的根 */
     private static final String EXIT = "\u0000exit";
 
@@ -60,15 +60,15 @@ public final class GatewayPairs {
         ProcessGraph graph = ProcessGraph.of(definition);
         Map<String, List<String>> succ = new HashMap<>();
         Map<String, List<String>> pred = new HashMap<>();
-        for (ProcessEdge e : definition.edges()) {
-            if (e.isBackward() || graph.node(e.from()) == null || graph.node(e.to()) == null) continue;
-            succ.computeIfAbsent(e.from(), k -> new ArrayList<>()).add(e.to());
-            pred.computeIfAbsent(e.to(), k -> new ArrayList<>()).add(e.from());
+        for (ProcessEdge e : definition.getEdges()) {
+            if (e.isBackward() || graph.node(e.getFrom()) == null || graph.node(e.getTo()) == null) continue;
+            succ.computeIfAbsent(e.getFrom(), k -> new ArrayList<>()).add(e.getTo());
+            pred.computeIfAbsent(e.getTo(), k -> new ArrayList<>()).add(e.getFrom());
         }
-        for (ProcessNode node : definition.nodes()) {
-            if (!node.type().equals("end")) continue;
-            succ.computeIfAbsent(node.id(), k -> new ArrayList<>()).add(EXIT);
-            pred.computeIfAbsent(EXIT, k -> new ArrayList<>()).add(node.id());
+        for (ProcessNode node : definition.getNodes()) {
+            if (!node.getType().equals("end")) continue;
+            succ.computeIfAbsent(node.getId(), k -> new ArrayList<>()).add(EXIT);
+            pred.computeIfAbsent(EXIT, k -> new ArrayList<>()).add(node.getId());
         }
         Map<String, String> joinOf = new LinkedHashMap<>();
         Map<String, String> forkOf = new LinkedHashMap<>();
@@ -78,26 +78,26 @@ public final class GatewayPairs {
 
         Function<String, List<String>> successors = id -> succ.getOrDefault(id, List.of());
         Function<String, List<String>> predecessors = id -> pred.getOrDefault(id, List.of());
-        Map<String, String> idom = immediateDominators(graph.start().id(), successors, predecessors);
+        Map<String, String> idom = immediateDominators(graph.start().getId(), successors, predecessors);
         Map<String, String> ipdom = immediateDominators(EXIT, predecessors, successors);
-        for (ProcessNode node : definition.nodes()) {
-            if (!node.type().equals("parallel") && !node.type().equals("inclusive")) continue;
-            if (!idom.containsKey(node.id()) || !ipdom.containsKey(node.id())) continue;
-            boolean isFork = successors.apply(node.id()).size() > 1;
-            boolean isJoin = predecessors.apply(node.id()).size() > 1;
+        for (ProcessNode node : definition.getNodes()) {
+            if (!node.getType().equals("parallel") && !node.getType().equals("inclusive")) continue;
+            if (!idom.containsKey(node.getId()) || !ipdom.containsKey(node.getId())) continue;
+            boolean isFork = successors.apply(node.getId()).size() > 1;
+            boolean isJoin = predecessors.apply(node.getId()).size() > 1;
             if (isFork) {
-                String join = ipdom.get(node.id());
-                if (paired(graph, node.id(), join, idom, pred)) {
-                    joinOf.put(node.id(), join);
-                    forkOf.put(join, node.id());
-                    regions.put(node.id(), between(node.id(), join, successors));
+                String join = ipdom.get(node.getId());
+                if (paired(graph, node.getId(), join, idom, pred)) {
+                    joinOf.put(node.getId(), join);
+                    forkOf.put(join, node.getId());
+                    regions.put(node.getId(), between(node.getId(), join, successors));
                 } else {
-                    unpaired.add(node.id());
+                    unpaired.add(node.getId());
                 }
             }
             if (isJoin) {
-                String fork = idom.get(node.id());
-                if (fork == null || !paired(graph, fork, node.id(), idom, pred) || !node.id().equals(ipdom.get(fork))) unpaired.add(node.id());
+                String fork = idom.get(node.getId());
+                if (fork == null || !paired(graph, fork, node.getId(), idom, pred) || !node.getId().equals(ipdom.get(fork))) unpaired.add(node.getId());
             }
         }
         return new GatewayPairs(Collections.unmodifiableMap(joinOf), Collections.unmodifiableMap(forkOf),
@@ -109,7 +109,7 @@ public final class GatewayPairs {
         if (join == null || join.equals(EXIT)) return false;
         ProcessNode a = graph.node(fork);
         ProcessNode b = graph.node(join);
-        return a != null && b != null && a.type().equals(b.type())
+        return a != null && b != null && a.getType().equals(b.getType())
             && pred.getOrDefault(join, List.of()).size() > 1 && fork.equals(idom.get(join));
     }
 

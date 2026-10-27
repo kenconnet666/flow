@@ -33,7 +33,7 @@ import java.util.function.Function;
  * </ul>
  * 每个场景一份（失败的次数按场景计）。
  */
-public final class TestExtensions {
+public class TestExtensions {
     /** 去重键 → 已经失败了几次 */
     private final Map<String, Integer> failures = new HashMap<>();
 
@@ -41,17 +41,17 @@ public final class TestExtensions {
     public <U extends Actor> FlowEngine.Builder<U> register(FlowEngine.Builder<U> builder) {
         return builder
             .resolver(resolver("manager", context -> List.of(1004L)))
-            .guard(guard("budget", context -> new BigDecimal(String.valueOf(context.form().getOrDefault("amount", "0")))
+            .guard(guard("budget", context -> new BigDecimal(String.valueOf(context.getForm().getOrDefault("amount", "0")))
                 .compareTo(new BigDecimal("100000")) > 0 ? "超出预算" : null))
             .action(action("classify", context -> {
-                boolean big = new BigDecimal(String.valueOf(context.args().get("amount"))).compareTo(new BigDecimal("10000")) >= 0;
+                boolean big = new BigDecimal(String.valueOf(context.getArgs().get("amount"))).compareTo(new BigDecimal("10000")) >= 0;
                 return new ServiceAction.Result(big ? "big" : "small", Map.of("level", big ? "big" : "small"));
             }))
             .action(action("archive", context -> {
-                int allowed = ((Number) context.args().getOrDefault("failures", 0)).intValue();
-                int failed = failures.getOrDefault(context.idempotencyKey(), 0);
+                int allowed = ((Number) context.getArgs().getOrDefault("failures", 0)).intValue();
+                int failed = failures.getOrDefault(context.getIdempotencyKey(), 0);
                 if (failed < allowed) {
-                    failures.put(context.idempotencyKey(), failed + 1);
+                    failures.put(context.getIdempotencyKey(), failed + 1);
                     throw new IllegalStateException("档案系统暂时不可用");
                 }
                 return new ServiceAction.Result(null, Map.of("archived", true));
@@ -62,12 +62,12 @@ public final class TestExtensions {
             .interceptor(new CommandInterceptor<U>() {
                 @Override
                 public <R> R intercept(U actor, String operation, FlowCommand command, Chain<R> chain) {
-                    if (command instanceof CompleteCommand complete && "拦下".equals(complete.comment())) throw invalid("comment", "blocked");
-                    if (command instanceof CommentCommand comment && comment.text() != null) {
-                        return chain.proceed(new CommentCommand(comment.instanceId(), comment.text().replace("敏感词", "***")));
+                    if (command instanceof CompleteCommand complete && "拦下".equals(complete.getComment())) throw invalid("comment", "blocked");
+                    if (command instanceof CommentCommand comment && comment.getText() != null) {
+                        return chain.proceed(new CommentCommand(comment.getInstanceId(), comment.getText().replace("敏感词", "***")));
                     }
                     R result = chain.proceed(command);
-                    if (command instanceof StartCommand start && "rollback-after".equals(start.businessKey())) throw invalid("businessKey", "rolled-back");
+                    if (command instanceof StartCommand start && "rollback-after".equals(start.getBusinessKey())) throw invalid("businessKey", "rolled-back");
                     return result;
                 }
             });

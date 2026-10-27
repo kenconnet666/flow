@@ -23,7 +23,7 @@ import java.util.function.Function;
  * 到人工节点为止；处理人来源里有 {@code pick} 的就是要选的。能选的人按 {@code from} 展开（指定的人、角色、部门、扩展的种类）；
  * 没写 from、或写了要看实例才知道的来源（解析器、发起人……）时不限，提交时引擎再核对。
  */
-final class PickPreview {
+class PickPreview {
     private final ProcessGraph graph;
     private final EngineContext context;
 
@@ -36,7 +36,7 @@ final class PickPreview {
     List<PickView> after(String nodeId, String outcome, Function<String, Object> read) {
         Map<String, PickView> out = new LinkedHashMap<>();
         Set<String> seen = new HashSet<>();
-        for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, outcome, read)) visit(edge.to(), read, out, seen);
+        for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, outcome, read)) visit(edge.getTo(), read, out, seen);
         return List.copyOf(out.values());
     }
 
@@ -44,17 +44,17 @@ final class PickPreview {
         if (!seen.add(nodeId)) return;
         ProcessNode node = graph.node(nodeId);
         if (node instanceof ProcessNode.Task task) {
-            List<AssigneeSource> sources = task.multi() != null ? task.multi().participantSources() : task.assignees();
+            List<AssigneeSource> sources = task.getMulti() != null ? task.getMulti().participantSources() : task.getAssignees();
             for (AssigneeSource source : sources) {
-                if (source instanceof AssigneeSource.Pick pick) out.putIfAbsent(task.id(), view(task, pick));
+                if (source instanceof AssigneeSource.Pick pick) out.putIfAbsent(task.getId(), view(task, pick));
             }
         } else if (node instanceof ProcessNode.Gateway || node instanceof ProcessNode.Cc) {
-            for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, null, read)) visit(edge.to(), read, out, seen);
+            for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, null, read)) visit(edge.getTo(), read, out, seen);
         }
     }
 
     private PickView view(ProcessNode.Task task, AssigneeSource.Pick pick) {
-        return new PickView(task.id(), task.name(), pick.max(), candidates(pick.from()));
+        return new PickView(task.getId(), task.getName(), pick.getMax(), candidates(pick.getFrom()));
     }
 
     /** from 展开成人；没写、或写了要看实例才知道的来源时为 null（不限） */
@@ -62,20 +62,20 @@ final class PickPreview {
         if (from.isEmpty()) return null;
         Set<Long> users = new LinkedHashSet<>();
         for (AssigneeSource source : from) {
-            if (source instanceof AssigneeSource.User user && !(user.user() instanceof Ref)) {
-                users.addAll(OrgIds.all(user.user()));
-            } else if (source instanceof AssigneeSource.Role role && !(role.role() instanceof Ref)) {
-                for (Long id : OrgIds.all(role.role())) users.addAll(context.org().members(CandidateEntity.ROLE, id));
-            } else if (source instanceof AssigneeSource.Department dept && !(dept.department() instanceof Ref)) {
-                for (Long id : OrgIds.all(dept.department())) users.addAll(context.org().members(CandidateEntity.DEPARTMENT, id));
-            } else if (source instanceof AssigneeSource.Group group && !(group.id() instanceof Ref)) {
-                for (Long id : OrgIds.all(group.id())) users.addAll(context.org().members(group.kind(), id));
+            if (source instanceof AssigneeSource.User user && !(user.getUser() instanceof Ref)) {
+                users.addAll(OrgIds.all(user.getUser()));
+            } else if (source instanceof AssigneeSource.Role role && !(role.getRole() instanceof Ref)) {
+                for (Long id : OrgIds.all(role.getRole())) users.addAll(context.getOrg().members(CandidateEntity.ROLE, id));
+            } else if (source instanceof AssigneeSource.Department dept && !(dept.getDepartment() instanceof Ref)) {
+                for (Long id : OrgIds.all(dept.getDepartment())) users.addAll(context.getOrg().members(CandidateEntity.DEPARTMENT, id));
+            } else if (source instanceof AssigneeSource.Group group && !(group.getId() instanceof Ref)) {
+                for (Long id : OrgIds.all(group.getId())) users.addAll(context.getOrg().members(group.getKind(), id));
             } else {
                 return null;
             }
         }
         List<PickView.Candidate> out = new ArrayList<>();
-        for (Long id : users) out.add(new PickView.Candidate(id, context.org().userName(id)));
+        for (Long id : users) out.add(new PickView.Candidate(id, context.getOrg().userName(id)));
         return out;
     }
 }

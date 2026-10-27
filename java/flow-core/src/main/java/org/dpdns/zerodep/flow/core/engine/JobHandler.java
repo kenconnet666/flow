@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.entity.JobEntity;
 
 import java.time.Duration;
@@ -24,11 +25,12 @@ public interface JobHandler {
     /** 重试用完了（作业已经标成失败）：在一个新的事务里调，记一笔、通知管理员；默认什么也不做 */
     default void gaveUp(JobEntity job, String error, Instant now) { }
 
-    /**
-     * 下次再做。
-     *
-     * @param at      什么时候
-     * @param payload 那时作业带的数据
-     */
-    record Next(Instant at, Map<String, Object> payload) { }
+    /** 下次再做。 */
+    @Data
+    static class Next {
+        /** 什么时候 */
+        private final Instant at;
+        /** 那时作业带的数据 */
+        private final Map<String, Object> payload;
+    }
 }

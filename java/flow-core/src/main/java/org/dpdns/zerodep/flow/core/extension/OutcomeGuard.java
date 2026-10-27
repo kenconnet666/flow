@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.core.extension;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.core.view.InstanceVO;
 import org.dpdns.zerodep.flow.core.view.WorkItemVO;
@@ -18,14 +19,18 @@ public interface OutcomeGuard {
     /** 通过返回 null；不通过返回给处理人看的原因 */
     String check(Context context);
 
-    /**
-     * 判断时能拿到的。
-     *
-     * @param actor    处理人
-     * @param instance 实例
-     * @param workItem 正在处理的待办
-     * @param outcome  选的结果
-     * @param form     合并了这次提交之后的表单的值
-     */
-    record Context(Actor actor, InstanceVO instance, WorkItemVO workItem, String outcome, Map<String, Object> form) { }
+    /** 判断时能拿到的。 */
+    @Data
+    static class Context {
+        /** 处理人 */
+        private final Actor actor;
+        /** 实例 */
+        private final InstanceVO instance;
+        /** 正在处理的待办 */
+        private final WorkItemVO workItem;
+        /** 选的结果 */
+        private final String outcome;
+        /** 合并了这次提交之后的表单的值 */
+        private final Map<String, Object> form;
+    }
 }

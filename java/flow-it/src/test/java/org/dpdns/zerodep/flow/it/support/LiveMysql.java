@@ -16,7 +16,7 @@ import javax.sql.DataSource;
  * 见 docs/decisions/0001 的"模块划分"）。没设时跳过这些测试；设了 {@code FLOW_REQUIRE_LIVE} 时（CI）缺变量直接失败。
  * <p>每个测试前用 Flyway 清空这个库再执行 flow-core 的建表脚本：既重置数据，也验证推荐给接入方的建表方式（0007 第 9 节）。
  */
-public final class LiveMysql {
+public class LiveMysql {
     private static DataSource dataSource;
 
     private LiveMysql() { }

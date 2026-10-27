@@ -28,6 +28,11 @@
     </dependencyManagement>
     <dependencies>
         <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.dpdns.zerodep</groupId>
             <artifactId>flow-core</artifactId>
         </dependency>

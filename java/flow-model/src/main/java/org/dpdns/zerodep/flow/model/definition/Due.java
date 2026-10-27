@@ -1,14 +1,19 @@
 package org.dpdns.zerodep.flow.model.definition;
 
-/** 时限：一段时长，或到某个时刻（日期、时间的字段） */
-public sealed interface Due {
-    /** 一段时长之后 */
-    record After(Duration duration) implements Due { }
+import lombok.Data;
 
-    /**
-     * 到某个时刻。
-     *
-     * @param value 直接写的时刻，或 {@link Ref}
-     */
-    record Until(Object value) implements Due { }
+/** 时限：一段时长，或到某个时刻（日期、时间的字段） */
+public interface Due {
+    /** 一段时长之后 */
+    @Data
+    static class After implements Due {
+        private final Duration duration;
+    }
+
+    /** 到某个时刻。 */
+    @Data
+    static class Until implements Due {
+        /** 直接写的时刻，或 {@link Ref} */
+        private final Object value;
+    }
 }

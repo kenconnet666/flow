@@ -21,28 +21,28 @@ import java.util.Map;
  * 引擎里是有名字的类型，库里是 typed JSON 的文字（形状见 docs/decisions/0007）——同线上的写法，BigDecimal、LocalDate、Long
  * 这些值写成文字、根上的 {@code $types} 记下位置，读回来还是原来的类型（{@code Wire.encode} / {@code Wire.decode}）。
  */
-public final class JsonColumns {
+public class JsonColumns {
     private JsonColumns() { }
 
     /** 表单的值：{ 字段: 值 } */
-    public static final class FormValuesJson implements ValueConverter<FormValues, String> {
+    public static class FormValuesJson implements ValueConverter<FormValues, String> {
         @Override public String serialize(FormValues value, ColumnMetadata column) { return value == null ? null : write(value.asMap()); }
         @Override public FormValues deserialize(String value, ColumnMetadata column) { return FormValues.of(object(value)); }
     }
 
     /** 流程变量：{ 名字: 值 } */
-    public static final class VariablesJson implements ValueConverter<Variables, String> {
+    public static class VariablesJson implements ValueConverter<Variables, String> {
         @Override public String serialize(Variables value, ColumnMetadata column) { return value == null ? null : write(value.asMap()); }
         @Override public Variables deserialize(String value, ColumnMetadata column) { return Variables.of(object(value)); }
     }
 
     /** 运行状态：{ "rounds": { 节点: 轮次 }, "waiting": …, "returns": …, "queues": …, "waits": { 节点: 时刻 } } */
-    public static final class RunStateJson implements ValueConverter<RunState, String> {
+    public static class RunStateJson implements ValueConverter<RunState, String> {
         @Override
         public String serialize(RunState value, ColumnMetadata column) {
             return value == null ? null
-                : Json.write(Map.of("rounds", value.rounds(), "waiting", value.waiting(), "returns", value.returns(), "queues", value.queues(),
-                    "waits", texts(value.waits())));
+                : Json.write(Map.of("rounds", value.getRounds(), "waiting", value.getWaiting(), "returns", value.getReturns(), "queues", value.getQueues(),
+                    "waits", texts(value.getWaits())));
         }
 
         @Override
@@ -91,12 +91,12 @@ public final class JsonColumns {
     }
 
     /** 正在处理的节点：[{ "node": 标识, "name": 名称 }] */
-    public static final class CurrentNodesJson implements ValueConverter<List<CurrentNode>, String> {
+    public static class CurrentNodesJson implements ValueConverter<List<CurrentNode>, String> {
         @Override
         public String serialize(List<CurrentNode> value, ColumnMetadata column) {
             if (value == null) return null;
             List<Map<String, String>> items = new ArrayList<>();
-            for (CurrentNode c : value) items.add(Map.of("node", c.node(), "name", c.name() == null ? c.node() : c.name()));
+            for (CurrentNode c : value) items.add(Map.of("node", c.getNode(), "name", c.getName() == null ? c.getNode() : c.getName()));
             return Json.write(items);
         }
 
@@ -113,7 +113,7 @@ public final class JsonColumns {
     }
 
     /** 待办上的暂存：{ "form": { 字段: 值 }, "comment": 意见, "savedAt": 时刻 } */
-    public static final class DraftJson implements ValueConverter<WorkItemDraft, String> {
+    public static class DraftJson implements ValueConverter<WorkItemDraft, String> {
         @Override
         public String serialize(WorkItemDraft value, ColumnMetadata column) {
             if (value == null) return null;
@@ -134,7 +134,7 @@ public final class JsonColumns {
     }
 
     /** 摘要列、流转记录的附加数据、作业的数据：随场合不同的 JSON 对象；空的对象存成 NULL */
-    public static final class ObjectJson implements ValueConverter<Map<String, Object>, String> {
+    public static class ObjectJson implements ValueConverter<Map<String, Object>, String> {
         @Override public String serialize(Map<String, Object> value, ColumnMetadata column) { return value == null || value.isEmpty() ? null : write(value); }
         @Override public Map<String, Object> deserialize(String value, ColumnMetadata column) { return object(value); }
     }

@@ -1,5 +1,6 @@
 package org.dpdns.zerodep.flow.it.scenario;
 
+import lombok.Data;
 import org.dpdns.zerodep.flow.it.support.TestUser;
 import org.dpdns.zerodep.wire.Json;
 import org.dpdns.zerodep.wire.Wire;
@@ -17,41 +18,52 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-/**
- * 一个场景用例（spec/scenarios 下的一个文件，格式见那里的 README）：先发布的表单与流程、固定时钟、操作人、一串步骤。
- *
- * @param file      文件名（测试名里显示）
- * @param name      一句话说明
- * @param forms     先发布的表单
- * @param processes 再发布的流程定义（JSON 文字）
- * @param clock     固定时钟的时刻
- * @param actors    名字 → 操作人
- * @param steps     步骤
- */
-record Scenario(String file, String name, List<FormFile> forms, List<String> processes, Instant clock, Map<String, TestUser> actors,
-                List<Step> steps) {
+/** 一个场景用例（spec/scenarios 下的一个文件，格式见那里的 README）：先发布的表单与流程、固定时钟、操作人、一串步骤。 */
+@Data
+class Scenario {
+    /** 文件名（测试名里显示） */
+    private final String file;
+    /** 一句话说明 */
+    private final String name;
+    /** 先发布的表单 */
+    private final List<FormFile> forms;
+    /** 再发布的流程定义（JSON 文字） */
+    private final List<String> processes;
+    /** 固定时钟的时刻 */
+    private final Instant clock;
+    /** 名字 → 操作人 */
+    private final Map<String, TestUser> actors;
+    /** 步骤 */
+    private final List<Step> steps;
+
     /** spec/scenarios 目录（测试的工作目录是 java/flow-it） */
     static final Path DIR = Path.of("..", "..", "spec", "scenarios");
 
-    /**
-     * 一张要发布的表单（forms 下的文件）。
-     *
-     * @param key      表单标识
-     * @param name     名称
-     * @param manifest 字段清单的 JSON 文字
-     */
-    record FormFile(String key, String name, String manifest) { }
+    /** 一张要发布的表单（forms 下的文件）。 */
+    @Data
+    static class FormFile {
+        /** 表单标识 */
+        private final String key;
+        /** 名称 */
+        private final String name;
+        /** 字段清单的 JSON 文字 */
+        private final String manifest;
+    }
 
-    /**
-     * 一个步骤。
-     *
-     * @param id      给后面的步骤引用的名字；可以不写
-     * @param as      操作人的代号（{@code actors} 的键）
-     * @param command 命令或查询
-     * @param args    参数（按命令不同，见 README）
-     * @param expect  期望；没写时只要求不出错
-     */
-    record Step(String id, String as, String command, Map<String, Object> args, Map<String, Object> expect) { }
+    /** 一个步骤。 */
+    @Data
+    static class Step {
+        /** 给后面的步骤引用的名字；可以不写 */
+        private final String id;
+        /** 操作人的代号（{@code actors} 的键） */
+        private final String as;
+        /** 命令或查询 */
+        private final String command;
+        /** 参数（按命令不同，见 README） */
+        private final Map<String, Object> args;
+        /** 期望；没写时只要求不出错 */
+        private final Map<String, Object> expect;
+    }
 
     /** 目录下的全部场景文件，按名字排序 */
     static List<String> files() {
