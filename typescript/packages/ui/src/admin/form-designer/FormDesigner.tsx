@@ -46,6 +46,7 @@ import {
   printList,
   removeField,
   removeNode,
+  FORM_MODULE,
   UI_MODULE,
   type DesignNode,
   type FormComponent,
@@ -86,7 +87,7 @@ type Item =
 type Drag = Item | { readonly kind: 'move'; readonly path: string };
 
 /** 面板里的字段：类型与默认控件（同一类型的第二个控件单列，如多行文字） */
-const FIELD_ITEMS: readonly { type: FieldType; control: string }[] = [
+const FIELD_ITEMS: readonly { type: FieldType; control: string; module?: string }[] = [
   { type: 'text', control: 'TextField' },
   { type: 'text', control: 'Textarea' },
   { type: 'number', control: 'NumberField' },
@@ -97,6 +98,7 @@ const FIELD_ITEMS: readonly { type: FieldType; control: string }[] = [
   { type: 'select', control: 'Select' },
   { type: 'select', control: 'RadioGroup' },
   { type: 'people', control: 'PeoplePicker' },
+  { type: 'file', control: 'FileField', module: FORM_MODULE },
 ];
 
 const BUILTIN_GROUPS = new Set(['layout', 'display', 'field']);
@@ -313,8 +315,8 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
   const palette = () => {
     const components = formComponents();
     const groups = [...new Set(components.map((c) => c.group))];
-    const fieldItems: { item: Item; label: string; key: string }[] = FIELD_ITEMS.flatMap(({ type, control }, i) => {
-      const component = components.find((c) => c.module === UI_MODULE && c.name === control);
+    const fieldItems: { item: Item; label: string; key: string }[] = FIELD_ITEMS.flatMap(({ type, control, module = UI_MODULE }, i) => {
+      const component = components.find((c) => c.module === module && c.name === control);
       if (!component) return [];
       const label = FIELD_ITEMS.findIndex((f) => f.type === type) === i ? (messages.fieldTypes[type] ?? type) : component.label;
       return [{ item: { kind: 'field', type, control: component, label }, label, key: `${type}:${control}` }];

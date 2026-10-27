@@ -3,12 +3,21 @@
  */
 import { Activity, CalendarDays, ChartColumn, CircleCheck, CircleAlert, FileText, FormInput, Inbox, Mail, Send, Settings2, UserRoundCheck, Workflow } from '@lucide/icons';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { NavItem, NavList, Select, Toaster } from '@zerodep-dev/vue-tsx-pro-ui';
+import { provideFlowFiles } from '@zerodep-dev/flow-ui/form';
+import { NavItem, NavList, Select, Toaster, useHttp } from '@zerodep-dev/vue-tsx-pro-ui';
 import { AppShell, AppShellBrand } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { RouterView } from 'vue-router';
+import { demoFiles } from './files';
 import { currentUser, toaster, users } from './session';
 
-export const App = _component(() => () => (
+export const App = _component(() => {
+  // 附件存在示例后端（files.ts）：表单里的附件字段经它上传、打开
+  provideFlowFiles(demoFiles(useHttp()));
+  return shell;
+});
+
+/** 外壳 */
+const shell = () => (
   <AppShell
     brand={
       <AppShellBrand href="/" icon={Workflow}>
@@ -68,4 +77,4 @@ export const App = _component(() => () => (
     <RouterView key={currentUser.value} />
     <Toaster controller={toaster} />
   </AppShell>
-));
+);

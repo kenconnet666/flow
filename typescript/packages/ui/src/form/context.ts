@@ -3,6 +3,7 @@
  * 表单建好之后把"校验、取值"交回容器（审批面板点按钮时用）。
  */
 import type { FieldState, FormManifest, NodeFormAccess } from '@zerodep-dev/flow-model';
+import type { FileSource } from './files';
 import type { PeopleSource } from '@zerodep-dev/vue-tsx-pro-ui';
 
 /** 容器交给表单的 */
@@ -19,6 +20,8 @@ export interface FlowFormContext {
   readonly mode: 'fill' | 'view';
   /** 人员字段（PeoplePicker）的数据来源 */
   readonly people: PeopleSource | undefined;
+  /** 附件的存取（provideFlowFiles 给的）；没有时附件只显示文件名 */
+  readonly files: FileSource | undefined;
   /** 取 `sys.`、流程变量这类不在表单里的引用（显示条件里可能用到）；没有时为 undefined */
   readonly read: (name: string) => unknown;
   /** 表单建好之后把操作交回容器 */

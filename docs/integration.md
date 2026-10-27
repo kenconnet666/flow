@@ -257,9 +257,30 @@ flow-ui 的组件经 `useHttp()` 拿这个请求客户端、前缀 `/flow`；后
 
 我已办、我发起的、抄送我的带筛选（流程、日期区间、只看已归档）与列排序，后端对排序列有白名单。
 
-### 2.4 业务表单
+### 2.4 附件
 
-表单在管理端的表单设计器里画（字段、布局、节点上的字段权限、前后端代码），发布后流程节点引用它；不用写前端代码。
+附件字段（`type: 'file'`）的值只记 `{ id, name, size }`，文件本身存在你那里。在根组件里给一次怎样上传、怎样打开：
+
+```ts
+import { provideFlowFiles } from '@zerodep-dev/flow-ui/form';
+
+provideFlowFiles({
+  upload: async (file, { signal }) => {
+    const body = new FormData();
+    body.append('file', file);
+    return api.post('/files', body, { signal });        // 返回 { id, name, size }
+  },
+  href: (file) => `/api/files/${file.id}`,                // 打开、下载的地址
+});
+```
+
+没给时附件字段只显示文件名。示例的写法见 `apps/demo/src/files.ts` 与后端的 `ExampleFiles`（只为演示：存在临时目录）；
+真实的下载接口要按能不能看这个实例把关（`engine.instance(actor, id)` 不抛错就是能看）。
+
+### 2.5 业务表单
+
+表单在管理端的表单设计器里画（字段、明细表、附件、布局、节点上的字段权限、前后端代码），发布后流程节点引用它；不用写前端代码。
+代码表单里明细表写 `<form.List name="lines" />`，附件写 `<form.Field name="proof"><FileField /></form.Field>`。
 要连业务表时用表单的后端代码（`FormHandler`）或 `TodoQueryCustomizer`（0004）。
 
 ## 3. 上线前核对

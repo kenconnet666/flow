@@ -172,6 +172,7 @@ export function defineFlowForm<const M extends FormManifest>(
             get: () => controller.getValue(name as never),
             set: (value) => controller.setValue(name as never, value as never),
             people: context.people,
+            files: context.files,
           })}
         </Field>
       );
@@ -194,7 +195,7 @@ export function defineFlowForm<const M extends FormManifest>(
                 const path = `${name}.${index}.${column}`;
                 return (
                   <FlowField key={column} name={path}>
-                    {defaultControl(definition, context.people, () => controller.getValue(path as never))}
+                    {defaultControl(definition, context, () => controller.getValue(path as never))}
                   </FlowField>
                 );
               })}

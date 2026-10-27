@@ -24,7 +24,7 @@ export function autoFlowForm(manifest: FormManifest): TsxComponent<FlowFormCompo
               <form.List key={name} name={name} />
             ) : (
               <form.Field key={name} name={name}>
-                {defaultControl(field, context.people, () => form.getValue(name as never))}
+                {defaultControl(field, context, () => form.getValue(name as never))}
               </form.Field>
             ),
           )}

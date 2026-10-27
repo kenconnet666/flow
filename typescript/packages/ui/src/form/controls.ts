@@ -7,6 +7,7 @@
  *   Select         选项取清单的 options、多选按 multiple；选项的值可以是数字，控件按文字选，来回换
  *   RadioGroup、CheckboxGroup   同 Select 的选项与值；单选组只能单选，多选组只能多选
  *   PeoplePicker   人员数据源取容器给的 people，types、max 取清单
+ *   FileField      附件的存取取容器给的 files，accept、maxCount、maxSize 取清单
  *   TextField、Textarea     maxlength 取清单
  *
  * 只补没写的：代码里写了的属性原样用。按组件本身认（vnode.type），不按标签名。
@@ -27,12 +28,15 @@ import {
 import { CalendarDateTime, getLocalTimeZone, toZoned } from '@internationalized/date';
 import Decimal from 'decimal.js';
 import { cloneVNode, isVNode, type VNode, type VNodeChild } from 'vue';
+import { FileField } from './FileField';
+import type { FileSource } from './files';
 
 /** 控件绑定的字段：读写它的值、人员数据源 */
 export interface ControlBinding {
   get(): unknown;
   set(value: unknown): void;
   people?: PeopleSource;
+  files?: FileSource;
 }
 
 /** 给 form.Field 的内容补属性；不是单个控件、没有字段定义时原样返回 */
@@ -102,6 +106,13 @@ function extraProps(control: VNode, field: FieldDefinition, binding: ControlBind
       }
       break;
     }
+    case FileField:
+      bindValue(binding.get, (value: never) => binding.set(value));
+      put('source', binding.files);
+      put('accept', field.accept);
+      put('maxCount', field.maxCount);
+      put('maxSize', field.maxSize);
+      break;
     case PeoplePicker:
       put('source', binding.people);
       put('types', field.types);

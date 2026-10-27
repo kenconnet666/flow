@@ -127,6 +127,8 @@ const BUILTIN: readonly FormComponent[] = [
     props: [{ name: 'orientation', label: '方向', editor: choice('vertical', 'horizontal') }],
   },
   { name: 'PeoplePicker', module: UI_MODULE, label: '选人', group: 'field', field: ['people'] },
+  // 附件：流程组件库自己的控件（组件库的 Upload 接上接入方的 FileSource）
+  { name: 'FileField', module: FORM_MODULE, label: '附件', group: 'field', field: ['file'] },
 ];
 
 const registered: FormComponent[] = [];

@@ -12,6 +12,6 @@ export default defineConfig({
   server: {
     port: 5180,
     strictPort: true,
-    proxy: { '/flow': 'http://localhost:8080' },
+    proxy: { '/flow': 'http://localhost:8080', '/demo': 'http://localhost:8080' },
   },
 });

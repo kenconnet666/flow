@@ -21,6 +21,7 @@ import type { FormView } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
 import { autoFlowForm } from './auto-form';
 import type { FlowFormContext, FlowFormHandle } from './context';
+import { useFlowFiles } from './files';
 
 /** FlowForm 的属性 */
 export interface FlowFormProps {
@@ -67,6 +68,7 @@ export async function flowFormModules(): Promise<Record<string, unknown>> {
 export const FlowForm = _component(({ view, mode = 'fill', people, modules, read, onReady, keepPrevious, instanceId }: FlowFormProps) => {
   const messages = useFlowMessages();
   const flow = useFlowClient();
+  const files = useFlowFiles();
   let component = _state.raw<Component | null>(null);
   let failure = _state<string | null>(null);
 
@@ -112,6 +114,7 @@ export const FlowForm = _component(({ view, mode = 'fill', people, modules, read
     start: view.start,
     mode,
     people,
+    files,
     read: read ?? (() => undefined),
     attach: (handle) => onReady?.(handle),
     call: (action, args) => {

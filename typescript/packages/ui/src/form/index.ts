@@ -14,5 +14,7 @@ export {
   type FlowFormOptions,
   type ValuesOf,
 } from './define';
+export { FileField, type FileFieldProps } from './FileField';
+export { provideFlowFiles, useFlowFiles, type FileRef, type FileSource } from './files';
 export { FlowForm, flowFormModules, type FlowFormProps } from './FlowForm';
 export { emptyValue, toFormState, type FormState } from './values';

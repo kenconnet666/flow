@@ -6,14 +6,16 @@
  *   number    NumberField              decimal   NumberField（按 Decimal 读写）
  *   boolean   Switch                   date      DatePicker              datetime  DatePicker（到分钟）
  *   select    Select（多选时 multiple） people    PeoplePicker（容器给了人员数据源时；没给时只显示名字）
- *   file      只显示文件名（上传由接入方的表单代码做）
+ *   file      FileField（接入方给了附件的存取时）；没给时只显示文件名
  */
 import type { FieldDefinition } from '@zerodep-dev/flow-model';
 import { DatePicker, NumberField, PeoplePicker, Select, Switch, Text, Textarea, TextField, type PeopleEntry, type PeopleSource } from '@zerodep-dev/vue-tsx-pro-ui';
 import { h, type VNodeChild } from 'vue';
+import { FileField } from './FileField';
+import type { FileSource } from './files';
 
 /** 一个字段的默认控件；value 读当前值（人员、文件只显示名字时用） */
-export function defaultControl(field: FieldDefinition, people: PeopleSource | undefined, value: () => unknown): VNodeChild {
+export function defaultControl(field: FieldDefinition, { people, files }: { people: PeopleSource | undefined; files: FileSource | undefined }, value: () => unknown): VNodeChild {
   switch (field.type) {
     case 'number':
     case 'decimal':
@@ -29,6 +31,7 @@ export function defaultControl(field: FieldDefinition, people: PeopleSource | un
     case 'people':
       return people ? <PeoplePicker source={people} /> : <Text>{((value() ?? []) as PeopleEntry[]).map((p) => p.name).join('、')}</Text>;
     case 'file':
+      if (files) return <FileField />;
       return <Text>{((value() ?? []) as { name: string }[]).map((f) => f.name).join('、')}</Text>;
     default:
       return (field.maxLength ?? 0) > 100 ? <Textarea /> : <TextField />;
