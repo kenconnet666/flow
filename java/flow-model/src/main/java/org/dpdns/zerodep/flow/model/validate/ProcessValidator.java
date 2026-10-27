@@ -203,7 +203,9 @@ public class ProcessValidator {
         if (node.getOverdue() != null && "complete".equals(node.getOverdue().getAction())) checkNotChoosing(node, node.getOverdue().getOutcome());
         if (node.getMulti() != null && node.getMulti().getFallback() != null) checkNotChoosing(node, node.getMulti().getFallback());
         Lane lane = graph.lane(node.getLane());
-        if (node.getAssignees().isEmpty() && (lane == null || lane.getInbox() == null)) atNode("assignee-missing", node.getId());
+        // 会签时每份待办给参与人，不看 assignees：参与人是空列表（不是引用）才算没写
+        boolean nobody = node.getMulti() == null ? node.getAssignees().isEmpty() : node.getMulti().getParticipants() instanceof List<?> list && list.isEmpty();
+        if (nobody && (lane == null || lane.getInbox() == null)) atNode("assignee-missing", node.getId());
         List<AssigneeSource> sources = new ArrayList<>(node.getAssignees());
         if (node.getMulti() != null) sources.addAll(node.getMulti().participantSources());
         for (AssigneeSource source : flatten(sources)) {

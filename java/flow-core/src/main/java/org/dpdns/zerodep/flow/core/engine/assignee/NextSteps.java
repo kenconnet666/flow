@@ -74,7 +74,12 @@ public class NextSteps {
         PickView pick = null;
         for (AssigneeSource source : sources) {
             if (source instanceof AssigneeSource.Pick p) pick = new PickView(task.getId(), task.getName(), p.getMax(), candidates(p.getFrom()));
-            else if (source.isInbox()) inbox = true;
+            else if (source.isInbox()) {
+                // 会签时角色、部门下的人每人一份，不进收件箱：写出是哪些人
+                List<Long> members = task.getMulti() != null ? members(source) : null;
+                if (members == null) inbox = true;
+                else members.forEach(id -> handlers.add(name(id)));
+            }
             else if (source instanceof AssigneeSource.User user && !(user.getUser() instanceof Ref)) OrgIds.all(user.getUser()).forEach(id -> handlers.add(name(id)));
             else if (source instanceof AssigneeSource.Initiator && starterId != null) handlers.add(name(starterId));
             else if (source instanceof AssigneeSource.SameAs same && instanceId != null) {
@@ -92,20 +97,29 @@ public class NextSteps {
         if (from.isEmpty()) return null;
         Set<Long> users = new LinkedHashSet<>();
         for (AssigneeSource source : from) {
-            if (source instanceof AssigneeSource.User user && !(user.getUser() instanceof Ref)) {
-                users.addAll(OrgIds.all(user.getUser()));
-            } else if (source instanceof AssigneeSource.Role role && !(role.getRole() instanceof Ref)) {
-                for (Long id : OrgIds.all(role.getRole())) users.addAll(context.getOrg().members(CandidateEntity.ROLE, id));
-            } else if (source instanceof AssigneeSource.Department dept && !(dept.getDepartment() instanceof Ref)) {
-                for (Long id : OrgIds.all(dept.getDepartment())) users.addAll(context.getOrg().members(CandidateEntity.DEPARTMENT, id));
-            } else if (source instanceof AssigneeSource.Group group && !(group.getId() instanceof Ref)) {
-                for (Long id : OrgIds.all(group.getId())) users.addAll(context.getOrg().members(group.getKind(), id));
-            } else {
-                return null;
-            }
+            List<Long> members = members(source);
+            if (members == null) return null;
+            users.addAll(members);
         }
         List<PickView.Candidate> out = new ArrayList<>();
         for (Long id : users) out.add(new PickView.Candidate(id, name(id)));
         return out;
+    }
+
+    /** 一个来源下的人：指定的人、角色与部门与扩展组的成员；要看实例才知道的（引用、发起人……）为 null */
+    private List<Long> members(AssigneeSource source) {
+        List<Long> users = new ArrayList<>();
+        if (source instanceof AssigneeSource.User user && !(user.getUser() instanceof Ref)) {
+            users.addAll(OrgIds.all(user.getUser()));
+        } else if (source instanceof AssigneeSource.Role role && !(role.getRole() instanceof Ref)) {
+            for (Long id : OrgIds.all(role.getRole())) users.addAll(context.getOrg().members(CandidateEntity.ROLE, id));
+        } else if (source instanceof AssigneeSource.Department dept && !(dept.getDepartment() instanceof Ref)) {
+            for (Long id : OrgIds.all(dept.getDepartment())) users.addAll(context.getOrg().members(CandidateEntity.DEPARTMENT, id));
+        } else if (source instanceof AssigneeSource.Group group && !(group.getId() instanceof Ref)) {
+            for (Long id : OrgIds.all(group.getId())) users.addAll(context.getOrg().members(group.getKind(), id));
+        } else {
+            return null;
+        }
+        return users;
     }
 }

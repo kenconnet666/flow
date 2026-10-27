@@ -213,7 +213,9 @@ function checkTask(node: TaskNode, graph: ProcessGraph, context: ValidationConte
     }
   }
   const lane = graph.lane(node.lane);
-  if ((node.assignees === undefined || node.assignees.length === 0) && !lane?.inbox) report('assignee-missing', { node: node.id });
+  // 会签时每份待办给参与人，不看 assignees：参与人是空列表（不是引用）才算没写
+  const nobody = node.multi ? Array.isArray(node.multi.participants) && node.multi.participants.length === 0 : !node.assignees?.length;
+  if (nobody && !lane?.inbox) report('assignee-missing', { node: node.id });
   const sources = [...(node.assignees ?? []), ...(Array.isArray(node.multi?.participants) ? node.multi.participants : [])];
   for (const source of flattenSources(sources)) {
     if ('sameAs' in source && graph.node(source.sameAs)?.type !== 'task') {

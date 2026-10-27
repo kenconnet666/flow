@@ -41,6 +41,13 @@ export interface Selection {
   readonly edges: readonly string[];
 }
 
+/** 一个没用过的名字：name 本身，或者后面加" 2"、" 3"…… */
+export function uniqueName(taken: Iterable<string>, name: string): string {
+  const used = new Set(taken);
+  if (!used.has(name)) return name;
+  for (let n = 2; ; n++) if (!used.has(`${name} ${n}`)) return `${name} ${n}`;
+}
+
 /** 一个没用过的标识：prefix 本身，或者后面加 2、3…… */
 export function uniqueId(taken: Iterable<string>, prefix: string): string {
   const used = new Set(taken);
@@ -88,15 +95,17 @@ export function addNode(
     definition.nodes.map((n) => n.id),
     type,
   );
-  const next = { ...definition, nodes: [...definition.nodes, newNode(type, id, texts)] };
+  // 名字也不重：两个都叫"并行"时连线、问题列表里分不清是哪一个
+  const name = uniqueName(definition.nodes.map((n) => n.name ?? ''), texts.name);
+  const next = { ...definition, nodes: [...definition.nodes, newNode(type, id, { ...texts, name })] };
   return { definition: withPositions(next, [{ id, x: at.x, y: at.y }]), id };
 }
 
 /**
  * 加在一个节点后面（设计器里选中一个节点，再点左边的节点类型）：
- * - 它不是网关、只有一条出边时插进这条线中间：原来的线改连到新节点（结果、条件照旧），新节点再连到原来的终点（新的是结束节点时不连），
+ * - 它不是网关（或是汇合的网关）、只有一条出边时插进这条线中间：原来的线改连到新节点（结果、条件照旧），新节点再连到原来的终点（新的是结束节点时不连），
  *   原来在它右边的节点往右让出新节点的位置；
- * - 网关后面加的是一条新分支：新节点放在已有分支的下方，不叠在一起；已有分支直接通向结束或汇合的网关时，新分支也连过去；
+ * - 网关后面加的是一条新分支：新节点放在已有分支的下方，不叠在一起；顺着已有分支往下走到的结束或汇合的网关，新分支也连过去；
  * - 别的节点没有出边、或有几条时同网关，新开一条。
  */
 export function addAfter(
@@ -112,7 +121,9 @@ export function addAfter(
   const outgoing = definition.edges.filter((e) => e.from === anchorId);
   const x = anchor.x + anchor.width + gap;
   const middle = anchor.y + (anchor.height - size.height) / 2;
-  if (outgoing.length === 1 && !GATEWAY_TYPES.has(anchor.node.type)) {
+  // 汇合的网关（几条线进、一条出）后面接在线中间，同普通节点；分支的网关后面是加一条新分支
+  const joins = GATEWAY_TYPES.has(anchor.node.type) && definition.edges.filter((e) => e.to === anchorId).length > 1;
+  if (outgoing.length === 1 && (!GATEWAY_TYPES.has(anchor.node.type) || joins)) {
     const line = outgoing[0]!;
     const added = addNode(definition, type, texts, { x, y: middle });
     const pushed = boxes.filter((b) => b.id !== anchorId && b.x >= x).map((b) => ({ id: b.id, x: b.x + size.width + gap, y: b.y }));
@@ -125,7 +136,8 @@ export function addAfter(
   const y = targets.length ? Math.max(...targets.map((b) => b.y + b.height)) + gap / 2 : middle;
   const added = addNode(definition, type, texts, { x, y });
   let next = connect(added.definition, anchorId, added.id)?.definition ?? added.definition;
-  const rejoin = targets.find((b) => b.node.type === 'end' || GATEWAY_TYPES.has(b.node.type));
+  const rejoinId = targets.map((b) => convergence(definition, b.id)).find((id) => id != null);
+  const rejoin = rejoinId == null ? undefined : boxes.find((b) => b.id === rejoinId);
   if (rejoin && type !== 'end') {
     next = connect(next, added.id, rejoin.id)?.definition ?? next;
     // 连回去的那个节点挡在新分支这一列时，它和它右边的往右让开，线不用往回绕
@@ -135,6 +147,17 @@ export function addAfter(
     }
   }
   return { definition: next, id: added.id };
+}
+
+/** 顺着一条分支往下（每个节点走第一条出边）走到的第一个结束节点或网关：分支在那里汇合；走不到时为 null */
+function convergence(definition: ProcessDefinition, from: string): string | null {
+  const seen = new Set<string>();
+  for (let id: string | undefined = from; id != null && !seen.has(id); id = definition.edges.find((e) => e.from === id)?.to) {
+    seen.add(id);
+    const node = definition.nodes.find((n) => n.id === id);
+    if (node && (node.type === 'end' || GATEWAY_TYPES.has(node.type))) return id;
+  }
+  return null;
 }
 
 /**

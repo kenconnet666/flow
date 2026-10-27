@@ -101,18 +101,30 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
 
   const task = (n: TaskNode) => {
     const multi = n.multi;
-    const setMulti = (patch: Partial<NonNullable<TaskNode['multi']>> | null) =>
-      set('multi', patch === null ? undefined : compact({ participants: multi?.participants ?? [], complete: 'all' as MultiCompletion, ...multi, ...patch }));
+    const setMulti = (patch: Partial<NonNullable<TaskNode['multi']>>) =>
+      set('multi', compact({ participants: multi?.participants ?? [], complete: 'all' as MultiCompletion, ...multi, ...patch }));
+    /** 开、关会签：会签只看参与人，开的时候把选好的处理人搬进参与人，关的时候搬回来 */
+    const switchMulti = (mode: string | null) => {
+      if (mode && mode !== 'none') {
+        if (multi) setMulti({ complete: mode as MultiCompletion });
+        else onChange(compact({ ...n, assignees: [], multi: { participants: n.assignees ?? [], complete: mode as MultiCompletion } }) as ProcessNode);
+      } else if (multi) {
+        const back = n.assignees?.length ? n.assignees : Array.isArray(multi.participants) ? multi.participants : [];
+        onChange(compact({ ...n, assignees: back, multi: undefined }) as ProcessNode);
+      }
+    };
     return (
       <>
-        <AssigneeField
-          label={messages.assignees}
-          value={n.assignees ?? []}
-          people={people}
-          nodes={taskNodes()}
-          resolvers={catalog?.resolvers}
-          onChange={(sources) => set('assignees', sources)}
-        />
+        {!multi && (
+          <AssigneeField
+            label={messages.assignees}
+            value={n.assignees ?? []}
+            people={people}
+            nodes={taskNodes()}
+            resolvers={catalog?.resolvers}
+            onChange={(sources) => set('assignees', sources)}
+          />
+        )}
         <Field label={messages.multi}>
           <Select
             items={[
@@ -120,7 +132,7 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
               ...(catalog?.completions ?? []).map((c) => ({ value: c.name, label: c.label, description: c.description ?? c.name })),
             ]}
             _value={multi?.complete ?? 'none'}
-            onUpdate:_value={(mode: string | null) => (mode && mode !== 'none' ? setMulti({ complete: mode as MultiCompletion }) : setMulti(null))}
+            onUpdate:_value={switchMulti}
           />
         </Field>
         {multi && Array.isArray(multi.participants) && (

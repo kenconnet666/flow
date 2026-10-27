@@ -109,6 +109,8 @@ export interface FlowDesignerMessages {
   readonly terminate: string;
   readonly connectTo: string;
   readonly edgeEnds: (from: string, to: string) => string;
+  /** 连线的终点（改接到别的节点） */
+  readonly edgeTarget: string;
   readonly edgeOutcome: string;
   readonly anyOutcome: string;
   readonly condition: string;
@@ -229,6 +231,7 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     terminate: '到这里整个流程结束（取消其余分支）',
     connectTo: '连到……',
     edgeEnds: (from, to) => `${from} → ${to}`,
+    edgeTarget: '连到',
     edgeOutcome: '哪个结果走这条线',
     anyOutcome: '任意结果',
     condition: '条件',
@@ -347,6 +350,7 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     terminate: 'End the whole process here (cancel other branches)',
     connectTo: 'Connect to…',
     edgeEnds: (from, to) => `${from} → ${to}`,
+    edgeTarget: 'Goes to',
     edgeOutcome: 'Outcome that takes this line',
     anyOutcome: 'Any outcome',
     condition: 'Condition',

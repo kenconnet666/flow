@@ -86,6 +86,14 @@ export const EdgePanel = _component(({ edge, definition, manifest, catalog, onCh
         <Field label={messages.id}>
           <TextField _value={edge.id} readonly />
         </Field>
+        {/* 改接终点：不用在画布上拖线的端点（汇合时把一支改连到汇合的网关） */}
+        <Field label={messages.edgeTarget}>
+          <Select
+            items={definition.nodes.filter((n) => n.type !== 'start' && n.id !== edge.from).map((n) => ({ value: n.id, label: n.name || n.id }))}
+            _value={edge.to}
+            onUpdate:_value={(to: string | null) => to && set('to', to)}
+          />
+        </Field>
         {from && isBranching(from.type) && outcomes.length > 0 && (
           <Field label={messages.edgeOutcome}>
             <Select

@@ -1,0 +1,28 @@
+{
+  "name": "会签只看参与人：参与人是空列表时算没写处理人（处理人写了也不算）；有参与人或引用时不用写处理人",
+  "definition": {
+    "key": "review",
+    "name": "评审",
+    "variables": [{ "name": "team", "type": "people" }],
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "empty", "type": "task", "name": "没参与人", "assignees": [{ "role": 1 }],
+        "multi": { "participants": [], "complete": "all" },
+        "outcomes": [{ "key": "ok", "label": "同意" }] },
+      { "id": "listed", "type": "task", "name": "列了参与人",
+        "multi": { "participants": [{ "role": 1 }], "complete": "all" },
+        "outcomes": [{ "key": "ok", "label": "同意" }] },
+      { "id": "byRef", "type": "task", "name": "引用变量",
+        "multi": { "participants": { "ref": "team" }, "complete": "any" },
+        "outcomes": [{ "key": "ok", "label": "同意" }] },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "empty" },
+      { "id": "e2", "from": "empty", "to": "listed", "outcome": "ok" },
+      { "id": "e3", "from": "listed", "to": "byRef", "outcome": "ok" },
+      { "id": "e4", "from": "byRef", "to": "end", "outcome": "ok" }
+    ]
+  },
+  "expect": [{ "code": "assignee-missing", "severity": "error", "node": "empty" }]
+}
