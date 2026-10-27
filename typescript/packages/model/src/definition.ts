@@ -41,14 +41,17 @@ export function isOrgId(value: unknown): value is OrgId {
   return typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value);
 }
 
-/** 处理人的来源；`assignees` 里的几个取并集 */
+/**
+ * 处理人的来源；`assignees` 里的几个取并集。指定的人、角色、部门、扩展种类可以带 `name`：设计器选人时记下的名字快照，
+ * 只给人看（属性面板、JSON），引擎按编号解析、不读它
+ */
 export type AssigneeSource =
   /** 指定的人；`people` 字段里有几个人就是几个候选 */
-  | { readonly user: Value<OrgId>; readonly weight?: number }
+  | { readonly user: Value<OrgId>; readonly weight?: number; readonly name?: string }
   /** 角色收件箱：有这个角色的人认领 */
-  | { readonly role: Value<OrgId> }
+  | { readonly role: Value<OrgId>; readonly name?: string }
   /** 部门下面的人认领 */
-  | { readonly department: Value<OrgId> }
+  | { readonly department: Value<OrgId>; readonly name?: string }
   /** 发起人 */
   | { readonly initiator: true }
   /** 与某个人工节点最后的处理人相同 */
@@ -56,7 +59,7 @@ export type AssigneeSource =
   /** 接入方注册的解析器 */
   | { readonly resolver: string; readonly args?: Readonly<Record<string, unknown>> }
   /** 接入方扩展的候选种类（岗位、项目组……） */
-  | { readonly group: string; readonly id: Value<OrgId> }
+  | { readonly group: string; readonly id: Value<OrgId>; readonly name?: string }
   /** 上一步的处理人提交时选（0005 的 5.6） */
   | { readonly pick: { readonly from?: readonly AssigneeSource[]; readonly max?: number } };
 

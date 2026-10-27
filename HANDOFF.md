@@ -3,10 +3,14 @@
 给接手这个仓库的人（或换了电脑的自己）：读完这一页就能接着做。方向与已定的事在 `docs/decisions/`，这里只讲现状、
 三个仓库的关系、做事方式和换电脑要准备的东西。
 
-## 1. 现状（2026-10-26）
+## 1. 现状（2026-10-27）
 
-- **代码**（2026-10-26 起按 0004 "已定"的顺序做；第 ② 步模型包已完成，第 ③ 步（③a–③d）已完成，下一步见第 6 节）：
-  - 目录按 0001 的"模块划分"：根 `pom.xml` 聚合 `java/flow-model`；`typescript/` 是 pnpm 工作区（`packages/model`、`test`）；`spec/` 放两边共用的样例。
+- **一句话**：按 0004 "已定"的顺序，② 模型包、③ Java 引擎与 Spring、④ Node 引擎与 Nuxt（Nitro）、⑤ 流程设计器都已完成并在浏览器里走通；
+  下一步是 ⑥ 表单设计器（见第 6 节末尾）。两个后端读写同一套表，接口相同，示例前端接哪个都行。
+- **本机预览**（`.claude/launch.json`）：示例前端 `flow-demo`（5180）；后端二选一占 8080——`flow-example-backend`（Spring Boot）或 `flow-node-backend`（Nitro），
+  都连 query 开发 MySQL 里的 flow_demo 库。管理端"流程管理"里新建、编辑流程就是设计器。
+- **代码**（细节按步骤记在第 6 节的表里）：
+  - 目录按 0001 的"模块划分"：根 `pom.xml` 聚合 `java/flow-model`；`typescript/` 是 pnpm 工作区（`packages/model`、`core`（Node 引擎）、`nuxt`（h3 接口与作业轮询）、`ui`（前端组件与设计器），`apps/demo`（示例前端）、`apps/demo-server`（Nitro 示例后端），`test`）；`spec/` 放两边共用的样例。
   - 模型包已有：条件求值（`spec/conditions`）、定义的类型与校验（`spec/definitions`，0005 第 7 节的全部问题代号）、选边与连线副作用（`spec/routing`）、
     字段清单自身的校验（`spec/manifests`）、提交值的类型校验（`spec/values`）、两个版本的差别（`spec/diff`）、
     字段权限的合算与提交的合并（`spec/access`）。Java 在 `org.dpdns.zerodep.flow.model.*`，TS 是 `@zerodep-dev/flow-model`。
@@ -150,6 +154,7 @@
 | ③w（已完成，2026-10-27） | 表单的管理：查询 `forms`、`formVersions`、`formDocument`，停用启用（停用的表单新发布的流程不能再选，校验报 `form-disabled`）；前端 admin 的 `FlowFormList`、`FlowFormEditor`（字段清单或代码两种写法，边改边校验、预览，清单转代码用 form-tools 的 `codeFromManifest`）；示例前端加"表单管理" | 场景 forms-admin、form-tools 的单测；浏览器里走过编辑采购单、转成代码、发布第 3 版、流程改用后发起页按代码渲染 |
 | ④a（已完成，2026-10-27） | TS 引擎 `@zerodep-dev/flow-core`（typescript/packages/core）：照 Java flow-core 移植——query TS 上的默认存储（同一套表与 JSON 形状，两个后端读写同一张表互通）、发布与校验、发起、认领、处理（会签、委派加签回到原待办、退回选节点、守卫）、撤回、撤回这一步、命令拦截器、监听、各个查询（待办详情、实例详情带流程图、我的待办、已办、我发起的、抄送我的、管理端）；模型包加 `FLOW_EVENT` 常量，校验对没写 outcomes 的人工节点不再出错；TS 的场景运行器跑 spec/scenarios 的实库（`pnpm test:live`，CI 检出 query、起 MySQL）；建表脚本从 Java 的 resources 来（④c 起生成进源码，见下） | 场景 29 个里 17 个通过、0 失败；12 个跳过（要作业的轮询、协作命令、管理员命令、外部事件、子流程、表单管理与异常的查询，见下一步） |
 | ④b（已完成，2026-10-27） | TS 引擎补齐：作业（`JobRunner` 抢占、按租户做、重试与失败；内置 timer、overdue、remind、unclaimed、action、receiveTimeout，`onFailure: error` 暂停）、协作命令（转办、委派、加签减签、退回收件箱、催办、留言、抄送与已读、指定承办人）、管理员命令（终止、暂停恢复、跳转、改派、重试与跳过失败的作业）、外部事件（`flow_wait`、signal）、调用流程（同步异步、forEach、子实例结束回到父实例、连带终止）、异常与表单管理的查询、幂等（`idempotent`、`purgeRequests`）；引擎自己推进时的操作人 `SYSTEM_ACTOR` | 场景 29 个全部通过（同 Java） |
+| ⑤（已完成，2026-10-27） | 流程设计器 `FlowDesigner`（flow-ui/admin/designer）：建在组件库的 Diagram 上，左边节点面板（点一下加在选中节点后面并连上，或拖到画布上），画布上拖动、从端口连线、改接、Delete 删除、Ctrl+Z / Ctrl+Shift+Z 撤销重做（组件库 createHistory）、自动排版；右边属性面板——流程（标识、名称、表单、实例标题、摘要列、撤回与找不到处理人的规则）、节点（通用加各类型的常用设置：处理人用 PeoplePicker 选人角色部门、会签、处理结果、时限、允许的操作、表单字段权限；自动、定时、等事件、抄送、子流程、结束）、连线（结果、条件用 ConditionBuilder 取表单字段与流程变量、默认出边、退回提级、文字），节点面板里"连到……"是不用拖的连线做法；下面实时列出模型包校验出的问题，点一条选中出问题的地方。编辑操作是纯函数（editing.ts，单测），位置写进定义的 layout。`FlowDefinitionEditor` 分"设计 / JSON"两个页签，互相转换；模型包的处理人来源可带 `name`（名字快照，0005 的 3.2）| flow-ui 单测 26（编辑操作 9 个）；浏览器里用设计器从骨架画出"报销"（删线、加条件分支与财务审批、选财务角色、金额 ≥ 5000 的条件、默认出边），后端校验通过、发布，两个金额分别走两条路结束，实例流程图按设计器的布局显示 |
 | ④c（已完成，2026-10-27） | `@zerodep-dev/flow-nuxt`（typescript/packages/nuxt）：`createFlowHandler({ engine, actor, prefix })` 是 h3 的处理函数，路径、参数、响应体同 Spring 的 `FlowHttpController`（请求体的读法同 `RequestBody`，带 `Idempotency-Key` 的命令幂等）；`startFlowJobs(engine, { intervalMs, retentionSeconds })` 同 `FlowJobPoller`。flow-core 加 `migrateFlowSchema(driver)`（query 的迁移器，历史表 `flow_migration`）与 `MYSQL_SCRIPTS`：建表脚本由 `packages/core/scripts/sync-sql.mjs` 从 Java 的 resources 生成进源码，单测比对两边。Nitro 示例后端 `typescript/apps/demo-server`（同 examples/spring-boot，本机 `.claude/run-node-backend.sh`）。顺带修 Java：外部事件的结果改成与命令同形（原先是 `created`，前端读 `workItems`），发布定义、表单返回的编号也走 typed JSON | TS 实库 32 个（场景 29 + HTTP 3）、单测 122、Java 154 全部通过；浏览器里示例前端接 Node 后端走完一单采购（发起、财务认领通过、总经理同意），异常处理重试（Node 的轮询重做、再失败）与跳过，流程与表单管理页；Node 后端读写 Java 建的 flow_demo，同一个实例的流转记录里两边的步骤接得上；`nitro build` 的产物对空库建表 7 个版本 |
 
 ### 无人值守时按推荐定（2026-10-27，待用户过目）
@@ -179,4 +184,9 @@
 21. **Node 后端的时间不带 timestamptz 标记**：引擎里本来就是 ISO 文字（同 Java `Instant` 的写法），前端请求层默认也按文字用，所以响应体只给编号记 bigint；两个后端的 data 除了 `$types` 里少这几项外相同。
 22. **取不到操作人**：`actor` 抛 FlowError（如 `flow.forbidden`）时同样是 200 加错误码（同 Spring 示例）；抛 h3 的错误（`createError({ statusCode: 401 })`）原样交给 h3。
 
-下面是还没做的、按优先级：⑤ 可视化设计器 → ⑥ 表单设计器。
+23. **处理人记名字快照**：设计器选人时在来源上记 `name`（`{ "role": 1, "name": "财务" }`），只给人看，引擎不读；改了名字的人要在设计器里重选一次才更新。
+24. **设计器只做常用设置**：提醒、超时处理、无人认领、跳过规则、通知、泳道、流程变量、发起人范围、走线时改变量（effects）在 JSON 页签里写，设计器原样保留；改标识要在输入完（失焦、回车）才生效，并把连线、布局、"同某节点"一起改过去。
+25. **定义按不可变的方式改**：设计器每改一步换一份新的定义对象（父级用 `_state.raw` 存），撤销记引用；属性面板一律写 `onUpdate:_value`，不让组件直接改对象属性。
+
+下面是还没做的、按优先级：⑥ 表单设计器（0004 第 2 节"设计器能理解的子集"：读写同一份 TSX 源码，拖控件、改属性、字段清单；表单编辑器 FlowFormEditor 已有清单与代码两种写法和预览，设计器加在它上面）。
+顺带可做：flow-ui 的英文问题文案（`problem` 现在英文只给代码）、组件库 Field 包着几个控件时会把自己的标签给每个控件（设计器里用 FieldGroup 绕开了，可以在组件库里改成只给第一个或不覆盖控件自己的名字）。

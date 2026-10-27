@@ -2,7 +2,6 @@
  * 流程图的自动排版：定义里没画过布局（layout）的节点，按从开始节点走过去的步数从左往右分列，同一列从上往下排。
  * 退回、提级的线和绕回去的线（环）不算步数，否则会越排越远。画过布局的节点用它自己的位置。
  */
-import type { ProcessDiagram } from '../client/types';
 
 /** 排好的一个节点：画布坐标与大小 */
 export interface PlacedNode {
@@ -13,6 +12,12 @@ export interface PlacedNode {
   readonly height: number;
 }
 
+/** 要排的图：实例详情的流程图（ProcessDiagram）、设计器里的定义都给得出这个形状 */
+export interface LayoutInput {
+  readonly nodes: readonly { readonly id: string; readonly type: string; readonly x: number | null; readonly y: number | null }[];
+  readonly edges: readonly { readonly from: string; readonly to: string; readonly kind: string | null }[];
+}
+
 /** 列宽、行高、边距（画布坐标） */
 const COLUMN = 190;
 const ROW = 96;
@@ -21,12 +26,12 @@ const MARGIN = 32;
 /** 节点的大小：开始、结束是胶囊，网关小一点，其余是卡片 */
 export function sizeOf(type: string): { width: number; height: number } {
   if (type === 'start' || type === 'end') return { width: 96, height: 40 };
-  if (type === 'exclusive' || type === 'parallel' || type === 'inclusive') return { width: 88, height: 40 };
+  if (type === 'exclusive' || type === 'parallel' || type === 'inclusive') return { width: 120, height: 40 };
   return { width: 140, height: 52 };
 }
 
 /** 排好每个节点的位置 */
-export function layoutDiagram(diagram: ProcessDiagram): PlacedNode[] {
+export function layoutDiagram(diagram: LayoutInput): PlacedNode[] {
   const ids = diagram.nodes.map((n) => n.id);
   const forward = new Map<string, string[]>(ids.map((id) => [id, []]));
   for (const edge of diagram.edges) {
