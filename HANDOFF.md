@@ -7,7 +7,9 @@
 
 - **一句话**：② 模型包、③ Java 引擎与 Spring、⑤ 流程设计器已完成并在浏览器里走通。2026-10-27 用户定的重做已完成：
   **持久层从 query 换成 easy-query**（实体 + VO，导航与对象树映射）、**Node 后端删掉**（只留 Java）、**表单的值是强类型**（json-wire 自动还原），
-  wire 迁成独立仓库 json-wire。随后实体补齐了关系导航，⑥ 表单设计器第一版完成（见第 6 节）。
+  wire 迁成独立仓库 json-wire。随后实体补齐了关系导航，⑥ 表单设计器第一版完成；同日又做完了"把引擎做完整"的五个阶段（自动跳过与通知、暂存、
+  设计草稿、表单后端代码、批量与申请改派、管理员改数据、工作日历、列表筛选、实例迁移、外部进度、统计、导入导出复制、版本对比、表单设计器第二步），
+  并把 Java 代码整理成普通的 Lombok 类、按职责分包（见第 6 节）。
 - **本机预览**（`.claude/launch.json`）：示例前端 `flow-demo`（5180）、后端 `flow-example-backend`（Spring Boot，8080），连 query 开发 MySQL（WSL）里的
   flow_demo 库；空库先在 `typescript/apps/demo` 下 `pnpm seed` 发布示例的表单与流程。管理端"流程管理"里新建、编辑流程就是设计器。
 - **代码**（细节按步骤记在第 6 节的表里）：
@@ -19,9 +21,11 @@
   - **值的约定**：线上、库里的 JSON 列、共用样例都是 typed JSON（json-wire）：编号是 bigint（Long / bigint）、decimal 是 BigDecimal / Decimal、
     date 是 LocalDate / CalendarDate、datetime 与各处的时刻是 Instant / ZonedDateTime，number 是 JavaScript 的数；读进来先按 `$types` 还原，
     模型包按类型校验。清单、定义里人写的值（default、min、max、调用流程的 input）按字段类型读成强类型（`FormManifest.typed`、`typedValue`）。
-  - Java 引擎 `java/flow-core`：`FlowEngine`（门面与组装）、`identity`、`command`、`data`、`engine`（每个命令一个处理类，步骤写在类注释里；推进在 `Execution`，
-    几处共用的读写在 `Instances`、`WorkItems`）、`entity`（表：easy-query 的实体，Lombok + `@EntityProxy`，导航写在实体上）、
-    `view`（给前端的形状：`select(XxxVO.class)` 读出的 VO、`selectAutoInclude` 映射的对象树 `TodoItem`、`CcItem`，以及拼起来的视图 record）、
+  - Java 引擎 `java/flow-core`：`FlowEngine`（门面）与 `FlowEngineBuilder`（组装）、`identity`、`command`、`data`、`engine`（推进在 `Execution`；
+    `engine/node` 每种节点一个 Behavior（到达时做什么）；`engine/handler` 每类命令一个处理类，步骤写在类注释里；`engine/query` 按对象分的查询；
+    还有 `rule`、`assignee`、`form`、`job`、`store`、`notify`）、`entity`（表：easy-query 的实体，Lombok + `@EntityProxy`，导航写在实体上）、
+    `view`（给前端的形状，按 workitem、instance、definition、form、stats 分包：`select(XxxVO.class)` 读出的 VO、`selectAutoInclude` 映射的对象树）。
+    **不用 record 与 final class**，一律普通的 Lombok 类（`@Data` / `@Getter @Setter`），访问方法都是 getX；
     `db`（接入方的 easy-query 上要装的：JSON 列的转换器、Instant 按 UTC、租户与修改时间的拦截器）。写库用实体，读给前端用 VO。
     建表仍是 `flow-core` 的 `resources/db/flow/mysql/V*.sql`，推荐 Flyway 单独一套执行（0007 第 9 节）；表名、列名按 easy-query 默认的下划线命名。
   - 场景用例 `spec/scenarios`：引擎的验收标准，格式见那里的 README（场景文件是 typed JSON）；执行器在 `flow-it` 的 `scenario` 包。
@@ -167,6 +171,9 @@
 | ④c（已完成，2026-10-27） | `@zerodep-dev/flow-nuxt`（typescript/packages/nuxt）：`createFlowHandler({ engine, actor, prefix })` 是 h3 的处理函数，路径、参数、响应体同 Spring 的 `FlowHttpController`（请求体的读法同 `RequestBody`，带 `Idempotency-Key` 的命令幂等）；`startFlowJobs(engine, { intervalMs, retentionSeconds })` 同 `FlowJobPoller`。flow-core 加 `migrateFlowSchema(driver)`（query 的迁移器，历史表 `flow_migration`）与 `MYSQL_SCRIPTS`：建表脚本由 `packages/core/scripts/sync-sql.mjs` 从 Java 的 resources 生成进源码，单测比对两边。Nitro 示例后端 `typescript/apps/demo-server`（同 examples/spring-boot，本机 `.claude/run-node-backend.sh`）。顺带修 Java：外部事件的结果改成与命令同形（原先是 `created`，前端读 `workItems`），发布定义、表单返回的编号也走 typed JSON | TS 实库 32 个（场景 29 + HTTP 3）、单测 122、Java 154 全部通过；浏览器里示例前端接 Node 后端走完一单采购（发起、财务认领通过、总经理同意），异常处理重试（Node 的轮询重做、再失败）与跳过，流程与表单管理页；Node 后端读写 Java 建的 flow_demo，同一个实例的流转记录里两边的步骤接得上；`nitro build` 的产物对空库建表 7 个版本 |
 | 对象建模（已完成，2026-10-27） | 实体补齐关系导航：流程、表单的 `versions`、`latest`，流程版本的 `process`、`form`，实例的 `definition`、`workItems`、`events`、`formData`、`parent`、`children`，待办的 `instance`、`candidates`、`parent`、`children`，抄送、流转记录、作业的 `instance`；表单版本的源码、编译结果默认不读（`autoSelect = false`）。引擎沿导航读：`DefinitionCache.processes()` 连同 `latest` 与它的 `form` 读流程，异常列表 include 作业的实例与待办 | Java 154 全部通过 |
 | ⑥ 表单设计器（第一版，2026-10-27） | form-tools 的 `design/`：`parseDesign` 把源码解析成字段列表与组件树（路径 `0.2.1`、源码区间），`edit.ts` 的插入、删除、移动、改属性、换控件、改字段、加删字段、改名、补导入都只改受影响的那一段；`registry.ts` 登记认得的组件（`registerFormComponent` 给接入方）。admin 的 `FormDesigner`：左边组件与字段列表（没摆的能拖进画布），画布照常渲染表单、上面盖操作层（点选、拖放、插入线），右边属性面板分字段（改清单，显示与必填条件用 ConditionBuilder）与控件（改 JSX 属性、换控件）两组；预览模式去掉操作层。`FlowFormEditor` 多一种"设计"写法，与代码共用一个代码编辑器（设计时藏起来），撤销重做就是它的历史（组件库 CodeEditorHandle 加了 `edit`、`undo`、`redo`）。顺带：`form.Field` 按字段类型给控件补没写的属性（controls.ts：decimal、日期、选项、人员、长度），代码表单只写 `<Select />` 就对上强类型；FlowForm 加 `keepPrevious`，连着换代码时只用最后一次的结果 | form-tools 设计单测 10 个，UI 共 38；浏览器里走过选中改标签、加分组、往分组里加金额与选项字段、拖动换位置、改选项后预览里的下拉跟着变、三步撤销与重做；发起页金额 350.25 照样存成 typed JSON |
+| 整理（2026-10-27） | 用户要求：不用 record、final class，少用 Object、Map 这类临时类型；按职责分包、方法与注释写清楚。record 全部改成 Lombok 类、访问方法统一 getX（`Actor`、`ProcessNode`、`FlowException` 的接口也改了）；`engine` 拆出 `node`（TaskBehavior、GatewayBehavior、TimerBehavior、ServiceBehavior、ReceiveBehavior、CcBehavior、CallBehavior）、`handler`、`query`（InboxQueries、WorkItemQueries、InstanceQueries、ProcessQueries、FormQueries、StatsQueries）等子包；`FlowEngineBuilder` 单独一个类；前端 `admin/designer` 改名 `process-designer` | 行为不变，Java 与场景全部通过 |
+| ⑦ 把引擎做完整（2026-10-27） | 自动跳过（发起人、上一步处理人，记 `node.skipped`）与通知渠道 `NotificationChannel`（引擎按流转记录算出种类与默认收件人，定义的 notify 改模板、加人，提交后才发）；暂存 `saveDraft`（存在待办的 draft 列）；设计中的草稿 `flow_draft`（V8，版本列防覆盖，发布后删）；表单后端代码（`FormHandler`：load、validate、compute、submit、actions，发布时用 javax.tools 编译，按表单版本缓存）；批量认领与处理、申请改派、管理员改数据；子流程在父实例暂停期间结束、恢复时补上往下走；工作日历表 `flow_calendar`（V9，`TableWorkCalendar` 成为默认）与维护页；我已办、我发起的、抄送我的按流程与时间筛；实例迁移到另一个版本（`MigrateCommand`，节点对应关系、类型要相同）；外部参与方看的进度 `ProgressView` / `FlowProgress`；统计（`StatsQueries` 分组计数，V10 加了按处理时间的索引）与 `FlowStatistics`；流程、表单的导出、导入、复制（走发布接口，两个列表合成 `CatalogList`）；定义编辑器"与已发布版本对比"（模型包的 `diffProcess`） | 场景 auto-skip、save-draft、batch-reassign-change 等，实库 DesignDraftTest、FormCodeTest、CalendarTest、AdminOpsTest、NotificationTest；Java 模型与核心 121、实库 43，TS 120，UI 40 全部通过；浏览器里走过各个页面 |
+| ⑥ 表单设计器第二步（2026-10-27） | 单选组 RadioGroup、多选组 CheckboxGroup（form.Field 按清单补选项与值的转换，与 Select 共用）；预览里填的值在重新编译后留着、"只读预览"；前端代码的问题（语法、清单写法）与后端代码的编译问题点一条跳到代码位置（组件库 CodeEditorHandle 加 `goTo`）；发布时存前端的编译结果与编译器版本（组件库 browser-compile 导出 `COMPILER_VERSION`），FlowForm 只在版本一样时直接执行存下的代码 | UI 单测补了编译器版本的两种情况；浏览器里走过加单选组、预览选中后重编仍选中、只读预览 |
 | 重做（已完成，2026-10-27） | 用户定：① 删掉 Node 后端（TS 引擎、flow-nuxt、Nitro 示例后端）；② 持久层换成 easy-query——去掉 12 个存储接口，`entity` 包的实体写库、`view` 包的 VO 读给前端，待办行、抄送行用 `selectAutoInclude` 映射成带 `instance` 的对象树，租户与修改时间交给拦截器；③ wire 迁成独立仓库 json-wire，接口的 typed JSON 由接入方集成；④ 表单的值是强类型（json-wire 还原，模型包按类型校验，spec 与场景文件改成 typed JSON），前端时刻是 ZonedDateTime | Java 154（模型 121、实库 33）、TS 120、UI 26 全部通过；浏览器里走过发起（金额 350.25 原样存成 typed JSON）、财务处理、我已办、流程监控；顺带修了自动排版的数字控件把小数对齐成整数的问题 |
 
 ### 无人值守时按推荐定（2026-10-27，待用户过目）
@@ -183,22 +190,35 @@
 8. **实例详情的表单**：不在待办里看表单的人（发起人看进度、我已办里打开）一律只读，按流程级 `formView` 隐藏字段；在待办里看走待办详情（节点权限）。
 9. **待办列表的行**带实例状态与处理结果的名字（按实例的定义版本查 outcome 的 label），我已办不用再查定义。
 10. **流转记录存名字快照**：处理结果的名字（`outcomeLabel`）、转办委派改派的对象（`toUserName`）、加签的人（`userNames`）、减签的人（`userName`）都记在事件数据里。
-11. **撤回整步（withdrawStep）用快照回滚**：每个实例只留最近一步的快照（`flow_step`），所以只能撤回最后处理的那一步；这一步之后进过自动节点（服务、子流程、等事件）就不能撤，因为它们的副作用回滚不了；实例结束了也不能撤。`returnTarget: "choose"`（退回时让人选节点）还没做。
-12. **作业**：工作日默认周一到周五、按 UTC 的日期（Spring 用 `flow.calendar.zone` 改时区，节假日要接入方实现 `WorkCalendar`，`flow_calendar` 表还没建）；`until` 只写日期时算那天结束；待办办完了不去删它的作业，作业到点看到待办不再打开就跳过（实例结束时才统一删）；实例暂停时作业往后推一小时；失败重试 3 次，间隔 1、4、9 分钟；超时默认只记一条"超时"（`mark`）。
+11. **撤回整步（withdrawStep）用快照回滚**：每个实例只留最近一步的快照（`flow_step`），所以只能撤回最后处理的那一步；这一步之后进过自动节点（服务、子流程、等事件）就不能撤，因为它们的副作用回滚不了；实例结束了也不能撤。
+12. **作业**：工作日默认周一到周五、按 UTC 的日期（Spring 用 `flow.calendar.zone` 改时区，节假日、调休在 `flow_calendar` 表里维护（管理端"工作日历"），接入方也能换成自己的 `WorkCalendar`）；`until` 只写日期时算那天结束；待办办完了不去删它的作业，作业到点看到待办不再打开就跳过（实例结束时才统一删）；实例暂停时作业往后推一小时；失败重试 3 次，间隔 1、4、9 分钟；超时默认只记一条"超时"（`mark`）。
 13. **转办、委派、加签的待办沿用原来那一份的截止时间**，不重新计时。
-14. **子流程**：子实例的发起人是父实例的发起人（出现在他的"我发起的"里），流转记录上的操作人是触发调用的人；父实例暂停时子实例结束不推进父实例（恢复后要管理员跳转）——以后可以改成恢复时补上。
+14. **子流程**：子实例的发起人是父实例的发起人（出现在他的"我发起的"里），流转记录上的操作人是触发调用的人；父实例暂停时子实例结束不推进父实例，恢复时补上往下走（`CallBehavior.resumeWaitingCalls`）。
 15. **异常不生成人工待办**：0005 原先写"给管理员生成异常处理待办"，改成管理端的异常列表加实例详情上的一块（同 Camunda 的 incident、Flowable 的 dead-letter job）——待办挂在自动节点上要另造一套表单、结果、处理人规则，收益不大；通知管理员交给接入方监听 `job.failed`。跳过时结果必须是出边上写的；暂停的实例要先恢复才能重试或跳过。
 16. **退回时选节点不进别的并行区域**：能选的限于当前节点所在区域之内或之外的上游，旁边的分支、已经汇合过的区域里的节点不给（进去了汇合等不齐）；一个能选的都没有时按钮不给；会签时用让节点结束的那个人选的目标。
 17. **按命令替换处理类用拦截器做**：不另设 `CommandHandler<C>`，拦截器认出命令后不调 proceed 就是换掉标准行为；发布定义、发布表单、停用启用暂不过拦截器（不是命令记录，审计可以先用 PermissionPolicy 记）。
-18. **表单发布时只存源码**：编译结果与编译器版本（0004 的 5.4）等组件库给出编译器版本号后再存；现在审批页按源码在浏览器里编译（已有的路径）。表单编辑器预览也是这条路径。
-19. **Node 版建表用 query 的迁移器**：历史表 `flow_migration`，与 Java 的 Flyway（`flow_schema_history`）互不认，同一个库只由一边建表（示例后端连 Java 建好的库时设 `FLOW_MIGRATE=false`）。脚本生成成 TS 模块而不是运行时读文件：应用经 Nitro、Vite 打包后 `import.meta.url` 变了，按相对路径找不到。
-20. **flow-nuxt 不做 Nuxt 模块**：只给 h3 的处理函数与作业轮询，接入是一个路由文件（`server/routes/flow/[...path].ts`）加一个插件；模块（nuxt.config 的 modules 自动注册）多一层配置、收益小，用户要时再包。
-21. **Node 后端的时间不带 timestamptz 标记**：引擎里本来就是 ISO 文字（同 Java `Instant` 的写法），前端请求层默认也按文字用，所以响应体只给编号记 bigint；两个后端的 data 除了 `$types` 里少这几项外相同。
-22. **取不到操作人**：`actor` 抛 FlowError（如 `flow.forbidden`）时同样是 200 加错误码（同 Spring 示例）；抛 h3 的错误（`createError({ statusCode: 401 })`）原样交给 h3。
+18. **表单发布时存编译结果**：表单编辑器发布前在浏览器里编译，连同组件库的 `COMPILER_VERSION` 一起存；审批页版本一样时直接执行，不一样（组件库升级改了编译结果的格式）时按源码重编，不需要批量重新发布。
+19. （已作废：Node 后端删掉了）**Node 版建表用 query 的迁移器**：历史表 `flow_migration`，与 Java 的 Flyway（`flow_schema_history`）互不认，同一个库只由一边建表（示例后端连 Java 建好的库时设 `FLOW_MIGRATE=false`）。脚本生成成 TS 模块而不是运行时读文件：应用经 Nitro、Vite 打包后 `import.meta.url` 变了，按相对路径找不到。
+20. （已作废）**flow-nuxt 不做 Nuxt 模块**：只给 h3 的处理函数与作业轮询，接入是一个路由文件（`server/routes/flow/[...path].ts`）加一个插件；模块（nuxt.config 的 modules 自动注册）多一层配置、收益小，用户要时再包。
+21. （已作废）**Node 后端的时间不带 timestamptz 标记**：引擎里本来就是 ISO 文字（同 Java `Instant` 的写法），前端请求层默认也按文字用，所以响应体只给编号记 bigint；两个后端的 data 除了 `$types` 里少这几项外相同。
+22. （已作废）**取不到操作人**：`actor` 抛 FlowError（如 `flow.forbidden`）时同样是 200 加错误码（同 Spring 示例）；抛 h3 的错误（`createError({ statusCode: 401 })`）原样交给 h3。
 
 23. **处理人记名字快照**：设计器选人时在来源上记 `name`（`{ "role": 1, "name": "财务" }`），只给人看，引擎不读；改了名字的人要在设计器里重选一次才更新。
 24. **设计器只做常用设置**：提醒、超时处理、无人认领、跳过规则、通知、泳道、流程变量、发起人范围、走线时改变量（effects）在 JSON 页签里写，设计器原样保留；改标识要在输入完（失焦、回车）才生效，并把连线、布局、"同某节点"一起改过去。
 25. **定义按不可变的方式改**：设计器每改一步换一份新的定义对象（父级用 `_state.raw` 存），撤销记引用；属性面板一律写 `onUpdate:_value`，不让组件直接改对象属性。
+26. **自动跳过只在顺着流转到达时**：处理人是发起人或上一步的处理人、节点有"同意"类的结果时才跳；退回、重新提交、提级、跳转来的不跳；会签、落到收件箱的不跳。
+27. **通知只在提交后发、按流转记录算**：引擎不自己发消息，只算出种类（到达、退回、催办、快到期、超时、抄送、结束）与默认收件人交给 `NotificationChannel`；渠道抛错只记日志，不影响流转。
+28. **暂存不查必填、不推进、不记流转记录**：只收这个节点能改的字段并按类型、范围查；收件箱里的待办暂存时先认领给自己。
+29. **设计草稿每个流程（表单）一份、大家共用**：带版本列，别人先存过时报 `flow.concurrent-modification` 并带最后修改人，由人选择载入他的；发布成功时同一事务里删掉。
+30. **表单后端代码不广播、不预热**：按表单版本 id 缓存编译出的类，版本不可变所以不用失效，集群各节点用到时各自编译；执行顺序是清单校验之后 validate → compute → submit，都在流转的事务里。
+31. **批量操作各自一个事务**：一条失败不影响别的，结果逐条带成败与错误码；批量同意按每个待办第一个"同意"类的结果。
+32. **实例迁移**：只能迁到同一个流程的别的版本；正停着的节点在新版本里要有（同名或写了对应关系）且类型相同；待办、等待、作业里的节点一起改名，表单数据换到新版本的表单；会签、并行的内部状态按节点名平移，不做别的转换。
+33. **统计不建汇总表**：计数在库里分组算，停留时长、超时比例取那段时间处理完的待办在内存里算（默认 30 天）；数据量大了再考虑汇总表或交给 BI。
+34. **导入、复制都走发布接口**：不另开导入接口，后端照常校验；复制是取最新版本换标识与名字发布成新的一个，流程复制不连带复制它的表单。
 
-下面是还没做的、按优先级：表单设计器的第二步（0004 第 2、3 节里还没做的：标签页 Tabs 与明细表 form.List、单选组等要写子元素的控件、附件控件，编译放 Worker 防抖、重新编译后保留预览里填的值，预览时套用某个流程节点的权限，代码与设计两边的问题列表点一条跳到代码位置）。
-顺带可做：flow-ui 的英文问题文案（`problem` 现在英文只给代码）。
+下面是还没做的、按优先级：
+
+1. 表单设计器余下的：标签页 Tabs（组件库的 Tabs 要 TabList、Tab、TabPanel 三层，设计器要能认整组）、明细表 form.List、附件控件（要接入方给上传接口）；
+   编译放 Worker（`createCompileClient`，flow-ui 是库，`?worker` 的导入要由应用的 Vite 给，需要设计一个传入口）；预览时套用某个流程节点的权限（要先有"哪些流程用了这张表单"的查询）。
+2. 发布 json-wire、vue-tsx-pro 0.2 到 npm / Maven（用户手动），之后本仓库从 `link:` 换成版本号。
+3. 性能：实库里造一批数据量看慢查询（收件箱的候选匹配、我已办、统计），按 0007 的索引再核一遍。

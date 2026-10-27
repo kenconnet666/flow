@@ -417,8 +417,11 @@ const enEvents: Record<string, string> = {
 /** 标题后面接节点名的实例级事件（"跳转到 财务复核""收到事件 等对方盖章"） */
 const NODE_EVENTS = new Set(['instance.jumped', 'signal.received', 'node.overdue', 'node.skipped', 'job.failed', 'job.skipped']);
 
-/** 定义的问题代号（0005 第 7 节）的中文说明 */
-const zhProblemTexts: Record<string, (p: Readonly<Record<string, string>>) => string> = {
+/** 一个问题代号的说明：参数 → 文字 */
+type ProblemText = (p: Readonly<Record<string, string>>) => string;
+
+/** 定义的问题代号（0005 第 7 节）的中文说明；英文的 enProblemTexts 按它的代号定类型，少写、多写都编译不过 */
+const zhProblemTexts = {
   malformed: (p) => `定义写得不对：${p['reason'] ?? ''}`,
   'form-unknown': (p) => `引用的表单 ${p['key'] ?? ''} 不存在`,
   'form-disabled': (p) => `引用的表单 ${p['key'] ?? ''} 停用了`,
@@ -477,7 +480,73 @@ const zhProblemTexts: Record<string, (p: Readonly<Record<string, string>>) => st
   'call-unknown-process': () => '调用的流程不存在或已停用',
   'extension-unknown': (p) => `${p['kind'] ?? '扩展'} ${p['name'] ?? ''} 没有注册`,
   'due-unknown-calendar': () => '工作日历不存在',
+} satisfies Record<string, ProblemText>;
+
+/** 定义的问题代号的英文说明 */
+const enProblemTexts: Record<keyof typeof zhProblemTexts, ProblemText> = {
+  malformed: (p) => `The definition is malformed: ${p['reason'] ?? ''}`,
+  'form-unknown': (p) => `The form ${p['key'] ?? ''} does not exist`,
+  'form-disabled': (p) => `The form ${p['key'] ?? ''} is disabled`,
+  'field-name-invalid': () => 'Field names start with a lowercase letter and contain only letters and digits',
+  'field-label-missing': () => 'The field has no label',
+  'field-type-unknown': (p) => `Unknown field type ${p['type'] ?? ''}`,
+  'attribute-invalid': (p) => `Invalid value for ${p['attribute'] ?? ''}`,
+  'pattern-invalid': () => 'The regular expression (pattern) is invalid',
+  'options-empty': () => 'The options are empty',
+  'option-duplicate': (p) => `The option value ${p['value'] ?? ''} is repeated`,
+  'default-invalid': () => "The default value breaks the field's rules",
+  'range-invalid': () => 'The minimum is greater than the maximum',
+  'list-nested': () => 'A detail list cannot contain another list',
+  'list-no-columns': () => 'The detail list has no columns',
+  'start-missing': () => 'There is no start node',
+  'start-multiple': () => 'There is more than one start node',
+  'start-incoming': () => 'An edge leads into the start node',
+  'end-missing': () => 'There is no end node',
+  'end-outgoing': () => 'The end node has outgoing edges',
+  'node-duplicate': () => 'Node ids are repeated',
+  'edge-duplicate': () => 'Edge ids are repeated',
+  'lane-duplicate': () => 'Lane ids are repeated',
+  'node-type-unknown': () => 'Unknown node type (custom types start with x-)',
+  'lane-unknown': () => "The node's lane does not exist",
+  'edge-unknown-node': () => 'The edge starts or ends at a node that does not exist',
+  'node-no-outgoing': () => 'The node has no outgoing edge',
+  'node-dead-end': () => 'The end cannot be reached from this node',
+  'node-unreachable': () => 'This node cannot be reached from the start',
+  'outcome-duplicate': () => 'Outcome keys are repeated',
+  'outcome-unrouted': (p) => `The outcome ${p['outcome'] ?? ''} has no outgoing edge`,
+  'return-target-invalid': (p) => `The outcome ${p['outcome'] ?? ''} may set target only when it sends back, and only to choose`,
+  'outcome-choose-automatic': (p) => `Automatic completion and countersign fallbacks cannot use ${p['outcome'] ?? ''}, which asks for a step to send back to`,
+  'edge-unknown-outcome': () => 'The edge names an outcome its source does not have',
+  'edge-outcome-not-branching': () => 'The edge names an outcome, but its source does not branch by outcome',
+  'edge-default-not-gateway': () => 'The edge is marked default, but its source is not an exclusive or inclusive gateway',
+  'gateway-multiple-default': () => 'The gateway has more than one default edge',
+  'gateway-edge-unconditional': () => 'A gateway edge has neither a condition nor default',
+  'parallel-edge-condition': () => 'Conditions on parallel gateway edges have no effect',
+  'parallel-useless': () => 'The parallel gateway has one way in and one way out',
+  'overdue-unknown-outcome': () => 'The outcome for automatic completion does not exist',
+  'task-no-outcome': () => 'The task has no outcomes',
+  'assignee-unknown-node': () => 'sameAs names a node that does not exist or is not a task',
+  'assignee-missing': () => 'The task has no assignees and its lane has no inbox',
+  'gateway-unpaired': () => 'A parallel or inclusive split has no matching join, or a branch leaves the region',
+  'return-not-upstream': () => 'The send-back edge does not lead upstream',
+  'escalate-no-inbox': () => 'The escalation target has no inbox',
+  'ref-unknown': (p) => `Unknown reference ${p['ref'] ?? ''} (an undeclared variable, a field the form lacks, or a missing node)`,
+  'ref-type-mismatch': (p) => `The reference ${p['ref'] ?? ''} has a type that cannot be used here`,
+  'org-id-invalid': () => 'User, role and department ids must be positive integers',
+  'condition-incomplete': () => 'The condition is incomplete',
+  'condition-fn-in-form': () => 'Form conditions cannot use fn.',
+  'multi-no-fallback': () => 'Countersigns by ratio or by votes need a fallback',
+  'form-field-unknown': (p) => `The node permissions name ${p['field'] ?? ''}, which the form does not have`,
+  'form-required-unfillable': () => 'A required field is hidden or read-only at the start',
+  'call-cycle': () => 'The called processes form a cycle',
+  'call-unknown-process': () => 'The called process does not exist or is disabled',
+  'extension-unknown': (p) => `${p['kind'] ?? 'Extension'} ${p['name'] ?? ''} is not registered`,
+  'due-unknown-calendar': () => 'The work calendar does not exist',
 };
+
+/** 认不出的代号显示代号本身 */
+const problemText = (texts: Record<string, ProblemText>, code: string, params: Readonly<Record<string, string>>) =>
+  Object.hasOwn(texts, code) ? texts[code]!(params) : code;
 
 /** 引擎自动提醒的原因（流转记录里 workItem.reminded 的 data.reason） */
 const zhReminders: Record<string, string> = { dueSoon: '即将到期，自动提醒', overdue: '已超时，自动提醒', unclaimed: '很久没人认领，自动提醒' };
@@ -657,7 +726,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     published: (version) => `已发布第 ${version} 版`,
     noProblems: '没有问题，可以发布',
     problemAt: (where) => `位置：${where}`,
-    problem: (code, params) => zhProblemTexts[code]?.(params) ?? code,
+    problem: (code, params) => problemText(zhProblemTexts, code, params),
     monitor: '流程监控',
     columnProcess: '流程',
     keyword: '标题',
@@ -901,7 +970,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     published: (version) => `Published version ${version}`,
     noProblems: 'No problems; ready to publish',
     problemAt: (where) => `At ${where}`,
-    problem: (code) => code,
+    problem: (code, params) => problemText(enProblemTexts, code, params),
     monitor: 'Process monitor',
     columnProcess: 'Process',
     keyword: 'Title',

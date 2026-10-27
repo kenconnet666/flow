@@ -1,13 +1,14 @@
 /**
- * 流程、表单的导出、导入、复制（0002 §9）：导出成一份 JSON 文件；导入与复制都走发布接口（后端照常校验），
- * 复制是取最新版本换个标识和名字再发布成新的一个。
+ * 流程、表单的导出、导入、复制（0002 §9、0004 的 5.6）：导出成一份 JSON 文件；导入与复制都走发布接口（后端照常校验），
+ * 复制是取最新版本换个标识和名字再发布成新的一个。表单不导出编译结果；有前端源码的，发布前按源码重新提取字段清单、
+ * 重新编译，不信文件里带的清单。
  *
  *   const transfer = processTransfer(flow);
  *   downloadJson(`${key}.json`, await transfer.exportJson(key));
  *   await transfer.publish(json, { key: 'leave-copy', name: '请假（副本）' });
  */
 import { downloadFile } from '@zerodep-dev/vue-tsx-pro-ui';
-import type { ProcessDefinition } from '@zerodep-dev/flow-model';
+import type { FormManifest, ProcessDefinition } from '@zerodep-dev/flow-model';
 import type { FlowClient } from '../client/flow-client';
 import type { FormPublication } from '../client/types';
 
@@ -36,7 +37,7 @@ export function processTransfer(flow: FlowClient): Transfer {
   };
 }
 
-/** 表单：导出的是发布时的那份（清单、前端源码、后端代码） */
+/** 表单：导出的是发布时的那份（清单、前端源码、后端代码），不带编译结果 */
 export function formTransfer(flow: FlowClient): Transfer {
   return {
     exportJson: async (key) => {
@@ -51,11 +52,23 @@ export function formTransfer(flow: FlowClient): Transfer {
       };
       return JSON.stringify(publication, null, 2);
     },
-    publish: (json, rename, note) => {
-      const publication = JSON.parse(json) as FormPublication;
-      return flow.publishForm({ ...publication, ...rename, ...(note ? { note } : {}) });
+    publish: async (json, rename, note) => {
+      const { clientCompiled: _ignored, compilerVersion: _alsoIgnored, ...publication } = JSON.parse(json) as FormPublication;
+      const fromSource = publication.clientSource ? await fromClientSource(publication.clientSource) : {};
+      return flow.publishForm({ ...publication, ...fromSource, ...rename, ...(note ? { note } : {}) });
     },
   };
+}
+
+/** 按前端源码重新提取的清单与编译结果；清单写得不对时抛出，说明是哪一处 */
+async function fromClientSource(source: string): Promise<Pick<FormPublication, 'manifest' | 'clientCompiled' | 'compilerVersion'>> {
+  const { compileFormSource, extractFields } = await import('../form-tools');
+  const extracted = extractFields(source);
+  if (!extracted.manifest) {
+    const first = extracted.problems[0]!;
+    throw new Error(`${first.message} (${first.line}:${first.column})`);
+  }
+  return { manifest: extracted.manifest as FormManifest, ...(await compileFormSource(source)) };
 }
 
 /** 存成 JSON 文件 */

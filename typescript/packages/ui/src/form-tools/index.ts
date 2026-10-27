@@ -3,6 +3,7 @@
  * 从源码取出字段清单、按清单生成一份代码表单，以及表单设计器的解析与写回（源码 ↔ 字段列表与组件树）。
  */
 export { codeFromManifest } from './code-from-manifest';
+export { compileFormSource, type CompiledForm } from './compile';
 export { extractFields, type ExtractProblem, type ExtractResult } from './extract';
 export {
   allNodes,

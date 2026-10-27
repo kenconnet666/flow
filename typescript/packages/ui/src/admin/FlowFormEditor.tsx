@@ -74,12 +74,6 @@ interface Analysis {
   readonly problems: readonly Problem[];
 }
 
-/** 发布前把前端源码编译好，连同编译器版本一起存（审批页面直接执行） */
-async function compileForPublish(source: string): Promise<{ code: string; version: string }> {
-  const { COMPILER_VERSION, compileInThread } = await import('@zerodep-dev/vue-tsx-pro-tsx/browser-compile');
-  return { code: await compileInThread(source, { filename: 'Form.tsx' }), version: COMPILER_VERSION };
-}
-
 /** 改完停一会儿再分析、刷新预览（毫秒） */
 const SETTLE = 400;
 
@@ -236,13 +230,13 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     failure = null;
     notice = null;
     try {
-      const compiled = mode !== 'manifest' ? await compileForPublish(source) : null;
+      const compiled = mode !== 'manifest' ? await (await import('../form-tools')).compileFormSource(source) : null;
       const result = await flow.publishForm({
         key: key.trim(),
         name: name.trim(),
         ...(category.trim() ? { category: category.trim() } : {}),
         manifest: current.manifest,
-        ...(compiled ? { clientSource: source, clientCompiled: compiled.code, compilerVersion: compiled.version } : {}),
+        ...(compiled ? { clientSource: source, ...compiled } : {}),
         ...(serverSource.trim() ? { serverLanguage: 'java' as const, serverSource } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
       });

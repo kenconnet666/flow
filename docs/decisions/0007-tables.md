@@ -278,6 +278,7 @@
 | 领取到期作业 | `state = 'pending' AND due_at <= 现在 AND (locked_until IS NULL OR locked_until < 现在)` 按 `due_at` 取一批，再逐个带条件 UPDATE 抢 | `flow_job`（`state`, `due_at`） |
 | 外部事件 | `event = ? AND business_key = ?` | `flow_wait`（租户, `event`, `business_key`） |
 | 统计 | 待办办完、节点离开时，流转记录的 `data` 里直接记下停留时长与是否超时，统计只对一种记录分组求和，不用把到达与离开配对 | `flow_event`（租户, `type`, `at`）（第 3 节随第 4 节补的索引）；大的统计建议在只读库或数仓里做 |
+| 统计（实现，2026-10-27） | 改成直接取待办：各环节取一段时间里处理完的待办（`state = 'done' AND completed_at >= ?`，按 `process_key` 过滤），停留 = `completed_at - created_at`，超时 = 晚于 `due_at`；处理人的工作量按 `completed_by` 分组。待办上本来就有这几列，不用在流转记录里另记 | `flow_work_item`（租户, `state`, `completed_at`, `process_key`）（V10） |
 | 归档 | `ended_at < 现在 - N 天` 分批 | `flow_instance`（租户, `ended_at`） |
 
 ## 5. 写入（已定，用户 2026-10-26）
