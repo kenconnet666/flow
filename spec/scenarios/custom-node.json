@@ -1,0 +1,33 @@
+{
+  "name": "自定义节点（x-stamp：当场做完改变量、停下来等事件）与自定义会签规则（first-two：两人同意就过，有人不同意就不过）",
+  "forms": [],
+  "processes": ["processes/custom-node.json"],
+  "clock": "2026-10-27T10:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航" },
+    "carol": { "id": 1003, "name": "沈若水" },
+    "admin": { "id": 1000, "name": "管理员" },
+    "erp": { "id": 9001, "name": "盖章系统" }
+  },
+  "steps": [
+    { "id": "s", "as": "alice", "command": "start", "args": { "key": "custom-node", "businessKey": "YY-1" },
+      "expect": { "instance": { "status": "active", "current": [{ "node": "await" }] }, "workItems": [] } },
+    { "as": "admin", "command": "instance", "args": { "instance": "$s.instance" },
+      "expect": { "variables": [] } },
+    { "as": "erp", "command": "signal", "args": { "businessKey": "YY-1", "event": "stamp.returned" },
+      "expect": { "results": [{ "instance": { "current": [{ "node": "sign" }] },
+        "workItems": [{ "assigneeId": "1001" }, { "assigneeId": "1002" }, { "assigneeId": "1003" }] }] } },
+    { "as": "alice", "command": "complete", "args": { "workItem": "$.results[0].workItems[0]", "outcome": "ok" },
+      "expect": { "instance": { "current": [{ "node": "sign" }] } } },
+    { "id": "two", "as": "bob", "command": "todo", "expect": { "total": 1 } },
+    { "as": "bob", "command": "complete", "args": { "workItem": "$two.rows[0].id", "outcome": "ok" },
+      "expect": { "instance": { "status": "completed", "result": "approved" } } },
+
+    { "id": "t", "as": "alice", "command": "start", "args": { "key": "custom-node", "businessKey": "YY-2" } },
+    { "as": "erp", "command": "signal", "args": { "businessKey": "YY-2", "event": "stamp.returned" } },
+    { "id": "c", "as": "carol", "command": "todo", "expect": { "total": 1 } },
+    { "as": "carol", "command": "complete", "args": { "workItem": "$c.rows[0].id", "outcome": "no" },
+      "expect": { "instance": { "status": "completed", "result": "rejected" } } }
+  ]
+}

@@ -2,6 +2,8 @@ package org.dpdns.zerodep.flow.core.engine.rule;
 
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
+import org.dpdns.zerodep.flow.core.extension.CountersignRule;
+import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.MultiInstance;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
@@ -21,6 +23,7 @@ import java.util.List;
  *   votes        选同一结果的票数（权重之和）达到 votes             同上
  * </pre>
  * {@code veto}（一票否决）只对 ratio、votes 有意义：有人选了它，节点立即按它结束。
+ * 别的名字是接入方注册的 {@link CountersignRule}：它说按哪个结果结束就结束，说再等就等，都处理完了还没定时按 fallback（没写时按最后选的）。
  * 只看这个节点这一轮的待办（同一节点再到一次是新的一轮）。
  */
 public class Countersign {
@@ -53,7 +56,7 @@ public class Countersign {
      * @param items   这个节点这一轮的全部待办（含刚处理完的那个）
      * @param waiting 依次会签还没轮到的人数
      */
-    public static Decision decide(MultiInstance multi, Outcome chosen, List<WorkItemVO> items, int waiting) {
+    public static Decision decide(MultiInstance multi, String node, Outcome chosen, List<WorkItemVO> items, int waiting, Extensions extensions) {
         boolean approve = "approve".equals(chosen.kindOrDefault());
         boolean someoneOpen = items.stream().anyMatch(i -> WorkItemEntity.OPEN.equals(i.getState()) || WorkItemEntity.WAITING.equals(i.getState())) || waiting > 0;
         return switch (multi.getComplete()) {
@@ -61,8 +64,16 @@ public class Countersign {
             case "all" -> !approve || !someoneOpen ? new Decision.Finish(chosen.getKey()) : new Decision.Wait();
             case "sequential" -> !approve ? new Decision.Finish(chosen.getKey()) : waiting > 0 ? new Decision.Next() : new Decision.Finish(chosen.getKey());
             case "ratio", "votes" -> threshold(multi, chosen, items, someoneOpen);
-            default -> throw new UnsupportedOperationException("countersign rule '" + multi.getComplete() + "' is not supported");
+            default -> registered(extensions.countersignRule(multi.getComplete()), multi, node, chosen, items, someoneOpen);
         };
+    }
+
+    /** 接入方注册的规则 */
+    private static Decision registered(CountersignRule rule, MultiInstance multi, String node, Outcome chosen, List<WorkItemVO> items, boolean someoneOpen) {
+        String outcome = rule.decide(new CountersignRule.Context(node, chosen.getKey(), items, someoneOpen));
+        if (outcome != null) return new Decision.Finish(outcome);
+        if (someoneOpen) return new Decision.Wait();
+        return new Decision.Finish(multi.getFallback() != null ? multi.getFallback() : chosen.getKey());
     }
 
     /** 票签：一票否决立即结束；这个结果达到门槛就按它结束；都处理完还没有达到的就按 fallback */

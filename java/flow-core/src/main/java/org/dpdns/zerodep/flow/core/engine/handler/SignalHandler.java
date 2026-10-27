@@ -7,6 +7,7 @@ import org.dpdns.zerodep.flow.core.engine.DefinitionCache;
 import org.dpdns.zerodep.flow.core.engine.EngineContext;
 import org.dpdns.zerodep.flow.core.engine.Execution;
 import org.dpdns.zerodep.flow.core.engine.FlowErrors;
+import org.dpdns.zerodep.flow.core.engine.node.CustomBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ReceiveBehavior;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -71,13 +72,17 @@ public class SignalHandler {
         if (removed == 0) return null;   // 并发的同一个事件先到了
         FormValues form = Instances.form(context.getDb(), instance.getId());
         Execution run = new Execution(context, actor, context.getClock().instant(), definitions.of(instance), instance, form, instance.getRev());
-        ProcessNode.Receive receive = (ProcessNode.Receive) run.getGraph().node(wait.getNode());
+        ProcessNode node = run.getGraph().node(wait.getNode());
         if (!instance.getState().getWaits().containsKey(wait.getNode())) {
-            run.addEvent(EventEntity.SIGNAL_IGNORED, receive, null, command.getOutcome(), null, null, eventData(command));
-        } else {
+            run.addEvent(EventEntity.SIGNAL_IGNORED, node, null, command.getOutcome(), null, null, eventData(command));
+        } else if (node instanceof ProcessNode.Receive receive) {
             if (!receive.getOutcomes().isEmpty() && !receive.getOutcomes().contains(command.getOutcome())) throw FlowErrors.invalid("outcome", "unknown-outcome");
             run.addEvent(EventEntity.SIGNAL_RECEIVED, receive, null, command.getOutcome(), null, null, eventData(command));
             ReceiveBehavior.received(run, receive, command.getOutcome(), command.getData());
+        } else {
+            // 自定义节点停下来等的事件
+            run.addEvent(EventEntity.SIGNAL_RECEIVED, node, null, command.getOutcome(), null, null, eventData(command));
+            CustomBehavior.received(run, (ProcessNode.Custom) node, command.getOutcome(), command.getData());
         }
         run.flush(null);
         return run.toResult();

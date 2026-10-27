@@ -84,6 +84,8 @@
 | 动作 | `classify` | 参数 `amount` ≥ 10000 走结果 `big`，否则 `small`；记流程变量 `level` |
 | 动作 | `archive` | 同一个去重键的前 `failures`（参数）次失败，之后成功 |
 | 动作 | `explode` | 总是失败 |
+| 自定义节点 | `x-stamp` | 节点写了 `wait`（事件名）时停下来等这个事件，事件到了往下走；没写时当场做完，记流程变量 `stampedBy`（节点的 `by`） |
+| 会签规则 | `first-two` | 两个人同意（`ok`）就按 `ok` 结束；有人不同意（`no`）就按 `no` 结束 |
 | 命令拦截器 | — | 意见是"拦下"的处理拦下（`comment: blocked`）；留言里的"敏感词"换成"***"；业务编号 `rollback-after` 的发起做完再拦（`businessKey: rolled-back`），整个回滚 |
 
 ## 引用前面的结果

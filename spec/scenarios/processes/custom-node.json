@@ -1,0 +1,23 @@
+{
+  "key": "custom-node",
+  "name": "自定义节点与会签规则",
+  "title": "用印",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "stamp", "type": "x-stamp", "name": "登记用印", "by": "法务" },
+    { "id": "await", "type": "x-stamp", "name": "等盖章回执", "wait": "stamp.returned" },
+    { "id": "sign", "type": "task", "name": "三人会签",
+      "assignees": [{ "user": 1001 }],
+      "multi": { "participants": [{ "user": 1001 }, { "user": 1002 }, { "user": 1003 }], "complete": "first-two" },
+      "outcomes": [{ "key": "ok", "label": "同意" }, { "key": "no", "label": "不同意", "kind": "reject" }] },
+    { "id": "done", "type": "end", "name": "通过", "result": "approved" },
+    { "id": "rejected", "type": "end", "name": "不通过", "result": "rejected" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "stamp" },
+    { "id": "e2", "from": "stamp", "to": "await" },
+    { "id": "e3", "from": "await", "to": "sign" },
+    { "id": "e4", "from": "sign", "to": "done", "outcome": "ok" },
+    { "id": "e5", "from": "sign", "to": "rejected", "outcome": "no" }
+  ]
+}

@@ -11,6 +11,8 @@ import org.dpdns.zerodep.flow.core.engine.EventDispatcher;
 import org.dpdns.zerodep.flow.core.engine.TenantScope;
 import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
 import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
+import org.dpdns.zerodep.flow.core.extension.CountersignRule;
+import org.dpdns.zerodep.flow.core.extension.CustomNode;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
@@ -56,6 +58,8 @@ public class FlowEngineBuilder<U extends Actor> {
     private FormHandlerFactory formHandlerFactory = FormHandlerFactory.REFLECTION;
     private final List<OutcomeGuard> guards = new ArrayList<>();
     private final List<ServiceAction> actions = new ArrayList<>();
+    private final List<CustomNode> customNodes = new ArrayList<>();
+    private final List<CountersignRule> countersignRules = new ArrayList<>();
 
     FlowEngineBuilder(EasyEntityQuery db) { this.db = Objects.requireNonNull(db, "db"); }
 
@@ -86,6 +90,12 @@ public class FlowEngineBuilder<U extends Actor> {
     /** 注册一个自动节点的动作（{@code service} 节点的 {@code action}） */
     public FlowEngineBuilder<U> action(ServiceAction action) { this.actions.add(action); return this; }
 
+    /** 注册一种自定义节点（定义里 {@code "type": "x-名字"}，{@link CustomNode}） */
+    public FlowEngineBuilder<U> customNode(CustomNode node) { this.customNodes.add(node); return this; }
+
+    /** 注册一个会签的完成规则（{@code multi.complete} 写的名字，{@link CountersignRule}） */
+    public FlowEngineBuilder<U> countersignRule(CountersignRule rule) { this.countersignRules.add(rule); return this; }
+
     /** 注册一个命令拦截器：审计、业务校验、改参数、换掉某个命令的标准行为（{@link CommandInterceptor}）；先注册的在外层 */
     public FlowEngineBuilder<U> interceptor(CommandInterceptor<U> interceptor) { this.interceptors.add(interceptor); return this; }
 
@@ -110,7 +120,7 @@ public class FlowEngineBuilder<U extends Actor> {
         // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
         FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
         return new FlowEngine<>(new EngineContext(db, clock, org, calendar != null ? calendar : new TableWorkCalendar(db, ZoneOffset.UTC), new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
-            new Extensions(resolvers, guards, actions), new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions, List.copyOf(interceptors),
+            new Extensions(resolvers, guards, actions, customNodes, countersignRules), new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions, List.copyOf(interceptors),
             List.copyOf(jobHandlers));
     }
 }

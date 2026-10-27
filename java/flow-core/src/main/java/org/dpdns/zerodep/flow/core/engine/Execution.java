@@ -12,6 +12,7 @@ import org.dpdns.zerodep.flow.core.engine.form.References;
 import org.dpdns.zerodep.flow.core.engine.job.JobRunner;
 import org.dpdns.zerodep.flow.core.engine.node.CallBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.CcBehavior;
+import org.dpdns.zerodep.flow.core.engine.node.CustomBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.GatewayBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ReceiveBehavior;
 import org.dpdns.zerodep.flow.core.engine.node.ServiceBehavior;
@@ -236,7 +237,10 @@ public class Execution {
             case "call" -> CallBehavior.arrive(this, (ProcessNode.Call) node);
             case "cc" -> CcBehavior.arrive(this, (ProcessNode.Cc) node);
             case "end" -> finish(InstanceEntity.COMPLETED, ((ProcessNode.End) node).getResult(), EventEntity.INSTANCE_FINISHED, null);
-            default -> throw new UnsupportedOperationException("node type '" + node.getType() + "' (" + nodeId + ") is not supported yet");
+            default -> {
+                if (!(node instanceof ProcessNode.Custom custom)) throw new UnsupportedOperationException("node type '" + node.getType() + "' (" + nodeId + ") is not supported");
+                CustomBehavior.arrive(this, custom);
+            }
         }
     }
 

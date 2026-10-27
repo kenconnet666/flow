@@ -6,6 +6,8 @@ import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.FlowCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
+import org.dpdns.zerodep.flow.core.extension.CountersignRule;
+import org.dpdns.zerodep.flow.core.extension.CustomNode;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
@@ -28,6 +30,8 @@ import java.util.function.Function;
  *   <li>动作 {@code classify}：按参数 amount 分大小，≥ 10000 走 {@code big}，否则 {@code small}，并记流程变量 level；</li>
  *   <li>动作 {@code archive}：同一个去重键的前 {@code failures} 次失败（演示重试），之后成功；</li>
  *   <li>动作 {@code explode}：总是失败（演示同步回滚与异步重试用完）；</li>
+ *   <li>自定义节点 {@code x-stamp}：写了 {@code wait} 时停下来等那个事件，否则当场做完、记流程变量 {@code stampedBy}；</li>
+ *   <li>会签规则 {@code first-two}：两人同意就按 {@code ok} 结束，有人不同意就按 {@code no} 结束；</li>
  *   <li>命令拦截器：意见是"拦下"的处理拦下（{@code comment: blocked}）；留言里的"敏感词"换成"***"（改参数）；
  *       业务编号是 {@code rollback-after} 的发起做完之后再拦（{@code businessKey: rolled-back}），整个回滚。</li>
  * </ul>
@@ -59,6 +63,23 @@ public class TestExtensions {
             .action(action("explode", context -> {
                 throw new IllegalStateException("ERP 不可用");
             }))
+            .customNode(new CustomNode() {
+                @Override public String type() { return "x-stamp"; }
+
+                @Override public Result arrive(Context context) {
+                    Object event = context.getAttributes().get("wait");
+                    return event != null ? Result.waitFor(String.valueOf(event))
+                        : Result.proceed(null, Map.of("stampedBy", String.valueOf(context.getAttributes().get("by"))));
+                }
+            })
+            .countersignRule(new CountersignRule() {
+                @Override public String name() { return "first-two"; }
+
+                @Override public String decide(Context context) {
+                    if ("no".equals(context.getChosen())) return "no";
+                    return context.getItems().stream().filter(i -> "ok".equals(i.getOutcome())).count() >= 2 ? "ok" : null;
+                }
+            })
             .interceptor(new CommandInterceptor<U>() {
                 @Override
                 public <R> R intercept(U actor, String operation, FlowCommand command, Chain<R> chain) {

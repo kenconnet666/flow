@@ -292,7 +292,7 @@ public class Publishing {
 
     /**
      * 发布时的校验上下文：给出表单的字段清单（查 {@code form.} 引用）与注册了的解析器、动作、守卫（{@link Extensions}）。
-     * 计算值、会签规则现在还没有注册口，定义里用到就报"未注册"；自定义节点类型不知道，不查。
+     * 计算值现在还没有注册口，定义里用到就报"未注册"。
      */
     @Data
     private static class PublishContext implements ValidationContext {
@@ -305,7 +305,8 @@ public class Publishing {
                 case RESOLVER -> extensions.hasResolver(name);
                 case ACTION -> extensions.hasAction(name);
                 case GUARD -> extensions.hasGuard(name);
-                case NODE -> null;
+                case NODE -> extensions.hasNode(name);
+                case COMPLETION -> extensions.hasCountersignRule(name);
                 default -> false;
             };
         }

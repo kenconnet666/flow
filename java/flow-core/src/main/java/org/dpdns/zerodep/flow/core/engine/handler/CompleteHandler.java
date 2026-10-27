@@ -190,7 +190,8 @@ public class CompleteHandler {
             })
             .orderBy(w -> { w.createdAt().asc(); w.id().asc(); })
             .select(WorkItemVO.class).toList();
-        Countersign.Decision decision = Countersign.decide(task.getMulti(), chosen, round, run.getInstance().getState().queue(task.getId()).size());
+        Countersign.Decision decision = Countersign.decide(task.getMulti(), task.getId(), chosen, round, run.getInstance().getState().queue(task.getId()).size(),
+            context.getExtensions());
         if (decision instanceof Countersign.Decision.Next) {
             TaskBehavior.nextSigner(run, task, round.size() + 1);
         } else if (decision instanceof Countersign.Decision.Finish finish) {
