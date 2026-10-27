@@ -37,4 +37,4 @@ pnpm -C apps/demo dev                             # 示例前端 http://localhos
 pnpm -C apps/demo e2e                             # 端到端测试：真实浏览器点示例前端（上面两个都起着）
 ```
 
-现在的进度、已定的取舍与还没做的在 [HANDOFF.md](HANDOFF.md)。
+现在的进度、已定的取舍与还没做的在 [HANDOFF.md](HANDOFF.md)；版本的变化与升级说明在 [CHANGELOG.md](CHANGELOG.md)。
