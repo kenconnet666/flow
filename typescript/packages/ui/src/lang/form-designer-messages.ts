@@ -51,6 +51,11 @@ export interface FlowFormDesignerMessages {
   readonly scale: string;
   readonly multiple: string;
   readonly options: string;
+  /** 明细表的列 */
+  readonly columns: string;
+  readonly addColumn: string;
+  readonly removeColumn: (label: string) => string;
+  readonly newColumnLabel: (n: number) => string;
   readonly optionsHint: string;
   readonly maxPeople: string;
   readonly visibleWhen: string;
@@ -116,6 +121,10 @@ export const flowFormDesignerMessages: MessageTable<FlowFormDesignerMessages> = 
     scale: '小数位',
     multiple: '多选',
     options: '选项',
+    columns: '列',
+    addColumn: '加一列',
+    removeColumn: (label) => `删掉列${label}`,
+    newColumnLabel: (n) => `列 ${n}`,
     optionsHint: '一行一个，写成“值=名字”',
     maxPeople: '最多几个',
     visibleWhen: '显示条件',
@@ -178,6 +187,10 @@ export const flowFormDesignerMessages: MessageTable<FlowFormDesignerMessages> = 
     scale: 'Decimal places',
     multiple: 'Multiple',
     options: 'Options',
+    columns: 'Columns',
+    addColumn: 'Add column',
+    removeColumn: (label) => `Remove column ${label}`,
+    newColumnLabel: (n) => `Column ${n}`,
     optionsHint: 'One per line, as value=label',
     maxPeople: 'At most',
     visibleWhen: 'Visible when',

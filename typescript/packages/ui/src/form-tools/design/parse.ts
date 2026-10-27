@@ -7,7 +7,7 @@
  *   design.root        // 组件树：根是 <form.Form>，路径 '0'；子节点 '0.2'、'0.2.1'……（第几个子元素）
  *   design.unplaced    // 清单里有、画布上没摆的字段
  *
- * 认得的：form.Form、form.Field（加里面的一个控件）、登记过的组件（registry.ts）；别的元素、{表达式}、文字都是代码块，
+ * 认得的：form.Form、form.Field（加里面的一个控件）、form.List（明细表，当一个字段）、登记过的组件（registry.ts）；别的元素、{表达式}、文字都是代码块，
  * 能整块移动、删除，里面不深入。
  */
 import { parse } from '@babel/parser';
@@ -62,7 +62,7 @@ export interface ElementInfo {
 export interface DesignNode {
   /** 从根起每层是第几个子元素：'0'、'0.2'、'0.2.1' */
   readonly path: string;
-  /** form：根上的 form.Form；field：form.Field；component：登记过的组件；code：代码块 */
+  /** form：根上的 form.Form；field：form.Field 或 form.List；component：登记过的组件；code：代码块 */
   readonly kind: 'form' | 'field' | 'component' | 'code';
   readonly range: SourceRange;
   /** component 是它本身，field 是里面的控件；认不出时为 null */
@@ -144,7 +144,7 @@ export function parseDesign(source: string): FormDesign {
   const placed = new Map<string, number>();
   if (setup) {
     walk(setup, (node) => {
-      if (node.type !== 'JSXElement' || tagOf(node) !== 'form.Field') return;
+      if (node.type !== 'JSXElement' || (tagOf(node) !== 'form.Field' && tagOf(node) !== 'form.List')) return;
       const name = stringProp(node, 'name');
       if (name !== null) placed.set(name, (placed.get(name) ?? 0) + 1);
     });
@@ -229,7 +229,7 @@ type Resolved = { kind: 'form' } | { kind: 'field' } | { kind: 'component'; comp
 /** 标签名 → 认得的什么：form.Form、form.Field、登记的组件（经 import 找到模块与导出名） */
 function resolveTag(tag: string, imports: ReadonlyMap<string, { module: string; name: string }>): Resolved {
   if (tag === 'form.Form') return { kind: 'form' };
-  if (tag === 'form.Field') return { kind: 'field' };
+  if (tag === 'form.Field' || tag === 'form.List') return { kind: 'field' };
   const [local, member] = tag.split('.');
   const imported = imports.get(local!);
   if (!imported) return null;

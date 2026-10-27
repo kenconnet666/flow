@@ -34,7 +34,7 @@ export {
   setText,
   type TextEdit,
 } from './design/edit';
-export { printComponent, printField } from './design/print';
+export { printComponent, printField, printList } from './design/print';
 export {
   controlsFor,
   findFormComponent,

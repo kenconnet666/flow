@@ -35,6 +35,7 @@ import {
   type TextEdit,
 } from '../../form-tools';
 import { useFormDesignerMessages } from '../../lang/form-designer-messages';
+import { ColumnsEditor } from './ColumnsEditor';
 import { formConditionFields } from '../process-designer/EdgePanel';
 import { compact, FieldGroup } from '../process-designer/fields';
 
@@ -273,6 +274,7 @@ const FieldEditor = _component(({ name, definition, manifest, onRename, onChange
         </>
       )}
       {definition.type === 'people' && number('max', messages.maxPeople)}
+      {definition.type === 'list' && <ColumnsEditor columns={definition.fields ?? {}} onChange={(fields) => set({ fields })} />}
       <FieldGroup label={messages.visibleWhen}>
         <ConditionBuilder
           fields={formConditionFields(others())}

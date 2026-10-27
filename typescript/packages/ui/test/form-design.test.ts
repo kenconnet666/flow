@@ -15,6 +15,7 @@ import {
   moveNode,
   parseDesign,
   printComponent,
+  printList,
   removeField,
   removeNode,
   renameField,
@@ -77,6 +78,30 @@ describe('parseDesign', () => {
     expect(marked).toContain('<FormSection data-form-node="0.0" title="基本信息">');
     expect(marked).toContain('<form.Field data-form-node="0.0.1" name="amount">');
     expect(marked).toContain('<div data-form-node="0.1">自己写的</div>');
+  });
+});
+
+describe('明细表', () => {
+  const LIST = SOURCE.replace("note: { label: '备注', type: 'text' },", "lines: { label: '明细', type: 'list', fields: { item: { label: '品名', type: 'text' } } },").replace(
+    '{flag && <div>自己写的</div>}',
+    '<form.List name="lines" />',
+  );
+
+  it('form.List 当一个字段：摆过了、选中它改的是这个明细表', () => {
+    const design = parseDesign(LIST);
+    expect(design.unplaced).toEqual([]);
+    const list = findNode(design.root, '0.1')!;
+    expect(list.kind).toBe('field');
+    expect(list.field).toEqual({ name: 'lines', control: null });
+  });
+
+  it('摆一个还没摆的明细表：写成 form.List', () => {
+    const source = LIST.replace('      <form.List name="lines" />\n', '');
+    const design = parseDesign(source);
+    expect(design.unplaced).toEqual(['lines']);
+    const next = run(source, insertNode(source, design, '0', 1, printList('lines')));
+    expect(parseDesign(next).unplaced).toEqual([]);
+    expect(next).toContain('<form.List name="lines" />');
   });
 });
 

@@ -43,6 +43,7 @@ import {
   parseDesign,
   printComponent,
   printField,
+  printList,
   removeField,
   removeNode,
   UI_MODULE,
@@ -78,6 +79,7 @@ type Mode = 'design' | 'preview' | 'readonly';
 type Item =
   | { readonly kind: 'component'; readonly component: FormComponent }
   | { readonly kind: 'field'; readonly type: FieldType; readonly control: FormComponent; readonly label: string }
+  | { readonly kind: 'list' }
   | { readonly kind: 'place'; readonly name: string };
 
 /** 正在拖的：面板里的一样东西，或画布上的一个节点 */
@@ -155,7 +157,12 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
       return [...imported.edits, ...insertNode(source, current, parent, index, printComponent(item.component, imported.local))];
     }
     const name = item.kind === 'place' ? item.name : newFieldName(current);
+    if (item.kind === 'list') {
+      return [...addField(source, current, name, newField('list', current, messages)), ...insertNode(source, current, parent, index, printList(name))];
+    }
     const definition = item.kind === 'place' ? current.fields.find((f) => f.name === name)?.definition : newField(item.type, current, messages);
+    // 清单里有、还没摆的明细表：摆成 form.List
+    if (definition?.type === 'list') return insertNode(source, current, parent, index, printList(name));
     const control = item.kind === 'field' ? item.control : definition && controlsFor(definition)[0];
     if (!definition || !control) return [];
     const imported = ensureImport(source, current, control.module, control.name);
@@ -315,6 +322,7 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
     const businessFields = components
       .filter((c) => !BUILTIN_GROUPS.has(c.group) && c.field?.length)
       .map((c) => ({ item: { kind: 'field', type: c.field![0]!, control: c, label: c.label } as Item, label: c.label, key: `${c.module}#${c.name}` }));
+    fieldItems.push({ item: { kind: 'list' }, label: messages.fieldTypes['list'] ?? 'list', key: 'list' });
     return (
       <Flex direction="column" gap="sm" role="group" aria-label={messages.palette} style={{ minWidth: '9rem' }}>
         {groups.map((group) => {
@@ -476,9 +484,10 @@ function newFieldName(design: FormDesign): string {
 /** 新字段的定义：标签先给"字段 n"，选项字段带一个选项 */
 function newField(type: FieldType, design: FormDesign, messages: ReturnType<typeof useFormDesignerMessages>): FieldDefinition {
   const n = Number(newFieldName(design).slice(5));
-  return type === 'select'
-    ? { label: messages.newFieldLabel(n), type, options: [{ value: '1', label: messages.newOption(1) }] }
-    : { label: messages.newFieldLabel(n), type };
+  if (type === 'select') return { label: messages.newFieldLabel(n), type, options: [{ value: '1', label: messages.newOption(1) }] };
+  // 明细表先给一列，属性面板里再加
+  if (type === 'list') return { label: messages.newFieldLabel(n), type, fields: { name: { label: messages.newColumnLabel(1), type: 'text' } } };
+  return { label: messages.newFieldLabel(n), type };
 }
 
 /**

@@ -7,12 +7,15 @@
  *       <form.Field name="title"><TextField /></form.Field>
  *       <form.Field name="amount"><NumberField /></form.Field>
  *       <form.Field name="buyer"><PeoplePicker /></form.Field>
+ *       <form.List name="lines" />
  *     </form.Form>
  *   ));
  *
  * - 标签、必填标记、说明从清单来，form.Field 不用再写；节点权限与显示条件合算出的状态（隐藏、只读、必填）自动套上。
  * - 控件按字段类型补上没写的属性（controls.ts）：decimal 的 NumberField 按 Decimal 读写，日期是 CalendarDate / ZonedDateTime，
  *   Select 的选项、PeoplePicker 的数据源取清单与容器，代码里只写控件本身。
+ * - 明细表（type: 'list'）用 form.List：每行按列的类型放默认的控件（default-control.tsx），能改时可以加行、删行；
+ *   要自己排格子时用 form.array 加 form.Field（name 写成 `lines.0.price`）。
  * - 校验用模型包的规则（必填、类型、长度、范围……），与两个后端是同一套；跨字段的规则写在 options.validate 里。
  * - 表单由容器（FlowForm）渲染：容器给 context，表单把"校验、取值"交回容器，提交按钮在审批面板上。
  */
@@ -24,8 +27,11 @@ import {
 } from '@zerodep-dev/flow-model';
 import { _component, type TsxComponent } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
+  Button,
   Field,
+  Flex,
   Form,
+  FormSection,
   useForm,
   type FieldProps,
   type FormController,
@@ -35,9 +41,11 @@ import {
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import type Decimal from 'decimal.js';
 import { computed, type VNodeChild } from 'vue';
+import { Plus, Trash2 } from '@lucide/icons';
 import { useFlowMessages } from '../lang/messages';
 import type { FlowFormContext, FlowFormScope } from './context';
 import { bindControl } from './controls';
+import { defaultControl } from './default-control';
 import { formPath, toFormState, type FormState } from './values';
 
 /** 一个字段在表单里的值的类型 */
@@ -78,10 +86,17 @@ export type FlowFieldProps<M extends FormManifest> = Omit<FieldProps, 'name'> & 
   name: keyof M & string;
 };
 
-/** 表单代码里的 form：useForm 的控制器，加上绑好的 Form、Field */
+/** form.List：一个明细表字段 */
+export interface FlowListProps<M extends FormManifest> {
+  /** 明细表字段的名字（type 是 list） */
+  name: { [K in keyof M]: M[K] extends { readonly type: 'list' } ? K : never }[keyof M] & string;
+}
+
+/** 表单代码里的 form：useForm 的控制器，加上绑好的 Form、Field、List */
 export interface FlowFormApi<M extends FormManifest> extends Omit<FormController<ValuesOf<M>>, 'Field'> {
   readonly Form: TsxComponent<FlowFormFormProps>;
   readonly Field: TsxComponent<FlowFieldProps<M> | (Omit<FieldProps, 'name'> & { name: string })>;
+  readonly List: TsxComponent<FlowListProps<M> | { name: string }>;
 }
 
 /** defineFlowForm 的选项 */
@@ -162,6 +177,39 @@ export function defineFlowForm<const M extends FormManifest>(
       );
     });
 
+    /** 明细表：一段标题，每行一组列（按列的类型放默认控件），能改时可以加行、删行 */
+    const FlowList = _component(({ name }: { name: string }) => () => {
+      const state = stateOf(name);
+      const field = manifest[name];
+      if (!state.visible || !field) return null;
+      const columns = Object.entries(field.fields ?? {});
+      const rows = controller.array(name as never);
+      const editable = state.editable && context.mode === 'fill';
+      const blankRow = () => Object.fromEntries(columns.map(([column, definition]) => [column, definition.default ?? null]));
+      return (
+        <FormSection title={field.label} description={field.description}>
+          {rows.items.map((_, index) => (
+            <Flex key={rows.keys[index]} gap="md" align="end" wrap>
+              {columns.map(([column, definition]) => {
+                const path = `${name}.${index}.${column}`;
+                return (
+                  <FlowField key={column} name={path}>
+                    {defaultControl(definition, context.people, () => controller.getValue(path as never))}
+                  </FlowField>
+                );
+              })}
+              {editable && <Button variant="ghost" icon={Trash2} aria-label={messages.removeRow(index + 1)} onClick={() => rows.remove(index)} />}
+            </Flex>
+          ))}
+          {editable && (
+            <Button variant="outline" icon={Plus} onClick={() => rows.append(blankRow() as never)}>
+              {messages.addRow(field.label)}
+            </Button>
+          )}
+        </FormSection>
+      );
+    });
+
     context.attach({
       // 当作一次提交：校验并显示全部错误（组件库的规则是失焦或提交过之后才显示），之后随输入实时更新
       validate: () => controller.submit(),
@@ -175,9 +223,10 @@ export function defineFlowForm<const M extends FormManifest>(
       },
     });
 
-    // 控制器原样转发，只把 Form、Field 换成绑好的
+    // 控制器原样转发，只把 Form、Field 换成绑好的，加上 List
+    const bound: Record<string, unknown> = { Form: FlowFormForm, Field: FlowField, List: FlowList };
     const form = new Proxy(controller, {
-      get: (target, key, receiver) => (key === 'Form' ? FlowFormForm : key === 'Field' ? FlowField : Reflect.get(target, key, receiver)),
+      get: (target, key, receiver) => (typeof key === 'string' && key in bound ? bound[key] : Reflect.get(target, key, receiver)),
     }) as unknown as FlowFormApi<M>;
     const scope: FlowFormScope = { ...context, access: stateOf };
     return setup({ form, context: scope });

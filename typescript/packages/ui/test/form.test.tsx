@@ -82,6 +82,37 @@ describe('FlowForm', () => {
   });
 });
 
+describe('明细表（form.List）', () => {
+  const lines: Partial<FormView> = {
+    manifest: {
+      lines: { label: '明细', type: 'list', fields: { item: { label: '品名', type: 'text', required: true }, price: { label: '单价', type: 'decimal', scale: 2 } } },
+    },
+    access: { default: 'editable' },
+    values: { lines: [{ item: '显示器', price: new Decimal('1200.00') }] },
+  };
+
+  it('每行按列的类型放控件；加一行、删一行写回表单的值', async () => {
+    const { host, handle } = await mountForm(lines);
+    expect(labels(host)).toEqual(['品名', '单价']);
+    const add = [...host.querySelectorAll('button')].find((b) => b.textContent?.includes('明细'))!;
+    add.click();
+    await settle();
+    expect(labels(host)).toEqual(['品名', '单价', '品名', '单价']);
+    expect(handle.values()['lines']).toEqual([{ item: '显示器', price: new Decimal('1200.00') }, { item: null, price: null }]);
+    host.querySelector<HTMLButtonElement>('button[aria-label="删除第 1 行"]')!.click();
+    await settle();
+    expect((handle.values()['lines'] as unknown[]).length).toBe(1);
+  });
+
+  it('列的必填按行校验；查看时不能加行、删行', async () => {
+    const { host, handle } = await mountForm({ ...lines, values: { lines: [{ item: null, price: null }] } });
+    expect(await handle.validate()).toBe(false);
+    const viewing = await mountForm(lines, 'view');
+    expect(viewing.host.querySelectorAll('button').length).toBe(0);
+    host.remove();
+  });
+});
+
 describe('FlowForm 用哪份代码', () => {
   const source = `import { defineFields, defineFlowForm } from '@zerodep-dev/flow-ui/form';
 import { TextField } from '@zerodep-dev/vue-tsx-pro-ui';

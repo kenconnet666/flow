@@ -51,6 +51,11 @@ export function printComponent(component: FormComponent, local = component.name)
   return component.container ? `<${local}${props}></${local}>` : `<${local}${props} />`;
 }
 
+/** 摆一个明细表：form.List 按列的类型放默认控件 */
+export function printList(name: string): string {
+  return `<form.List name="${name}" />`;
+}
+
 /** 摆一个字段：form.Field 包着控件 */
 export function printField(name: string, control: FormComponent, local = control.name): string {
   return `<form.Field name="${name}">${printComponent(control, local)}</form.Field>`;
