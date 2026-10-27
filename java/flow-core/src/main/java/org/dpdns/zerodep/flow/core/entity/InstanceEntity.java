@@ -2,9 +2,14 @@ package org.dpdns.zerodep.flow.core.entity;
 
 import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
+import com.easy.query.core.annotation.Navigate;
+import com.easy.query.core.annotation.OrderByProperty;
+import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.annotation.Table;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
@@ -18,7 +23,9 @@ import java.util.Map;
  * 流程实例（{@code flow_instance}，列的含义见建表脚本与 0007）。推进时引擎改它的字段，最后整行写回；推进前先把 {@code rev} 加一锁住这一行。
  * 运行状态与流程变量只在引擎里用，给前端的是 {@link org.dpdns.zerodep.flow.core.view.InstanceVO}。
  */
-@Data
+@Getter
+@Setter
+@FieldNameConstants
 @Table("flow_instance")
 @EntityProxy
 public class InstanceEntity implements ProxyEntityAvailable<InstanceEntity, InstanceEntityProxy>, Tenanted, Touched {
@@ -69,6 +76,35 @@ public class InstanceEntity implements ProxyEntityAvailable<InstanceEntity, Inst
     private Integer rev;
     private Instant updatedAt;
 
+    // ───────── 关系 ─────────
+
+    /** 按的那个发布版本 */
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = Fields.definitionId, targetProperty = ProcessVersionEntity.Fields.id)
+    private ProcessVersionEntity definition;
+
+    /** 全部待办，按到达的先后 */
+    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.id, targetProperty = WorkItemEntity.Fields.instanceId,
+        orderByProps = {@OrderByProperty(property = WorkItemEntity.Fields.createdAt), @OrderByProperty(property = WorkItemEntity.Fields.id)})
+    private List<WorkItemEntity> workItems;
+
+    /** 流转记录，按先后 */
+    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.id, targetProperty = EventEntity.Fields.instanceId,
+        orderByProps = {@OrderByProperty(property = EventEntity.Fields.instanceRev), @OrderByProperty(property = EventEntity.Fields.id)})
+    private List<EventEntity> events;
+
+    /** 表单的值；流程没有表单时为 null */
+    @Navigate(value = RelationTypeEnum.OneToOne, selfProperty = Fields.id, targetProperty = FormDataEntity.Fields.instanceId)
+    private FormDataEntity formData;
+
+    /** 调用它的父实例；不是子流程时为 null */
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = Fields.parentInstanceId, targetProperty = Fields.id)
+    private InstanceEntity parent;
+
+    /** 调用流程发起的子实例，按发起的先后 */
+    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.id, targetProperty = Fields.parentInstanceId,
+        orderByProps = {@OrderByProperty(property = Fields.id)})
+    private List<InstanceEntity> children;
+
     /** 正在处理的一个节点 */
     public record CurrentNode(String node, String name) { }
 
@@ -79,4 +115,5 @@ public class InstanceEntity implements ProxyEntityAvailable<InstanceEntity, Inst
         endedAt = at;
         current = List.of();
     }
+
 }

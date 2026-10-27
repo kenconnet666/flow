@@ -4,7 +4,9 @@ import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Table;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.entity.proxy.WaitEntityProxy;
 
 import java.time.Instant;
@@ -13,7 +15,9 @@ import java.time.Instant;
  * 等外部事件（{@code flow_wait}，0005 的 4.3）：实例停在等待节点上时一行，按事件名加实例或业务编号找到它；
  * 事件到了带条件地删掉这一行（删到 0 行就是已经处理过），再推进。
  */
-@Data
+@Getter
+@Setter
+@FieldNameConstants
 @Table("flow_wait")
 @EntityProxy
 public class WaitEntity implements ProxyEntityAvailable<WaitEntity, WaitEntityProxy>, Tenanted {

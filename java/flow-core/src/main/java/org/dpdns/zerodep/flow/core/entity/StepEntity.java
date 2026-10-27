@@ -4,7 +4,9 @@ import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Table;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
@@ -14,7 +16,9 @@ import org.dpdns.zerodep.flow.core.entity.proxy.StepEntityProxy;
 /**
  * 最近一次处理之前的快照（{@code flow_step}，每个实例只留一行）：处理人撤回刚处理的一步时用它恢复。
  */
-@Data
+@Getter
+@Setter
+@FieldNameConstants
 @Table("flow_step")
 @EntityProxy
 public class StepEntity implements ProxyEntityAvailable<StepEntity, StepEntityProxy>, Tenanted {

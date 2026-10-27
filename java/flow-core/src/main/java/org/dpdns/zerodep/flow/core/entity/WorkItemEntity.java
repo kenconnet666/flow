@@ -1,12 +1,15 @@
 package org.dpdns.zerodep.flow.core.entity;
 
 import com.easy.query.core.annotation.Column;
+import com.easy.query.core.annotation.OrderByProperty;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Navigate;
 import com.easy.query.core.annotation.Table;
 import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
 
 import java.time.Instant;
@@ -16,7 +19,9 @@ import java.util.List;
  * 待办（{@code flow_work_item}）：一张表加状态，已办也查这张表。状态的变化都写成带条件的更新（改到 0 行就是别人先改了），
  * 所以认领先到先得、重复提交挡得住。读出来给引擎与前端的是 {@link org.dpdns.zerodep.flow.core.view.WorkItemVO}。
  */
-@Data
+@Getter
+@Setter
+@FieldNameConstants
 @Table("flow_work_item")
 @EntityProxy
 public class WorkItemEntity implements ProxyEntityAvailable<WorkItemEntity, WorkItemEntityProxy>, Tenanted {
@@ -80,11 +85,22 @@ public class WorkItemEntity implements ProxyEntityAvailable<WorkItemEntity, Work
     private Instant completedAt;
     private Integer rev;
 
+    // ───────── 关系 ─────────
+
     /** 所在的实例 */
-    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = "instanceId", targetProperty = "id")
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = Fields.instanceId, targetProperty = InstanceEntity.Fields.id)
     private InstanceEntity instance;
 
     /** 打开着时谁能处理、谁被排除 */
-    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = "id", targetProperty = "workItemId")
+    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.id, targetProperty = CandidateEntity.Fields.workItemId)
     private List<CandidateEntity> candidates;
+
+    /** 委派、加签前原来的待办；不是这样生成的为 null */
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = Fields.parentItemId, targetProperty = Fields.id)
+    private WorkItemEntity parent;
+
+    /** 委派、加签从它生成的待办，按生成的先后 */
+    @Navigate(value = RelationTypeEnum.OneToMany, selfProperty = Fields.id, targetProperty = Fields.parentItemId,
+        orderByProps = {@OrderByProperty(property = Fields.id)})
+    private List<WorkItemEntity> children;
 }

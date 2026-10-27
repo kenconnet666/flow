@@ -52,7 +52,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * 查询（0006 第 4 节）：发起列表与发起页、收件箱与待办详情、实例详情、已办、我发起的、抄送、管理端的列表。
@@ -81,9 +80,10 @@ public final class Queries {
     /** 我能发起的流程：启用着、发起人名单里有我（名单只认写死的值），按分类、名称排 */
     public List<StartableProcess> startable(Actor actor) {
         List<StartableProcess> out = new ArrayList<>();
-        for (ProcessEntity process : processEntities()) {
-            if (!ProcessEntity.ACTIVE.equals(process.getStatus())) continue;
-            if (!CandidateRules.isStarter(actor, latest(process).model().starters())) continue;
+        List<ProcessEntity> active = definitions.processes().where(p -> p.status().eq(ProcessEntity.ACTIVE))
+            .orderBy(p -> { p.category().asc(); p.name().asc(); }).toList();
+        for (ProcessEntity process : active) {
+            if (!CandidateRules.isStarter(actor, definitions.latest(process).model().starters())) continue;
             out.add(new StartableProcess(process.getProcessKey(), process.getName(), process.getCategory(), process.getLatestVersion()));
         }
         return out;
@@ -91,9 +91,10 @@ public final class Queries {
 
     /** 发起页：流程与开始节点上的表单（没写权限的字段默认能改）；流程停用、我不能发起时报 {@code flow.forbidden} */
     public StartView startView(Actor actor, String key) {
-        ProcessEntity process = process(key);
+        ProcessEntity process = definitions.processes().where(p -> p.processKey().eq(key))
+            .singleNotNull(() -> FlowErrors.notFound("process", key));
         if (!ProcessEntity.ACTIVE.equals(process.getStatus())) throw FlowErrors.forbidden("process", key, "disabled");
-        LoadedDefinition definition = latest(process);
+        LoadedDefinition definition = definitions.latest(process);
         if (!CandidateRules.isStarter(actor, definition.model().starters())) throw FlowErrors.forbidden("process", key, "not-a-starter");
         Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.id() : null;
         FormView form = definition.hasForm() ? formView(definition, definition.graph().start().form(), true, FormValues.empty(), read) : null;
@@ -244,22 +245,19 @@ public final class Queries {
 
     /** 异常：重试用完的作业，新的在前；instanceId 不为 null 时只看这个实例的 */
     public Page<IncidentView> incidents(Long instanceId, int page, int size) {
-        Page<JobEntity> jobs = Page.of(context.db().queryable(JobEntity.class)
+        return Page.of(context.db().queryable(JobEntity.class)
+            .include(j -> j.instance())
+            .include(j -> j.workItem())
             .where(j -> { j.state().eq(JobEntity.FAILED); if (instanceId != null) j.instanceId().eq(instanceId); })
             .orderBy(j -> { j.dueAt().desc(); j.id().desc(); })
-            .toPageResult(page, size), page, size);
-        Map<Long, InstanceEntity> instances = jobs.rows().isEmpty() ? Map.of()
-            : context.db().queryable(InstanceEntity.class).where(i -> i.id().in(jobs.rows().stream().map(JobEntity::getInstanceId).toList()))
-                .toList().stream().collect(Collectors.toMap(InstanceEntity::getId, Function.identity()));
-        return jobs.map(job -> incident(job, instances.get(job.getInstanceId())));
+            .toPageResult(page, size), page, size).map(this::incident);
     }
 
-    /** 一个异常：按实例的定义版本找节点的名称、跳过时能选的结果 */
-    private IncidentView incident(JobEntity job, InstanceEntity instance) {
+    /** 一个异常（作业连同导航 instance、workItem 读出）：按实例的定义版本找节点的名称、跳过时能选的结果 */
+    private IncidentView incident(JobEntity job) {
+        InstanceEntity instance = job.getInstance();
         String node = BuiltinJobs.nodeOf(job);
-        if (node == null && job.getWorkItemId() != null) {
-            node = context.db().queryable(WorkItemEntity.class).whereById(job.getWorkItemId()).selectColumn(w -> w.node()).singleOrNull();
-        }
+        if (node == null && job.getWorkItem() != null) node = job.getWorkItem().getNode();
         if (instance == null) {
             return new IncidentView(job.getId(), job.getKind(), job.getInstanceId(), null, null, node, null, job.getAttempts(), job.getLastError(),
                 job.getDueAt(), false, List.of());
@@ -353,12 +351,6 @@ public final class Queries {
         return context.db().queryable(FormEntity.class).where(f -> f.formKey().eq(key)).singleNotNull(() -> FlowErrors.notFound("form", key));
     }
 
-    /** 流程最新发布的版本（解析好的） */
-    private LoadedDefinition latest(ProcessEntity process) {
-        return definitions.of(context.db().queryable(ProcessVersionEntity.class)
-            .where(v -> { v.processKey().eq(process.getProcessKey()); v.version().eq(process.getLatestVersion()); })
-            .singleNotNull(() -> FlowErrors.notFound("process", process.getProcessKey())));
-    }
 
     /**
      * 表单在一个节点上的样子：清单、前端代码、节点上的权限，值里去掉节点上隐藏的字段。

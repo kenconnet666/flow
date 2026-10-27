@@ -4,14 +4,18 @@ import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Table;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.FieldNameConstants;
 import lombok.NoArgsConstructor;
 import org.dpdns.zerodep.flow.core.entity.proxy.CandidateEntityProxy;
 
 /**
  * 打开着的待办谁能处理、谁被排除（{@code flow_candidate}）：角色、部门存一行（不展开成人），待办结束时删掉。
  */
-@Data
+@Getter
+@Setter
+@FieldNameConstants
 @NoArgsConstructor
 @Table("flow_candidate")
 @EntityProxy

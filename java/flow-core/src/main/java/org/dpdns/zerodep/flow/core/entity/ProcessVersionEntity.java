@@ -2,9 +2,14 @@ package org.dpdns.zerodep.flow.core.entity;
 
 import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
+import com.easy.query.core.annotation.Navigate;
+import com.easy.query.core.annotation.OrderByProperty;
+import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.annotation.Table;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.entity.proxy.ProcessVersionEntityProxy;
 
 import java.time.Instant;
@@ -13,7 +18,9 @@ import java.time.Instant;
  * 流程发布的一个版本（{@code flow_definition}）：发布后不再改，进行中的实例一直按自己的版本走。
  * {@code model} 是 0005 的整份定义的 JSON 文字；formKey、formVersion 是发布时定下的表单版本。
  */
-@Data
+@Getter
+@Setter
+@FieldNameConstants
 @Table("flow_definition")
 @EntityProxy
 public class ProcessVersionEntity implements ProxyEntityAvailable<ProcessVersionEntity, ProcessVersionEntityProxy>, Tenanted {
@@ -29,4 +36,14 @@ public class ProcessVersionEntity implements ProxyEntityAvailable<ProcessVersion
     private Long publishedBy;
     private String publishedByName;
     private Instant publishedAt;
+
+    // ───────── 关系 ─────────
+
+    /** 流程本身 */
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = Fields.processKey, targetProperty = ProcessEntity.Fields.processKey)
+    private ProcessEntity process;
+
+    /** 发布时定下的表单版本；流程没有表单时为 null */
+    @Navigate(value = RelationTypeEnum.ManyToOne, selfProperty = {Fields.formKey, Fields.formVersion}, targetProperty = {FormVersionEntity.Fields.formKey, FormVersionEntity.Fields.version})
+    private FormVersionEntity form;
 }

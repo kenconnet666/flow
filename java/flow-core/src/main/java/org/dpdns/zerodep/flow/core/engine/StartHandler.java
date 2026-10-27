@@ -9,7 +9,6 @@ import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.ProcessEntity;
-import org.dpdns.zerodep.flow.core.entity.ProcessVersionEntity;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.model.definition.ProcessDefinition;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
@@ -53,12 +52,10 @@ public final class StartHandler {
 
     /** 流程最新发布的版本；流程不存在、停用了时报错 */
     LoadedDefinition latestActive(String key) {
-        ProcessEntity process = context.db().queryable(ProcessEntity.class).where(p -> p.processKey().eq(key))
+        ProcessEntity process = definitions.processes().where(p -> p.processKey().eq(key))
             .singleNotNull(() -> FlowErrors.notFound("process", key));
         if (!ProcessEntity.ACTIVE.equals(process.getStatus())) throw FlowErrors.forbidden("process", key, "disabled");
-        return definitions.of(context.db().queryable(ProcessVersionEntity.class)
-            .where(v -> { v.processKey().eq(key); v.version().eq(process.getLatestVersion()); })
-            .singleNotNull(() -> FlowErrors.notFound("process", key)));
+        return definitions.latest(process);
     }
 
     /**
