@@ -1,0 +1,16 @@
+{
+  "name": "预测下一步：发起时会自动跳过的起草（处理人就是发起人）不停，往下看到会签；会签写出角色下的每个人，不说进收件箱",
+  "processes": ["processes/preview-skip-sign.json"],
+  "clock": "2026-10-26T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "bob": { "id": 1002, "name": "周启航", "roles": [1] },
+    "carol": { "id": 1003, "name": "沈若水", "roles": [1] }
+  },
+  "steps": [
+    { "as": "alice", "command": "startView", "args": { "key": "preview" },
+      "expect": { "next": [{ "node": "sign", "nodeName": "财务会签", "type": "task", "handlers": ["周启航", "沈若水"], "inbox": false, "pick": null }] } },
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "preview" },
+      "expect": { "workItems": [{ "node": "sign", "assigneeName": "周启航" }, { "node": "sign", "assigneeName": "沈若水" }] } }
+  ]
+}

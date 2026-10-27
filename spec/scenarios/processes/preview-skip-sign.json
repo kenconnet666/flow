@@ -1,0 +1,17 @@
+{
+  "key": "preview",
+  "name": "预测",
+  "settings": { "autoSkip": { "initiator": true } },
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "draft", "type": "task", "name": "起草", "assignees": [{ "initiator": true }], "outcomes": [{ "key": "submit", "label": "提交" }] },
+    { "id": "sign", "type": "task", "name": "财务会签", "multi": { "participants": [{ "role": 1 }], "complete": "all" },
+      "outcomes": [{ "key": "ok", "label": "同意" }] },
+    { "id": "end", "type": "end", "name": "结束", "result": "approved" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "draft" },
+    { "id": "e2", "from": "draft", "to": "sign", "outcome": "submit" },
+    { "id": "e3", "from": "sign", "to": "end", "outcome": "ok" }
+  ]
+}
