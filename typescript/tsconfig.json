@@ -5,12 +5,6 @@
       "path": "packages/model"
     },
     {
-      "path": "packages/core"
-    },
-    {
-      "path": "packages/nuxt"
-    },
-    {
       "path": "test"
     }
   ]

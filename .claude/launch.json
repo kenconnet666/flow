@@ -23,15 +23,6 @@
       "autoPort": false
     },
     {
-      "name": "flow-node-backend",
-      "runtimeExecutable": "C:/Program Files/Git/bin/bash.exe",
-      "runtimeArgs": [
-        ".claude/run-node-backend.sh"
-      ],
-      "port": 8080,
-      "autoPort": false
-    },
-    {
       "name": "flow-demo",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

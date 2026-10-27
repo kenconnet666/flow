@@ -3,17 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Unit tests of every TypeScript package; the shared samples under spec/ run here and in the Java tests",
+  "description": "Unit tests of the model package; the shared samples under spec/ run here and in the Java tests",
   "dependencies": {
-    "@zerodep-dev/flow-model": "workspace:*",
-    "@zerodep-dev/flow-core": "workspace:*",
-    "@zerodep-dev/query-core": "link:../../../query/typescript/packages/core",
-    "@zerodep-dev/query-mysql": "link:../../../query/typescript/packages/mysql",
-    "mysql2": "3.24.6",
-    "decimal.js": "catalog:",
-    "@internationalized/date": "catalog:",
-    "@zerodep-dev/flow-nuxt": "workspace:*",
-    "h3": "1.15.11"
+    "@zerodep-dev/flow-model": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.19.2"

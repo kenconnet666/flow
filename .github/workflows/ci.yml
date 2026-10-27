@@ -12,7 +12,7 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# 两个后端（Java 与 TS）各跑一遍 spec/ 下共用的样例；action 的版本照 query 仓库固定到提交
+# Java（引擎与实库场景）与 TS（模型包、前端）各跑一遍 spec/ 下共用的样例；action 的版本照 query 仓库固定到提交
 
 jobs:
   java:
@@ -57,31 +57,12 @@ jobs:
         run: ./mvnw --batch-mode --threads 1C verify
 
   typescript:
-    name: TypeScript 测试（含 MySQL 实库）
+    name: TypeScript 测试（模型包与前端）
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
         working-directory: typescript
-    # TS 引擎跑同一批场景（spec/scenarios）的实库：同 Java 的库与用户
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_DATABASE: flow_it
-          MYSQL_USER: flow
-          MYSQL_PASSWORD: flow-ci
-          MYSQL_ROOT_PASSWORD: flow-ci-root
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -uflow -pflow-ci"
-          --health-interval 3s --health-timeout 3s --health-retries 40
-    env:
-      FLOW_MYSQL_URL: jdbc:mysql://127.0.0.1:3306/flow_it
-      FLOW_MYSQL_USER: flow
-      FLOW_MYSQL_PASSWORD: flow-ci
-      FLOW_REQUIRE_LIVE: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -105,22 +86,9 @@ jobs:
           cd ../vue-tsx-pro
           corepack pnpm install --frozen-lockfile
           corepack pnpm --filter @zerodep-dev/vue-tsx-pro-tsx build
-      # TS 引擎按源码用 query 主干的 TS 包（link: 指向 ../query）：检出到旁边，构建核心包与 MySQL 方言包
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: kenconnet666/query
-          path: query
-      - name: query 放到旁边并构建 TS 包
-        working-directory: .
-        run: |
-          mv query ../query
-          cd ../query/typescript
-          corepack pnpm install --frozen-lockfile
-          corepack pnpm exec tsc -b packages/core packages/mysql
       - name: 安装、构建并运行全部测试
         run: |
           pnpm install --frozen-lockfile
           pnpm test
-          pnpm test:live
           pnpm typecheck:ui
           pnpm test:ui
