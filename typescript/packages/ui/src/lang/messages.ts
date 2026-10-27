@@ -25,6 +25,8 @@ export interface FlowMessages {
   readonly startedAt: string;
   /** 在收件箱里等认领 */
   readonly pool: string;
+  /** 代理人代不在岗的人处理：处理人一栏写的 */
+  readonly onBehalfOf: (assignee: string, principal: string) => string;
   /** 实例详情里的流程变量（只给流程管理员） */
   readonly variables: string;
   /** 落到我身上、还没打开过的待办 */

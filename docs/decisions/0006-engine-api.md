@@ -136,7 +136,7 @@ const engine = createFlowEngine<MyUser>({ ... });   // MyUser extends Actor
 | 身份 | `ActorProvider<U>` | Spring 从 `SecurityContext` 取；Nuxt 无默认（接入方必须给） | 替换 |
 | | `PermissionPolicy<U>` | 每个命令、查询前判断能不能做；**默认全部放行**（0004 第 6 节的宽松原则） | 替换 |
 | | `ViewPolicy<U>` | 谁能看实例：参与过的、相关的角色与部门、发起人。实现（2026-10-27）：默认 `participantsOr(权限)`——参与过的（发起人、流程管理员、处理过或在处理的、候选、委派过、要指定的、被抄送的、流转记录里有的）总能看，别人要有 `instances.search` 的权限（默认放行，所以不配时谁都能看）；实例详情、待办详情、表单的 actions、评论之前问，不能看报 `flow.forbidden`（`reason: not-visible`）。进度（`progress`）给外部参与方看，不问 | 替换 |
-| 组织 | `OrgDirectory<U>` | 部门、角色（以及扩展的候选种类）展开成人，人在不在某部门、某角色，收件箱负责人（`inboxManager`）；**无默认**，接入方接自己的组织架构 | 替换 |
+| 组织 | `OrgDirectory<U>` | 部门、角色（以及扩展的候选种类）展开成人，人在不在某部门、某角色，收件箱负责人（`inboxManager`），不在岗的人由谁代理（`standIn`）；**无默认**，接入方接自己的组织架构 | 替换 |
 | | `AssigneeResolver` | 0005 的 3.2 六种来源加"上一步选" | 注册解析器；或替换整个处理人解析 |
 | 业务 | `Guard`、`Action`、`ComputedValue` | — | 按名字注册（0005 的 5.1、4.1、6.1） |
 | | `FormHandler` | — | 表单后端代码（0004 的 1.5），在线编辑或在代码里注册 |

@@ -145,6 +145,7 @@
 | `arrival` | `VARCHAR(16)` | `start`、`forward`、`return`、`escalate`、`transfer`、`delegate`、`addSign`、`jump` |
 | `inbox_kind`、`inbox_id` | `VARCHAR(32)`、USER | 收件箱是哪个角色、部门（或扩展的种类）的；显示用，可认领的查询走候选表 |
 | `assignee_id`、`assignee_name` | USER、NAME | 当前处理人；在收件箱里等认领时为空 |
+| `on_behalf_of_id`、`on_behalf_of_name` | USER、NAME | 代谁处理：原来的人不在岗，待办落到了代理人（`OrgDirectory.standIn`，V13）；不是代理时为空 |
 | `from_node`、`from_user_id`、`from_user_name`、`from_item_id` | | 从哪个节点、谁那里来的 |
 | `sign_group`、`sign_seq`、`weight` | ID、INT、INT | 会签：同一节点同一轮的参与人共用一个 `sign_group`；依次会签的顺序；票签的权重 |
 | `parent_item_id`、`add_mode` | ID、`VARCHAR(8)` | 委派与加签都生成**子待办**，`parent_item_id` 指向原来的待办；`add_mode` 是加签的方式 `before` / `after` / `parallel`。前加签、委派时原待办进 `waiting`，子待办都办完回到 `open`（委派就回到原处理人确认） |

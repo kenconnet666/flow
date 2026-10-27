@@ -2,7 +2,7 @@
  * flow-ui 的英文文案：同 zh-CN.ts 的结构。
  */
 import type { FlowMessages } from './messages';
-import { NODE_EVENTS, names, problemText, text, type ProblemText } from './texts';
+import { NODE_EVENTS, names, problemText, standInsOf, text, type ProblemText } from './texts';
 import type { ProblemCode } from './zh-CN';
 
 const enProblems: Record<string, string> = {
@@ -138,6 +138,7 @@ export const enUS: FlowMessages = {
   startedBy: 'Started by',
   startedAt: 'Started at',
   pool: 'Unclaimed',
+  onBehalfOf: (assignee, principal) => `${assignee} (for ${principal})`,
   newItem: 'New',
   variables: 'Process variables',
   overdue: 'Overdue',
@@ -374,7 +375,8 @@ export const enUS: FlowMessages = {
     if (type === 'workItem.signersRemoved') return text(data['userName']);
     if (type === 'workItem.created') {
       const who = text(data['assigneeName']);
-      return who && `Assigned to ${who}`;
+      const standIns = standInsOf(data).map((s) => `${s.standInName} for ${s.userName}`);
+      return [who && `Assigned to ${who}`, ...standIns].filter(Boolean).join('; ') || null;
     }
     if (type === 'workItem.reminded' && data['auto']) return enReminders[text(data['reason']) ?? ''] ?? 'Automatic reminder';
     if (type === 'workItem.unclaimed') return 'Handed to the inbox manager';

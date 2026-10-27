@@ -115,6 +115,7 @@ public class AppUser implements Actor {
 | `members(kind, id)` | 用到会签、抄送写角色或部门时 | 把角色、部门展开成人 |
 | `administrators()` | 建议 | 处理人解析为空时转给谁；流程管理员也总能看实例 |
 | `inboxManager(kind, id)` | 可选 | 收件箱久无人认领时由谁指定承办人 |
+| `standIn(userId, processKey, at)` | 可选 | 这个人不在岗（休假、出差）时待办交给谁；接你的休假或代理设置。已经在他手里的待办不会自动移走，代理生效时用转办（`transfer`）转过去 |
 
 **当前操作人**：用 Spring Security 且 principal 实现了 `Actor` 时什么都不用写（自动配置从 `SecurityContext` 取）；
 否则实现 `ActorProvider<AppUser>` 声明成 Bean，从你的登录信息取。示例里从请求头 `X-User` 取**只为演示**。

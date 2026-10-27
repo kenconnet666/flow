@@ -22,6 +22,7 @@ import {
 import { useFlowClient } from '../client/flow-client';
 import type { CommandResult, InstanceDetail } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
+import { holderName } from './holder';
 import { MigrateDialog } from './MigrateDialog';
 
 /** InstanceAdminActions 的属性 */
@@ -155,7 +156,7 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
             {open.map((item) => (
               <Flex key={String(item.id)} gap="sm" align="center">
                 <Text>
-                  {item.nodeName ?? item.node}：{item.assigneeName ?? messages.pool}
+                  {item.nodeName ?? item.node}：{holderName(item, messages)}
                 </Text>
                 <Button size="sm" variant="ghost" disabled={busy != null} onClick={() => openReassign(item)}>
                   {messages.reassign}

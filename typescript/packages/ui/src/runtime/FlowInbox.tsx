@@ -15,6 +15,7 @@ import { watch } from 'vue';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
+import { holderName } from './holder';
 import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './list-filters';
 import { statusTone } from './status';
 
@@ -84,7 +85,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
       width: 100,
       value: (item) => item.assigneeName ?? '',
       cell: (item) =>
-        item.assignment === 'pool' ? <Badge tone="warning">{messages.pool}</Badge> : item.assigneeName,
+        item.assignment === 'pool' ? <Badge tone="warning">{messages.pool}</Badge> : holderName(item, messages),
     },
     {
       key: 'createdAt',

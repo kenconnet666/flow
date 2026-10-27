@@ -178,6 +178,7 @@
 | ⑨ 引擎能力补全（2026-10-27） | 发起前存草稿（draft 实例，`saveStartDraft`、`discardStartDraft`、`startDrafts`，`start` 带 `draftId`；前端"存草稿"与 `FlowStartDrafts`）；预测下一步（`NextSteps`，结果与发起页带 `next`，审批面板写"通过 → 总经理审批（总经理）"）；扩展口 `CustomNode`（x- 节点，当场做完或等事件）、`CountersignRule`、`FieldType`（发布认得、提交暂存时查）、`TodoQueryCustomizer`（待办连接入方的表，`biz.` 参数、`TodoItem.business`） | 场景 start-draft、custom-node、field-type，purchase-views 加 next；实库 TodoCustomizerTest；Java 实库 49、UI 41 |
 | ⑩ 组件库收拢、整理、归档（2026-10-27） | 组件库收进四样通用的：`scopeHttp`（带前缀的请求简写，引擎客户端建在它上面）、`useAutosave`（设计草稿的自动保存）、diagram 的 `layoutLayers`（流程图的分层排版）、`dayRangeBounds`（列表筛选换成 DateRangePicker）。列表与组件库表格对齐：后端 `Page` 的 `size` 改名 `pageSize`；`sort` 用 formatSorts 的写法（`SortOrder`，每个列表一份白名单，easy-query 的 orderByObject）。整理：文案按语言分文件（lang/zh-CN.ts、en-US.ts）；HTTP 接口按路径分四个控制器（`FlowHttpSupport` 共用）；表单设计器的画布位置挪进 canvas.ts；package-info 删掉，包的分工写进 flow-core 的 README。归档：V11 的 `*_archive`，`FlowEngine.archive`，`flow.archive.*`；实例详情自动读归档，列表带 `archived` | 实库 ArchiveTest、admin-queries 加了排序；组件库补了 http、autosave、layout、date 的测试；数据量探针 `QueryVolumeProbe`（`-Dflow.perf=true`） |
 | ⑪ 数据量与多租户（2026-10-27） | 探针造 5 万实例、49 万流转记录：个人的列表与详情 10–55ms，都走索引；管理端看全部补 V12（租户, `started_at`），列表 80ms → 不到 1ms；环节统计改在库里分组算；流转记录不分表（0007 第 6 节）。多租户隔离的专项测试；`PermissionPolicy` 的操作名清单补全。并发测试查出一个真问题：几个人同时会签同意时实例停住不走（可重复读的快照），改成命令的事务用读已提交，加入外面的事务时核对 | 实库 TenantIsolationTest、ConcurrencyTest（同时认领、连点处理、同时会签、撤回与处理同时到、外面是可重复读时报错）、AdminOpsTest 补了停留与超时比例 |
+| ⑫ 休假代理（2026-10-27） | 对照降本项目资料（单机降本主流程、DMC 降本、需求定义方案）逐条核对能力清单，只有"代位人"（Q-15）是缺的通用能力：`OrgDirectory.standIn` 默认没有，待办要落到不在岗的人时换成代理人（顺着找，绕回来就停），待办记 `on_behalf_of_id/name`（V13，归档表同加），到达记录的 `standIns`；被代理的人算参与过；前端处理人写"李四（代 张三）"（`runtime/holder.ts`），流转记录写"李四 代 张三" | 实库 StandInTest（直接落到人、代理链与绕回、会签参与人）|
 | 重做（已完成，2026-10-27） | 用户定：① 删掉 Node 后端（TS 引擎、flow-nuxt、Nitro 示例后端）；② 持久层换成 easy-query——去掉 12 个存储接口，`entity` 包的实体写库、`view` 包的 VO 读给前端，待办行、抄送行用 `selectAutoInclude` 映射成带 `instance` 的对象树，租户与修改时间交给拦截器；③ wire 迁成独立仓库 json-wire，接口的 typed JSON 由接入方集成；④ 表单的值是强类型（json-wire 还原，模型包按类型校验，spec 与场景文件改成 typed JSON），前端时刻是 ZonedDateTime | Java 154（模型 121、实库 33）、TS 120、UI 26 全部通过；浏览器里走过发起（金额 350.25 原样存成 typed JSON）、财务处理、我已办、流程监控；顺带修了自动排版的数字控件把小数对齐成整数的问题 |
 
 ### 无人值守时按推荐定（2026-10-27，待用户过目）
@@ -230,6 +231,7 @@
 43. **目前只支持 MySQL**（2026-10-27 用户定）：建表脚本、归档（`CREATE TABLE … LIKE`、`information_schema`）、实库测试都只按 MySQL 做，别的库以后再说。
 44. **命令的事务是读已提交**：引擎自己开的事务设成读已提交；加入接入方的事务时查 `@@transaction_isolation`，不是就报错。
 45. **谁能看实例（ViewPolicy）默认不改变宽松原则**：参与过的人总能看，别人看 `instances.search` 的权限；权限默认放行所以不配时谁都能看，接入方收紧管理端权限后自动只剩参与过的人（用户离开前让我自己定，2026-10-27）。
+46. **休假代理只问接入方，不建代理表**：`OrgDirectory.standIn(用户, 流程, 时间)` 默认没有；待办生成时问（直接落到人、收件箱里点名的人、会签参与人，转办与加签的目标也算），记 `on_behalf_of`（V13）与到达记录的 `standIns`。休假与代理关系是人事数据，各家系统已有，引擎不另存一份；已在手里的待办不自动移走（2026-10-27，对照降本项目资料的 Q-15 补的通用能力）。
 
 下面是还没做的、按优先级（阶段三起，2026-10-27 的规划）：
 

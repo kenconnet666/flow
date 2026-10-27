@@ -85,6 +85,9 @@ export interface WorkItem {
   /** 当前处理人；在收件箱里等认领时为 null */
   readonly assigneeId: Id | null;
   readonly assigneeName: string | null;
+  /** 代谁处理：原来的人不在岗，待办落到了代理人（后端的 OrgDirectory.standIn）；不是代理时为 null */
+  readonly onBehalfOfId: Id | null;
+  readonly onBehalfOfName: string | null;
   /** 从谁那里来：转办、委派、加签的人 */
   readonly fromUserId: Id | null;
   readonly fromUserName: string | null;

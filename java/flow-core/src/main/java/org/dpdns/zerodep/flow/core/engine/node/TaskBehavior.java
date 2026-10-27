@@ -11,6 +11,7 @@ import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
+import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
@@ -20,8 +21,12 @@ import org.dpdns.zerodep.flow.model.error.FlowErrorCode;
 import org.dpdns.zerodep.flow.model.error.FlowException;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * 人工节点（0005 第 5 节）：到达时解析处理人、生成待办，停下来等人处理。
@@ -213,11 +218,16 @@ public class TaskBehavior {
      * @param state   {@code open}，或后加签时先生成、原来的人处理完才打开的 {@code waiting}
      * @param dueAt   截止时间；没有时限时为 null
      */
-    private static WorkItemVO createWorkItem(Execution run, ProcessNode.Task task, String arrival, Assignees who, Integer signSeq,
+    private static WorkItemVO createWorkItem(Execution run, ProcessNode.Task task, String arrival, Assignees named, Integer signSeq,
                                              Integer weight, Origin origin, String state, Instant dueAt) {
         InstanceEntity instance = run.getInstance();
+        OrgDirectory org = run.getContext().getOrg();
+        Map<Long, Long> standIns = standIns(run, named.getUsers());
+        Assignees who = named.replacing(standIns);
         Long assigneeId = who.isDirect() ? who.directUser() : null;
-        String assigneeName = assigneeId == null ? null : run.getContext().getOrg().userName(assigneeId);
+        String assigneeName = assigneeId == null ? null : org.userName(assigneeId);
+        Long onBehalfOf = assigneeId == null ? null
+            : standIns.entrySet().stream().filter(e -> e.getValue().equals(assigneeId)).map(Map.Entry::getKey).findFirst().orElse(null);
         CandidateEntity inbox = who.firstInbox();
 
         WorkItemEntity row = new WorkItemEntity();
@@ -236,6 +246,8 @@ public class TaskBehavior {
         row.setInboxId(inbox == null ? null : inbox.getTargetId());
         row.setAssigneeId(assigneeId);
         row.setAssigneeName(assigneeName);
+        row.setOnBehalfOfId(onBehalfOf);
+        row.setOnBehalfOfName(onBehalfOf == null ? null : org.userName(onBehalfOf));
         row.setFromUserId(origin.getFromUserId());
         row.setFromUserName(origin.getFromUserName());
         row.setParentItemId(origin.getParentItemId());
@@ -248,10 +260,46 @@ public class TaskBehavior {
         WorkItemVO item = WorkItems.insert(run.getContext().getDb(), row, assigneeId != null ? List.of() : who.candidates());
         run.getCreated().add(item);
         scheduleTimeouts(run, task, item);
-        // 直接落到人的记下名字快照：流转记录上显示"到达 某节点 · 处理人 张三"；在收件箱里的没有
-        run.addEvent(EventEntity.WORK_ITEM_CREATED, task, null, null, item.getId(), null,
-            assigneeName == null ? Map.of() : Map.of("assigneeName", assigneeName));
+        run.addEvent(EventEntity.WORK_ITEM_CREATED, task, null, null, item.getId(), null, createdData(org, assigneeName, standIns));
         return item;
+    }
+
+    /**
+     * 不在岗的人换成谁（{@link OrgDirectory#standIn}）：代理人也不在岗时接着往下找，绕回来就停在最后一个没走过的人。
+     * 返回 原来的人 → 代理人；都在岗时为空。
+     */
+    private static Map<Long, Long> standIns(Execution run, Set<Long> users) {
+        OrgDirectory org = run.getContext().getOrg();
+        String processKey = run.getInstance().getProcessKey();
+        Map<Long, Long> out = new LinkedHashMap<>();
+        for (Long user : users) {
+            Set<Long> seen = new HashSet<>(Set.of(user));
+            Long current = user;
+            Optional<Long> next;
+            while ((next = org.standIn(current, processKey, run.getNow())).isPresent() && seen.add(next.get())) current = next.get();
+            if (!current.equals(user)) out.put(user, current);
+        }
+        return out;
+    }
+
+    /**
+     * 到达记录的附加数据：直接落到人的记下名字快照，流转记录上显示"到达 某节点 · 处理人 张三"（在收件箱里的没有）；
+     * 换了代理人的记下谁代谁（{@code standIns}），看记录就知道为什么不是原来的人。
+     */
+    private static Map<String, Object> createdData(OrgDirectory org, String assigneeName, Map<Long, Long> standIns) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        if (assigneeName != null) data.put("assigneeName", assigneeName);
+        if (!standIns.isEmpty()) {
+            data.put("standIns", standIns.entrySet().stream().map(e -> {
+                Map<String, Object> one = new LinkedHashMap<>();
+                one.put("userId", e.getKey());
+                one.put("userName", org.userName(e.getKey()));
+                one.put("standInId", e.getValue());
+                one.put("standInName", org.userName(e.getValue()));
+                return one;
+            }).toList());
+        }
+        return data;
     }
 
     /**

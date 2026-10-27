@@ -6,6 +6,7 @@ import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -27,6 +28,13 @@ public class Assignees {
         Assignees one = empty();
         one.getUsers().add(user);
         return one;
+    }
+
+    /** 换掉其中的人（不在岗的换成代理人）：先后不变，换完重复的只留一个 */
+    public Assignees replacing(Map<Long, Long> replacements) {
+        Set<Long> replaced = new LinkedHashSet<>();
+        for (Long user : users) replaced.add(replacements.getOrDefault(user, user));
+        return new Assignees(replaced, inboxes);
     }
 
     /** 只留收件箱（提级：进收件箱，不直接落到人） */

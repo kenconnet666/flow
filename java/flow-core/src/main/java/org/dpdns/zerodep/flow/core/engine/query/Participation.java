@@ -62,7 +62,7 @@ public class Participation implements Viewing {
         Long id = instance.getId();
         boolean handled = Archives.from(db, WorkItemEntity.class, archived).where(w -> {
             w.instanceId().eq(id);
-            w.or(() -> { w.assigneeId().eq(me); w.completedBy().eq(me); w.fromUserId().eq(me); w.designatorId().eq(me); });
+            w.or(() -> { w.assigneeId().eq(me); w.completedBy().eq(me); w.onBehalfOfId().eq(me); w.fromUserId().eq(me); w.designatorId().eq(me); });
         }).any();
         if (handled) return true;
         if (Archives.from(db, CcEntity.class, archived).where(c -> { c.instanceId().eq(id); c.recipientId().eq(me); }).any()) return true;

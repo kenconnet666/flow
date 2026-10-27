@@ -69,6 +69,9 @@ public class WorkItemEntity implements ProxyEntityAvailable<WorkItemEntity, Work
     private Long inboxId;
     private Long assigneeId;
     private String assigneeName;
+    /** 代谁处理：原来的人不在岗，待办落到了代理人（OrgDirectory.standIn） */
+    private Long onBehalfOfId;
+    private String onBehalfOfName;
     private Long fromUserId;
     private String fromUserName;
     /** 委派、加签生成的待办指向原来的待办 */

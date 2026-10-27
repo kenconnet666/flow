@@ -1,12 +1,14 @@
 package org.dpdns.zerodep.flow.core.identity;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 /**
  * 接入方的组织架构（0006 第 6 节）：引擎没有默认实现，接入方接上自己的用户、部门、角色。
  * 处理人解析成人时存名字快照（{@link #userName}）；会签的参与人写了角色、部门时展开成人（{@link #members}）；
- * 处理人为空时转给管理员（{@link #administrators}）；收件箱很久没人认领时转负责人指定（{@link #inboxManager}）。
+ * 处理人为空时转给管理员（{@link #administrators}）；收件箱很久没人认领时转负责人指定（{@link #inboxManager}）；
+ * 不在岗的人的待办交给代理人（{@link #standIn}）。
  */
 public interface OrgDirectory {
     /** 用户的显示名字；查不到时返回编号本身 */
@@ -31,4 +33,14 @@ public interface OrgDirectory {
     default List<Long> members(String kind, Long id) {
         throw new UnsupportedOperationException("OrgDirectory.members is not implemented: countersign by " + kind + " needs it");
     }
+
+    /**
+     * 这个人不在岗（休假、出差）时由谁代他处理：待办要落到他（直接落到人、收件箱里点名的人、会签的参与人）时问一次，
+     * 有代理人就换成代理人，待办记下代谁处理（{@code onBehalfOf}），被代理的人照样能看这个实例。代理人也不在岗时接着往下找，绕回来就停。
+     * 默认没有。代理关系与生效时段由接入方维护（休假表、代理设置）；已经落到他手里的待办不会自动移走，代理生效时接入方用转办把它们转过去。
+     *
+     * @param processKey 哪个流程（只代理某些流程时按它判断）
+     * @param at         待办生成的时间
+     */
+    default Optional<Long> standIn(Long userId, String processKey, Instant at) { return Optional.empty(); }
 }

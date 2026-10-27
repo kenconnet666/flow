@@ -2,7 +2,7 @@
  * flow-ui 的中文文案：界面上的字、定义的问题代号、流转记录的事件名、自动提醒的原因。键与 en-US.ts 一一对应（FlowMessages 管着）。
  */
 import type { FlowMessages } from './messages';
-import { NODE_EVENTS, names, problemText, text, type ProblemText } from './texts';
+import { NODE_EVENTS, names, problemText, standInsOf, text, type ProblemText } from './texts';
 
 const zhProblems: Record<string, string> = {
   required: '必填',
@@ -199,6 +199,7 @@ export const zhCN: FlowMessages = {
   startedBy: '发起人',
   startedAt: '发起时间',
   pool: '待认领',
+  onBehalfOf: (assignee, principal) => `${assignee}（代 ${principal}）`,
   newItem: '新',
   variables: '流程变量',
   overdue: '已超时',
@@ -435,7 +436,8 @@ export const zhCN: FlowMessages = {
     if (type === 'workItem.signersRemoved') return text(data['userName']);
     if (type === 'workItem.created') {
       const who = text(data['assigneeName']);
-      return who && `处理人 ${who}`;
+      const standIns = standInsOf(data).map((s) => `${s.standInName} 代 ${s.userName}`);
+      return [who && `处理人 ${who}`, ...standIns].filter(Boolean).join('；') || null;
     }
     if (type === 'workItem.reminded' && data['auto']) return zhReminders[text(data['reason']) ?? ''] ?? '自动提醒';
     if (type === 'workItem.unclaimed') return `转收件箱的负责人指定${text(data['designatorName']) ? `：${text(data['designatorName'])}` : ''}`;

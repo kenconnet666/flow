@@ -7,7 +7,7 @@
  *
  * 表单按流程级的 formView 去掉了隐藏的字段（引擎做）；在待办里办理走 WorkItemDetail。
  */
-import type { Id, WorkItem } from '@zerodep-dev/flow-model';
+import type { Id } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
@@ -35,6 +35,7 @@ import { FlowForm } from '../form/FlowForm';
 import { useFlowMessages } from '../lang/messages';
 import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
+import { holderName } from './holder';
 import { IncidentActions } from './IncidentActions';
 import { InstanceAdminActions } from './InstanceAdminActions';
 import { statusTone } from './status';
@@ -52,9 +53,6 @@ export interface FlowInstanceDetailProps {
   /** 显示管理员操作（暂停、恢复、终止、跳转、改派）与异常（重试、跳过）：管理端打开时给；能不能做仍由后端的 PermissionPolicy 定 */
   admin?: boolean;
 }
-
-/** 打开着的待办的处理人：落到人的写名字，在收件箱里的写"待认领" */
-const holder = (item: WorkItem, pool: string) => item.assigneeName ?? pool;
 
 /** 流程详情 */
 export const FlowInstanceDetail = _component(({ id, people, modules, onChange, admin = false }: FlowInstanceDetailProps) => {
@@ -153,7 +151,7 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
                   : []),
                 // 停在自动节点、定时、等事件上时没有人在办
                 ...(open.length
-                  ? [{ key: 'handlers', label: messages.handlers, value: [...new Set(open.map((item) => holder(item, messages.pool)))].join('、') }]
+                  ? [{ key: 'handlers', label: messages.handlers, value: [...new Set(open.map((item) => holderName(item, messages)))].join('、') }]
                   : []),
               ]}
             />

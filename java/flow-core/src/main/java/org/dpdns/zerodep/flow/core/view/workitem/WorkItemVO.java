@@ -41,6 +41,9 @@ public class WorkItemVO {
     /** 当前处理人；在收件箱里等认领时为 null */
     private Long assigneeId;
     private String assigneeName;
+    /** 代谁处理：原来的人不在岗，待办落到了代理人；不是代理时为 null */
+    private Long onBehalfOfId;
+    private String onBehalfOfName;
     /** 从谁那里来：转办、委派、加签的人 */
     private Long fromUserId;
     private String fromUserName;
