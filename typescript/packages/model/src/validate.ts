@@ -9,7 +9,7 @@
  */
 import { conditionFields, isConditionComplete, type Condition } from './condition.js';
 import {
-  BRANCHING_TYPES,
+  isBranching,
   BUILTIN_NODE_TYPES,
   isOrgId,
   isRef,
@@ -135,7 +135,7 @@ function checkEdges(definition: ProcessDefinition, graph: ProcessGraph, report: 
     const from = graph.node(edge.from);
     if (!from) continue;
     if (edge.outcome !== undefined) {
-      if (!BRANCHING_TYPES.has(from.type)) report('edge-outcome-not-branching', { edge: edge.id }, { outcome: edge.outcome });
+      if (!isBranching(from.type)) report('edge-outcome-not-branching', { edge: edge.id }, { outcome: edge.outcome });
       else {
         const declared = declaredOutcomes(from);
         if (declared && !declared.includes(edge.outcome)) report('edge-unknown-outcome', { edge: edge.id }, { outcome: edge.outcome });

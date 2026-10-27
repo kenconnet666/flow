@@ -14,8 +14,11 @@ public interface ProcessNode {
     /** 内置的节点类型 */
     Set<String> BUILTIN_TYPES = Set.of("start", "end", "task", "exclusive", "parallel", "inclusive", "service", "call", "timer", "receive", "cc");
 
-    /** 按结果分出边的类型：人工、自动、调用流程、等待外部事件 */
+    /** 按结果分出边的内置类型：人工、自动、调用流程、等待外部事件 */
     Set<String> BRANCHING_TYPES = Set.of("task", "service", "call", "receive");
+
+    /** 这种节点按结果分出边：内置的那几种，加自定义节点（它的 arrive、received 给出结果） */
+    static boolean isBranching(String type) { return BRANCHING_TYPES.contains(type) || type.startsWith("x-"); }
 
     /** 所有节点共有的字段。 */
     @Data

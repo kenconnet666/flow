@@ -390,8 +390,11 @@ export interface ProcessDefinition {
   readonly layout?: ProcessLayout;
 }
 
-/** 按结果分出边的节点：人工、自动、调用流程、等待外部事件 */
+/** 按结果分出边的内置节点：人工、自动、调用流程、等待外部事件 */
 export const BRANCHING_TYPES: ReadonlySet<string> = new Set(['task', 'service', 'call', 'receive']);
+
+/** 这种节点按结果分出边：内置的那几种，加自定义节点（后端的 CustomNode 给出结果） */
+export const isBranching = (type: string): boolean => BRANCHING_TYPES.has(type) || type.startsWith('x-');
 
 /** 网关类型 */
 export const GATEWAY_TYPES: ReadonlySet<string> = new Set(['exclusive', 'parallel', 'inclusive']);

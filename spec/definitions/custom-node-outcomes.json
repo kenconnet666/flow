@@ -1,0 +1,19 @@
+{
+  "name": "自定义节点按结果分出边：结果由接入方的 CustomNode 给出，出边写结果不报错",
+  "definition": {
+    "key": "custom-outcomes",
+    "name": "自定义节点的结果",
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "check", "type": "x-check", "name": "外部核验" },
+      { "id": "passed", "type": "end", "name": "通过", "result": "approved" },
+      { "id": "failed", "type": "end", "name": "不通过", "result": "rejected" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "check" },
+      { "id": "e2", "from": "check", "to": "passed", "outcome": "pass" },
+      { "id": "e3", "from": "check", "to": "failed", "outcome": "fail" }
+    ]
+  },
+  "expect": []
+}

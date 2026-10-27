@@ -141,7 +141,7 @@ public class ProcessValidator {
             ProcessNode from = graph.node(edge.getFrom());
             if (from == null) continue;
             if (edge.getOutcome() != null) {
-                if (!ProcessNode.BRANCHING_TYPES.contains(from.getType())) atEdge("edge-outcome-not-branching", edge.getId(), "outcome", edge.getOutcome());
+                if (!ProcessNode.isBranching(from.getType())) atEdge("edge-outcome-not-branching", edge.getId(), "outcome", edge.getOutcome());
                 else {
                     List<String> declared = declaredOutcomes(from);
                     if (declared != null && !declared.contains(edge.getOutcome())) atEdge("edge-unknown-outcome", edge.getId(), "outcome", edge.getOutcome());
