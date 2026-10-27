@@ -277,7 +277,15 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
     else if (problem.edge) selection = { nodes: [], edges: [problem.edge] };
   }
   const where = (p: Problem) => [p.node && nameOf(p.node), p.edge, p.lane, p.field].filter(Boolean).join(' / ');
-  const textParams = (params: Problem['params']) => Object.fromEntries(Object.entries(params ?? {}).map(([k, v]) => [k, String(v)]));
+  /** 问题文案的参数；结果写成按钮上的字（设计的人看到的是"退回修改"，不是标识 outcome3） */
+  const textParams = (p: Problem) =>
+    Object.fromEntries(
+      Object.entries(p.params ?? {}).map(([k, v]) => {
+        const node = k === 'outcome' && p.node ? definition.nodes.find((n) => n.id === p.node) : undefined;
+        const label = node?.type === 'task' ? node.outcomes.find((o) => o.key === v)?.label : undefined;
+        return [k, label ?? String(v)];
+      }),
+    );
 
   // ───────── 画面 ─────────
 
@@ -434,10 +442,10 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
               {p.severity === 'error' ? '✕' : '!'}{' '}
               {p.node || p.edge ? (
                 <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), focusProblem(p))}>
-                  {flowMessages.problem(p.code, textParams(p.params))}
+                  {flowMessages.problem(p.code, textParams(p))}
                 </Link>
               ) : (
-                flowMessages.problem(p.code, textParams(p.params))
+                flowMessages.problem(p.code, textParams(p))
               )}
               {where(p) ? <Small>（{where(p)}）</Small> : null}
             </Text>

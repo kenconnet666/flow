@@ -270,7 +270,15 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
 
   const cc = (n: CcNode) => (
     <>
-      <AssigneeField label={messages.ccTo} value={n.to} people={people} nodes={taskNodes()} resolvers={catalog?.resolvers} onChange={(to) => set('to', to)} />
+      <AssigneeField
+        label={messages.ccTo}
+        value={n.to}
+        people={people}
+        nodes={taskNodes()}
+        resolvers={catalog?.resolvers}
+        pickable={false}
+        onChange={(to) => set('to', to)}
+      />
       <Field label={messages.message}>
         <Textarea _value={n.message ?? ''} rows={2} onUpdate:_value={(text) => set('message', text || undefined, `${n.id}:message`)} />
       </Field>

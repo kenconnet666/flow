@@ -66,6 +66,7 @@ const WARNINGS: ReadonlySet<string> = new Set([
   'parallel-edge-condition',
   'parallel-useless',
   'form-required-unfillable',
+  'return-choose-no-upstream',
 ]);
 
 /** `sys.` 下引擎给的只读值；`sys.round.节点` 另外判断 */
@@ -305,6 +306,15 @@ function checkReturnsAndEscalations(definition: ProcessDefinition, graph: Proces
       const target = graph.node(edge.to);
       if (target?.type !== 'task' || !hasInbox(target, graph)) report('escalate-no-inbox', { edge: edge.id });
     }
+  }
+  // 处理时选退回节点的结果：前面一个人工节点都没有时，运行时没得选，按钮不出现
+  const previous = (id: string) => edges.filter((e) => e.to === id).map((e) => e.from);
+  for (const node of definition.nodes) {
+    if (node.type !== 'task') continue;
+    const choosing = node.outcomes.filter(choosesTarget);
+    if (choosing.length === 0) continue;
+    const upstream = [...walk([node.id], previous)].some((id) => id !== node.id && graph.node(id)?.type === 'task');
+    if (!upstream) for (const o of choosing) report('return-choose-no-upstream', { node: node.id }, { outcome: o.key });
   }
 }
 

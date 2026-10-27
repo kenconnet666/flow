@@ -108,6 +108,6 @@ public class WorkItemQueries {
         WorkItemVO item = WorkItems.find(context.getDb(), workItemId);
         InstanceEntity instance = Instances.find(context.getDb(), item.getInstanceId());
         ProcessNode.Task task = (ProcessNode.Task) definitions.of(instance).getGraph().node(item.getNode());
-        return task.getOutcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::getKey).findFirst().orElse(null);
+        return task.approveOutcome();
     }
 }

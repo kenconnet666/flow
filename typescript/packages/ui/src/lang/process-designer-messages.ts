@@ -40,6 +40,10 @@ export interface FlowDesignerMessages {
   readonly summary: string;
   readonly withdraw: string;
   readonly withdrawOptions: Readonly<Record<string, string>>;
+  /** 自动跳过：处理人是发起人、与上一步同一人时这一步直接按同意过 */
+  readonly autoSkip: string;
+  readonly skipInitiator: string;
+  readonly skipSameAsPrevious: string;
   readonly emptyAssignee: string;
   readonly emptyAssigneeOptions: Readonly<Record<string, string>>;
   readonly inherit: string;
@@ -67,12 +71,21 @@ export interface FlowDesignerMessages {
   /** 条件里接入方注册的计算值的分组名 */
   readonly computed: string;
   readonly otherSources: (count: number) => string;
+  /** 上一步的人选处理人：勾上后可限定范围、人数 */
+  readonly pickByPrevious: string;
+  readonly pickFrom: string;
+  readonly pickMax: string;
+  readonly pickMaxAny: string;
+  /** 新加的处理结果默认的按钮文字 */
+  readonly newOutcome: (n: number) => string;
   readonly outcomes: string;
   readonly outcomeKey: string;
   readonly outcomeLabel: string;
   readonly outcomeKind: string;
   readonly outcomeKinds: Readonly<Record<string, string>>;
   readonly commentRequired: string;
+  /** 退回的结果：处理时从走过的节点里选退回到哪（不用连线） */
+  readonly returnChoose: string;
   readonly addOutcome: string;
   readonly removeOutcome: (label: string) => string;
   readonly multi: string;
@@ -168,6 +181,9 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     summary: '待办列表里显示的字段',
     withdraw: '发起人撤回',
     withdrawOptions: { beforeClaim: '有人认领之前', beforeAction: '有人处理之前', never: '不能撤回' },
+    autoSkip: '自动跳过',
+    skipInitiator: '处理人就是发起人时（发起时直接过，被退回才轮到他）',
+    skipSameAsPrevious: '处理人和上一步是同一人时',
     emptyAssignee: '找不到处理人时',
     emptyAssigneeOptions: { autoPass: '自动通过', admin: '转给流程管理员', error: '报错停下' },
     inherit: '同流程的设置',
@@ -188,13 +204,19 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     guards: '提交前检查',
     nodeMeta: '业务信息',
     computed: '计算值',
-    otherSources: (count) => `另有 ${count} 项（取表单字段、上一步选……）在 JSON 里改`,
+    otherSources: (count) => `另有 ${count} 项（取表单字段、扩展种类……）在 JSON 里改`,
+    pickByPrevious: '上一步的人选（提交或处理上一步时选）',
+    pickFrom: '从这些人里选（不填是任何人）',
+    pickMax: '最多选几人',
+    pickMaxAny: '不限人数',
+    newOutcome: (n) => `结果 ${n}`,
     outcomes: '处理结果',
     outcomeKey: '标识',
     outcomeLabel: '按钮上的字',
     outcomeKind: '种类',
     outcomeKinds: { none: '普通', approve: '通过', reject: '驳回', return: '退回', escalate: '提级', terminate: '终止' },
     commentRequired: '意见必填',
+    returnChoose: '处理时选退回到哪一步',
     addOutcome: '添加结果',
     removeOutcome: (label) => `删除结果 ${label}`,
     multi: '会签',
@@ -287,6 +309,9 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     summary: 'Fields shown in the task list',
     withdraw: 'Starter can withdraw',
     withdrawOptions: { beforeClaim: 'Before anyone claims', beforeAction: 'Before anyone acts', never: 'Never' },
+    autoSkip: 'Skip automatically',
+    skipInitiator: 'When the handler is the starter (passes on start; reaches them only when sent back)',
+    skipSameAsPrevious: 'When the handler also handled the previous step',
     emptyAssignee: 'When nobody is found',
     emptyAssigneeOptions: { autoPass: 'Pass automatically', admin: 'Send to the process admin', error: 'Stop with an error' },
     inherit: 'Same as the process',
@@ -307,13 +332,19 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     guards: 'Checks before submit',
     nodeMeta: 'Business info',
     computed: 'Computed',
-    otherSources: (count) => `${count} more (form fields, picked by the previous step…) — edit them in JSON`,
+    otherSources: (count) => `${count} more (form fields, extension kinds…) — edit them in JSON`,
+    pickByPrevious: 'Chosen by the previous step (when submitting or handling it)',
+    pickFrom: 'Choose from (anyone when empty)',
+    pickMax: 'At most',
+    pickMaxAny: 'Any number',
+    newOutcome: (n) => `Outcome ${n}`,
     outcomes: 'Outcomes',
     outcomeKey: 'Key',
     outcomeLabel: 'Button text',
     outcomeKind: 'Kind',
     outcomeKinds: { none: 'Plain', approve: 'Approve', reject: 'Reject', return: 'Return', escalate: 'Escalate', terminate: 'Terminate' },
     commentRequired: 'Comment required',
+    returnChoose: 'Choose the step when sending back',
     addOutcome: 'Add outcome',
     removeOutcome: (label) => `Remove outcome ${label}`,
     multi: 'Multiple approvers',

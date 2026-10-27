@@ -63,8 +63,22 @@ public class NextSteps {
             for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, null, read)) visit(edge.getTo(), read, out, seen);
             return;
         }
+        if (node instanceof ProcessNode.Task task && skipsStarter(task)) {
+            // 发起时自动跳过的（处理人就是发起人）：按同意往下看，不停在这里
+            for (ProcessEdge edge : Routing.selectEdges(graph, nodeId, task.approveOutcome(), read)) visit(edge.getTo(), read, out, seen);
+            return;
+        }
         out.put(nodeId, node instanceof ProcessNode.Task task ? taskStep(task)
             : new NextStep(node.getId(), node.getName(), node.getType(), List.of(), false, null));
+    }
+
+    /** 处理人只是发起人、又开了"处理人就是发起人时自动跳过"（同 TaskBehavior.skipReason 的 initiator） */
+    private boolean skipsStarter(ProcessNode.Task task) {
+        Map<String, Object> rules = task.getInfo().getAutoSkip().isEmpty() ? graph.definition().getSettings().getAutoSkip() : task.getInfo().getAutoSkip();
+        if (!Boolean.TRUE.equals(rules.get("initiator")) || task.getMulti() != null || task.approveOutcome() == null) return false;
+        List<AssigneeSource> sources = task.getAssignees();
+        return !sources.isEmpty() && sources.stream().allMatch(s -> s instanceof AssigneeSource.Initiator
+            || starterId != null && s instanceof AssigneeSource.User user && !(user.getUser() instanceof Ref) && OrgIds.all(user.getUser()).equals(List.of(starterId)));
     }
 
     private NextStep taskStep(ProcessNode.Task task) {

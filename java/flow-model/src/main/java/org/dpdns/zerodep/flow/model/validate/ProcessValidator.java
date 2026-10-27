@@ -45,7 +45,7 @@ public class ProcessValidator {
     /** 各代号的严重程度；没列出的都是错误 */
     private static final Set<String> WARNINGS = Set.of(
         "node-unreachable", "edge-default-not-gateway", "gateway-edge-unconditional", "parallel-edge-condition", "parallel-useless",
-        "form-required-unfillable");
+        "form-required-unfillable", "return-choose-no-upstream");
 
     /** {@code sys.} 下引擎给的只读值；{@code sys.round.节点} 另外判断 */
     private static final Set<String> SYSTEM_NAMES = Set.of("initiator", "startedAt", "instanceId", "businessKey");
@@ -297,6 +297,16 @@ public class ProcessValidator {
             if ("escalate".equals(edge.getKind())) {
                 if (!(graph.node(edge.getTo()) instanceof ProcessNode.Task target) || !hasInbox(target)) atEdge("escalate-no-inbox", edge.getId());
             }
+        }
+        // 处理时选退回节点的结果：前面一个人工节点都没有时，运行时没得选，按钮不出现
+        Function<String, List<String>> previous = id -> edges.stream().filter(e -> e.getTo().equals(id)).map(ProcessEdge::getFrom).toList();
+        for (ProcessNode node : definition.getNodes()) {
+            if (!(node instanceof ProcessNode.Task task)) continue;
+            List<Outcome> choosing = task.getOutcomes().stream().filter(Outcome::choosesTarget).toList();
+            if (choosing.isEmpty()) continue;
+            boolean upstream = walk(List.of(task.getId()), previous).stream()
+                .anyMatch(id -> !id.equals(task.getId()) && graph.node(id) instanceof ProcessNode.Task);
+            if (!upstream) for (Outcome o : choosing) atNode("return-choose-no-upstream", task.getId(), "outcome", o.getKey());
         }
     }
 

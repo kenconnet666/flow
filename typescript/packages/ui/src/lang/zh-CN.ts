@@ -105,6 +105,8 @@ export const zhProblemTexts = {
   'assignee-unknown-node': () => 'sameAs 指的节点不存在或不是人工节点',
   'assignee-missing': () => '人工节点没写处理人（会签时是参与人），泳道也没有收件箱',
   'gateway-unpaired': () => '并行或包容的分叉没有配对的汇合，或分支跳出了区域',
+  'return-choose-no-upstream': (p) =>
+    `处理结果 ${p['outcome'] ?? ''} 要处理时选退回到哪一步，但前面没有人工节点，按钮不会出现；要退回给发起人，在前面加一个发起人填写的人工节点`,
   'return-not-upstream': () => '退回连线的目标不在上游',
   'escalate-no-inbox': () => '提级连线的目标节点没有收件箱',
   'ref-unknown': (p) => `引用了不存在的 ${p['ref'] ?? ''}（没声明的变量、表单里没有的字段、不存在的节点）`,

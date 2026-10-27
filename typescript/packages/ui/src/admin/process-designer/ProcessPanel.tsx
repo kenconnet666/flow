@@ -2,11 +2,11 @@
  * 设计器右边什么都没选时的流程属性（0005 第 2 节）：标识、名称、分类、说明、表单、实例标题、待办的摘要列、撤回与处理人为空的规则。
  * 默认值同 0005 第 2 节（撤回：有人处理之前；处理人为空：转给管理员），选默认值时不写进定义。发起人范围（starters）、流程变量、通知、泳道在 JSON 里写。
  */
-import type { FormManifest, ProcessDefinition, ProcessSettings } from '@zerodep-dev/flow-model';
+import type { AutoSkip, FormManifest, ProcessDefinition, ProcessSettings } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Field, Flex, Select, Textarea, TextField } from '@zerodep-dev/vue-tsx-pro-ui';
+import { Checkbox, Field, Flex, Select, Textarea, TextField } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
-import { compact, optionsOf } from './fields';
+import { compact, FieldGroup, optionsOf } from './fields';
 
 /** ProcessPanel 的属性 */
 export interface ProcessPanelProps {
@@ -28,6 +28,10 @@ export const ProcessPanel = _component(({ definition, forms, manifest, keyLocked
   const setting = (key: keyof ProcessSettings, value: unknown) => {
     const settings = compact({ ...definition.settings, [key]: value });
     set('settings', Object.keys(settings).length ? settings : undefined);
+  };
+  const skip = (key: keyof AutoSkip, on: boolean) => {
+    const rules = compact({ ...definition.settings?.autoSkip, [key]: on || undefined });
+    setting('autoSkip', Object.keys(rules).length ? rules : undefined);
   };
 
   return () => (
@@ -76,6 +80,15 @@ export const ProcessPanel = _component(({ definition, forms, manifest, keyLocked
           onUpdate:_value={(mode: string | null) => setting('emptyAssignee', mode === 'admin' ? undefined : (mode ?? undefined))}
         />
       </Field>
+      {/* 例如发起人填写的节点：发起时直接过，被退回来时才落到发起人手里 */}
+      <FieldGroup label={messages.autoSkip}>
+        <Checkbox _checked={definition.settings?.autoSkip?.initiator === true} onUpdate:_checked={(on) => skip('initiator', on)}>
+          {messages.skipInitiator}
+        </Checkbox>
+        <Checkbox _checked={definition.settings?.autoSkip?.sameAsPrevious === true} onUpdate:_checked={(on) => skip('sameAsPrevious', on)}>
+          {messages.skipSameAsPrevious}
+        </Checkbox>
+      </FieldGroup>
       <Field label={messages.description}>
         <Textarea _value={definition.description ?? ''} rows={2} onUpdate:_value={(text) => set('description', text || undefined, 'process:description')} />
       </Field>

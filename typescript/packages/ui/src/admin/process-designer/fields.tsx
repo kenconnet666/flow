@@ -123,8 +123,12 @@ const orgKeyOf = (source: AssigneeSource): OrgKey | undefined =>
 /** 解析器来源 */
 type ResolverSource = Extract<AssigneeSource, { readonly resolver: string }>;
 
-/** 能在面板里改的来源：人、角色、部门（字面量编号）、发起人、同某节点、解析器 */
-const editable = (source: AssigneeSource) => orgKeyOf(source) !== undefined || 'initiator' in source || 'sameAs' in source || 'resolver' in source;
+/** 上一步选人的来源 */
+type PickSource = Extract<AssigneeSource, { readonly pick: unknown }>;
+
+/** 能在面板里改的来源：人、角色、部门（字面量编号）、发起人、同某节点、解析器、上一步选 */
+const editable = (source: AssigneeSource) =>
+  orgKeyOf(source) !== undefined || 'initiator' in source || 'sameAs' in source || 'resolver' in source || 'pick' in source;
 
 /** AssigneeField 的属性 */
 export interface AssigneeFieldProps {
@@ -137,30 +141,49 @@ export interface AssigneeFieldProps {
   nodes: readonly { id: string; name: string }[];
   /** 接入方注册的解析器（扩展目录）；没注册时不显示解析器这一块 */
   resolvers?: readonly ExtensionEntry[] | undefined;
+  /** 能不能由上一步的人选（人工节点的处理人、会签的参与人能；抄送的收件人不能） */
+  pickable?: boolean;
 }
 
 /**
- * 处理人（0005 的 3.2）：选人、角色、部门（记下名字快照 name），发起人，同某节点，解析器（从注册的里选，按声明填参数）。
- * 取表单字段（{ ref }）、扩展种类、上一步选这几种在 JSON 里改，这里原样保留并提示有几项
+ * 处理人（0005 的 3.2）：选人、角色、部门（记下名字快照 name），发起人，同某节点，解析器（从注册的里选，按声明填参数），
+ * 上一步的人选（可限定从哪些人里选、最多几人）。取表单字段（{ ref }）、扩展种类在 JSON 里改，这里原样保留并提示有几项
  */
-export const AssigneeField = _component(({ value, onChange, label, people, nodes, resolvers: registered = [] }: AssigneeFieldProps) => {
+export const AssigneeField = _component(({ value, onChange, label, people, nodes, resolvers: registered = [], pickable = true }: AssigneeFieldProps) => {
   const messages = useDesignerMessages();
   const others = () => value.filter((s) => !editable(s));
   const orgSources = () => value.filter((s) => orgKeyOf(s) !== undefined);
   const sameAs = () => value.flatMap((s) => ('sameAs' in s ? [s.sameAs] : []));
   const resolvers = () => value.filter((s): s is ResolverSource => 'resolver' in s);
+  const pick = () => value.find((s): s is PickSource => 'pick' in s)?.pick;
 
   /** 按面板里的几部分重新拼出来源：顺序是人员、发起人、同某节点、解析器，最后是面板里不改的 */
-  function write(parts: { org?: AssigneeSource[]; initiator?: boolean; sameAs?: string[]; resolvers?: ResolverSource[] }) {
+  function write(parts: { org?: AssigneeSource[]; initiator?: boolean; sameAs?: string[]; resolvers?: ResolverSource[]; pick?: PickSource['pick'] | null }) {
     const initiator = parts.initiator ?? value.some((s) => 'initiator' in s);
+    const picking = parts.pick === undefined ? pick() : parts.pick;
     onChange([
       ...(parts.org ?? orgSources()),
       ...(initiator ? [{ initiator: true as const }] : []),
       ...(parts.sameAs ?? sameAs()).map((id) => ({ sameAs: id })),
       ...(parts.resolvers ?? resolvers()),
+      ...(picking ? [{ pick: picking }] : []),
       ...others(),
     ]);
   }
+
+  /** 上一步选人时能选的范围：人、角色、部门；范围里别的来源原样保留 */
+  const pickEntries = (): PeopleEntry[] =>
+    (pick()?.from ?? []).flatMap((s) => {
+      const type = orgKeyOf(s);
+      if (!type) return [];
+      const id = (s as Record<string, unknown>)[type] as OrgId;
+      return [{ type, id: String(id), name: ('name' in s && s.name) || messages.orgEntry(type, String(id)) }];
+    });
+  const writePick = (change: { from?: AssigneeSource[]; max?: number | undefined }) => {
+    const current = pick() ?? {};
+    const from = change.from ?? current.from ?? [];
+    write({ pick: compact({ ...current, from: from.length ? from : undefined, ...('max' in change ? { max: change.max } : {}) }) });
+  };
 
   const entries = (): PeopleEntry[] =>
     orgSources().map((s) => {
@@ -242,6 +265,34 @@ export const AssigneeField = _component(({ value, onChange, label, people, nodes
             </Flex>
           );
         })}
+        {pickable && (
+          <Checkbox _checked={pick() !== undefined} onUpdate:_checked={(checked) => write({ pick: checked ? {} : null })}>
+            {messages.pickByPrevious}
+          </Checkbox>
+        )}
+        {pick() !== undefined && (
+          <Flex direction="column" gap="xs" style={{ paddingInlineStart: '1.5rem' }}>
+            {people && (
+              <PeoplePicker
+                source={people}
+                types={['user', 'role', 'department']}
+                _value={pickEntries()}
+                placeholder={messages.pickFrom}
+                aria-label={`${label} ${messages.pickFrom}`}
+                onUpdate:_value={(picked) =>
+                  writePick({ from: [...fromEntries(picked), ...(pick()?.from ?? []).filter((s) => orgKeyOf(s) === undefined)] })
+                }
+              />
+            )}
+            <NumberField
+              _value={pick()?.max ?? null}
+              min={1}
+              placeholder={messages.pickMaxAny}
+              aria-label={`${label} ${messages.pickMax}`}
+              onUpdate:_value={(max) => writePick({ max: max == null ? undefined : Number(max) })}
+            />
+          </Flex>
+        )}
         {registered.length > 0 && (
           <Button variant="outline" size="sm" icon={Plus} onClick={() => write({ resolvers: [...resolvers(), { resolver: registered[0]!.name }] })}>
             {messages.addResolver}
@@ -269,7 +320,10 @@ export interface OutcomeListProps {
   guards?: readonly ExtensionEntry[] | undefined;
 }
 
-/** 人工节点的处理结果（0005 的 5.3）：标识、按钮上的字、种类、意见必填、提交前检查（守卫）；别的属性（确认……）原样保留 */
+/**
+ * 人工节点的处理结果（0005 的 5.3）：标识、按钮上的字、种类（退回时可以处理时选退回到哪一步，不用连线）、意见必填、提交前检查（守卫）；
+ * 别的属性（确认……）原样保留
+ */
 export const OutcomeList = _component(({ value, onChange, guards = [] }: OutcomeListProps) => {
   const messages = useDesignerMessages();
   const patch = (i: number, change: Partial<Outcome>, merge?: string) =>
@@ -281,7 +335,7 @@ export const OutcomeList = _component(({ value, onChange, guards = [] }: Outcome
     const keys = new Set(value.map((o) => o.key));
     let n = value.length + 1;
     while (keys.has(`outcome${n}`)) n++;
-    onChange([...value, { key: `outcome${n}`, label: messages.outcomeLabel }]);
+    onChange([...value, { key: `outcome${n}`, label: messages.newOutcome(n) }]);
   };
   return () => (
     <FieldGroup label={messages.outcomes}>
@@ -304,8 +358,16 @@ export const OutcomeList = _component(({ value, onChange, guards = [] }: Outcome
               items={optionsOf(messages.outcomeKinds)}
               _value={outcome.kind ?? 'none'}
               aria-label={`${messages.outcomeKind} ${i + 1}`}
-              onUpdate:_value={(kind: string | null) => patch(i, { kind: (kind === 'none' ? undefined : kind) as Outcome['kind'] })}
+              // 不是退回了：处理时选退回节点（target）跟着去掉
+              onUpdate:_value={(kind: string | null) =>
+                patch(i, { kind: (kind === 'none' ? undefined : kind) as Outcome['kind'], target: kind === 'return' ? outcome.target : undefined })
+              }
             />
+            {outcome.kind === 'return' && (
+              <Checkbox _checked={outcome.target === 'choose'} onUpdate:_checked={(checked) => patch(i, { target: checked ? 'choose' : undefined })}>
+                {messages.returnChoose}
+              </Checkbox>
+            )}
             <Checkbox
               _checked={outcome.comment === 'required'}
               onUpdate:_checked={(checked) => patch(i, { comment: checked ? 'required' : undefined })}

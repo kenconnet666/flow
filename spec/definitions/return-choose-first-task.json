@@ -1,0 +1,21 @@
+{
+  "name": "处理时选退回节点的结果放在第一个人工节点上：前面没有可退的节点，按钮不会出现，给警告；后面的节点上不警告",
+  "definition": {
+    "key": "contract",
+    "name": "合同",
+    "nodes": [
+      { "id": "start", "type": "start", "name": "提交" },
+      { "id": "legal", "type": "task", "name": "法务审核", "assignees": [{ "user": 1005 }],
+        "outcomes": [{ "key": "ok", "label": "同意" }, { "key": "back", "label": "退回", "kind": "return", "target": "choose" }] },
+      { "id": "boss", "type": "task", "name": "经理审批", "assignees": [{ "user": 1004 }],
+        "outcomes": [{ "key": "ok", "label": "同意" }, { "key": "back", "label": "退回", "kind": "return", "target": "choose" }] },
+      { "id": "end", "type": "end", "name": "结束" }
+    ],
+    "edges": [
+      { "id": "e1", "from": "start", "to": "legal" },
+      { "id": "e2", "from": "legal", "to": "boss", "outcome": "ok" },
+      { "id": "e3", "from": "boss", "to": "end", "outcome": "ok" }
+    ]
+  },
+  "expect": [{ "code": "return-choose-no-upstream", "severity": "warning", "node": "legal", "params": { "outcome": "back" } }]
+}

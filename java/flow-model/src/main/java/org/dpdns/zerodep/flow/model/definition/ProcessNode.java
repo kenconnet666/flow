@@ -121,6 +121,11 @@ public interface ProcessNode {
             this.allow = allow;
             this.form = form;
         }
+
+        /** 第一个"同意"类的结果（种类 approve，没写种类的也算）；没有时为 null。自动跳过、按同意往下看时用 */
+        public String approveOutcome() {
+            return outcomes.stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::getKey).findFirst().orElse(null);
+        }
     }
 
     /** 排他、并行、包容网关 */

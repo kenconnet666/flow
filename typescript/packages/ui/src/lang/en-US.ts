@@ -106,6 +106,8 @@ const enProblemTexts: Record<ProblemCode, ProblemText> = {
   'assignee-unknown-node': () => 'sameAs names a node that does not exist or is not a task',
   'assignee-missing': () => 'The task has no assignees (participants for a countersign) and its lane has no inbox',
   'gateway-unpaired': () => 'A parallel or inclusive split has no matching join, or a branch leaves the region',
+  'return-choose-no-upstream': (p) =>
+    `Outcome ${p['outcome'] ?? ''} lets the handler choose where to send back, but no task comes before it, so the button never shows; to send back to the starter, add a task the starter fills in first`,
   'return-not-upstream': () => 'The send-back edge does not lead upstream',
   'escalate-no-inbox': () => 'The escalation target has no inbox',
   'ref-unknown': (p) => `Unknown reference ${p['ref'] ?? ''} (an undeclared variable, a field the form lacks, or a missing node)`,

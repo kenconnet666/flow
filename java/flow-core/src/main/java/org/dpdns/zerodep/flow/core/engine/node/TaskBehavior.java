@@ -13,7 +13,6 @@ import org.dpdns.zerodep.flow.core.entity.InstanceEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.spi.OrgDirectory;
 import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
-import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 import org.dpdns.zerodep.flow.model.definition.TaskRules;
 import org.dpdns.zerodep.flow.model.error.ErrorDetail;
@@ -73,9 +72,9 @@ public class TaskBehavior {
         String skip = skipReason(run, task, arrival, who);
         if (skip != null) {
             Long user = who.directUser();
-            run.addEvent(EventEntity.NODE_SKIPPED, task, null, approveOutcome(task), null, null,
+            run.addEvent(EventEntity.NODE_SKIPPED, task, null, task.approveOutcome(), null, null,
                 Map.of("reason", skip, "userId", user, "userName", run.getContext().getOrg().userName(user)));
-            run.leave(task.getId(), approveOutcome(task));
+            run.leave(task.getId(), task.approveOutcome());
             return;
         }
         createWorkItem(run, task, arrival, who, null, null);
@@ -101,7 +100,7 @@ public class TaskBehavior {
      * 退回、重新提交、提级、跳转来的不跳过：那是要这个人再看一次。返回跳过的原因，不跳过时为 null。
      */
     private static String skipReason(Execution run, ProcessNode.Task task, String arrival, Assignees who) {
-        if (!("start".equals(arrival) || "forward".equals(arrival)) || !who.isDirect() || approveOutcome(task) == null) return null;
+        if (!("start".equals(arrival) || "forward".equals(arrival)) || !who.isDirect() || task.approveOutcome() == null) return null;
         Map<String, Object> rules = task.getInfo().getAutoSkip().isEmpty()
             ? run.getGraph().definition().getSettings().getAutoSkip()
             : task.getInfo().getAutoSkip();
@@ -118,10 +117,6 @@ public class TaskBehavior {
         return last != null ? last : run.getInstance().getStartedBy();
     }
 
-    /** 节点上第一个"同意"类的结果；没有时为 null */
-    private static String approveOutcome(ProcessNode.Task task) {
-        return task.getOutcomes().stream().filter(o -> "approve".equals(o.kindOrDefault())).map(Outcome::getKey).findFirst().orElse(null);
-    }
 
     /**
      * 处理人解析为空（0005 的 2.1 {@code emptyAssignee}，节点上写的盖过流程级的）：{@code autoPass} 按第一个"同意"的结果自动通过；
@@ -133,7 +128,7 @@ public class TaskBehavior {
             ? task.getInfo().getEmptyAssignee()
             : run.getGraph().definition().getSettings().getEmptyAssignee();
         switch (rule == null ? "error" : rule) {
-            case "autoPass" -> run.leave(task.getId(), approveOutcome(task));
+            case "autoPass" -> run.leave(task.getId(), task.approveOutcome());
             case "admin" -> {
                 List<Long> admins = run.getContext().getOrg().administrators();
                 if (admins.isEmpty()) throw nobodyCanHandle(task);
