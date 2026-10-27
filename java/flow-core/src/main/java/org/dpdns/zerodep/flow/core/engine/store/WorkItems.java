@@ -137,6 +137,7 @@ public class WorkItems {
                 w.assigneeName().set(userName);
                 w.assignment().set(assignment);
                 w.needsDesignation().set(false);
+                w.readAt().set((Instant) null);
                 w.rev().increment();
             })
             .where(w -> {

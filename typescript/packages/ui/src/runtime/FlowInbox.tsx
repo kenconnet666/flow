@@ -51,9 +51,12 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
     header: messages.columnTitle,
     value: (item) => item.instance?.title ?? item.processKey,
     cell: (item) => (
-      <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), onOpen(item))}>
-        {item.instance?.title ?? item.processKey}
-      </Link>
+      <Flex gap="xs" align="center">
+        <Link href="#" onClick={(event: MouseEvent) => (event.preventDefault(), onOpen(item))}>
+          {item.instance?.title ?? item.processKey}
+        </Link>
+        {list === 'todo' && item.state === 'open' && item.assigneeId != null && item.readAt == null && <Badge tone="accent">{messages.newItem}</Badge>}
+      </Flex>
     ),
   });
   const nodeColumn = (): DataTableColumn<TodoItem> => ({

@@ -1,0 +1,22 @@
+{
+  "name": "待办的已读：处理人第一次打开时记下时间，别人打开不算；改派给别人后又是没读过的",
+  "forms": [],
+  "processes": ["processes/notice.json"],
+  "clock": "2026-10-27T08:00:00Z",
+  "actors": {
+    "alice": { "id": 1001, "name": "林小满" },
+    "carol": { "id": 1003, "name": "沈若水" },
+    "boss": { "id": 1004, "name": "总经理", "roles": [2] },
+    "admin": { "id": 1000, "name": "管理员" }
+  },
+  "steps": [
+    { "id": "start", "as": "alice", "command": "start", "args": { "key": "notice" } },
+    { "as": "boss", "command": "todo", "expect": { "total": 1, "rows": [{ "readAt": null }] } },
+    { "as": "alice", "command": "readWorkItem", "args": { "workItem": "$start.workItems[0]" }, "expect": { "read": false } },
+    { "as": "boss", "command": "readWorkItem", "args": { "workItem": "$start.workItems[0]" }, "expect": { "read": true } },
+    { "as": "boss", "command": "readWorkItem", "args": { "workItem": "$start.workItems[0]" }, "expect": { "read": false } },
+    { "as": "boss", "command": "todo", "expect": { "rows": [{ "readAt": "2026-10-27T08:00:00Z" }] } },
+    { "as": "admin", "command": "reassign", "args": { "workItem": "$start.workItems[0]", "user": 1003 } },
+    { "as": "carol", "command": "todo", "expect": { "total": 1, "rows": [{ "assigneeId": "1003", "readAt": null }] } }
+  ]
+}

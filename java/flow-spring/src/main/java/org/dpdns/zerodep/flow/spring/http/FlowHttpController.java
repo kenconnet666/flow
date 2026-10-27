@@ -432,6 +432,12 @@ public class FlowHttpController {
         return command("commands/cc", () -> ResponseBody.of(engine.cc(RequestBody.parse(body).cc())));
     }
 
+    /** 打开了自己的待办：{@code { workItemId }}，返回 {@code { read: 是否标了 }} */
+    @PostMapping("/commands/read-work-item")
+    public Map<String, Object> readWorkItem(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {
+        return command("commands/read-work-item", () -> Map.of("read", engine.readWorkItem(RequestBody.parse(body).readWorkItem())));
+    }
+
     /** 读了抄送：{@code { instanceId }}，返回 {@code { read: 标了几条 }} */
     @PostMapping("/commands/read-cc")
     public Map<String, Object> readCc(@org.springframework.web.bind.annotation.RequestBody(required = false) String body) {

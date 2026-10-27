@@ -94,6 +94,8 @@ export interface WorkItem {
   readonly addMode: 'delegate' | 'before' | 'after' | 'parallel' | null;
   readonly createdAt: Moment;
   readonly claimedAt: Moment | null;
+  /** 处理人第一次打开的时间；没打开过时为 null（列表里标"新"），换了处理人时清掉 */
+  readonly readAt: Moment | null;
   readonly dueAt: Moment | null;
   /** 处理结果 */
   readonly outcome: string | null;

@@ -67,6 +67,14 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
   let failure = _state<string | null>(null);
   let saved = _state<string | null>(null);
 
+  // 落到人身上、还没读过的待办：打开了就标已读（是不是我的由后端判，别人打开不算）
+  watch(
+    () => view.data?.workItem,
+    (item) => {
+      if (item && item.state === 'open' && item.assigneeId != null && item.readAt == null) void flow.readWorkItem(item.id).catch(() => {});
+    },
+  );
+
   // 打开时接着暂存过的意见写
   watch(
     () => view.data?.draft,

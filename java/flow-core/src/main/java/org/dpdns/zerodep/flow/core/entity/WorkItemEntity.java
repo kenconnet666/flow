@@ -76,6 +76,8 @@ public class WorkItemEntity implements ProxyEntityAvailable<WorkItemEntity, Work
     private String addMode;
     private Instant createdAt;
     private Instant claimedAt;
+    /** 处理人第一次打开的时间（列表里标"新"）；换了处理人时清掉 */
+    private Instant readAt;
     private Instant dueAt;
     private Integer remindCount;
     private Instant lastRemindedAt;

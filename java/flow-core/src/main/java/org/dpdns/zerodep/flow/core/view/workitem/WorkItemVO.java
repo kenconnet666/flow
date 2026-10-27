@@ -50,6 +50,8 @@ public class WorkItemVO {
     private String addMode;
     private Instant createdAt;
     private Instant claimedAt;
+    /** 处理人第一次打开的时间；没打开过时为 null（列表里标"新"） */
+    private Instant readAt;
     private Instant dueAt;
     private String outcome;
     private String comment;

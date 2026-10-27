@@ -12,6 +12,7 @@ import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
+import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
@@ -198,6 +199,9 @@ class RequestBody {
 
     /** {@code { instanceId }} */
     ReadCcCommand readCc() { return new ReadCcCommand(id("instanceId")); }
+
+    /** {@code { workItemId }} */
+    ReadWorkItemCommand readWorkItem() { return new ReadWorkItemCommand(id("workItemId")); }
 
     /** {@code { key, name, category, manifest, clientSource, clientCompiled, compilerVersion, serverLanguage, serverSource, note }}；manifest 是对象 */
     FormPublication formPublication() {

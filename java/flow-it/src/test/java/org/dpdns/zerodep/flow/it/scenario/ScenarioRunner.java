@@ -15,6 +15,7 @@ import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
+import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
@@ -169,6 +170,7 @@ class ScenarioRunner {
                 case "skipJob" -> commandResult(engine.skipJob(actor, new SkipJobCommand(args.id("job"), args.text("outcome"), args.text("reason"))));
                 case "cc" -> commandResult(engine.cc(actor, new CcCommand(args.id("instance"), args.ids("users"), args.text("message"))));
                 case "readCc" -> Map.of("read", engine.readCc(actor, new ReadCcCommand(args.id("instance"))));
+                case "readWorkItem" -> Map.of("read", engine.readWorkItem(actor, new ReadWorkItemCommand(args.id("workItem"))));
                 case "ccList" -> page(engine.ccList(actor, args.filter(), args.number("page", 1), args.number("size", 20)));
                 case "terminate" -> commandResult(engine.terminate(actor, new TerminateCommand(args.id("instance"), args.text("reason"))));
                 case "suspend" -> commandResult(engine.suspend(actor, new SuspendCommand(args.id("instance"), args.text("reason"))));

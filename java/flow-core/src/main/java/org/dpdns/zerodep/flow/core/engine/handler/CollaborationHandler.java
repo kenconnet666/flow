@@ -8,6 +8,7 @@ import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.DelegateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
+import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
 import org.dpdns.zerodep.flow.core.command.RemoveSignersCommand;
@@ -253,6 +254,15 @@ public class CollaborationHandler {
             .executeRows();
     }
 
+    /** 打开了自己的待办：第一次打开时记下时间（列表里不再标"新"），返回是否标了；不是我的、已经读过的不动 */
+    public boolean readWorkItem(Actor actor, ReadWorkItemCommand command) {
+        Instant now = context.getClock().instant();
+        return context.getDb().updatable(WorkItemEntity.class)
+            .setColumns(w -> w.readAt().set(now))
+            .where(w -> { w.id().eq(command.getWorkItemId()); w.assigneeId().eq(actor.getId()); w.readAt().isNull(); })
+            .executeRows() == 1;
+    }
+
     // ───────── 共用的步骤 ─────────
 
     /** 对自己的一个待办做一件事 */
@@ -306,6 +316,7 @@ public class CollaborationHandler {
                 w.assigneeId().set((Long) null);
                 w.assigneeName().set((String) null);
                 w.claimedAt().set((Instant) null);
+                w.readAt().set((Instant) null);
                 w.assignment().set(WorkItemEntity.POOL);
                 w.rev().increment();
             })

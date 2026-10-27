@@ -196,6 +196,8 @@ export interface FlowClient {
   signal(command: SignalCommand): Promise<{ readonly results: readonly CommandResult[] }>;
   /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
   readCc(instanceId: Id): Promise<{ readonly read: number }>;
+  /** 打开了自己的待办：第一次打开时记下时间（列表里不再标"新"）；不是自己的、读过的不动 */
+  readWorkItem(workItemId: Id): Promise<{ readonly read: boolean }>;
   /** 终止（管理员） */
   terminate(command: InstanceCommand): Promise<CommandResult>;
   /** 暂停（管理员） */
@@ -295,6 +297,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
     assign: (workItemId, userId) => post('/commands/assign', { workItemId, userId }),
     signal: (command) => post('/commands/signal', command),
     readCc: (instanceId) => post('/commands/read-cc', { instanceId }),
+    readWorkItem: (workItemId) => post('/commands/read-work-item', { workItemId }),
     terminate: (command) => post('/admin/terminate', command),
     suspend: (command) => post('/admin/suspend', command),
     resume: (instanceId) => post('/admin/resume', { instanceId }),

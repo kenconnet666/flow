@@ -49,6 +49,7 @@
 | `comment` | `instance`、`text` | 同 `start` |
 | `cc` | `instance`、`users`、`message` | 同 `start` |
 | `readCc` | `instance` | `read`（标了几条） |
+| `readWorkItem` | `workItem` | `read`（是否标了：只有处理人第一次打开时为 true） |
 | `ccList` | `page`、`size` | `total`、`rows`（每行是抄送本身，加上经导航读出的 `instance`） |
 | `terminate`、`suspend` | `instance`、`reason` | 同 `start` |
 | `resume` | `instance` | 同 `start` |

@@ -23,6 +23,8 @@ export interface FlowMessages {
   readonly startedAt: string;
   /** 在收件箱里等认领 */
   readonly pool: string;
+  /** 落到我身上、还没打开过的待办 */
+  readonly newItem: string;
   /** 过了截止时间 */
   readonly overdue: string;
   /** 打开一个待办的按钮 */
@@ -571,6 +573,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     startedBy: '发起人',
     startedAt: '发起时间',
     pool: '待认领',
+    newItem: '新',
     overdue: '已超时',
     open: '办理',
     claim: '认领',
@@ -815,6 +818,7 @@ export const flowMessages: MessageTable<FlowMessages> = {
     startedBy: 'Started by',
     startedAt: 'Started at',
     pool: 'Unclaimed',
+    newItem: 'New',
     overdue: 'Overdue',
     open: 'Open',
     claim: 'Claim',

@@ -17,6 +17,7 @@ import org.dpdns.zerodep.flow.core.command.FormPublication;
 import org.dpdns.zerodep.flow.core.command.JumpCommand;
 import org.dpdns.zerodep.flow.core.command.MigrateCommand;
 import org.dpdns.zerodep.flow.core.command.ReadCcCommand;
+import org.dpdns.zerodep.flow.core.command.ReadWorkItemCommand;
 import org.dpdns.zerodep.flow.core.command.ReassignCommand;
 import org.dpdns.zerodep.flow.core.command.ReleaseCommand;
 import org.dpdns.zerodep.flow.core.command.RemindCommand;
@@ -607,6 +608,14 @@ public class FlowEngine<U extends Actor> {
     /** 读了抄送：一个实例抄送给我的都标成已读，返回标了几条 */
     public int readCc(U actor, ReadCcCommand command) {
         return execute(actor, "readCc", String.valueOf(command.getInstanceId()), command, collaboration::readCc);
+    }
+
+    /** 打开了自己的待办（当前操作人） */
+    public boolean readWorkItem(ReadWorkItemCommand command) { return readWorkItem(actors.current(), command); }
+
+    /** 打开了自己的待办：第一次打开时记下时间，返回是否标了 */
+    public boolean readWorkItem(U actor, ReadWorkItemCommand command) {
+        return execute(actor, "readWorkItem", String.valueOf(command.getWorkItemId()), command, collaboration::readWorkItem);
     }
 
     /** 终止（管理员）（当前操作人） */
