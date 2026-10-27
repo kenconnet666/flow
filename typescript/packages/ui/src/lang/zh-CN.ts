@@ -215,6 +215,7 @@ export const zhCN: FlowMessages = {
   completed: '已处理',
   notOpen: '这个待办已经处理过或已取消',
   viewOnly: '你不是这个待办的处理人，只能查看',
+  suspendedItem: '这个流程被管理员暂停了，恢复后才能处理',
   confirmTitle: (outcome) => `确定“${outcome}”吗？`,
   confirm: '确定',
   cancel: '取消',

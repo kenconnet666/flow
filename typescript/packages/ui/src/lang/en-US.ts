@@ -152,6 +152,7 @@ export const enUS: FlowMessages = {
   completed: 'Completed',
   notOpen: 'This task has already been completed or canceled',
   viewOnly: 'You are not working on this task; it is read-only',
+  suspendedItem: 'An administrator suspended this process; it can be handled once resumed',
   confirmTitle: (outcome) => `${outcome}?`,
   confirm: 'OK',
   cancel: 'Cancel',

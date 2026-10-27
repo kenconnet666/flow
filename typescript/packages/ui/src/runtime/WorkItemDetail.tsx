@@ -178,7 +178,8 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
         {workItem.state === 'waiting' && <Alert tone="info">{messages.waiting}</Alert>}
         {!open && workItem.state !== 'waiting' && <Alert tone="info">{messages.notOpen}</Alert>}
         {open && data.actions.assign && <Alert tone="warning">{messages.awaitingDesignation}</Alert>}
-        {open && !data.completable && !data.actions.assign && <Alert tone="info">{messages.viewOnly}</Alert>}
+        {open && instance.status === 'suspended' && <Alert tone="warning">{messages.suspendedItem}</Alert>}
+        {open && instance.status !== 'suspended' && !data.completable && !data.actions.assign && <Alert tone="info">{messages.viewOnly}</Alert>}
         <Card
           header={instance.title ?? instance.processKey}
           extra={<InstanceStatus status={instance.status} result={instance.result} />}

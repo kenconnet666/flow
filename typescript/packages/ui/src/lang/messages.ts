@@ -49,6 +49,8 @@ export interface FlowMessages {
   readonly notOpen: string;
   /** 我不是处理人也不是候选：只能看 */
   readonly viewOnly: string;
+  /** 实例暂停着：待办还在，等管理员恢复才能处理 */
+  readonly suspendedItem: string;
   /** 确认对话框 */
   readonly confirmTitle: (outcome: string) => string;
   readonly confirm: string;

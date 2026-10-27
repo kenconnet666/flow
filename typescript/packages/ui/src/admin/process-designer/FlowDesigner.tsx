@@ -45,6 +45,7 @@ import {
   Splitter,
   Text,
   Toolbar,
+  useMediaQuery,
   useRequest,
   type IconData,
   type PeopleSource,
@@ -113,6 +114,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
   const messages = useDesignerMessages();
   const flowMessages = useFlowMessages();
   const controller = useDiagram();
+  const narrow = useMediaQuery('(max-width: 48rem)');
   let selection = _state<DiagramSelection>(EMPTY);
 
   // 撤销重做：定义按不可变的方式换，每一步记引用就够了
@@ -282,8 +284,8 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
   /** 能加的节点：内置的，加上注册了的自定义节点 */
   const addable = (): NewNodeType[] => [...PALETTE, ...(catalog.data?.nodes ?? []).map((n) => n.name as `x-${string}`)];
 
-  const palette = () => (
-    <Flex direction="column" gap="xs" role="group" aria-label={messages.palette}>
+  const palette = (row: boolean) => (
+    <Flex direction={row ? 'row' : 'column'} wrap={row} gap="xs" role="group" aria-label={messages.palette}>
       {addable().map((type) => (
         <Button
           key={type}
@@ -460,21 +462,31 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
         />
         <IconButton icon={LayoutGrid} variant="ghost" aria-label={messages.autoLayout} onClick={() => (apply(autoLayout(definition), messages.autoLayout), controller.fit())} />
       </Toolbar>
-      <Splitter
-        _size={70}
-        start={
-          <Flex gap="sm" align="start">
-            {palette()}
-            <div style={{ flex: '1 1 0', minWidth: 0 }}>{canvas()}</div>
-          </Flex>
-        }
-        end={
-          <Flex direction="column" gap="sm" style={{ paddingInlineStart: '0.5rem' }}>
-            {panel()}
-            {problemList()}
-          </Flex>
-        }
-      />
+      {narrow.value ? (
+        // 窄屏（手机、窄窗口）：节点面板排成一行在上，画布占满宽，属性面板在下面
+        <Flex direction="column" gap="sm">
+          {palette(true)}
+          {canvas()}
+          {panel()}
+          {problemList()}
+        </Flex>
+      ) : (
+        <Splitter
+          _size={70}
+          start={
+            <Flex gap="sm" align="start">
+              {palette(false)}
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>{canvas()}</div>
+            </Flex>
+          }
+          end={
+            <Flex direction="column" gap="sm" style={{ paddingInlineStart: '0.5rem' }}>
+              {panel()}
+              {problemList()}
+            </Flex>
+          }
+        />
+      )}
     </Flex>
   );
 });

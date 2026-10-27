@@ -66,6 +66,7 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
   function openReassign(item: WorkItem) {
     reassigning = item;
     reassignTo = [];
+    reason = '';
     reassignOpen = true;
   }
 
@@ -96,7 +97,7 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
   const jump = () => (jumpNode ? onRun('jump', () => flow.jump({ instanceId: instanceId(), node: jumpNode!, ...note() })) : false);
   const reassign = () =>
     reassigning && reassignTo[0]
-      ? onRun('reassign', () => flow.reassign({ workItemId: reassigning!.id, userId: BigInt(reassignTo[0]!.id) }))
+      ? onRun('reassign', () => flow.reassign({ workItemId: reassigning!.id, userId: BigInt(reassignTo[0]!.id), ...note() }))
       : false;
 
   return () => {
@@ -213,9 +214,14 @@ export const InstanceAdminActions = _component(({ detail, people, busy = null, o
             onConfirm={reassign}
             propsConfirm={{ disabled: reassignTo.length === 0 }}
           >
-            <Field label={messages.reassignTo} required>
-              <PeoplePicker source={people} _value={reassignTo} max={1} recentKey="flow-collaboration" />
-            </Field>
+            <Flex direction="column" gap="md">
+              <Field label={messages.reassignTo} required>
+                <PeoplePicker source={people} _value={reassignTo} max={1} recentKey="flow-collaboration" />
+              </Field>
+              <Field label={messages.reason}>
+                <Textarea _value={reason} rows={2} />
+              </Field>
+            </Flex>
           </Dialog>
         )}
       </Flex>
