@@ -152,6 +152,22 @@ describe('设计器的编辑', () => {
       expect(validateProcess(result).filter((p) => p.code === 'edge.overlap')).toEqual([]);
     });
 
+    it('并行：第二支顺着第一支找到汇合处（这里是结束）连回去；汇合的网关后面接在线中间；重名的加序号', () => {
+      const { definition, task } = chain();
+      const split = addAfter(definition, 'start', 'parallel', TEXTS, 40);
+      const second = addAfter(split.definition, split.id, 'task', TEXTS, 40);
+      expect(pairs(second.definition)).toContain(`${second.id}>end`);
+      const join = addAfter(second.definition, task, 'parallel', TEXTS, 40);
+      const names = join.definition.nodes.map((n) => n.name);
+      expect(new Set(names).size).toBe(names.length);
+      // 第二支改连到汇合，汇合后面再加一个：插进"汇合 → 结束"中间
+      const rewired = { ...join.definition, edges: join.definition.edges.map((e) => (e.from === second.id ? { ...e, to: join.id } : e)) };
+      const after = addAfter(rewired, join.id, 'task', TEXTS, 40);
+      expect(pairs(after.definition)).toContain(`${join.id}>${after.id}`);
+      expect(pairs(after.definition)).toContain(`${after.id}>end`);
+      expect(pairs(after.definition)).not.toContain(`${join.id}>end`);
+    });
+
     it('结束节点不往后接', () => {
       const { definition } = chain();
       const added = addAfter(definition, 'end', 'task', TEXTS, 40);
