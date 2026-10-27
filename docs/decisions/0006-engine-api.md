@@ -1,5 +1,7 @@
 # 0006 引擎对外的接口
 
+> 2026-10-27 改定（用户）：存储不再是可替换的接口——引擎直接用接入方给的 easy-query（`EasyEntityQuery`），第 6 节"存储"一行作废；只有 Java 一个后端；接口返回普通对象、typed JSON 由接入方集成 json-wire；待办行、抄送行是对象树（`{ ...待办, instance, outcomeLabel }`）。
+
 - 状态：已定（用户 2026-10-26；主键同日改为数据库自增，见 6.1）
 - 相关：方向见 [0001](0001-engine-direction.md)（第 5 条扩展点在这里展开），能力见 [0002](0002-capabilities.md)，定义见 [0005](0005-definition.md)，表单见 [0004](0004-forms.md)
 - 起点：vue-tsx-pro 提交 `f7bfdc2e` 的 `packages/ui/src/workflow/runtime.ts`（实例、待办、流转记录的类型）

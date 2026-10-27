@@ -47,7 +47,7 @@ public abstract class JsonFields {
         return Values.isBlank(value) ? List.of() : List.of(Values.toText(value));
     }
 
-    /** 全部字段，只读；交给模型包的规则与存储用 */
+    /** 全部字段，只读；交给模型包的规则、写库用 */
     public Map<String, Object> asMap() { return fields; }
 
     /** 没有字段 */

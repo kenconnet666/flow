@@ -5,56 +5,64 @@
 
 ## 1. 现状（2026-10-27）
 
-- **一句话**：按 0004 "已定"的顺序，② 模型包、③ Java 引擎与 Spring、④ Node 引擎与 Nuxt（Nitro）、⑤ 流程设计器都已完成并在浏览器里走通；
-  下一步是 ⑥ 表单设计器（见第 6 节末尾）。两个后端读写同一套表，接口相同，示例前端接哪个都行。
-- **本机预览**（`.claude/launch.json`）：示例前端 `flow-demo`（5180）；后端二选一占 8080——`flow-example-backend`（Spring Boot）或 `flow-node-backend`（Nitro），
-  都连 query 开发 MySQL 里的 flow_demo 库。管理端"流程管理"里新建、编辑流程就是设计器。
+- **一句话**：② 模型包、③ Java 引擎与 Spring、⑤ 流程设计器已完成并在浏览器里走通。2026-10-27 用户定的重做已完成：
+  **持久层从 query 换成 easy-query**（实体 + VO，导航与对象树映射）、**Node 后端删掉**（只留 Java）、**表单的值是强类型**（json-wire 自动还原），
+  wire 迁成独立仓库 json-wire。下一步是 ⑥ 表单设计器（见第 6 节末尾）。
+- **本机预览**（`.claude/launch.json`）：示例前端 `flow-demo`（5180）、后端 `flow-example-backend`（Spring Boot，8080），连 query 开发 MySQL（WSL）里的
+  flow_demo 库；空库先在 `typescript/apps/demo` 下 `pnpm seed` 发布示例的表单与流程。管理端"流程管理"里新建、编辑流程就是设计器。
 - **代码**（细节按步骤记在第 6 节的表里）：
-  - 目录按 0001 的"模块划分"：根 `pom.xml` 聚合 `java/flow-model`；`typescript/` 是 pnpm 工作区（`packages/model`、`core`（Node 引擎）、`nuxt`（h3 接口与作业轮询）、`ui`（前端组件与设计器），`apps/demo`（示例前端）、`apps/demo-server`（Nitro 示例后端），`test`）；`spec/` 放两边共用的样例。
-  - 模型包已有：条件求值（`spec/conditions`）、定义的类型与校验（`spec/definitions`，0005 第 7 节的全部问题代号）、选边与连线副作用（`spec/routing`）、
-    字段清单自身的校验（`spec/manifests`）、提交值的类型校验（`spec/values`）、两个版本的差别（`spec/diff`）、
-    字段权限的合算与提交的合并（`spec/access`）。Java 在 `org.dpdns.zerodep.flow.model.*`，TS 是 `@zerodep-dev/flow-model`。
-  - 本地跑：`./mvnw -q test`（Java）；`cd typescript && pnpm install && pnpm test`（TS）。新加一份共用样例只加 JSON 文件，两边的测试都会跑到。
-  - 模型包的内容已齐（2026-10-26），含业务错误码（0008，`spec/error-codes.json`）。
-  - Java 引擎 `java/flow-core`（2026-10-26，③a）：包按职责分——
-    `FlowEngine`（门面与组装）、`identity`（操作人、组织、权限）、`command`（每个命令一个 record）、`data`（表单值、流程变量、运行状态）、
-    `engine`（每个命令一个处理类，步骤写在类注释里；推进在 `Execution`）、`store`（六个存储接口）、
-    `store/query`（用 query 的默认实现：列上的转换器把行直接映射成引擎的记录，租户与修改时间由 `FlowDatabase` 统一填）。主键是数据库自增的 `Long`。
-    建表不用 query 的迁移器：`flow-core` 的 `resources/db/flow/mysql/V1__create_flow_tables.sql`，推荐 Flyway 单独一套执行（0007 第 9 节）。
-  - 场景用例 `spec/scenarios`（③b）：两个后端共同的验收标准，格式见那里的 README；Java 的执行器在 `flow-it` 的 `scenario` 包。
-  - Spring Boot 适配 `java/flow-spring`（③c）：自动配置（`flow.*` 配置项见 `FlowProperties`）、当前操作人默认取 Spring Security 的 principal、
-    `flow.flyway.enabled` 启动时建表、`flow.http.enabled` 打开接口（清单在 0006 的 7.3）。按 Spring Boot 3.5 编译，只用 3.5 与 4.x 共有的写法。
-    示例项目 `examples/spring-boot`（在构建里，CI 会编译它）。
-  - 实库测试 `java/flow-it`：本机连 query 的开发 MySQL（WSL）里的 `flow_it` 库，变量 `FLOW_MYSQL_URL` / `_USER` / `_PASSWORD`
+  - 目录：根 `pom.xml` 聚合 `java/flow-model`、`flow-core`、`flow-spring`、`flow-it` 与 `examples/spring-boot`；`typescript/` 是 pnpm 工作区
+    （`packages/model`（模型包）、`packages/ui`（前端组件与设计器）、`apps/demo`（示例前端）、`test`（模型包的单测））；`spec/` 放共用样例。
+  - 模型包：条件求值（`spec/conditions`）、定义的类型与校验（`spec/definitions`）、选边与连线副作用（`spec/routing`）、字段清单自身的校验（`spec/manifests`）、
+    提交值的类型校验（`spec/values`）、两个版本的差别（`spec/diff`）、字段权限的合算与提交的合并（`spec/access`）、业务错误码（0008）。
+    Java 在 `org.dpdns.zerodep.flow.model.*`，TS 是 `@zerodep-dev/flow-model`（依赖 `@zerodep-dev/json-wire`）。新加一份共用样例只加 JSON 文件，两边的测试都会跑到。
+  - **值的约定**：线上、库里的 JSON 列、共用样例都是 typed JSON（json-wire）：编号是 bigint（Long / bigint）、decimal 是 BigDecimal / Decimal、
+    date 是 LocalDate / CalendarDate、datetime 与各处的时刻是 Instant / ZonedDateTime，number 是 JavaScript 的数；读进来先按 `$types` 还原，
+    模型包按类型校验。清单、定义里人写的值（default、min、max、调用流程的 input）按字段类型读成强类型（`FormManifest.typed`、`typedValue`）。
+  - Java 引擎 `java/flow-core`：`FlowEngine`（门面与组装）、`identity`、`command`、`data`、`engine`（每个命令一个处理类，步骤写在类注释里；推进在 `Execution`，
+    几处共用的读写在 `Instances`、`WorkItems`）、`entity`（表：easy-query 的实体，Lombok + `@EntityProxy`，导航写在实体上）、
+    `view`（给前端的形状：`select(XxxVO.class)` 读出的 VO、`selectAutoInclude` 映射的对象树 `TodoItem`、`CcItem`，以及拼起来的视图 record）、
+    `db`（接入方的 easy-query 上要装的：JSON 列的转换器、Instant 按 UTC、租户与修改时间的拦截器）。写库用实体，读给前端用 VO。
+    建表仍是 `flow-core` 的 `resources/db/flow/mysql/V*.sql`，推荐 Flyway 单独一套执行（0007 第 9 节）；表名、列名按 easy-query 默认的下划线命名。
+  - 场景用例 `spec/scenarios`：引擎的验收标准，格式见那里的 README（场景文件是 typed JSON）；执行器在 `flow-it` 的 `scenario` 包。
+  - Spring Boot 适配 `java/flow-spring`：引擎用 easy-query starter 建的 `EasyEntityQuery`（应用配 `easy-query.enable=true`、`easy-query.database=mysql`），
+    `flow.*` 配置项见 `FlowProperties`；当前操作人默认取 Spring Security 的 principal；`flow.flyway.enabled` 启动时建表、`flow.http.enabled` 打开接口。
+    接口返回普通对象，**typed JSON 由应用自己集成 json-wire**（示例 `examples/spring-boot` 的 `config/wire/WireResponseAdvice`）。按 Spring Boot 3.5 编译。
+  - 实库测试 `java/flow-it`：连 query 的开发 MySQL（WSL，`localhost:53306`）里的 `flow_it` 库，变量 `FLOW_MYSQL_URL` / `_USER` / `_PASSWORD`
     （用户是 query，密码在 query 的 `infra/mysql/.env`）；没设时跳过。每个测试前用 Flyway 清库再建表。
-  - 现在依赖 query 主干的 2.1.0-SNAPSHOT（要 wire 的 `Json.write`）：本机先在 query 里 `mvnw install`；CI 先检出 query 装好再测。
-  - CI（`.github/workflows/ci.yml`）：Java（含 MySQL 8.4 服务跑实库测试）与 TS 两个任务。用户要把仓库改成开源，之后 CI 才能免费跑起来。
+  - 依赖：easy-query 3.2.17（Maven 中央）；json-wire 0.1.0-SNAPSHOT（本机在 `../json-wire` 里 `mvnw install`，TS 按 `link:` 引用）。
+  - 本地跑：`./mvnw -q install`（Java，含实库测试）；`cd typescript && pnpm install && pnpm test && pnpm typecheck:ui && pnpm test:ui`（TS）。
+  - CI（`.github/workflows/ci.yml`）：Java（先检出并安装 json-wire，含 MySQL 8.4 跑实库测试）与 TS 两个任务。
 - **决定文档**：
   - [0001 引擎的方向](docs/decisions/0001-engine-direction.md)：已定（2026-10-26）。“已定”一节用户确认过（第一版只做 MySQL 8 / PolarDB MySQL 8.0、
-    主键是数据库自增的 BIGINT（Java 的 long，2026-10-26 改定，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、TS 一个包接 Nuxt、前端固定 vue-tsx-pro）；
+    主键是数据库自增的 BIGINT（Java 的 long，2026-10-26 改定，见 0006 的 6.1）、时间按 UTC、流程变量放实例上的 JSON 列、Java 一个 jar 接 Spring、前端固定 vue-tsx-pro；
+    2026-10-27 改定：持久层用 easy-query、Node 后端不做）；
     “初步方向”已定，表由 0007 接替。
   - [0002 能力清单](docs/decisions/0002-capabilities.md)：已定（2026-10-26），每节注明落在哪份文档。
   - [0003 模型包与前端的分工](docs/decisions/0003-model-and-frontend.md)：已采纳，前端取 B（见下）。
   - [0007 表](docs/decisions/0007-tables.md)：已定（2026-10-26）。待办不拆运行与历史、冷数据进归档表；候选只存打开着的待办，角色、部门按查询时的成员匹配；运行状态放实例 JSON；租户列都有；名字存快照；流程与表单都是"本身 + 版本"。
-  - [0006 引擎对外的接口](docs/decisions/0006-engine-api.md)：已定（2026-10-26）。命令管道、操作人泛型 U、命令与查询清单、事件、扩展点与可替换的部分、两个后端的形态与相同的 HTTP 接口、错误代号；主键改为数据库自增（6.1）。
+  - [0006 引擎对外的接口](docs/decisions/0006-engine-api.md)：已定（2026-10-26）。命令管道、操作人泛型 U、命令与查询清单、事件、扩展点与可替换的部分、HTTP 接口、错误代号；主键改为数据库自增（6.1）；
+    2026-10-27 改定：存储不再可替换（引擎直接用 easy-query），列表行是对象树。
   - [0008 业务错误码](docs/decisions/0008-error-codes.md)：已定（2026-10-26）。一律业务错误码、HTTP 一律 200，三个仓库都守；码是带命名空间的文字（`flow.`、`query.`、`http.`），成功是 `ok`，各包提供自己的码并互相对应。
   - [0005 流程定义 JSON](docs/decisions/0005-definition.md)：已定（2026-10-26 逐节定稿）。图加结构校验、布局单独放、`{ ref }` 取 form. / sys. / 流程变量 / fn. 四类；处理人六种来源加"上一步选"；11 种节点；会签"一人拒绝即拒绝"；条件与组件库、query 同规则；问题代号清单；通知按事件可改。
   - [0004 表单](docs/decisions/0004-forms.md)：已定（2026-10-26 逐节定稿）。代码表单（TSX，运行时编译）加拖拽设计器，两边读写同一份源码；
     字段清单是 JSON5 字面量；后端代码在线编辑、存库、启动时加载（Spring Boot 用 Java、Nuxt 用 TS）；节点上四档字段权限；一个流程一张表单，表单的值单独存；
     不做隔离，安全交给接入方的框架；写进业务表用"按业务表生成代码"。剩两项待实测（fat jar 的 classpath、组件根元素接住透传属性）。
-- **思路记录**（不采用，只留档）：[Spring 里嵌 GraalJS、引擎核心只写一份 TS](docs/notes/graaljs-in-spring.md)。用户 2026-10-26 定路线不变：Java（Spring Boot）与 Nuxt 两个后端。
-- **依赖的两个库由用户手动发布**（2026-10-26 查 npm）：
-  - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0（原名 `@vue-tsx-pro/*`），仓库里已推进到 0.2.0-dev；
-  - query（ORM）已发 2.0.0：npm `@zerodep-dev/query-*`、Maven 中央仓库 `org.dpdns.zerodep:*`；query 主干已推进到 2.1.0-SNAPSHOT。
-  - 本仓库按 2.0.0 依赖（根 `pom.xml` 的 `query.version`）；要先改 query 时，在 query 里 `mvnw install` 出 2.1.0-SNAPSHOT，再把 `query.version` 换过去。
+- **思路记录**（不采用，只留档）：[Spring 里嵌 GraalJS、引擎核心只写一份 TS](docs/notes/graaljs-in-spring.md)。2026-10-27 用户定只留 Java（Spring Boot）后端，Node 后端删掉（要时从 git 历史取）。
+- **依赖的库由用户手动发布**：
+  - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0，仓库里已推进到 0.2.0-dev；本仓库按 `link:` 引用源码。
+  - json-wire（typed JSON，2026-10-27 从 query 迁出）：Maven `org.dpdns.zerodep:json-wire`、npm `@zerodep-dev/json-wire`，还没发布，本机安装、`link:` 引用。
+  - easy-query 是 dromara 的开源项目，按 Maven 中央的发布版本依赖（根 `pom.xml` 的 `easy-query.version`）。
 
-## 2. 三个仓库的关系
+## 2. 相关仓库
 
 | 仓库 | 地址 | 本仓库用它做什么 |
 | --- | --- | --- |
-| flow（本仓库，私有） | `kenconnet666/flow` | 引擎（Java + TS 两个后端）、模型包、流程组件（前端）、管理端页面 |
-| query（公开） | `kenconnet666/query` | 持久化。为引擎补好的能力见 query 的 `.claude/HANDOFF.md`“为流程引擎做的准备”：Spring 多数据源的事务管理器、迁移历史表改名 `historyTable("flow_migration")`、PolarDB 方言、通用门面 `Sql.database(...)` / `database(driver)`、条件树 `conditionBy`、表格请求 `db.table`；引擎写法的实库场景在 query 的 `java/query-it/.../workflow/EngineTest` 与 TS `test/src/live/workflow/engine.live.test.ts` |
-| vue-tsx-pro（公开） | `kenconnet666/vue-tsx-pro` | 前端技术栈与通用底座：画布 `@zerodep-dev/vue-tsx-pro-ui/diagram`（节点、连线、泳道、撤销重做、小地图、导出）、条件构造器 `ConditionBuilder`（条件树与 query 的 `conditionBy` 同形）、人员与组织选择器 `PeoplePicker`、FilterBar 的高级筛选、`QueryTable` + `useTableQuery`（与 query 的 `db.table` 对接） |
+| flow（本仓库，私有） | `kenconnet666/flow` | 引擎（Java，Spring Boot）、模型包（Java + TS）、流程组件（前端）、管理端页面 |
+| easy-query（开源，dromara） | `dromara/easy-query`（本机 `IdeaProjectseasy-query`） | 持久化：实体、导航、隐式 join、`selectAutoInclude` 对象树、拦截器、Spring Boot starter；读源码查用法比查文档快 |
+| json-wire（公开） | `kenconnet666/json-wire` | 强类型 JSON 的传输：`Wire.encode` / `decode`、`toJson` / `fromJson`，TS 的 `toWire` / `fromWire`；`WireCodec` 注册自定义值类型。职责只是传输，不放别的 JSON 工具 |
+| query（公开） | `kenconnet666/query` | 原来的持久层（2026-10-27 起不再用）；开发用的 MySQL / PostgreSQL 在它的 `infra/*/compose.yaml` |
+| vue-tsx-pro（公开） | `kenconnet666/vue-tsx-pro` | 前端技术栈与通用底座：画布 `@zerodep-dev/vue-tsx-pro-ui/diagram`、条件构造器 `ConditionBuilder`、人员与组织选择器 `PeoplePicker`、`QueryTable` + `useTableQuery`；请求层自带一份 typed JSON 的还原（`createHttpClient({ wire: { decimal: Decimal, dates: 'objects' } })`） |
 
 **0003 的 B**：流程组件（流程图、设计器、审批面板、收件箱）在本仓库按模型包重做，界面风格与 vue-tsx-pro 新的画布示例一致
 （虚线泳道、点阵、`DiagramNode`）；vue-tsx-pro 的 `/workflow` 子路径（FlowDiagram、FlowDesigner、ApprovalActions、流程定义与校验）2026-10-26 已删除，
@@ -62,7 +70,7 @@
 组件库暂时缺的能力，本仓库像 vue-tsx-pro 的文档站那样用 `@zerodep-dev/vue-tsx-pro-tsx` 的 Vite 预设直接编译自己的 TSX 补上，不必等组件库发版。
 模型包定稿时把流程定义条件里的 `var` 对齐成 `field`（与组件库的 `Condition` 同形）。
 
-改契约（定义 JSON、运行时类型、条件树、表格请求）要三个仓库一起看：前端组件在 vue-tsx-pro，两个后端与模型包在本仓库，SQL 写法在 query。
+改契约（定义 JSON、运行时类型、条件树、表格请求、typed JSON）要几个仓库一起看：前端组件在 vue-tsx-pro，后端与模型包在本仓库，线上格式在 json-wire。
 
 ## 3. 待讨论（开工前与用户定）
 
@@ -94,6 +102,7 @@
 - **先讨论再动手**：设计、表结构、接口先写进 `docs/decisions/` 和用户讨论，确认后才写代码；用户确认的项在文档里标“已定 / 已采纳”。
 - **标准行为都能替换**（2026-10-26，所有设计都守这一条）：用泛型、接口或其他方式留出替换口，接入方不满意任何标准行为，都能换成自己的实现。
   每设计一块就列出它的标准行为，逐个确认能被替换；决定文档里单列"可替换的部分"。Java 用接口加 Spring 的默认实现（`@ConditionalOnMissingBean`），TS 用选项传实现。
+  例外（2026-10-27 用户定）：存储不再做成可替换的接口，引擎直接用 easy-query；替换口留在业务层（组织、解析器、守卫、动作、拦截器、监听）与 easy-query 自己的扩展点。
 - **宽松，交给接入方**：安全、权限、页面与接口的保护由接入方自己的框架负责，引擎默认放行、只给扩展点与文档提示（0004 第 6 节）。
 - **标准组织模型**（2026-10-26）：用户、部门（部门下面有人）、角色，加接入方自己的权限、菜单、按钮级权限；"岗位"不是标准名词，要用时绑定到角色，或由接入方扩展一种类型（0005 的 3.2"扩展的种类"）。
 - **不派子代理**：没有用户明确指示时不用 Agent / fork / Workflow，调研、读代码自己做。
@@ -113,7 +122,7 @@
 
 | 东西 | 原电脑上的位置 | 新电脑上怎么办 |
 | --- | --- | --- |
-| 三个仓库 | `IdeaProjects\flow`、`query`、`vue-tsx-pro` | `git clone https://github.com/kenconnet666/<名字>` 放在同一目录 |
+| 仓库 | `IdeaProjects\flow`、`json-wire`、`vue-tsx-pro`、`query`（开发数据库的 compose 在它里面）；可选 `easy-query`（dromara，读源码用） | `git clone https://github.com/kenconnet666/<名字>` 放在同一目录；json-wire 先 `mvnw install`，TS 侧 `pnpm install && pnpm build` |
 | 参考仓库（只读） | `IdeaProjects\flow-references\`（warm-flow、flowlong、flowlong-designer） | 需要时重新浅克隆；不影响构建 |
 | Claude 项目记忆 | `C:\Users\lionheart\.claude\projects\C--Users-lionheart-IdeaProjects-<仓库>\memory\` | 含真实业务项目的需求要点与资料位置（所以不进仓库）。按需手动拷到新电脑对应目录（目录名随用户名与路径变）；没有它也能继续，长期要求已抄在各仓库的交接文档里 |
 | 开发数据库 | WSL Debian 里的 Docker（query 的 `infra/*/compose.yaml`），密码在各目录已忽略的 `.env` | 见 query 的交接文档“换电脑后的准备”；WSL 空闲会关机，跑实库测试前挂一个 `wsl -d Debian -- sleep 14400` |
@@ -124,7 +133,7 @@
 
 主线是流程引擎（用户 2026-10-26）：query 与组件库只在引擎用到时补，不单独开新活。顺序按 0004 "已定"里的"顺序"一行，② 已完成。
 
-第 ③ 步最小链路的拆分（2026-10-26，用户让先做下去）：
+第 ③ 步最小链路的拆分（2026-10-26，用户让先做下去）。下表是当时的记录：其中的 `XxxStore`、`FlowDatabase`、query、Node 引擎（④）在 2026-10-27 的重做里已换掉或删掉，见表末的"重做"一行。
 
 | 步 | 做什么 | 顺带的基础设施 |
 | --- | --- | --- |
@@ -156,6 +165,7 @@
 | ④b（已完成，2026-10-27） | TS 引擎补齐：作业（`JobRunner` 抢占、按租户做、重试与失败；内置 timer、overdue、remind、unclaimed、action、receiveTimeout，`onFailure: error` 暂停）、协作命令（转办、委派、加签减签、退回收件箱、催办、留言、抄送与已读、指定承办人）、管理员命令（终止、暂停恢复、跳转、改派、重试与跳过失败的作业）、外部事件（`flow_wait`、signal）、调用流程（同步异步、forEach、子实例结束回到父实例、连带终止）、异常与表单管理的查询、幂等（`idempotent`、`purgeRequests`）；引擎自己推进时的操作人 `SYSTEM_ACTOR` | 场景 29 个全部通过（同 Java） |
 | ⑤（已完成，2026-10-27） | 流程设计器 `FlowDesigner`（flow-ui/admin/designer）：建在组件库的 Diagram 上，左边节点面板（点一下加在选中节点后面并连上，或拖到画布上），画布上拖动、从端口连线、改接、Delete 删除、Ctrl+Z / Ctrl+Shift+Z 撤销重做（组件库 createHistory）、自动排版；右边属性面板——流程（标识、名称、表单、实例标题、摘要列、撤回与找不到处理人的规则）、节点（通用加各类型的常用设置：处理人用 PeoplePicker 选人角色部门、会签、处理结果、时限、允许的操作、表单字段权限；自动、定时、等事件、抄送、子流程、结束）、连线（结果、条件用 ConditionBuilder 取表单字段与流程变量、默认出边、退回提级、文字），节点面板里"连到……"是不用拖的连线做法；下面实时列出模型包校验出的问题，点一条选中出问题的地方。编辑操作是纯函数（editing.ts，单测），位置写进定义的 layout。`FlowDefinitionEditor` 分"设计 / JSON"两个页签，互相转换；模型包的处理人来源可带 `name`（名字快照，0005 的 3.2）| flow-ui 单测 26（编辑操作 9 个）；浏览器里用设计器从骨架画出"报销"（删线、加条件分支与财务审批、选财务角色、金额 ≥ 5000 的条件、默认出边），后端校验通过、发布，两个金额分别走两条路结束，实例流程图按设计器的布局显示 |
 | ④c（已完成，2026-10-27） | `@zerodep-dev/flow-nuxt`（typescript/packages/nuxt）：`createFlowHandler({ engine, actor, prefix })` 是 h3 的处理函数，路径、参数、响应体同 Spring 的 `FlowHttpController`（请求体的读法同 `RequestBody`，带 `Idempotency-Key` 的命令幂等）；`startFlowJobs(engine, { intervalMs, retentionSeconds })` 同 `FlowJobPoller`。flow-core 加 `migrateFlowSchema(driver)`（query 的迁移器，历史表 `flow_migration`）与 `MYSQL_SCRIPTS`：建表脚本由 `packages/core/scripts/sync-sql.mjs` 从 Java 的 resources 生成进源码，单测比对两边。Nitro 示例后端 `typescript/apps/demo-server`（同 examples/spring-boot，本机 `.claude/run-node-backend.sh`）。顺带修 Java：外部事件的结果改成与命令同形（原先是 `created`，前端读 `workItems`），发布定义、表单返回的编号也走 typed JSON | TS 实库 32 个（场景 29 + HTTP 3）、单测 122、Java 154 全部通过；浏览器里示例前端接 Node 后端走完一单采购（发起、财务认领通过、总经理同意），异常处理重试（Node 的轮询重做、再失败）与跳过，流程与表单管理页；Node 后端读写 Java 建的 flow_demo，同一个实例的流转记录里两边的步骤接得上；`nitro build` 的产物对空库建表 7 个版本 |
+| 重做（已完成，2026-10-27） | 用户定：① 删掉 Node 后端（TS 引擎、flow-nuxt、Nitro 示例后端）；② 持久层换成 easy-query——去掉 12 个存储接口，`entity` 包的实体写库、`view` 包的 VO 读给前端，待办行、抄送行用 `selectAutoInclude` 映射成带 `instance` 的对象树，租户与修改时间交给拦截器；③ wire 迁成独立仓库 json-wire，接口的 typed JSON 由接入方集成；④ 表单的值是强类型（json-wire 还原，模型包按类型校验，spec 与场景文件改成 typed JSON），前端时刻是 ZonedDateTime | Java 154（模型 121、实库 33）、TS 120、UI 26 全部通过；浏览器里走过发起（金额 350.25 原样存成 typed JSON）、财务处理、我已办、流程监控；顺带修了自动排版的数字控件把小数对齐成整数的问题 |
 
 ### 无人值守时按推荐定（2026-10-27，待用户过目）
 
