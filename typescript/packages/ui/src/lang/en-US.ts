@@ -266,6 +266,7 @@ export const enUS: FlowMessages = {
   system: 'System',
   addRow: (list) => `Add to ${list}`,
   removeRow: (row) => `Remove row ${row}`,
+  row: (row) => `Row ${row}`,
   doneList: 'Done by me',
   startedList: 'Started by me',
   ccList: 'Copied to me',

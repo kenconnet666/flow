@@ -128,7 +128,7 @@ export const flowFormDesignerMessages: MessageTable<FlowFormDesignerMessages> = 
     options: '选项',
     columns: '列',
     addColumn: '加一列',
-    removeColumn: (label) => `删掉列${label}`,
+    removeColumn: (label) => `删掉"${label}"这一列`,
     newColumnLabel: (n) => `列 ${n}`,
     optionsHint: '一行一个，写成“值=名字”',
     maxPeople: '最多几个',

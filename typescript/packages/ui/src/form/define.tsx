@@ -199,7 +199,8 @@ export function defineFlowForm<const M extends FormManifest>(
       return (
         <FormSection title={field.label} description={field.description}>
           {rows.items.map((_, index) => (
-            <Flex key={rows.keys[index]} gap="md" align="end" wrap>
+            // 每一行一组（"第 1 行"）：几行的"项目""金额"读屏、按名字找时分得清
+            <Flex key={rows.keys[index]} gap="md" align="end" wrap role="group" aria-label={messages.row(index + 1)}>
               {columns.map(([column, definition]) => {
                 const path = `${name}.${index}.${column}`;
                 return (

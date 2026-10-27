@@ -75,8 +75,9 @@ const ColumnRow = _component(({ name, definition, taken, types, onChange, onRemo
   };
   const set = (patch: Partial<FieldDefinition>) => onChange(name, { ...definition, ...patch } as FieldDefinition);
 
+  // 每一列一组、以列的标签为名：几列的"字段名""标签"读屏、按名字找时分得清
   return () => (
-    <Flex gap="sm" align="end" wrap>
+    <Flex gap="sm" align="end" wrap role="group" aria-label={definition.label}>
       <Field label={messages.fieldName} {...(valid() ? {} : { error: messages.fieldNameInvalid })} style={{ width: '7rem' }}>
         <TextField _value={draft} onChange={commit} onKeydown={(e: KeyboardEvent) => e.key === 'Enter' && commit()} />
       </Field>

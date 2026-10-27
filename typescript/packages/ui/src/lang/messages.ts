@@ -185,6 +185,8 @@ export interface FlowMessages {
   readonly addRow: (list: string) => string;
   /** 明细表：删掉第几行 */
   readonly removeRow: (row: number) => string;
+  /** 明细表的第几行 */
+  readonly row: (row: number) => string;
   /** 我已办、我发起的、抄送我的列表的标题 */
   readonly doneList: string;
   readonly startedList: string;

@@ -265,6 +265,7 @@ export const zhCN: FlowMessages = {
   system: '系统',
   addRow: (list) => `添加${list}`,
   removeRow: (row) => `删除第 ${row} 行`,
+  row: (row) => `第 ${row} 行`,
   doneList: '我已办',
   startedList: '我发起的',
   ccList: '抄送我的',
