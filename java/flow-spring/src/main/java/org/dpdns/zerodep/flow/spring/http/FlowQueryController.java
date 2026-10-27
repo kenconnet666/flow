@@ -20,6 +20,11 @@ public class FlowQueryController extends FlowHttpSupport {
     public FlowQueryController(FlowEngine<?> engine) { super(engine); }
 
     /** 我发起前存的草稿 */
+    @GetMapping("/queries/extensions")
+    public Map<String, Object> extensions() {
+        return respond(engine::extensions);
+    }
+
     @GetMapping("/queries/start-drafts")
     public Map<String, Object> startDrafts() {
         return respond(engine::startDrafts);

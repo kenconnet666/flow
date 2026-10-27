@@ -1,11 +1,13 @@
 /**
- * 设计器右边的节点属性：通用的标识、名称、说明，加上这种节点的常用设置（0005 第 5 节）。
+ * 设计器右边的节点属性：通用的标识、名称、说明，加上这种节点的常用设置（0005 第 5 节）。接入方注册的扩展（解析器、动作、守卫、
+ * 会签规则、自定义节点）从扩展目录里选，参数按声明填；接入方声明了节点的业务信息时，每个节点多一块"业务信息"（写进 meta）。
  * 面板里没有的设置（提醒、超时的处理、无人认领、跳过规则……）在 JSON 里写，这里原样保留。
  */
 import type {
   AllowedActions,
   CallNode,
   CcNode,
+  CustomNode,
   EndNode,
   FormManifest,
   MultiCompletion,
@@ -24,13 +26,16 @@ import {
   Flex,
   NumberField,
   Select,
+  Small,
   Switch,
   TagsInput,
   Textarea,
   TextField,
   type PeopleSource,
 } from '@zerodep-dev/vue-tsx-pro-ui';
+import type { ExtensionCatalog } from '../../client/types';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
+import { entryOf, ExtensionSelect, JsonObjectField, ParamsForm } from './extensions';
 import { AssigneeField, compact, DurationField, FieldGroup, FormAccessTable, optionsOf, OutcomeList } from './fields';
 
 /** NodePanel 的属性 */
@@ -42,6 +47,8 @@ export interface NodePanelProps {
   people?: PeopleSource | undefined;
   /** 调用流程能选的流程 */
   processes: readonly { key: string; name: string }[];
+  /** 接入方注册的扩展；还没读到时为 null */
+  catalog: ExtensionCatalog | null;
   /** 改了节点；merge 相同的连续修改（逐字输入）合成一步撤销 */
   onChange: (next: ProcessNode, merge?: string) => void;
 }
@@ -50,7 +57,7 @@ export interface NodePanelProps {
 export const ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 
 /** 节点属性 */
-export const NodePanel = _component(({ node, definition, manifest, people, processes, onChange }: NodePanelProps) => {
+export const NodePanel = _component(({ node, definition, manifest, people, processes, catalog, onChange }: NodePanelProps) => {
   const messages = useDesignerMessages();
   let idDraft = _state<string | null>(null);
 
@@ -103,11 +110,15 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
           value={n.assignees ?? []}
           people={people}
           nodes={taskNodes()}
+          resolvers={catalog?.resolvers}
           onChange={(sources) => set('assignees', sources)}
         />
         <Field label={messages.multi}>
           <Select
-            items={optionsOf(messages.multiOptions)}
+            items={[
+              ...optionsOf(messages.multiOptions),
+              ...(catalog?.completions ?? []).map((c) => ({ value: c.name, label: c.label, description: c.description ?? c.name })),
+            ]}
             _value={multi?.complete ?? 'none'}
             onUpdate:_value={(mode: string | null) => (mode && mode !== 'none' ? setMulti({ complete: mode as MultiCompletion }) : setMulti(null))}
           />
@@ -118,6 +129,7 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
             value={multi.participants}
             people={people}
             nodes={taskNodes()}
+            resolvers={catalog?.resolvers}
             onChange={(participants) => setMulti({ participants })}
           />
         )}
@@ -141,7 +153,7 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
             />
           </Field>
         )}
-        <OutcomeList value={n.outcomes} onChange={(outcomes, merge) => set('outcomes', outcomes, merge && `${n.id}:${merge}`)} />
+        <OutcomeList value={n.outcomes} guards={catalog?.guards} onChange={(outcomes, merge) => set('outcomes', outcomes, merge && `${n.id}:${merge}`)} />
         <DurationField label={messages.due} value={n.due} onChange={(due) => set('due', due, `${n.id}:due`)} />
         <Field label={messages.emptyAssignee}>
           <Select
@@ -171,12 +183,18 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
     );
   };
 
-  const service = (n: ServiceNode) => (
+  const service = (n: ServiceNode) => {
+    const entry = entryOf(catalog?.actions, n.action);
+    return (
     <>
-      <Field label={messages.action}>
-        <TextField _value={n.action} onUpdate:_value={(action) => set('action', action, `${n.id}:action`)} />
+      <Field label={messages.action} description={entry?.description ?? undefined}>
+        <ExtensionSelect entries={catalog?.actions ?? []} value={n.action || null} label={messages.action} onChange={(action) => set('action', action ?? '')} />
       </Field>
-      <JsonObjectField label={messages.args} value={n.args} onChange={(args) => set('args', args)} />
+      {entry && entry.params.length > 0 ? (
+        <ParamsForm params={entry.params} value={n.args} mergeKey={`${n.id}:args`} onChange={(args, merge) => set('args', args, merge)} />
+      ) : (
+        <JsonObjectField label={messages.args} value={n.args} onChange={(args) => set('args', args)} />
+      )}
       <Field label={messages.retry}>
         <NumberField
           _value={n.retry?.times ?? null}
@@ -192,7 +210,37 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
         />
       </Field>
     </>
-  );
+    );
+  };
+
+  /** 自定义节点（x-）：属性按注册时声明的画；没声明时整个节点在 JSON 里改 */
+  const custom = (n: CustomNode) => {
+    const entry = entryOf(catalog?.nodes, n.type);
+    if (!entry) return <Small>{messages.unregistered(n.type)}</Small>;
+    const attributes = Object.fromEntries(entry.params.map((p) => [p.key, (n as unknown as Record<string, unknown>)[p.key]]));
+    return (
+      <>
+        {entry.description && <Small>{entry.description}</Small>}
+        <ParamsForm
+          params={entry.params}
+          value={attributes}
+          mergeKey={`${n.id}:attrs`}
+          onChange={(next, merge) => {
+            const rest = Object.fromEntries(Object.entries(n).filter(([key]) => !entry.params.some((p) => p.key === key)));
+            onChange({ ...rest, ...next } as ProcessNode, merge);
+          }}
+        />
+      </>
+    );
+  };
+
+  /** 业务信息：接入方声明的字段（扩展目录的 nodeMeta），写进节点的 meta；声明之外的键原样保留 */
+  const meta = () =>
+    catalog && catalog.nodeMeta.length > 0 ? (
+      <FieldGroup label={messages.nodeMeta}>
+        <ParamsForm params={catalog.nodeMeta} value={node.meta} mergeKey={`${node.id}:meta`} onChange={(next, merge) => set('meta', next, merge)} />
+      </FieldGroup>
+    ) : null;
 
   const timer = (n: TimerNode) => <DurationField label={messages.wait} value={n.wait} onChange={(wait) => set('wait', wait ?? { hours: 1 }, `${n.id}:wait`)} />;
 
@@ -210,7 +258,7 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
 
   const cc = (n: CcNode) => (
     <>
-      <AssigneeField label={messages.ccTo} value={n.to} people={people} nodes={taskNodes()} onChange={(to) => set('to', to)} />
+      <AssigneeField label={messages.ccTo} value={n.to} people={people} nodes={taskNodes()} resolvers={catalog?.resolvers} onChange={(to) => set('to', to)} />
       <Field label={messages.message}>
         <Textarea _value={n.message ?? ''} rows={2} onUpdate:_value={(text) => set('message', text || undefined, `${n.id}:message`)} />
       </Field>
@@ -263,7 +311,8 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
       case 'end':
         return end(node);
       default:
-        return null;
+        // 网关没有自己的设置；剩下的是自定义节点
+        return node.type.startsWith('x-') ? custom(node as CustomNode) : null;
     }
   };
 
@@ -271,40 +320,8 @@ export const NodePanel = _component(({ node, definition, manifest, people, proce
     <Flex direction="column" gap="md">
       {common()}
       {specific()}
+      {meta()}
       {description()}
     </Flex>
-  );
-});
-
-/** JsonObjectField 的属性 */
-interface JsonObjectFieldProps {
-  label: string;
-  value: Readonly<Record<string, unknown>> | undefined;
-  onChange: (next: Record<string, unknown> | undefined) => void;
-}
-
-/** 一个 JSON 对象（自动节点的参数）：写成合法的对象才写回，写错时提示、不改 */
-const JsonObjectField = _component(({ label, value, onChange }: JsonObjectFieldProps) => {
-  const messages = useDesignerMessages();
-  let draft = _state<string | null>(null);
-  const text = () => draft ?? (value ? JSON.stringify(value, null, 2) : '');
-  const invalid = () => {
-    if (draft === null || draft.trim() === '') return false;
-    try {
-      const parsed: unknown = JSON.parse(draft);
-      return typeof parsed !== 'object' || parsed === null || Array.isArray(parsed);
-    } catch {
-      return true;
-    }
-  };
-  function commit() {
-    if (draft === null || invalid()) return;
-    onChange(draft.trim() === '' ? undefined : (JSON.parse(draft) as Record<string, unknown>));
-    draft = null;
-  }
-  return () => (
-    <Field label={label} invalid={invalid()} error={invalid() ? messages.argsInvalid : undefined}>
-      <Textarea _value={text()} rows={3} onUpdate:_value={(next) => (draft = next)} onBlur={commit} />
-    </Field>
   );
 });

@@ -119,6 +119,7 @@ export const zhProblemTexts = {
   'call-unknown-process': () => '调用的流程不存在或已停用',
   'extension-unknown': (p) => `${p['kind'] ?? '扩展'} ${p['name'] ?? ''} 没有注册`,
   'due-unknown-calendar': () => '工作日历不存在',
+  'server-code-disabled': () => '这个系统关掉了在线写表单的后端代码（flow.forms.server-code）',
 } satisfies Record<string, ProblemText>;
 
 /** 定义的问题代号的英文说明 */
@@ -181,6 +182,7 @@ const enProblemTexts: Record<keyof typeof zhProblemTexts, ProblemText> = {
   'call-unknown-process': () => 'The called process does not exist or is disabled',
   'extension-unknown': (p) => `${p['kind'] ?? 'Extension'} ${p['name'] ?? ''} is not registered`,
   'due-unknown-calendar': () => 'The work calendar does not exist',
+  'server-code-disabled': () => 'Backend code for forms is turned off here (flow.forms.server-code)',
 };
 
 /** 定义的问题代号：英文的说明按它定类型，两边少写、多写都编译不过 */

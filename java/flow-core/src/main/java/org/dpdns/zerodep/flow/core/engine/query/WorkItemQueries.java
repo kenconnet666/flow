@@ -55,7 +55,7 @@ public class WorkItemQueries {
         boolean candidate = item.getAssigneeId() == null && CandidateRules.isCandidate(actor, WorkItems.candidates(context.getDb(), item.getId()));
 
         FormValues stored = Instances.form(context.getDb(), instance.getId());
-        Function<String, Object> read = name -> References.read(name, instance, stored);
+        Function<String, Object> read = name -> References.read(name, instance, stored, context.getExtensions());
         // 我暂存过的接着填：表单显示暂存的值
         WorkItemDraft draft = open && mine
             ? context.getDb().queryable(WorkItemEntity.class).whereById(item.getId()).selectColumn(w -> w.draft()).singleOrNull()

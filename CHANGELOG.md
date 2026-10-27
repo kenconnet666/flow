@@ -20,7 +20,8 @@
   给外部参与方的进度；管理端的实例监控、异常（失败的作业）处理、统计
 - **管理员**：终止、暂停与恢复、跳转、改派、改数据、重试与跳过作业、迁移版本
 - **运维**：作业轮询（集群里多个实例抢占）、命令幂等（Idempotency-Key）、归档（`*_archive`）、多租户、Micrometer 指标
-- **接入**：Spring Boot 自动配置（建表、HTTP 接口、作业、指标）；`PermissionPolicy`、`ViewPolicy` 与十来个扩展点；
+- **接入**：Spring Boot 自动配置（建表、HTTP 接口、作业、指标）；`PermissionPolicy`、`ViewPolicy` 与十来个扩展点，
+  扩展用 `info()` 告诉设计器显示名、参数与结果（扩展目录），节点的业务信息字段可声明，在线写表单后端代码可关掉；
   Vue 3 的组件（`@zerodep-dev/flow-ui`），建在 vue-tsx-pro 上。见 [docs/integration.md](docs/integration.md)
 
 ### 要注意的（与之前的开发版相比）

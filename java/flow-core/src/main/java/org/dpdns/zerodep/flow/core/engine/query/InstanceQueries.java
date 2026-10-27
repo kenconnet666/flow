@@ -149,7 +149,7 @@ public class InstanceQueries {
         FormValues stored = data == null ? FormValues.empty() : data.getValues();
         FormView form = definition.hasForm()
             ? forms.formView(definition, new NodeFormAccess(FieldAccess.READONLY, definition.model().getSettings().getFormView()), false, stored,
-                name -> References.read(name, instance, stored))
+                name -> References.read(name, instance, stored, context.getExtensions()))
             : null;
         List<WorkItemVO> items = Archives.from(db, WorkItemEntity.class, archived).where(w -> w.instanceId().eq(instanceId))
             .orderBy(w -> { w.createdAt().asc(); w.id().asc(); })
@@ -165,7 +165,7 @@ public class InstanceQueries {
             .orderBy(e -> { e.instanceRev().asc(); e.id().asc(); })
             .select(FlowEventVO.class).toList();
         InstanceVO view = Archives.from(db, InstanceEntity.class, archived).whereById(instanceId).select(InstanceVO.class).singleNotNull();
-        ProcessDiagram diagram = DiagramView.of(definition.model(), view, timeline);
+        ProcessDiagram diagram = DiagramView.of(definition.model(), view, timeline, context.getExtensions());
         return new InstanceDetail(view, form, items, timeline, actions, nodes, diagram, variablesFor(actor, definition, instance));
     }
 

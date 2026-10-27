@@ -268,6 +268,8 @@ export interface ProcessDiagram {
     readonly id: string;
     readonly name: string | null;
     readonly type: string;
+    /** 自定义节点注册时给的显示名；内置类型为 null（按前端的文案写） */
+    readonly typeLabel: string | null;
     /** 布局里的位置；没画过时为 null（前端自动排） */
     readonly x: number | null;
     readonly y: number | null;
@@ -293,6 +295,53 @@ export interface ProcessSummary {
   /** active 能发起，其余停用 */
   readonly status: string;
   readonly latestVersion: number;
+}
+
+/** 一个选项：参数的可选值、动作或自定义节点可能给的结果 */
+export interface ExtensionChoice {
+  readonly value: string;
+  readonly label: string;
+}
+
+/** 扩展的一个参数（或节点业务信息的一个字段）：设计器按类型画控件 */
+export interface ExtensionParam {
+  readonly key: string;
+  readonly label: string | null;
+  /** text、number、decimal、boolean、date、select */
+  readonly type: string;
+  readonly required: boolean;
+  readonly description: string | null;
+  readonly options: readonly ExtensionChoice[];
+}
+
+/** 注册的一个扩展：名字与接入方在 info() 里给的显示名、参数、结果 */
+export interface ExtensionEntry {
+  /** 定义里写的名字（自定义节点是 x- 开头的类型） */
+  readonly name: string;
+  readonly label: string;
+  readonly description: string | null;
+  readonly params: readonly ExtensionParam[];
+  readonly outcomes: readonly ExtensionChoice[];
+  /** 计算值的类型；别的扩展为 null */
+  readonly valueType: string | null;
+}
+
+/** 接入方注册了哪些扩展（后端的 Extensions.catalog）：设计器给下拉、画参数与节点业务信息的控件，校验时认得这些名字 */
+export interface ExtensionCatalog {
+  readonly resolvers: readonly ExtensionEntry[];
+  readonly guards: readonly ExtensionEntry[];
+  readonly actions: readonly ExtensionEntry[];
+  /** 计算值：条件里的 fn.名字 */
+  readonly computed: readonly ExtensionEntry[];
+  /** 自定义节点类型 */
+  readonly nodes: readonly ExtensionEntry[];
+  /** 会签的完成规则 */
+  readonly completions: readonly ExtensionEntry[];
+  readonly fieldTypes: readonly ExtensionEntry[];
+  /** 节点的业务信息有哪些字段（写进节点的 meta）；没声明时为空 */
+  readonly nodeMeta: readonly ExtensionParam[];
+  /** 能不能在线写表单的后端代码 */
+  readonly formServerCode: boolean;
 }
 
 /** 校验定义找出的一个问题（0005 第 7 节的问题代号） */

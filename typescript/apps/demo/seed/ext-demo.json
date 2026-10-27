@@ -1,0 +1,135 @@
+{
+  "key": "ext-demo",
+  "name": "扩展演示",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "提交"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "name": "结束",
+      "result": "approved"
+    },
+    {
+      "id": "x-demo-check",
+      "name": "外部核验",
+      "type": "x-demo-check",
+      "system": "erp"
+    },
+    {
+      "id": "exclusive",
+      "name": "看金额档位",
+      "type": "exclusive"
+    },
+    {
+      "id": "task",
+      "name": "大额审批",
+      "type": "task",
+      "assignees": [
+        {
+          "resolver": "demo.leader",
+          "args": {
+            "level": 2
+          }
+        }
+      ],
+      "outcomes": [
+        {
+          "key": "approve",
+          "label": "同意",
+          "guards": [
+            "demo.amount-cap"
+          ]
+        }
+      ],
+      "meta": {
+        "bizStatus": "reviewing"
+      }
+    },
+    {
+      "id": "service",
+      "name": "推送外部系统",
+      "type": "service",
+      "action": "demo.push"
+    }
+  ],
+  "edges": [
+    {
+      "id": "x-demo-check-exclusive",
+      "from": "x-demo-check",
+      "to": "exclusive",
+      "outcome": "pass"
+    },
+    {
+      "id": "exclusive-task",
+      "from": "exclusive",
+      "to": "task",
+      "when": {
+        "all": [
+          {
+            "field": "fn.demo.amountLevel",
+            "op": "eq",
+            "value": "high"
+          }
+        ]
+      }
+    },
+    {
+      "id": "start-x-demo-check",
+      "from": "start",
+      "to": "x-demo-check"
+    },
+    {
+      "id": "exclusive-service",
+      "from": "exclusive",
+      "to": "service",
+      "default": true
+    },
+    {
+      "id": "service-end",
+      "from": "service",
+      "to": "end"
+    },
+    {
+      "id": "task-service",
+      "from": "task",
+      "to": "service",
+      "outcome": "approve"
+    }
+  ],
+  "layout": {
+    "nodes": {
+      "start": {
+        "x": 54,
+        "y": 86
+      },
+      "end": {
+        "x": 814,
+        "y": 86
+      },
+      "x-demo-check": {
+        "x": 222,
+        "y": 80
+      },
+      "exclusive": {
+        "x": 422,
+        "y": 86
+      },
+      "task": {
+        "x": 602,
+        "y": 128
+      },
+      "service": {
+        "x": 602,
+        "y": 32
+      }
+    }
+  },
+  "title": "扩展演示：{form.title}",
+  "form": {
+    "key": "purchase-form"
+  }
+}

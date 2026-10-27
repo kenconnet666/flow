@@ -13,6 +13,8 @@ import org.dpdns.zerodep.flow.core.engine.form.FormCompiler;
 import org.dpdns.zerodep.flow.core.engine.form.FormHandlers;
 import org.dpdns.zerodep.flow.core.extension.CountersignRule;
 import org.dpdns.zerodep.flow.core.extension.CustomNode;
+import org.dpdns.zerodep.flow.core.extension.ComputedValue;
+import org.dpdns.zerodep.flow.core.extension.ExtensionParam;
 import org.dpdns.zerodep.flow.core.extension.Extensions;
 import org.dpdns.zerodep.flow.core.extension.FieldType;
 import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
@@ -66,6 +68,9 @@ public class FlowEngineBuilder<U extends Actor> {
     private final List<CustomNode> customNodes = new ArrayList<>();
     private final List<CountersignRule> countersignRules = new ArrayList<>();
     private final List<FieldType> fieldTypes = new ArrayList<>();
+    private final List<ComputedValue> computed = new ArrayList<>();
+    private final List<ExtensionParam> nodeMeta = new ArrayList<>();
+    private boolean formServerCode = true;
     private TodoQueryCustomizer todoCustomizer = TodoQueryCustomizer.NONE;
 
     FlowEngineBuilder(EasyEntityQuery db) { this.db = Objects.requireNonNull(db, "db"); }
@@ -109,6 +114,15 @@ public class FlowEngineBuilder<U extends Actor> {
     /** 注册一种表单字段类型（清单里 {@code "type": 名字}，{@link FieldType}） */
     public FlowEngineBuilder<U> fieldType(FieldType type) { this.fieldTypes.add(type); return this; }
 
+    /** 注册一个计算值（条件里的 {@code fn.名字}，{@link ComputedValue}） */
+    public FlowEngineBuilder<U> computed(ComputedValue value) { this.computed.add(value); return this; }
+
+    /** 节点的业务信息加一个字段：设计器的节点面板按它画控件，填的值写进节点的 {@code meta}（引擎原样保存，接入方的监听读它） */
+    public FlowEngineBuilder<U> nodeMetaField(ExtensionParam field) { this.nodeMeta.add(field); return this; }
+
+    /** 允不允许在线写表单的后端代码（Java，发布时编译、运行时执行）；默认允许，生产环境不想让设计权限等于服务器上跑代码时关掉 */
+    public FlowEngineBuilder<U> formServerCode(boolean enabled) { this.formServerCode = enabled; return this; }
+
     /** 待办列表连接入方自己的表：加条件、补业务列（{@link TodoQueryCustomizer}）；默认不连 */
     public FlowEngineBuilder<U> todoQueryCustomizer(TodoQueryCustomizer customizer) { this.todoCustomizer = customizer; return this; }
 
@@ -136,7 +150,7 @@ public class FlowEngineBuilder<U extends Actor> {
         // 工作进程替所有租户做作业：做每个作业时切到它的租户（TenantScope），其余时候是接入方给的当前租户
         FlowEasyQuery.install(db, TenantScope.over(tenant), clock);
         return new FlowEngine<>(new EngineContext(db, clock, org, calendar != null ? calendar : new TableWorkCalendar(db, ZoneOffset.UTC), new EventDispatcher(List.copyOf(listeners), List.copyOf(channels), afterCommit),
-            new Extensions(resolvers, guards, actions, customNodes, countersignRules, fieldTypes), todoCustomizer, new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory)), actors, permissions,
+            new Extensions(resolvers, guards, actions, customNodes, countersignRules, fieldTypes, computed, nodeMeta), todoCustomizer, new DefinitionCache(db), new FormHandlers(db, new FormCompiler(), formHandlerFactory, formServerCode)), actors, permissions,
             viewPolicy != null ? viewPolicy : ViewPolicy.participantsOr(permissions), List.copyOf(interceptors),
             List.copyOf(jobHandlers));
     }

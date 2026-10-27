@@ -2,6 +2,7 @@
  * 流程设计器（⑤）：在组件库的画布（Diagram）上画 0005 的流程定义。左边是能加的节点（点一下加在选中节点的后面并连上，
  * 没选时加在视口中间；也能拖到画布上），中间画布上拖动节点、从端口拖出连线、拖连线的端点改接，右边是选中的节点、连线
  * 或流程本身的属性，下面列出按模型包规则校验出的问题（点一条选中出问题的地方）。撤销重做、Delete 删除、自动排版。
+ * 接入方注册的扩展从后端的扩展目录读：自定义节点进左边的节点列表，解析器、动作、守卫、计算值在属性面板里选，校验认得这些名字。
  *
  *   let definition = _state<ProcessDefinition>(…);
  *   <FlowDesigner _value={definition} people={peopleSource} />
@@ -18,6 +19,7 @@ import {
   Hourglass,
   LayoutGrid,
   Play,
+  Puzzle,
   Radio,
   Redo2,
   Send,
@@ -60,7 +62,8 @@ import { toRaw, watch } from 'vue';
 import { useFlowClient } from '../../client/flow-client';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { useFlowMessages } from '../../lang/messages';
-import { addNode, autoLayout, connect, PALETTE, placeNodes, reconnect, removeItems, replaceEdge, replaceNode, withPositions, type PaletteType, type PlacedNode } from './editing';
+import { addNode, autoLayout, connect, PALETTE, placeNodes, reconnect, removeItems, replaceEdge, replaceNode, withPositions, type NewNodeType, type PlacedNode } from './editing';
+import { declaredOutcomes, entryOf, registeredIn } from './extensions';
 import { EdgePanel } from './EdgePanel';
 import { NodePanel } from './NodePanel';
 import { ProcessPanel } from './ProcessPanel';
@@ -143,6 +146,8 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
 
   const forms = useRequest((signal) => flow.forms(signal));
   const processes = useRequest((signal) => flow.processes(signal));
+  // 读不到（后端旧、没权限）时照常能画，只是扩展名要在 JSON 里写
+  const catalog = useRequest((signal) => flow.extensions(signal));
   const manifest = useRequest(
     async (key: string | null, signal): Promise<FormManifest | null> => (key ? (JSON.parse((await flow.formDocument(key, undefined, signal)).manifest) as FormManifest) : null),
     { params: () => definition.form?.key ?? null },
@@ -153,6 +158,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
     validateProcess(definition, {
       ...(manifest.data ? { form: manifest.data } : {}),
       ...(processes.data ? { processExists: (key: string) => processes.data!.some((p) => p.key === key && p.status !== 'disabled') } : {}),
+      ...(catalog.data ? { isRegistered: registeredIn(catalog.data) } : {}),
     });
   const flagged = () => {
     const errors = problems().filter((p) => p.severity === 'error');
@@ -170,12 +176,16 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
       ...(flagged().edges.has(edge.id) ? { tone: 'danger' as const } : {}),
     }));
   const nameOf = (id: string) => definition.nodes.find((n) => n.id === id)?.name || id;
+  /** 节点种类的名字：内置的按文案，自定义节点按注册时给的显示名 */
+  const typeName = (type: string) => messages.nodeTypes[type] ?? entryOf(catalog.data?.nodes, type)?.label ?? type;
+  const iconOf = (type: string) => ICONS[type] ?? (type.startsWith('x-') ? Puzzle : Cog);
 
   /** 连线上的字：线自己的 label，否则结果的名字、默认、有条件 */
   const lineText = (edge: ProcessEdge) => {
     if (edge.label) return edge.label;
     const from = definition.nodes.find((n) => n.id === edge.from);
     if (edge.outcome && from?.type === 'task') return from.outcomes.find((o) => o.key === edge.outcome)?.label ?? edge.outcome;
+    if (edge.outcome && from) return declaredOutcomes(catalog.data ?? null, from).find((o) => o.value === edge.outcome)?.label ?? edge.outcome;
     if (edge.default) return messages.defaultEdge;
     return edge.outcome ?? (edge.when ? messages.condition : undefined);
   };
@@ -185,7 +195,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
     if ('name' in s && s.name) return s.name;
     if ('initiator' in s) return messages.initiator;
     if ('sameAs' in s) return nameOf(s.sameAs);
-    if ('resolver' in s) return s.resolver;
+    if ('resolver' in s) return entryOf(catalog.data?.resolvers, s.resolver)?.label ?? s.resolver;
     const key = (['user', 'role', 'department'] as const).find((k) => k in s);
     if (!key) return '…';
     const id = (s as Record<string, unknown>)[key];
@@ -197,7 +207,8 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
     const sources = node.type === 'task' ? (node.assignees ?? []) : node.type === 'cc' ? node.to : null;
     if (sources) return sources.length ? sources.map(sourceText).join('、') : messages.nodeTypes[node.type];
     if (node.type === 'start' || node.type === 'end' || GATEWAY_TYPES.has(node.type)) return undefined;
-    return messages.nodeTypes[node.type];
+    if (node.type === 'service' && node.action) return entryOf(catalog.data?.actions, node.action)?.label ?? node.action;
+    return typeName(node.type);
   };
 
   // ───────── 编辑 ─────────
@@ -211,8 +222,8 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
   }
 
   /** 加一个节点：选中了一个节点时放在它右边并连上，否则放在 at 或视口中间 */
-  function add(type: PaletteType, at?: { x: number; y: number }) {
-    const texts = { name: messages.nodeTypes[type] ?? type, outcome: messages.defaultOutcome };
+  function add(type: NewNodeType, at?: { x: number; y: number }) {
+    const texts = { name: typeName(type), outcome: messages.defaultOutcome };
     const anchor = !at && selection.nodes.length === 1 ? boxes().find((b) => b.id === selection.nodes[0]) : undefined;
     const position = at ?? (anchor ? { x: anchor.x + anchor.width + GAP, y: anchor.y } : centered(viewportCenter()));
     let { definition: next, id } = addNode(definition, type, texts, position);
@@ -230,8 +241,8 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
   }
 
   function onDrop(event: DragEvent) {
-    const type = event.dataTransfer?.getData(DRAG_TYPE) as PaletteType | undefined;
-    if (!type || !PALETTE.includes(type)) return;
+    const type = event.dataTransfer?.getData(DRAG_TYPE) as NewNodeType | undefined;
+    if (!type || !addable().includes(type)) return;
     event.preventDefault();
     add(type, centered(controller.toDiagram(event.clientX, event.clientY)));
   }
@@ -264,21 +275,24 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
 
   // ───────── 画面 ─────────
 
+  /** 能加的节点：内置的，加上注册了的自定义节点 */
+  const addable = (): NewNodeType[] => [...PALETTE, ...(catalog.data?.nodes ?? []).map((n) => n.name as `x-${string}`)];
+
   const palette = () => (
     <Flex direction="column" gap="xs" role="group" aria-label={messages.palette}>
-      {PALETTE.map((type) => (
+      {addable().map((type) => (
         <Button
           key={type}
           variant="ghost"
           size="sm"
-          icon={ICONS[type]!}
+          icon={iconOf(type)}
           draggable
           onDragstart={(event: DragEvent) => event.dataTransfer?.setData(DRAG_TYPE, type)}
           onClick={() => add(type)}
-          aria-label={messages.add(messages.nodeTypes[type] ?? type)}
+          aria-label={messages.add(typeName(type))}
           style={{ justifyContent: 'flex-start' }}
         >
-          {messages.nodeTypes[type]}
+          {typeName(type)}
         </Button>
       ))}
     </Flex>
@@ -290,7 +304,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
         controller={controller}
         nodes={boxes()}
         edges={lines()}
-        getNodeLabel={(box) => `${box.node.name || box.id}（${messages.nodeTypes[box.node.type] ?? box.node.type}）`}
+        getNodeLabel={(box) => `${box.node.name || box.id}（${typeName(box.node.type)}）`}
         getEdgeLabel={(line) => `${nameOf(line.from)} → ${nameOf(line.to)}${lineText(line.edge) ? `：${lineText(line.edge)}` : ''}`}
         edgeText={(line) => lineText(line.edge)}
         selectable
@@ -314,7 +328,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
           <DiagramNode
             title={box.node.name || box.id}
             description={describe(box.node)}
-            start={<Icon icon={ICONS[box.node.type] ?? Cog} />}
+            start={<Icon icon={iconOf(box.node.type)} />}
             shape={box.node.type === 'start' || box.node.type === 'end' ? 'pill' : 'rect'}
             align="start"
             {...(flagged().nodes.has(box.id) ? { tone: 'danger' as const } : {})}
@@ -358,7 +372,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
     const edge = selection.edges.length === 1 && selection.nodes.length === 0 ? definition.edges.find((e) => e.id === selection.edges[0]) : undefined;
     if (node) {
       return (
-        <Card header={`${messages.nodePanel} · ${messages.nodeTypes[node.type] ?? node.type}`}>
+        <Card header={`${messages.nodePanel} · ${typeName(node.type)}`}>
           <NodePanel
             key={node.id}
             node={node}
@@ -366,6 +380,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
             manifest={manifest.data ?? null}
             people={people}
             processes={processes.data ?? []}
+            catalog={catalog.data ?? null}
             onChange={(next, merge) => {
               apply(replaceNode(definition, node.id, next), messages.steps.node, merge);
               if (next.id !== node.id) selection = { nodes: [next.id], edges: [] };
@@ -383,6 +398,7 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
             edge={edge}
             definition={definition}
             manifest={manifest.data ?? null}
+            catalog={catalog.data ?? null}
             onChange={(next, merge) => apply(replaceEdge(definition, edge.id, next), messages.steps.edge, merge)}
           />
         </Card>

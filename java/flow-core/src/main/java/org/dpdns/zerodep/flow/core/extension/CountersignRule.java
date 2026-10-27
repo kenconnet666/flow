@@ -14,6 +14,9 @@ public interface CountersignRule {
     /** 定义里写的名字 */
     String name();
 
+    /** 设计器里的显示名与说明；不给时只显示名字 */
+    default ExtensionInfo info() { return null; }
+
     /** 刚有一个人处理完：按哪个结果结束节点；还要等别人时返回 null */
     String decide(Context context);
 

@@ -155,7 +155,7 @@ public class Execution {
     public CommandResult toResult() { return new CommandResult(loadView(), created, closed, events); }
 
     /** 按引用的名字取值（规则见 {@link References}）：用推进到此刻的表单与实例 */
-    public Object read(String name) { return References.read(name, instance, form); }
+    public Object read(String name) { return References.read(name, instance, form, context.getExtensions()); }
 
     /** 改实例的运行状态（轮次、汇合、等待……都是不可变的 RunState，改一处换一份） */
     public void updateState(UnaryOperator<RunState> change) {

@@ -15,6 +15,9 @@ public interface PeopleResolver {
     /** 定义里写的名字 */
     String name();
 
+    /** 设计器里的显示名、说明与参数；不给时只显示名字，参数写 JSON */
+    default ExtensionInfo info() { return null; }
+
     /** 算出的人（用户编号），按先后；一个也没有时返回空列表，按节点的 {@code emptyAssignee} 处理 */
     List<Long> resolve(Context context);
 

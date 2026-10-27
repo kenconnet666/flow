@@ -14,6 +14,9 @@ public interface ServiceAction {
     /** 定义里写的名字 */
     String name();
 
+    /** 设计器里的显示名、说明、参数与可能的结果；不给时只显示名字，参数写 JSON */
+    default ExtensionInfo info() { return null; }
+
     /** 做；抛异常就是失败（同步的整个流转回滚，异步的过一会儿重试） */
     Result perform(Context context);
 

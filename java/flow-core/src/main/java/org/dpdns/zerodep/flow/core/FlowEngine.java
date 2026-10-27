@@ -79,6 +79,7 @@ import org.dpdns.zerodep.flow.core.identity.ViewPolicy;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.core.view.definition.CalendarVO;
 import org.dpdns.zerodep.flow.core.view.definition.DefinitionProblem;
+import org.dpdns.zerodep.flow.core.view.definition.ExtensionCatalog;
 import org.dpdns.zerodep.flow.core.view.definition.DesignDraftVO;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessSummary;
 import org.dpdns.zerodep.flow.core.view.definition.ProcessVersionVO;
@@ -908,6 +909,15 @@ public class FlowEngine<U extends Actor> {
 
     /** 管理端的流程列表（当前操作人） */
     public List<ProcessSummary> processes() { return processes(actors.current()); }
+
+    /** 接入方注册了哪些扩展（当前操作人） */
+    public ExtensionCatalog extensions() { return extensions(actors.current()); }
+
+    /** 接入方注册了哪些扩展：流程设计器按它给下拉、画参数与业务信息的控件（{@code extensions.read}） */
+    public ExtensionCatalog extensions(U actor) {
+        allow(actor, "extensions.read", null);
+        return context.getExtensions().catalog(context.getFormHandlers().isServerCode());
+    }
 
     /** 管理端的流程列表：全部流程，停用的也在（{@code processes.list}） */
     public List<ProcessSummary> processes(U actor) {

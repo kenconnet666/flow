@@ -29,6 +29,8 @@ public class ProcessDiagram {
         private final String name;
         /** 节点类型（start、task、exclusive……） */
         private final String type;
+        /** 自定义节点注册时给的显示名（CustomNode.info）；内置类型由前端按自己的文案写，这里为 null */
+        private final String typeLabel;
         /** 布局里的位置；没有时为 null */
         private final Double x;
         /** 布局里的位置；没有时为 null */

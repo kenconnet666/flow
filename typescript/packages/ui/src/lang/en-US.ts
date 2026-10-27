@@ -120,6 +120,7 @@ const enProblemTexts: Record<ProblemCode, ProblemText> = {
   'call-unknown-process': () => 'The called process does not exist or is disabled',
   'extension-unknown': (p) => `${p['kind'] ?? 'Extension'} ${p['name'] ?? ''} is not registered`,
   'due-unknown-calendar': () => 'The work calendar does not exist',
+  'server-code-disabled': () => 'Backend code for forms is turned off here (flow.forms.server-code)',
 };
 
 const enReminders: Record<string, string> = {

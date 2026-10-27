@@ -18,6 +18,7 @@ import type {
   CommandResult,
   DefinitionProblem,
   DefinitionVersion,
+  ExtensionCatalog,
   FormDocument,
   FormPublication,
   FormSummary,
@@ -124,6 +125,8 @@ export interface FlowClient {
   instances(query: PageQuery & InstanceSearch, signal?: AbortSignal): Promise<FlowPage<ProcessInstance>>;
   /** 管理端的流程列表 */
   processes(signal?: AbortSignal): Promise<readonly ProcessSummary[]>;
+  /** 接入方注册了哪些扩展（流程设计器用） */
+  extensions(signal?: AbortSignal): Promise<ExtensionCatalog>;
   /** 异常（重试用完的作业），新的在前；给 instanceId 时只看这个实例的 */
   incidents(query: PageQuery & { readonly instanceId?: Id }, signal?: AbortSignal): Promise<FlowPage<Incident>>;
   /** 流程的全部版本，新的在前 */
@@ -273,6 +276,7 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
       return get('/queries/instances', signal, { ...listParams({ page, pageSize, ...(sorts ? { sorts } : {}) }), ...filters });
     },
     processes: (signal) => get('/queries/processes', signal),
+    extensions: (signal) => get('/queries/extensions', signal),
     incidents: ({ page, pageSize, instanceId }, signal) =>
       get('/queries/incidents', signal, { page, pageSize, instanceId }),
     versions: (processKey, signal) => get(`/queries/processes/${seg(processKey)}/versions`, signal),

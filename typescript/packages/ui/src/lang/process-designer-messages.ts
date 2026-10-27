@@ -50,7 +50,19 @@ export interface FlowDesignerMessages {
   readonly orgEntry: (type: string, id: string) => string;
   readonly sameAs: string;
   readonly resolver: string;
-  readonly resolverHint: string;
+  readonly addResolver: string;
+  readonly removeResolver: (label: string) => string;
+  /** 定义里写着、接入方没注册的扩展名 */
+  readonly unregistered: (name: string) => string;
+  /** 参数的值取自引用（{ ref }）时显示的 */
+  readonly refValue: (ref: string) => string;
+  readonly paramRequired: string;
+  /** 处理结果上的提交前检查（守卫） */
+  readonly guards: string;
+  /** 节点的业务信息（meta） */
+  readonly nodeMeta: string;
+  /** 条件里接入方注册的计算值的分组名 */
+  readonly computed: string;
   readonly otherSources: (count: number) => string;
   readonly outcomes: string;
   readonly outcomeKey: string;
@@ -161,7 +173,14 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     orgEntry: (type, id) => `${({ user: '用户', role: '角色', department: '部门' } as Record<string, string>)[type] ?? type} ${id}`,
     sameAs: '与这些节点的处理人相同',
     resolver: '解析器',
-    resolverHint: '接入方注册的名字，如 deptLeader',
+    addResolver: '添加解析器',
+    removeResolver: (label) => `删除解析器 ${label}`,
+    unregistered: (name) => `${name}（未注册）`,
+    refValue: (ref) => `取自 ${ref}，在 JSON 里改`,
+    paramRequired: '必填',
+    guards: '提交前检查',
+    nodeMeta: '业务信息',
+    computed: '计算值',
     otherSources: (count) => `另有 ${count} 项（取表单字段、上一步选……）在 JSON 里改`,
     outcomes: '处理结果',
     outcomeKey: '标识',
@@ -270,7 +289,14 @@ export const flowDesignerMessages: MessageTable<FlowDesignerMessages> = {
     orgEntry: (type, id) => `${({ user: 'User', role: 'Role', department: 'Department' } as Record<string, string>)[type] ?? type} ${id}`,
     sameAs: 'Same people as these nodes',
     resolver: 'Resolver',
-    resolverHint: 'A name registered by the application, e.g. deptLeader',
+    addResolver: 'Add resolver',
+    removeResolver: (label) => `Remove resolver ${label}`,
+    unregistered: (name) => `${name} (not registered)`,
+    refValue: (ref) => `From ${ref}; edit it in JSON`,
+    paramRequired: 'Required',
+    guards: 'Checks before submit',
+    nodeMeta: 'Business info',
+    computed: 'Computed',
     otherSources: (count) => `${count} more (form fields, picked by the previous step…) — edit them in JSON`,
     outcomes: 'Outcomes',
     outcomeKey: 'Key',

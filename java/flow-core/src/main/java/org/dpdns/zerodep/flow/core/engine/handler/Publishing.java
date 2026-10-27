@@ -181,7 +181,7 @@ public class Publishing {
     /** 发布一张表单：先校验字段清单本身（0004 的 1.2），有错误时报 {@code flow.validation-failed} */
     public FormVersionEntity publishForm(Actor actor, FormPublication form) {
         FormManifest manifest = parseManifest(form.getManifest());
-        checkBackendCode(form);
+        checkBackendCode(form, context.getFormHandlers().isServerCode());
         List<Problem> errors = errorsOnly(ManifestValidator.validate(manifest, context.getExtensions()::hasFieldType));
         if (!errors.isEmpty()) {
             throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form manifest has " + errors.size() + " error(s)",
@@ -208,9 +208,13 @@ public class Publishing {
         });
     }
 
-    /** 表单的后端代码（Java）编不过时不能发布：问题带行列，标在编辑器里（字段 serverSource） */
-    private static void checkBackendCode(FormPublication form) {
+    /** 表单的后端代码（Java）编不过、或关掉了在线后端代码时不能发布：问题带行列，标在编辑器里（字段 serverSource） */
+    private static void checkBackendCode(FormPublication form, boolean allowed) {
         if (!"java".equals(form.getServerLanguage()) || form.getServerSource() == null || form.getServerSource().isBlank()) return;
+        if (!allowed) {
+            throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "form backend code is disabled",
+                List.of(new ErrorDetail("server-code-disabled", "serverSource", null, null, null, Map.of())));
+        }
         FormCompiler.Result result = new FormCompiler().compile(form.getServerSource());
         if (result.isOk()) return;
         throw new FlowException(FlowErrorCode.VALIDATION_FAILED, "the form backend code does not compile",
@@ -291,8 +295,7 @@ public class Publishing {
     }
 
     /**
-     * 发布时的校验上下文：给出表单的字段清单（查 {@code form.} 引用）与注册了的解析器、动作、守卫（{@link Extensions}）。
-     * 计算值现在还没有注册口，定义里用到就报"未注册"。
+     * 发布时的校验上下文：给出表单的字段清单（查 {@code form.} 引用）与注册了的扩展（{@link Extensions}）。
      */
     @Data
     private static class PublishContext implements ValidationContext {
@@ -307,7 +310,7 @@ public class Publishing {
                 case GUARD -> extensions.hasGuard(name);
                 case NODE -> extensions.hasNode(name);
                 case COMPLETION -> extensions.hasCountersignRule(name);
-                default -> false;
+                case COMPUTED -> extensions.hasComputed(name);
             };
         }
     }

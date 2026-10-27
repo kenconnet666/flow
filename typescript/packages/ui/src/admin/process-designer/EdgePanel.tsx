@@ -1,12 +1,15 @@
 /**
- * 设计器右边的连线属性（0005 第 6 节）：起点按结果分出边时选哪个结果走这条，网关出去的线写条件（组件库的 ConditionBuilder，
- * 字段取表单的字段清单与流程变量）、设默认出边，退回、提级，线上的文字。走线时改流程变量（effects）在 JSON 里写。
+ * 设计器右边的连线属性（0005 第 6 节）：起点按结果分出边时选哪个结果走这条（自动节点、自定义节点的结果取注册时声明的），
+ * 网关出去的线写条件（组件库的 ConditionBuilder，字段取表单的字段清单、流程变量与注册的计算值 fn.名字）、设默认出边，
+ * 退回、提级，线上的文字。走线时改流程变量（effects）在 JSON 里写。
  */
-import { BRANCHING_TYPES, GATEWAY_TYPES, type Condition, type FormManifest, type ProcessDefinition, type ProcessEdge } from '@zerodep-dev/flow-model';
+import { GATEWAY_TYPES, isBranching, type Condition, type FormManifest, type ProcessDefinition, type ProcessEdge } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { ConditionBuilder, Field, Flex, Select, Small, Switch, TextField, type ConditionField, type ConditionFieldType } from '@zerodep-dev/vue-tsx-pro-ui';
+import type { ExtensionCatalog, ExtensionEntry } from '../../client/types';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { outcomeKeys } from './editing';
+import { declaredOutcomes } from './extensions';
 import { compact, FieldGroup, optionsOf } from './fields';
 
 /** EdgePanel 的属性 */
@@ -14,6 +17,8 @@ export interface EdgePanelProps {
   edge: ProcessEdge;
   definition: ProcessDefinition;
   manifest: FormManifest | null;
+  /** 接入方注册的扩展；还没读到时为 null */
+  catalog: ExtensionCatalog | null;
   onChange: (next: ProcessEdge, merge?: string) => void;
 }
 
@@ -38,18 +43,31 @@ export function formConditionFields(manifest: FormManifest | null, group?: strin
   });
 }
 
-/** 条件里能用的字段：表单的字段（form.名字）与流程变量 */
-export function conditionFields(definition: ProcessDefinition, manifest: FormManifest | null, formGroup: string, variableLabel: (name: string) => string): ConditionField[] {
+/** 条件里能用的字段：表单的字段（form.名字）、流程变量，与接入方注册的计算值（fn.名字，按它声明的类型比较，没声明时当文字） */
+export function conditionFields(
+  definition: ProcessDefinition,
+  manifest: FormManifest | null,
+  formGroup: string,
+  variableLabel: (name: string) => string,
+  computed: readonly ExtensionEntry[] = [],
+  computedGroup?: string,
+): ConditionField[] {
   const fromForm = formConditionFields(manifest, formGroup);
   const variables = (definition.variables ?? []).flatMap((v): ConditionField[] => {
     const type = CONDITION_TYPES[v.type];
     return type ? [{ name: v.name, label: v.label ?? variableLabel(v.name), type }] : [];
   });
-  return [...fromForm, ...variables];
+  const fromComputed = computed.map((c): ConditionField => ({
+    name: `fn.${c.name}`,
+    label: c.label,
+    type: CONDITION_TYPES[c.valueType ?? 'text'] ?? 'text',
+    ...(computedGroup ? { group: computedGroup } : {}),
+  }));
+  return [...fromForm, ...variables, ...fromComputed];
 }
 
 /** 连线属性 */
-export const EdgePanel = _component(({ edge, definition, manifest, onChange }: EdgePanelProps) => {
+export const EdgePanel = _component(({ edge, definition, manifest, catalog, onChange }: EdgePanelProps) => {
   const messages = useDesignerMessages();
   const set = (key: keyof ProcessEdge, value: unknown, merge?: string) => onChange(compact({ ...edge, [key]: value }) as ProcessEdge, merge);
   const source = () => definition.nodes.find((n) => n.id === edge.from);
@@ -57,8 +75,10 @@ export const EdgePanel = _component(({ edge, definition, manifest, onChange }: E
 
   return () => {
     const from = source();
-    const outcomes = from ? outcomeKeys(from) : [];
-    const labelOf = (key: string) => (from?.type === 'task' ? (from.outcomes.find((o) => o.key === key)?.label ?? key) : key);
+    const declared = from ? declaredOutcomes(catalog, from) : [];
+    const outcomes = from ? [...outcomeKeys(from), ...declared.map((o) => o.value)] : [];
+    const labelOf = (key: string) =>
+      from?.type === 'task' ? (from.outcomes.find((o) => o.key === key)?.label ?? key) : (declared.find((o) => o.value === key)?.label ?? key);
     const fromGateway = from !== undefined && GATEWAY_TYPES.has(from.type);
     return (
       <Flex direction="column" gap="md">
@@ -66,7 +86,7 @@ export const EdgePanel = _component(({ edge, definition, manifest, onChange }: E
         <Field label={messages.id}>
           <TextField _value={edge.id} readonly />
         </Field>
-        {from && BRANCHING_TYPES.has(from.type) && outcomes.length > 0 && (
+        {from && isBranching(from.type) && outcomes.length > 0 && (
           <Field label={messages.edgeOutcome}>
             <Select
               items={[{ value: 'any', label: messages.anyOutcome }, ...outcomes.map((key) => ({ value: key, label: labelOf(key), description: key }))]}
@@ -83,7 +103,7 @@ export const EdgePanel = _component(({ edge, definition, manifest, onChange }: E
         {fromGateway && from.type !== 'parallel' && !edge.default && (
           <FieldGroup label={messages.condition}>
             <ConditionBuilder
-              fields={conditionFields(definition, manifest, messages.form, messages.variable)}
+              fields={conditionFields(definition, manifest, messages.form, messages.variable, catalog?.computed, messages.computed)}
               _value={(edge.when as Condition | undefined) ?? null}
               onUpdate:_value={(when) => set('when', when ?? undefined)}
             />

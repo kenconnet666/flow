@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProcessDiagram } from '../src/client/types';
 import { layoutDiagram } from '../src/runtime/diagram-layout';
 
-const node = (id: string, type = 'task', x: number | null = null, y: number | null = null) => ({ id, name: id, type, x, y, state: 'pending' });
+const node = (id: string, type = 'task', x: number | null = null, y: number | null = null) => ({ id, name: id, type, typeLabel: null, x, y, state: 'pending' });
 const edge = (id: string, from: string, to: string, kind: string | null = null) => ({ id, from, to, label: null, kind, taken: false });
 
 describe('layoutDiagram', () => {

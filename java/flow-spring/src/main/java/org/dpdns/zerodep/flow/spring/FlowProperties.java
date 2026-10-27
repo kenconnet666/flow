@@ -1,8 +1,11 @@
 package org.dpdns.zerodep.flow.spring;
 
+import org.dpdns.zerodep.flow.core.extension.ExtensionParam;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 引擎在 Spring Boot 里的配置（{@code application.yml} 的 {@code flow.*}）：
@@ -20,6 +23,14 @@ import java.time.Duration;
  *     interval: 10s                       # 多久看一次
  *   calendar:
  *     zone: Asia/Shanghai                 # 工作日按哪个时区的日期算（默认 UTC）；有节假日时声明一个 WorkCalendar Bean
+ *   forms:
+ *     server-code: false                  # 不许在线写表单的后端代码（默认许）：生产环境不想让设计权限等于在服务器上跑 Java 时关掉
+ *   designer:
+ *     node-meta:                          # 节点的业务信息有哪些字段：设计器的节点面板按它画控件，值写进节点的 meta
+ *       - key: bizStatus
+ *         label: 业务状态
+ *         type: select
+ *         options: [{ value: reviewing, label: 审核中 }, { value: done, label: 已完成 }]
  * </pre>
  */
 @ConfigurationProperties("flow")
@@ -46,6 +57,12 @@ public class FlowProperties {
     /** 归档 */
     private final Archive archive = new Archive();
 
+    /** 表单 */
+    private final Forms forms = new Forms();
+
+    /** 流程设计器 */
+    private final Designer designer = new Designer();
+
     public String getDatasource() { return datasource; }
 
     public void setDatasource(String datasource) { this.datasource = datasource; }
@@ -63,6 +80,30 @@ public class FlowProperties {
     public Idempotency getIdempotency() { return idempotency; }
 
     public Archive getArchive() { return archive; }
+
+    public Forms getForms() { return forms; }
+
+    public Designer getDesigner() { return designer; }
+
+    /** 表单 */
+    public static class Forms {
+        /** 允许在线写表单的后端代码（Java，发布时编译、运行时执行）；默认允许 */
+        private boolean serverCode = true;
+
+        public boolean isServerCode() { return serverCode; }
+
+        public void setServerCode(boolean serverCode) { this.serverCode = serverCode; }
+    }
+
+    /** 流程设计器 */
+    public static class Designer {
+        /** 节点的业务信息有哪些字段（写进节点的 meta，引擎原样保存）；也可以在代码里用 FlowEngineBuilder.nodeMetaField 加 */
+        private List<ExtensionParam> nodeMeta = new ArrayList<>();
+
+        public List<ExtensionParam> getNodeMeta() { return nodeMeta; }
+
+        public void setNodeMeta(List<ExtensionParam> nodeMeta) { this.nodeMeta = nodeMeta; }
+    }
 
     /** 归档（0007 第 6 节）：结束超过 after 的实例搬进 *_archive，热表一直小。默认关：量不大时用不着 */
     public static class Archive {

@@ -176,7 +176,7 @@ public class CallBehavior {
             .toList();
         call.getOutput().forEach((target, name) -> {
             List<Object> values = new ArrayList<>();
-            for (int i = 0; i < children.size(); i++) values.add(References.read(name, children.get(i), forms.get(i)));
+            for (int i = 0; i < children.size(); i++) values.add(References.read(name, children.get(i), forms.get(i), context.getExtensions()));
             out.put(target, call.getForEach() == null ? (values.isEmpty() ? null : values.get(0)) : values);
         });
         return out;

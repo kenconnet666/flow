@@ -127,6 +127,9 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
   }
 
   // 预览时能按哪些流程节点的权限看（新表单还没被流程用）
+  // 后端关掉了在线写后端代码（flow.forms.server-code）时不给这个页签；已经有后端代码的旧表单照样显示，发布时后端会报
+  const extensions = useRequest((signal) => flow.extensions(signal));
+  const serverCodeShown = () => extensions.data?.formServerCode !== false || serverSource.trim() !== '';
   const previews = useRequest((k: string | null, signal) => (k ? formPreviews(flow, k, signal) : Promise.resolve([])), { params: () => formKey ?? null });
   const versions = useRequest((k: string | null, signal) => (k ? flow.formVersions(k, signal) : Promise.resolve([])), {
     params: () => formKey ?? null,
@@ -304,12 +307,14 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
             </Field>
           )}
         </Flex>
-        <Tabs _value={panel} onUpdate:_value={(next: string) => (panel = next as 'form' | 'server')}>
-          <TabList aria-label={messages.formEditor}>
-            <Tab value="form">{messages.formPanelForm}</Tab>
-            <Tab value="server">{messages.formPanelServer}</Tab>
-          </TabList>
-        </Tabs>
+        {serverCodeShown() && (
+          <Tabs _value={panel} onUpdate:_value={(next: string) => (panel = next as 'form' | 'server')}>
+            <TabList aria-label={messages.formEditor}>
+              <Tab value="form">{messages.formPanelForm}</Tab>
+              <Tab value="server">{messages.formPanelServer}</Tab>
+            </TabList>
+          </Tabs>
+        )}
         {panel === 'server' && <FormServerCode _value={serverSource} problems={serverProblems} />}
         {/* 看后端代码时表单这边藏起来但不卸载：代码编辑器的撤销历史留着 */}
         <Flex direction="column" gap="md" style={panel === 'server' ? { display: 'none' } : undefined}>

@@ -10,6 +10,7 @@ import org.dpdns.zerodep.flow.core.extension.FormHandlerFactory;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
 import org.dpdns.zerodep.flow.core.extension.OutcomeGuard;
 import org.dpdns.zerodep.flow.core.extension.PeopleResolver;
+import org.dpdns.zerodep.flow.core.extension.ComputedValue;
 import org.dpdns.zerodep.flow.core.extension.CountersignRule;
 import org.dpdns.zerodep.flow.core.extension.CustomNode;
 import org.dpdns.zerodep.flow.core.extension.FieldType;
@@ -52,8 +53,8 @@ import javax.sql.DataSource;
  *   <li>建表：打开 {@code flow.flyway.enabled}，或部署时执行 flow-core 里的建表脚本。</li>
  * </ol>
  * 其余扩展点（权限、时钟、工作日历）声明了同类型的 Bean 就用它，没声明用默认的（0006 第 6 节"标准行为都能替换"）；
- * 声明的 {@link PeopleResolver}、{@link OutcomeGuard}、{@link ServiceAction}、{@link CustomNode}、{@link CountersignRule}、{@link FieldType} Bean
- * 按名字注册成解析器、守卫、动作、自定义节点、会签规则、表单字段类型，
+ * 声明的 {@link PeopleResolver}、{@link OutcomeGuard}、{@link ServiceAction}、{@link ComputedValue}、{@link CustomNode}、{@link CountersignRule}、{@link FieldType} Bean
+ * 按名字注册成解析器、守卫、动作、计算值、自定义节点、会签规则、表单字段类型，
  * {@link JobHandler} Bean 注册成作业的处理，{@link FlowListener} Bean 注册成监听（提交后的等 Spring 的事务提交了再调），{@link CommandInterceptor} Bean 按 {@code @Order} 套在命令外面。到期的作业默认由 {@link FlowJobPoller} 定时做（{@code flow.jobs.*}）。
  * 引擎注入成 {@code FlowEngine<自己的用户类型>} 即可。
  */
@@ -82,7 +83,7 @@ public class FlowAutoConfiguration {
                                  ObjectProvider<AfterCommit> afterCommit, ObjectProvider<PeopleResolver> resolvers,
                                  ObjectProvider<OutcomeGuard> guards, ObjectProvider<ServiceAction> actions,
                                  ObjectProvider<CustomNode> customNodes, ObjectProvider<CountersignRule> countersignRules,
-                                 ObjectProvider<FieldType> fieldTypes, ObjectProvider<TodoQueryCustomizer> todoCustomizer,
+                                 ObjectProvider<FieldType> fieldTypes, ObjectProvider<ComputedValue> computed, ObjectProvider<TodoQueryCustomizer> todoCustomizer,
                                  ObjectProvider<CommandInterceptor> interceptors, ObjectProvider<FormHandlerFactory> formHandlerFactory) {
         migration.ifAvailable(m -> { });
         OrgDirectory directory = org.getIfAvailable();
@@ -111,6 +112,9 @@ public class FlowAutoConfiguration {
         customNodes.orderedStream().forEach(builder::customNode);
         countersignRules.orderedStream().forEach(builder::countersignRule);
         fieldTypes.orderedStream().forEach(builder::fieldType);
+        computed.orderedStream().forEach(builder::computed);
+        properties.getDesigner().getNodeMeta().forEach(builder::nodeMetaField);
+        builder.formServerCode(properties.getForms().isServerCode());
         todoCustomizer.ifUnique(builder::todoQueryCustomizer);
         builder.afterCommit(afterCommit.getIfAvailable(SpringAfterCommit::new));
         // 表单的后端代码按 Bean 创建：里面的 @Autowired 照常注入接入方的 Bean

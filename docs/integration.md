@@ -172,7 +172,8 @@ public class AppUser implements Actor {
 | `PeopleResolver` | 自定义处理人来源（"发起人的上级"、"项目经理"） |
 | `OutcomeGuard` | 处理前的业务校验，不通过整个处理不做 |
 | `ServiceAction` | 自动节点、节点事件上的动作（调 ERP、发 MQ） |
-| `CustomNode` | 自定义节点类型（`x-名字`） |
+| `ComputedValue` | 计算值：连线条件里写 `fn.名字`，按你的规则算（金额落在哪一档、是不是战略供应商）；阈值放你的配置里，调整时不用重新发布流程 |
+| `CustomNode` | 自定义节点类型（`x-名字`），当场给出结果（出边按结果走）或停下来等事件 |
 | `CountersignRule` | 自定义会签完成规则 |
 | `FieldType` | 表单的自定义字段类型的后端校验 |
 | `TodoQueryCustomizer` | 待办连业务表筛选、带出业务列 |
@@ -180,6 +181,26 @@ public class AppUser implements Actor {
 | `FlowListener` | 监听流转记录：事务内可拒绝，提交后发消息 |
 | `NotificationChannel` | 通知怎么发（站内信、邮件、企业微信） |
 | `WorkCalendar` | 自己的工作日历（默认读管理端维护的 `flow_calendar`） |
+
+**让设计器认得你的扩展**：上面按名字注册的几种（解析器、守卫、动作、计算值、自定义节点、会签规则、字段类型）各有一个默认返回 null 的
+`info()`，覆盖它给出显示名、说明、参数和可能的结果，流程设计器就从扩展目录（`GET /flow/queries/extensions`，权限 `extensions.read`）
+读到它们：名字从下拉里选，参数按声明画成控件（必填标红），自定义节点出现在左边的节点列表里，动作和自定义节点的出边能选声明的结果，
+计算值出现在条件构造器的"计算值"分组里。不覆盖也能用，只是设计器里只显示名字、参数写 JSON。
+
+```java
+@Component
+public class LeaderResolver implements PeopleResolver {
+    public String name() { return "leader"; }
+    public ExtensionInfo info() {
+        return ExtensionInfo.of("发起人的上级").param(ExtensionParam.of("level", "往上几级", "number").required());
+    }
+    public List<Long> resolve(Context context) { … }
+}
+```
+
+**节点的业务信息**：单据停在哪个节点时业务表上显示什么状态、算哪个环节的超时……这类每个节点要配、引擎不解释的值写在节点的 `meta` 里。
+在 `application.yml` 的 `flow.designer.node-meta` 声明有哪些字段（同上面参数的写法：键、显示名、类型、选项），设计器的节点面板就多一块
+"业务信息"；你的 `FlowListener` 在事务内读到达节点的 `meta` 同步业务表。示例见 `examples/spring-boot` 的 application.yml 与 `extension` 包。
 
 ## 2. 前端
 
@@ -302,6 +323,7 @@ provideFormCompiler(createCompileClient(() => new CompileWorker()));   // 根组
 - [ ] `OrgDirectory` 的 `administrators()`、`members()` 接好了（会签、抄送按角色或部门时要）
 - [ ] 当前操作人从登录信息取，不是示例里的请求头
 - [ ] `PermissionPolicy` 把设计、管理员操作、`instances.search` 收紧了（`ViewPolicy` 跟着生效）
+- [ ] 生产环境不想让"能发布表单"等于"能在服务器上跑 Java"时，设 `flow.forms.server-code: false`（关掉在线写表单的后端代码）
 - [ ] 接口响应是 typed JSON（看一个带金额的接口，响应里有 `$types`）
 - [ ] 集群部署时每个实例都可以开作业轮询；不想开就关掉并接调度平台
 - [ ] 量大时打开归档（`flow.archive.enabled`）

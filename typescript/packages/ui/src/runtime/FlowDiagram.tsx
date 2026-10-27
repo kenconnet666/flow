@@ -22,6 +22,8 @@ export interface FlowDiagramProps {
 interface Box extends DiagramNodeItem {
   name: string;
   type: string;
+  /** 节点种类的名字：内置的按文案，自定义节点用后端给的显示名 */
+  typeText: string;
   state: string;
 }
 
@@ -37,7 +39,13 @@ export const FlowDiagram = _component(({ diagram, height = '20rem' }: FlowDiagra
 
   const boxes = (): Box[] => {
     const placed = layoutDiagram(diagram);
-    return diagram.nodes.map((node, i) => ({ ...placed[i]!, name: node.name ?? node.id, type: node.type, state: node.state }));
+    return diagram.nodes.map((node, i) => ({
+      ...placed[i]!,
+      name: node.name ?? node.id,
+      type: node.type,
+      typeText: messages.nodeType[node.type] ?? node.typeLabel ?? node.type,
+      state: node.state,
+    }));
   };
   const lines = (): Line[] =>
     diagram.edges.map((edge) => ({
@@ -65,7 +73,7 @@ export const FlowDiagram = _component(({ diagram, height = '20rem' }: FlowDiagra
       {(box) => (
         <DiagramNode
           title={box.name}
-          {...(box.type === 'task' || box.type === 'start' || box.type === 'end' ? {} : { description: messages.nodeType[box.type] ?? box.type })}
+          {...(box.type === 'task' || box.type === 'start' || box.type === 'end' ? {} : { description: box.typeText })}
           shape={box.type === 'start' || box.type === 'end' ? 'pill' : 'rect'}
           {...(NODE_TONES[box.state] ? { tone: NODE_TONES[box.state] } : {})}
           dashed={box.state === 'pending'}

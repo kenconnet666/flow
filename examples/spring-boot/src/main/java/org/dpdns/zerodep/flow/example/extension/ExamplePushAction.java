@@ -1,5 +1,7 @@
-package org.dpdns.zerodep.flow.example;
+package org.dpdns.zerodep.flow.example.extension;
 
+import org.dpdns.zerodep.flow.core.extension.ExtensionInfo;
+import org.dpdns.zerodep.flow.core.extension.ExtensionParam;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +15,16 @@ import org.springframework.stereotype.Component;
 public class ExamplePushAction implements ServiceAction {
     @Override
     public String name() { return "demo.push"; }
+
+    /** 设计器里：选"推送外部系统"，参数是两个控件，出边能选"对方接收""对方拒收" */
+    @Override
+    public ExtensionInfo info() {
+        return ExtensionInfo.of("推送外部系统").describedAs("把单据推给外部系统（示例：不真的推）")
+            .param(ExtensionParam.of("outcome", "给出的结果", "text").describedAs("不写时走没写结果的出边"))
+            .param(ExtensionParam.of("fail", "故意失败", "boolean").describedAs("演示重试用完后的异常处理"))
+            .outcome("accepted", "对方接收")
+            .outcome("rejected", "对方拒收");
+    }
 
     @Override
     public Result perform(Context context) {

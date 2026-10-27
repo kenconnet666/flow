@@ -32,7 +32,9 @@ import {
   type PeopleType,
 } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useId, type VNodeChild } from 'vue';
+import type { ExtensionEntry } from '../../client/types';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
+import { entryOf, ExtensionSelect, JsonObjectField, ParamsForm } from './extensions';
 
 /** 文案表（值 → 文字）排成下拉的选项 */
 export const optionsOf = (labels: Readonly<Record<string, string>>) => Object.entries(labels).map(([value, label]) => ({ value, label }));
@@ -118,9 +120,11 @@ type OrgKey = (typeof ORG_KEYS)[number];
 const orgKeyOf = (source: AssigneeSource): OrgKey | undefined =>
   ORG_KEYS.find((key) => key in source && isOrgId((source as Record<string, unknown>)[key]));
 
-/** 能在面板里改的来源：人、角色、部门（字面量编号）、发起人、同某节点、解析器（不带参数的） */
-const editable = (source: AssigneeSource) =>
-  orgKeyOf(source) !== undefined || 'initiator' in source || 'sameAs' in source || ('resolver' in source && !source.args);
+/** 解析器来源 */
+type ResolverSource = Extract<AssigneeSource, { readonly resolver: string }>;
+
+/** 能在面板里改的来源：人、角色、部门（字面量编号）、发起人、同某节点、解析器 */
+const editable = (source: AssigneeSource) => orgKeyOf(source) !== undefined || 'initiator' in source || 'sameAs' in source || 'resolver' in source;
 
 /** AssigneeField 的属性 */
 export interface AssigneeFieldProps {
@@ -131,27 +135,29 @@ export interface AssigneeFieldProps {
   people?: PeopleSource | undefined;
   /** "与某节点的处理人相同"能选的节点 */
   nodes: readonly { id: string; name: string }[];
+  /** 接入方注册的解析器（扩展目录）；没注册时不显示解析器这一块 */
+  resolvers?: readonly ExtensionEntry[] | undefined;
 }
 
 /**
- * 处理人（0005 的 3.2）：选人、角色、部门（记下名字快照 name），发起人，同某节点，解析器。
+ * 处理人（0005 的 3.2）：选人、角色、部门（记下名字快照 name），发起人，同某节点，解析器（从注册的里选，按声明填参数）。
  * 取表单字段（{ ref }）、扩展种类、上一步选这几种在 JSON 里改，这里原样保留并提示有几项
  */
-export const AssigneeField = _component(({ value, onChange, label, people, nodes }: AssigneeFieldProps) => {
+export const AssigneeField = _component(({ value, onChange, label, people, nodes, resolvers: registered = [] }: AssigneeFieldProps) => {
   const messages = useDesignerMessages();
   const others = () => value.filter((s) => !editable(s));
   const orgSources = () => value.filter((s) => orgKeyOf(s) !== undefined);
   const sameAs = () => value.flatMap((s) => ('sameAs' in s ? [s.sameAs] : []));
-  const resolvers = () => value.flatMap((s) => ('resolver' in s && !s.args ? [s.resolver] : []));
+  const resolvers = () => value.filter((s): s is ResolverSource => 'resolver' in s);
 
   /** 按面板里的几部分重新拼出来源：顺序是人员、发起人、同某节点、解析器，最后是面板里不改的 */
-  function write(parts: { org?: AssigneeSource[]; initiator?: boolean; sameAs?: string[]; resolvers?: string[] }) {
+  function write(parts: { org?: AssigneeSource[]; initiator?: boolean; sameAs?: string[]; resolvers?: ResolverSource[] }) {
     const initiator = parts.initiator ?? value.some((s) => 'initiator' in s);
     onChange([
       ...(parts.org ?? orgSources()),
       ...(initiator ? [{ initiator: true as const }] : []),
       ...(parts.sameAs ?? sameAs()).map((id) => ({ sameAs: id })),
-      ...(parts.resolvers ?? resolvers()).filter((r) => r.trim() !== '').map((r) => ({ resolver: r.trim() })),
+      ...(parts.resolvers ?? resolvers()),
       ...others(),
     ]);
   }
@@ -208,12 +214,39 @@ export const AssigneeField = _component(({ value, onChange, label, people, nodes
             onUpdate:_value={(ids: string[]) => write({ sameAs: ids })}
           />
         )}
-        <TagsInput
-          _value={resolvers()}
-          placeholder={messages.resolverHint}
-          aria-label={messages.resolver}
-          onUpdate:_value={(names) => write({ resolvers: names })}
-        />
+        {resolvers().map((source, i) => {
+          const entry = entryOf(registered, source.resolver);
+          const replace = (next: ResolverSource | null) =>
+            write({ resolvers: resolvers().flatMap((s, j) => (j !== i ? [s] : next ? [next] : [])) });
+          return (
+            <Flex key={i} direction="column" gap="xs">
+              <Flex gap="xs" align="center">
+                <ExtensionSelect
+                  entries={registered}
+                  value={source.resolver || null}
+                  label={`${label} ${messages.resolver} ${i + 1}`}
+                  onChange={(name) => replace(name ? { resolver: name } : null)}
+                />
+                <IconButton icon={Trash2} variant="ghost" aria-label={messages.removeResolver(entry?.label ?? source.resolver)} onClick={() => replace(null)} />
+              </Flex>
+              {entry && entry.params.length > 0 ? (
+                <ParamsForm
+                  params={entry.params}
+                  value={source.args}
+                  mergeKey={`resolver:${i}`}
+                  onChange={(args) => replace(compact({ resolver: source.resolver, args }))}
+                />
+              ) : (
+                source.args && <JsonObjectField label={messages.args} value={source.args} onChange={(args) => replace(compact({ resolver: source.resolver, args }))} />
+              )}
+            </Flex>
+          );
+        })}
+        {registered.length > 0 && (
+          <Button variant="outline" size="sm" icon={Plus} onClick={() => write({ resolvers: [...resolvers(), { resolver: registered[0]!.name }] })}>
+            {messages.addResolver}
+          </Button>
+        )}
         {others().length > 0 && <Small>{messages.otherSources(others().length)}</Small>}
       </Flex>
     </FieldGroup>
@@ -232,10 +265,12 @@ function toOrgId(id: string | number): OrgId {
 export interface OutcomeListProps {
   value: readonly Outcome[];
   onChange: (next: Outcome[], merge?: string) => void;
+  /** 接入方注册的守卫（扩展目录）：每个结果能选提交前要过哪些检查 */
+  guards?: readonly ExtensionEntry[] | undefined;
 }
 
-/** 人工节点的处理结果（0005 的 5.3）：标识、按钮上的字、种类、意见必填；别的属性（守卫、确认……）原样保留 */
-export const OutcomeList = _component(({ value, onChange }: OutcomeListProps) => {
+/** 人工节点的处理结果（0005 的 5.3）：标识、按钮上的字、种类、意见必填、提交前检查（守卫）；别的属性（确认……）原样保留 */
+export const OutcomeList = _component(({ value, onChange, guards = [] }: OutcomeListProps) => {
   const messages = useDesignerMessages();
   const patch = (i: number, change: Partial<Outcome>, merge?: string) =>
     onChange(
@@ -277,6 +312,19 @@ export const OutcomeList = _component(({ value, onChange }: OutcomeListProps) =>
             >
               {messages.commentRequired}
             </Checkbox>
+            {(guards.length > 0 || (outcome.guards?.length ?? 0) > 0) && (
+              <Select
+                items={[
+                  ...guards.map((g) => ({ value: g.name, label: g.label, description: g.description ?? g.name })),
+                  ...(outcome.guards ?? []).filter((name) => !guards.some((g) => g.name === name)).map((name) => ({ value: name, label: messages.unregistered(name) })),
+                ]}
+                selectionMode="multiple"
+                _value={[...(outcome.guards ?? [])]}
+                placeholder={messages.guards}
+                aria-label={`${messages.guards} ${i + 1}`}
+                onUpdate:_value={(names: string[]) => patch(i, { guards: names.length ? names : undefined })}
+              />
+            )}
             <IconButton
               icon={Trash2}
               aria-label={messages.removeOutcome(outcome.label)}

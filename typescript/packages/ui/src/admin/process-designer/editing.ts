@@ -5,7 +5,7 @@
  *   let { definition, id } = addNode(definition, 'task', { name: '审批', outcome: '同意' }, { x: 200, y: 80 });
  *   definition = connect(definition, 'start', id).definition;
  */
-import { BRANCHING_TYPES, type ProcessDefinition, type ProcessEdge, type ProcessNode } from '@zerodep-dev/flow-model';
+import { isBranching, type ProcessDefinition, type ProcessEdge, type ProcessNode } from '@zerodep-dev/flow-model';
 import { layoutDiagram } from '../../runtime/diagram-layout';
 
 /** 设计器的工具栏里能加的节点（开始节点每个流程有且只有一个，不在里面） */
@@ -13,6 +13,9 @@ export const PALETTE = ['task', 'exclusive', 'parallel', 'inclusive', 'service',
 
 /** 能加的节点类型 */
 export type PaletteType = (typeof PALETTE)[number];
+
+/** 能加的节点：工具栏里的内置类型，或接入方注册的自定义节点（x-名字，扩展目录里列出的） */
+export type NewNodeType = PaletteType | `x-${string}`;
 
 /** 新节点的文字：节点名，人工节点默认的一个处理结果的名字 */
 export interface NewNodeTexts {
@@ -44,7 +47,7 @@ export function uniqueId(taken: Iterable<string>, prefix: string): string {
 }
 
 /** 一个新节点：带上这种节点必填的部分（人工节点一个处理结果，自动节点空的动作名……），发布前在属性面板里补齐 */
-export function newNode(type: PaletteType, id: string, texts: NewNodeTexts): ProcessNode {
+export function newNode(type: NewNodeType, id: string, texts: NewNodeTexts): ProcessNode {
   const base = { id, name: texts.name };
   switch (type) {
     case 'task':
@@ -60,14 +63,14 @@ export function newNode(type: PaletteType, id: string, texts: NewNodeTexts): Pro
     case 'call':
       return { ...base, type, process: '' };
     default:
-      return { ...base, type };
+      return { ...base, type } as ProcessNode;
   }
 }
 
 /** 节点放在 at（画布坐标，节点的左上角） */
 export function addNode(
   definition: ProcessDefinition,
-  type: PaletteType,
+  type: NewNodeType,
   texts: NewNodeTexts,
   at: { x: number; y: number },
 ): { definition: ProcessDefinition; id: string } {
@@ -91,7 +94,7 @@ export function connect(definition: ProcessDefinition, from: string, to: string)
     definition.edges.map((e) => e.id),
     `${from}-${to}`,
   );
-  const outcome = BRANCHING_TYPES.has(source.type) ? unusedOutcome(definition, source) : undefined;
+  const outcome = isBranching(source.type) ? unusedOutcome(definition, source) : undefined;
   const edge: ProcessEdge = { id, from, to, ...(outcome ? { outcome } : {}) };
   return { definition: { ...definition, edges: [...definition.edges, edge] }, id };
 }

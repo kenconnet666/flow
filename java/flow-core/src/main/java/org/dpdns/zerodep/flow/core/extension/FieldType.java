@@ -12,6 +12,9 @@ public interface FieldType {
     /** 清单里写的类型名 */
     String name();
 
+    /** 设计器里的显示名与说明；不给时只显示类型名 */
+    default ExtensionInfo info() { return null; }
+
     /**
      * 查一个值；空值（null、空文字、空数组）不会传进来，必填由引擎另查。
      *

@@ -16,6 +16,9 @@ public interface OutcomeGuard {
     /** 定义里写的名字 */
     String name();
 
+    /** 设计器里的显示名与说明；不给时只显示名字 */
+    default ExtensionInfo info() { return null; }
+
     /** 通过返回 null；不通过返回给处理人看的原因 */
     String check(Context context);
 

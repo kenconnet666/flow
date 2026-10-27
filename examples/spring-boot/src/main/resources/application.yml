@@ -26,3 +26,16 @@ flow:
     zone: Asia/Shanghai  # "工作日"按北京时间的日期算
   idempotency:
     retention: 24h       # 带 Idempotency-Key 的命令记录留多久（默认 24 小时），过期的每小时删一次
+  designer:
+    node-meta:           # 节点的业务信息：设计器的节点面板多一块"业务信息"，填的值写进节点的 meta，接入方的监听读它同步业务表
+      - key: bizStatus
+        label: 业务状态
+        type: select
+        description: 单据停在这个节点时列表上显示的状态
+        options:
+          - { value: accepting, label: 受理中 }
+          - { value: reviewing, label: 审核中 }
+          - { value: closed, label: 已办结 }
+
+demo:
+  amount-threshold: 10000  # 计算值 demo.amountLevel 的阈值：金额达到它算 high

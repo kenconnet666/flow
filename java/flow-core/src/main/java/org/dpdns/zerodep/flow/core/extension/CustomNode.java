@@ -20,6 +20,9 @@ public interface CustomNode {
     /** 节点类型：以 {@code x-} 开头，同定义里写的 */
     String type();
 
+    /** 设计器里的显示名、说明、属性与可能的结果：节点面板里按它画出这种节点和它的属性；不给时只显示类型名，属性写 JSON */
+    default ExtensionInfo info() { return null; }
+
     /** 到达时 */
     Result arrive(Context context);
 
