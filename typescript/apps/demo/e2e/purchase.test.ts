@@ -59,14 +59,14 @@ async function handle(user: number, title: string, outcome: string, comment?: st
 }
 
 describe('采购审批', () => {
-  test('大额：财务复核通过，总经理同意，发起人在我发起的里看到已完成', async () => {
+  test('大额：财务复核通过，总经理同意，发起人在我发起的里看到已通过', async () => {
     const title = await startPurchase('12000');
     await handle(FINANCE, title, '通过');
     await handle(BOSS, title, '同意');
 
     const page = await open(STARTER, '/started');
     const row = page.getByRole('row', { name: new RegExp(title) });
-    await row.getByText('已完成').waitFor();
+    await row.getByText('已通过').waitFor();
     await row.getByRole('link', { name: `采购申请：${title}` }).click();
     await page.waitForURL('**/instances/*');
     await page.getByText('总经理审批').first().waitFor();
@@ -87,7 +87,7 @@ describe('采购审批', () => {
     await page.context().close();
 
     const started = await open(STARTER, '/started');
-    await started.getByRole('row', { name: new RegExp(title) }).getByText('已完成').waitFor();
+    await started.getByRole('row', { name: new RegExp(title) }).getByText('未通过').waitFor();
     await started.context().close();
   });
 

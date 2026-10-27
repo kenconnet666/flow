@@ -54,8 +54,8 @@ async function start(amount: string): Promise<{ id: string; title: string }> {
 /** 实例详情上的状态 */
 async function statusOf(id: string): Promise<string> {
   const page = await open(STARTER, `/instances/${id}`);
-  await page.getByText(/进行中|已完成/).first().waitFor();
-  const text = await page.getByText(/进行中|已完成/).first().textContent();
+  await page.getByText(/进行中|已通过/).first().waitFor();
+  const text = await page.getByText(/进行中|已通过/).first().textContent();
   await page.context().close();
   return text ?? '';
 }
@@ -79,8 +79,8 @@ describe('扩展', () => {
     await page.waitForURL('**/inbox');
     await page.context().close();
     // 推送是异步的自动节点：作业做完实例才结束
-    for (let i = 0; i < 20 && (await statusOf(id)) !== '已完成'; i++) await new Promise((resolve) => setTimeout(resolve, 500));
-    assert.equal(await statusOf(id), '已完成');
+    for (let i = 0; i < 20 && (await statusOf(id)) !== '已通过'; i++) await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.equal(await statusOf(id), '已通过');
   });
 
   test('超过一百万时提交前检查拦下同意', async () => {
@@ -96,7 +96,7 @@ describe('扩展', () => {
 
   test('小额不经人工审批直接推送走完', async () => {
     const { id } = await start('300');
-    for (let i = 0; i < 20 && (await statusOf(id)) !== '已完成'; i++) await new Promise((resolve) => setTimeout(resolve, 500));
-    assert.equal(await statusOf(id), '已完成');
+    for (let i = 0; i < 20 && (await statusOf(id)) !== '已通过'; i++) await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.equal(await statusOf(id), '已通过');
   });
 });

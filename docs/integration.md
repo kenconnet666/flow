@@ -315,7 +315,7 @@ flow-ui 的组件经 `useHttp()` 拿这个请求客户端、前缀 `/flow`；后
 | 流程详情 | `FlowInstanceDetail id people admin` | 管理端打开时 `admin` |
 | 外部进度 | `FlowProgress instanceId` | 给客户、供应商看的进度（不经 ViewPolicy，内容有限） |
 | 管理：监控、异常、统计、日历 | `FlowInstanceMonitor`、`FlowIncidentList`、`FlowStatistics`、`FlowCalendars`（从 `@zerodep-dev/flow-ui/admin`） | |
-| 管理：流程、表单 | `FlowProcessList` + `FlowDefinitionEditor`；`FlowFormList` + `FlowFormEditor` | 设计中自动存草稿，别人同时改会提示 |
+| 管理：流程、表单 | `FlowProcessList` + `FlowDefinitionEditor`；`FlowFormList` + `FlowFormEditor` | 设计中自动存草稿，别人同时改会提示；发布时带上打开时看到的最新版本，新建撞了已有的标识、打开后别人又发布过都不覆盖（自己调 `definitions/publish` 时参数 `expectedLatest`，表单发布的请求体里同名字段；不给不核对） |
 
 我已办、我发起的、抄送我的带筛选（流程、日期区间、只看已归档）与列排序，后端对排序列有白名单。
 

@@ -40,6 +40,10 @@
 | `FlowEngine` 每个方法都要传操作人：去掉了不带操作人、取"当前操作人"的那一半；`FlowEngineBuilder.actorProvider` 没有了 | `engine.start(cmd)` 改成 `engine.start(user, cmd)`；`ActorProvider` Bean 照旧，只给引擎的 HTTP 接口取登录的人 |
 | `CommandResult`、`BatchResult` 搬到 `view` 包；`ProcessVersionEntity` 改名 `DefinitionEntity`（表还是 `flow_definition`） | 改 import 与类名 |
 | 可靠投递的监听、渠道按名字找回：`FlowListener.listenerName()`、`NotificationChannel.channelName()` | 只有一个类同时实现两者、又想自己起名时要覆盖 |
+| 状态徽标写结果：结束了且结果是 `approved`、`rejected` 时显示"已通过""未通过"（不是"已完成""已终止"）；列表行上的实例（`InstanceRef`）与进度视图带 `result` | 按状态文字找元素的测试、截图跟着改；别的结果名在文案表 `results` 里加 |
+| 发布核对编辑时看到的最新版本（`expectedLatest`，新建时 0）：标识已被占用、打开后别人又发布过，报 `flow.concurrent-modification`（参数 `reason`、`latest`、`publishedBy`） | flow-ui 的编辑器自动带；自己调接口不给时不核对 |
+| 存设计草稿时 `baseVersion` 为空（新建）而标识已经发布过，报同一个冲突（`reason=key-taken`），不再存到已发布的流程、表单名下 | 自己调存草稿接口、改已有流程时带上 `baseVersion` |
+| 委派、加签生成的待办（子待办）的处理结果不再带下一步预测、要选的处理人与退回节点 | 它们办的结果只是意见；自己画办理页的按 `workItem.parentItemId` 提示"由原来的人定" |
 
 ## 升级说明（以后每一版都按这些）
 
