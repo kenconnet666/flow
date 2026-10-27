@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.spring;
 
 import com.easy.query.api.proxy.client.EasyEntityQuery;
 import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
 import org.dpdns.zerodep.flow.core.calendar.WorkCalendar;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.extension.JobHandler;
@@ -77,7 +78,7 @@ public class FlowAutoConfiguration {
         if (db == null) {
             throw new IllegalStateException("the flow engine needs one EasyEntityQuery bean: add easy-query's Spring Boot starter and set easy-query.enable=true");
         }
-        FlowEngine.Builder builder = FlowEngine.builder(db).orgDirectory(directory);
+        FlowEngineBuilder builder = FlowEngine.builder(db).orgDirectory(directory);
         actors.ifAvailable(builder::actorProvider);
         permissions.ifAvailable(builder::permissionPolicy);
         clock.ifUnique(builder::clock);

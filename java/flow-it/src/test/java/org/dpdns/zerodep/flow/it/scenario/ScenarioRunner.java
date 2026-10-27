@@ -2,6 +2,7 @@ package org.dpdns.zerodep.flow.it.scenario;
 
 import lombok.Data;
 import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
 import org.dpdns.zerodep.flow.core.command.AddSignersCommand;
 import org.dpdns.zerodep.flow.core.command.AssignCommand;
 import org.dpdns.zerodep.flow.core.command.CcCommand;
@@ -71,7 +72,7 @@ class ScenarioRunner {
         this.scenario = scenario;
         LiveMysql.recreateTables();
         this.clock = new MovableClock(scenario.getClock());
-        FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.easyQuery())
+        FlowEngineBuilder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.easyQuery())
             .orgDirectory(new TestOrg(scenario.getActors().values()))
             .clock(clock);
         this.engine = new TestExtensions().register(builder).build();

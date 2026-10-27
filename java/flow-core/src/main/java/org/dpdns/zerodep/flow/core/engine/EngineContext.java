@@ -9,7 +9,7 @@ import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import java.time.Clock;
 import java.util.function.Supplier;
 
-/** 引擎内部各处理类共用的东西，由 {@code FlowEngine.Builder} 组装一次。 */
+/** 引擎内部各处理类共用的东西，由 {@code FlowEngineBuilder} 组装一次。 */
 @Data
 public class EngineContext {
     /** 接入方的 easy-query（装好了引擎的表要的转换器与拦截器）；命令的事务在它上面开，外面已有事务时加入 */

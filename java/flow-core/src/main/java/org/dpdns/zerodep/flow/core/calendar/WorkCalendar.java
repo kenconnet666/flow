@@ -9,7 +9,7 @@ import java.time.ZonedDateTime;
 
 /**
  * 工作日历（0005 第 2 节的 {@code calendar}、0007 的 {@code flow_calendar}）：时限写成 {@code { "workdays": 2 }} 时按它算。
- * 默认 {@link #weekdays} 只跳过周六周日；有节假日、调休的接入方实现这个接口（读自己的节假日表），在 {@code FlowEngine.Builder}
+ * 默认 {@link #weekdays} 只跳过周六周日；有节假日、调休的接入方实现这个接口（读自己的节假日表），在 {@code FlowEngineBuilder}
  * 里换掉。时间都按 UTC 存，"哪一天"按日历的时区算。
  */
 public interface WorkCalendar {

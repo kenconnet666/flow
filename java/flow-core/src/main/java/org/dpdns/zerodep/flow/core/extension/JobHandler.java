@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * 一种作业怎么做（0006 第 6 节的 {@code JobHandler}）。内置的是定时节点、超时、提醒、无人认领（{@link BuiltinJobs}）；
- * 接入方在 {@code FlowEngine.Builder.jobHandler} 注册新的种类，同名的换掉内置的。
+ * 接入方在 {@code FlowEngineBuilder.jobHandler} 注册新的种类，同名的换掉内置的。
  * <p>{@link JobRunner} 在一个事务里调 {@link #run}，调之前已经切到作业的租户；抛异常时事务回滚、过一会儿重试，重试用完标成失败。
  */
 public interface JobHandler {

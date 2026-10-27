@@ -1,6 +1,6 @@
 package org.dpdns.zerodep.flow.it.support;
 
-import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
 import org.dpdns.zerodep.flow.core.command.CommandInterceptor;
 import org.dpdns.zerodep.flow.core.command.CommentCommand;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
@@ -38,7 +38,7 @@ public class TestExtensions {
     private final Map<String, Integer> failures = new HashMap<>();
 
     /** 注册到引擎上 */
-    public <U extends Actor> FlowEngine.Builder<U> register(FlowEngine.Builder<U> builder) {
+    public <U extends Actor> FlowEngineBuilder<U> register(FlowEngineBuilder<U> builder) {
         return builder
             .resolver(resolver("manager", context -> List.of(1004L)))
             .guard(guard("budget", context -> new BigDecimal(String.valueOf(context.getForm().getOrDefault("amount", "0")))

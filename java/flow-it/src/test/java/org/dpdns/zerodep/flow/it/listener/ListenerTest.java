@@ -1,6 +1,7 @@
 package org.dpdns.zerodep.flow.it.listener;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
+import org.dpdns.zerodep.flow.core.FlowEngineBuilder;
 import org.dpdns.zerodep.flow.core.command.CompleteCommand;
 import org.dpdns.zerodep.flow.core.command.StartCommand;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -48,7 +49,7 @@ class ListenerTest {
     }
 
     private FlowEngine<TestUser> engine(FlowListener... more) {
-        FlowEngine.Builder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.easyQuery())
+        FlowEngineBuilder<TestUser> builder = FlowEngine.<TestUser>builder(LiveMysql.easyQuery())
             .orgDirectory(new TestOrg(List.of(ALICE, BOSS)))
             .listener(delivered::add);
         for (FlowListener listener : more) builder.listener(listener);
