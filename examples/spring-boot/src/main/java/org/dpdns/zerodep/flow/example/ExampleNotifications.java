@@ -28,7 +28,9 @@ public class ExampleNotifications implements NotificationChannel, FlowListener {
             case Notification.DUE_SOON -> "即将到期「" + title + "」" + node;
             case Notification.OVERDUE -> "已超时「" + title + "」" + node;
             case Notification.CC -> "抄送「" + title + "」";
-            default -> "「" + title + "」已结束，结果 " + notification.getEvent().getOutcome();
+            case Notification.MENTIONED -> notification.getEvent().getActorName() + " 在「" + title + "」里提到了你：" + notification.getEvent().getComment();
+            case Notification.FINISHED -> "「" + title + "」已结束，结果 " + notification.getEvent().getOutcome();
+            default -> notification.getKind() + "「" + title + "」";
         };
         String template = notification.getTemplate() == null ? "" : "（模板 " + notification.getTemplate() + "）";
         LOG.log(System.Logger.Level.INFO, "[通知] 发给 " + notification.getRecipients() + "：" + text + template);
