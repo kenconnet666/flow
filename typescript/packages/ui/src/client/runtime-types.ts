@@ -131,6 +131,8 @@ export interface ProgressView {
   readonly title: string | null;
   readonly processKey: string;
   readonly status: string;
+  /** 结束的结果（如 approved、rejected）；没结束时为 null */
+  readonly result: string | null;
   readonly startedAt: Moment;
   readonly endedAt: Moment | null;
   readonly steps: readonly {

@@ -14,6 +14,8 @@ public class ProgressView {
     private String processKey;
     /** 实例的状态 */
     private String status;
+    /** 结束的结果（如 approved、rejected）；没结束时为 null */
+    private String result;
     private Instant startedAt;
     /** 结束的时间；没结束时为 null */
     private Instant endedAt;

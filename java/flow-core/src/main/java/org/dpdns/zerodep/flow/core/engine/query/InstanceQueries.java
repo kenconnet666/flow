@@ -94,6 +94,7 @@ public class InstanceQueries {
         view.setTitle(instance.getTitle());
         view.setProcessKey(instance.getProcessKey());
         view.setStatus(instance.getStatus());
+        view.setResult(instance.getResult());
         view.setStartedAt(instance.getStartedAt());
         view.setEndedAt(instance.getEndedAt());
         view.setSteps(WorkItems.ofInstance(context.getDb(), instanceId).stream()

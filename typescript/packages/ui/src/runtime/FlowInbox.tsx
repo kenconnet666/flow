@@ -17,7 +17,7 @@ import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
 import { holderName } from './parts/holder';
 import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './parts/list-filters';
-import { statusTone } from './parts/status';
+import { InstanceStatus } from './parts/status';
 
 /** FlowInbox 的属性 */
 export interface FlowInboxProps {
@@ -120,7 +120,7 @@ export const FlowInbox = _component(({ list = 'todo', onOpen, columns = [], page
       header: messages.columnStatus,
       width: 100,
       value: (item) => item.instance?.status ?? '',
-      cell: (item) => item.instance && <Badge tone={statusTone(item.instance.status)}>{messages.status[item.instance.status] ?? item.instance.status}</Badge>,
+      cell: (item) => item.instance && <InstanceStatus status={item.instance.status} result={item.instance.result} />,
     },
     {
       key: 'completedAt',

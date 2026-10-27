@@ -6,19 +6,11 @@
  */
 import type { ProcessInstance } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Badge,
-  Field,
-  Link,
-  Select,
-  TextField,
-  useRequest,
-  useTableQuery,
-  type DataTableColumn,
-} from '@zerodep-dev/vue-tsx-pro-ui';
+import { Field, Link, Select, TextField, useRequest, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../../client/flow-client';
 import { useFlowMessages } from '../../lang/messages';
-import { statusTone } from '../../runtime/parts/status';
+import { InstanceStatus } from '../../runtime/parts/status';
 
 /** FlowInstanceMonitor 的属性 */
 export interface FlowInstanceMonitorProps {
@@ -70,7 +62,7 @@ export const FlowInstanceMonitor = _component(({ onOpen, pageSize = 20 }: FlowIn
       sortable: true,
       width: 100,
       value: (instance) => instance.status,
-      cell: (instance) => <Badge tone={statusTone(instance.status)}>{messages.status[instance.status] ?? instance.status}</Badge>,
+      cell: (instance) => <InstanceStatus status={instance.status} result={instance.result} />,
     },
     { key: 'current', header: messages.columnCurrent, width: 160, value: (instance) => instance.current.map((c) => c.name ?? c.node).join('、') },
     { key: 'startedBy', header: messages.startedBy, width: 100, value: (instance) => instance.startedByName ?? '' },

@@ -11,7 +11,6 @@ import type { Id } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
-  Badge,
   Button,
   Card,
   Descriptions,
@@ -34,7 +33,7 @@ import { ApprovalActions } from './ApprovalActions';
 import { CollaborationActions, type Collaboration } from './CollaborationActions';
 import { FlowDiagram } from './FlowDiagram';
 import { FlowTimeline } from './FlowTimeline';
-import { statusTone } from './parts/status';
+import { InstanceStatus } from './parts/status';
 import { watch } from 'vue';
 
 /** WorkItemDetail 的属性 */
@@ -182,7 +181,7 @@ export const WorkItemDetail = _component(({ id, people, modules, onDone }: WorkI
         {open && !data.completable && !data.actions.assign && <Alert tone="info">{messages.viewOnly}</Alert>}
         <Card
           header={instance.title ?? instance.processKey}
-          extra={<Badge tone={statusTone(instance.status)}>{messages.status[instance.status] ?? instance.status}</Badge>}
+          extra={<InstanceStatus status={instance.status} result={instance.result} />}
         >
           <Descriptions
             columns="auto"

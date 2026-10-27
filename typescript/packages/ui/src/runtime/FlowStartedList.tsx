@@ -7,12 +7,12 @@
  */
 import type { ProcessInstance } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Badge, Link, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
+import { Link, useTableQuery, type DataTableColumn } from '@zerodep-dev/vue-tsx-pro-ui';
 import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
 import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './parts/list-filters';
-import { statusTone } from './parts/status';
+import { InstanceStatus } from './parts/status';
 
 /** FlowStartedList 的属性 */
 export interface FlowStartedListProps {
@@ -54,7 +54,7 @@ export const FlowStartedList = _component(({ onOpen, columns = [], pageSize = 20
       sortable: true,
       width: 100,
       value: (instance) => instance.status,
-      cell: (instance) => <Badge tone={statusTone(instance.status)}>{messages.status[instance.status] ?? instance.status}</Badge>,
+      cell: (instance) => <InstanceStatus status={instance.status} result={instance.result} />,
     },
     {
       key: 'current',

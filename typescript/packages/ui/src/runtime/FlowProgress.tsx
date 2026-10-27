@@ -5,10 +5,10 @@
  */
 import type { Id } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Alert, Badge, Card, Descriptions, Flex, Skeleton, Text, useErrorMessage, useFormat, useRequest } from '@zerodep-dev/vue-tsx-pro-ui';
+import { Alert, Card, Descriptions, Flex, Skeleton, Text, useErrorMessage, useFormat, useRequest } from '@zerodep-dev/vue-tsx-pro-ui';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
-import { statusTone } from './parts/status';
+import { InstanceStatus } from './parts/status';
 
 /** FlowProgress 的属性 */
 export interface FlowProgressProps {
@@ -29,7 +29,7 @@ export const FlowProgress = _component(({ instanceId }: FlowProgressProps) => {
     if (progress.error && !data) return <Alert tone="danger">{errorText(progress.error)}</Alert>;
     if (!data) return <Skeleton />;
     return (
-      <Card header={data.title ?? data.processKey} extra={<Badge tone={statusTone(data.status)}>{messages.status[data.status] ?? data.status}</Badge>}>
+      <Card header={data.title ?? data.processKey} extra={<InstanceStatus status={data.status} result={data.result} />}>
         <Flex direction="column" gap="md">
           <Descriptions
             columns="auto"

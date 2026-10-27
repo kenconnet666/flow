@@ -249,6 +249,7 @@ export const enUS: FlowMessages = {
   draftSaved: (time) => `Draft saved (${time})`,
   timeline: 'History',
   status: { draft: 'Draft', active: 'In progress', suspended: 'Suspended', completed: 'Completed', terminated: 'Terminated', withdrawn: 'Withdrawn' },
+  results: { approved: 'Approved', rejected: 'Rejected' },
   event: (type, node, outcome) => {
     const what = enEvents[type] ?? type;
     if (type === 'workItem.completed') return `${node ?? ''}: ${outcome ?? what}`;

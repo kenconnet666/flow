@@ -145,6 +145,8 @@ export interface InstanceRef {
   /** 待办列表的摘要列：{ 引用名: 值 } */
   readonly summary: Readonly<Record<string, unknown>> | null;
   readonly status: InstanceStatus;
+  /** 结束的结果（如 approved、rejected）；没结束时为 null */
+  readonly result: string | null;
 }
 
 /** 待办列表（我的待办、我已办、待我指定）的一行：待办本身，加上它所在的实例 */

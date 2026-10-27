@@ -11,7 +11,6 @@ import type { Id } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
   Alert,
-  Badge,
   Button,
   Card,
   Descriptions,
@@ -38,7 +37,7 @@ import { FlowTimeline } from './FlowTimeline';
 import { holderName } from './parts/holder';
 import { IncidentActions, incidentDoneText, isDelivery, type IncidentAction } from './IncidentActions';
 import { InstanceAdminActions } from './InstanceAdminActions';
-import { statusTone } from './parts/status';
+import { InstanceStatus } from './parts/status';
 
 /** FlowInstanceDetail 的属性 */
 export interface FlowInstanceDetailProps {
@@ -138,7 +137,7 @@ export const FlowInstanceDetail = _component(({ id, people, modules, onChange, a
         {notice && <Alert tone="success" onClose={() => (notice = null)}>{notice}</Alert>}
         <Card
           header={instance.title ?? instance.processKey}
-          extra={<Badge tone={statusTone(instance.status)}>{messages.status[instance.status] ?? instance.status}</Badge>}
+          extra={<InstanceStatus status={instance.status} result={instance.result} />}
         >
           <Flex direction="column" gap="md">
             <Descriptions

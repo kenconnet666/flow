@@ -12,7 +12,7 @@ import { QueryTable } from '@zerodep-dev/vue-tsx-pro-ui/patterns';
 import { useFlowClient } from '../client/flow-client';
 import { useFlowMessages } from '../lang/messages';
 import { BLANK_LIST_FILTERS, listFilterParams, useListFilters } from './parts/list-filters';
-import { statusTone } from './parts/status';
+import { InstanceStatus } from './parts/status';
 
 /** FlowCcList 的属性 */
 export interface FlowCcListProps {
@@ -68,7 +68,7 @@ export const FlowCcList = _component(({ onOpen, columns = [], pageSize = 20, tit
       header: messages.columnStatus,
       width: 100,
       value: (item) => item.instance?.status ?? '',
-      cell: (item) => item.instance && <Badge tone={statusTone(item.instance.status)}>{messages.status[item.instance.status] ?? item.instance.status}</Badge>,
+      cell: (item) => item.instance && <InstanceStatus status={item.instance.status} result={item.instance.result} />,
     },
     { key: 'createdAt', header: messages.columnCcAt, width: 170, type: 'dateTime', sortable: true, value: (item) => item.createdAt },
   ];

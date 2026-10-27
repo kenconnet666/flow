@@ -165,6 +165,8 @@ export interface FlowMessages {
   readonly timeline: string;
   /** 实例的状态 */
   readonly status: Readonly<Record<string, string>>;
+  /** 结束的结果（结束节点、终止的处理结果上写的 result）；认得的显示在状态的位置，比"已完成"说得清楚 */
+  readonly results: Readonly<Record<string, string>>;
   /** 流转记录里一条事件的标题 */
   readonly event: (type: string, node: string | null, outcome: string | null) => string;
   /** 表单的值不合：按问题代号（必填、类型、范围……） */

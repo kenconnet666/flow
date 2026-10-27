@@ -312,6 +312,7 @@ export const zhCN: FlowMessages = {
   draftSaved: (time) => `已暂存（${time}）`,
   timeline: '流转记录',
   status: { draft: '草稿', active: '进行中', suspended: '已暂停', completed: '已完成', terminated: '已终止', withdrawn: '已撤回' },
+  results: { approved: '已通过', rejected: '未通过' },
   event: (type, node, outcome) => {
     const what = zhEvents[type] ?? type;
     if (type === 'workItem.completed') return `${node ?? ''}：${outcome ?? what}`;
