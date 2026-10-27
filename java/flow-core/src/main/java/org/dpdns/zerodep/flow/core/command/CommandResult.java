@@ -1,9 +1,9 @@
 package org.dpdns.zerodep.flow.core.command;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.view.FlowEventVO;
-import org.dpdns.zerodep.flow.core.view.InstanceVO;
-import org.dpdns.zerodep.flow.core.view.WorkItemVO;
+import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
+import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 
 import java.util.List;
 

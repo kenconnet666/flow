@@ -1,7 +1,6 @@
 package org.dpdns.zerodep.flow.core.entity;
 
 import com.easy.query.core.annotation.Column;
-import com.easy.query.core.annotation.OrderByProperty;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Navigate;
 import com.easy.query.core.annotation.Table;
@@ -11,10 +10,11 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.entity.proxy.CcEntityProxy;
+import org.dpdns.zerodep.flow.core.view.instance.CcVO;
 
 import java.time.Instant;
 
-/** 抄送（{@code flow_cc}）：抄送节点、处理人手动抄送，每个收到的人一行，带已读。读出来是 {@link org.dpdns.zerodep.flow.core.view.CcVO} */
+/** 抄送（{@code flow_cc}）：抄送节点、处理人手动抄送，每个收到的人一行，带已读。读出来是 {@link org.dpdns.zerodep.flow.core.view.instance.CcVO} */
 @Getter
 @Setter
 @FieldNameConstants

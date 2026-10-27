@@ -1,8 +1,8 @@
 package org.dpdns.zerodep.flow.core.listener;
 
 import lombok.Data;
-import org.dpdns.zerodep.flow.core.view.FlowEventVO;
-import org.dpdns.zerodep.flow.core.view.InstanceVO;
+import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 
 import java.util.Map;
 

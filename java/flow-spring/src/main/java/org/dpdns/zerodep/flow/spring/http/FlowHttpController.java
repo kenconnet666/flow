@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.spring.http;
 
 import org.dpdns.zerodep.flow.core.FlowEngine;
-import org.dpdns.zerodep.flow.core.engine.Queries.InstanceSearch;
+import org.dpdns.zerodep.flow.core.engine.query.Queries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.identity.Actor;
 import org.dpdns.zerodep.flow.model.error.ApiResult;
 import org.dpdns.zerodep.flow.model.error.FlowException;

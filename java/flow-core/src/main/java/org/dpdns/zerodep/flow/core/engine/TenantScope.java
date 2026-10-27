@@ -1,5 +1,7 @@
 package org.dpdns.zerodep.flow.core.engine;
 
+import org.dpdns.zerodep.flow.core.engine.job.JobRunner;
+
 import java.util.function.Supplier;
 
 /**
@@ -20,7 +22,7 @@ public class TenantScope {
     }
 
     /** 在 tenant 下做一件事，做完切回原来的 */
-    static void run(Long tenant, Runnable action) {
+    public static void run(Long tenant, Runnable action) {
         Long previous = CURRENT.get();
         CURRENT.set(tenant);
         try {

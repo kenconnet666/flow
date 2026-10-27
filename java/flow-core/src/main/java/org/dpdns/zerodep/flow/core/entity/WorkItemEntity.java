@@ -13,13 +13,14 @@ import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.data.WorkItemDraft;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
 import org.dpdns.zerodep.flow.core.entity.proxy.WorkItemEntityProxy;
+import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 
 import java.time.Instant;
 import java.util.List;
 
 /**
  * 待办（{@code flow_work_item}）：一张表加状态，已办也查这张表。状态的变化都写成带条件的更新（改到 0 行就是别人先改了），
- * 所以认领先到先得、重复提交挡得住。读出来给引擎与前端的是 {@link org.dpdns.zerodep.flow.core.view.WorkItemVO}。
+ * 所以认领先到先得、重复提交挡得住。读出来给引擎与前端的是 {@link org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO}。
  */
 @Getter
 @Setter

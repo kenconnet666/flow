@@ -30,7 +30,7 @@ import org.dpdns.zerodep.flow.core.command.WithdrawCommand;
 import org.dpdns.zerodep.flow.core.command.WithdrawStepCommand;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.Variables;
-import org.dpdns.zerodep.flow.core.engine.Queries.InstanceSearch;
+import org.dpdns.zerodep.flow.core.engine.query.Queries.InstanceSearch;
 import org.dpdns.zerodep.flow.core.view.Page;
 import org.dpdns.zerodep.flow.it.scenario.Scenario.Step;
 import org.dpdns.zerodep.flow.it.support.LiveMysql;

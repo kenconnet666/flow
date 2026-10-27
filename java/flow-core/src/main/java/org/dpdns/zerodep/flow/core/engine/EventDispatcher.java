@@ -7,8 +7,8 @@ import org.dpdns.zerodep.flow.core.listener.FlowListener;
 import org.dpdns.zerodep.flow.core.listener.FlowNotice;
 import org.dpdns.zerodep.flow.core.notify.Notification;
 import org.dpdns.zerodep.flow.core.notify.NotificationChannel;
-import org.dpdns.zerodep.flow.core.view.FlowEventVO;
-import org.dpdns.zerodep.flow.core.view.InstanceVO;
+import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 import org.dpdns.zerodep.flow.model.definition.ProcessGraph;
 import org.dpdns.zerodep.flow.model.definition.ProcessNode;
 

@@ -1,7 +1,7 @@
 package org.dpdns.zerodep.flow.core.listener;
 
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
-import org.dpdns.zerodep.flow.core.view.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
 
 import java.util.Set;
 

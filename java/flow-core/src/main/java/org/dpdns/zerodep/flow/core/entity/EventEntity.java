@@ -3,22 +3,22 @@ package org.dpdns.zerodep.flow.core.entity;
 import com.easy.query.core.annotation.Column;
 import com.easy.query.core.annotation.EntityProxy;
 import com.easy.query.core.annotation.Navigate;
-import com.easy.query.core.annotation.OrderByProperty;
-import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.annotation.Table;
+import com.easy.query.core.enums.RelationTypeEnum;
 import com.easy.query.core.proxy.ProxyEntityAvailable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.FieldNameConstants;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
 import org.dpdns.zerodep.flow.core.entity.proxy.EventEntityProxy;
+import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
 
 import java.time.Instant;
 import java.util.Map;
 
 /**
  * 流转记录（{@code flow_event}，0006 第 5 节的事件），只追加。同一个实例的记录按 {@code instanceRev}、再按编号排出先后。
- * 读出来给前端与监听的是 {@link org.dpdns.zerodep.flow.core.view.FlowEventVO}。下面是事件的种类（{@code type}）。
+ * 读出来给前端与监听的是 {@link org.dpdns.zerodep.flow.core.view.instance.FlowEventVO}。下面是事件的种类（{@code type}）。
  */
 @Getter
 @Setter

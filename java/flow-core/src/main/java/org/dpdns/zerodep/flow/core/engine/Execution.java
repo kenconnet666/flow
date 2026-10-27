@@ -5,6 +5,18 @@ import org.dpdns.zerodep.flow.core.command.CommandResult;
 import org.dpdns.zerodep.flow.core.data.FormValues;
 import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
+import org.dpdns.zerodep.flow.core.engine.assignee.AssigneeResolver;
+import org.dpdns.zerodep.flow.core.engine.assignee.Assignees;
+import org.dpdns.zerodep.flow.core.engine.form.RefValues;
+import org.dpdns.zerodep.flow.core.engine.form.References;
+import org.dpdns.zerodep.flow.core.engine.job.BuiltinJobs;
+import org.dpdns.zerodep.flow.core.engine.job.JobRunner;
+import org.dpdns.zerodep.flow.core.engine.notify.Notifications;
+import org.dpdns.zerodep.flow.core.engine.rule.CallActivities;
+import org.dpdns.zerodep.flow.core.engine.rule.Deadlines;
+import org.dpdns.zerodep.flow.core.engine.rule.InstanceDisplay;
+import org.dpdns.zerodep.flow.core.engine.store.Instances;
+import org.dpdns.zerodep.flow.core.engine.store.WorkItems;
 import org.dpdns.zerodep.flow.core.entity.CandidateEntity;
 import org.dpdns.zerodep.flow.core.entity.CcEntity;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
@@ -15,10 +27,11 @@ import org.dpdns.zerodep.flow.core.entity.WaitEntity;
 import org.dpdns.zerodep.flow.core.entity.WorkItemEntity;
 import org.dpdns.zerodep.flow.core.extension.ServiceAction;
 import org.dpdns.zerodep.flow.core.identity.Actor;
+import org.dpdns.zerodep.flow.core.identity.OrgDirectory;
 import org.dpdns.zerodep.flow.core.notify.Notification;
-import org.dpdns.zerodep.flow.core.view.FlowEventVO;
-import org.dpdns.zerodep.flow.core.view.InstanceVO;
-import org.dpdns.zerodep.flow.core.view.WorkItemVO;
+import org.dpdns.zerodep.flow.core.view.instance.FlowEventVO;
+import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
+import org.dpdns.zerodep.flow.core.view.workitem.WorkItemVO;
 import org.dpdns.zerodep.flow.model.definition.GatewayPairs;
 import org.dpdns.zerodep.flow.model.definition.Outcome;
 import org.dpdns.zerodep.flow.model.definition.ProcessEdge;
@@ -68,7 +81,7 @@ import java.util.Map;
  * 重新提交后直接回到退回它的节点（{@code returnTo: "resubmit"}）。
  * 其余节点类型在两个后端按场景补齐，遇到时报"还不支持"。
  */
-class Execution {
+public class Execution {
     /** 一次推进最多经过多少个节点：网关绕成圈、条件永远成立时停下来报错，而不是一直走 */
     private static final int MAX_STEPS = 1000;
 
@@ -87,18 +100,18 @@ class Execution {
     private int steps;
 
     /** 这次新生成的待办 */
-    final List<WorkItemVO> created = new ArrayList<>();
+    public final List<WorkItemVO> created = new ArrayList<>();
     /** 这次结束的待办（处理完的、取消的），是结束前的样子 */
-    final List<WorkItemVO> closed = new ArrayList<>();
+    public final List<WorkItemVO> closed = new ArrayList<>();
     /** 这次的流转记录，{@link #publish} 时写库并读回（带上数据库给的编号） */
     final List<FlowEventVO> events = new ArrayList<>();
     /** 还没写库的流转记录 */
     private final List<EventEntity> pending = new ArrayList<>();
 
     /** 子实例：这个命令里调用它的父实例的推进（子实例马上就结束时直接回到它）；不是这样发起的为 null */
-    Execution caller;
+    public Execution caller;
     /** 子实例被父实例连带终止：结束时不再回到父实例 */
-    boolean quiet;
+    public boolean quiet;
     /** 这一步的处理人选的下一步处理人（0005 的 5.6）：节点 → 人 */
     private Map<String, List<Long>> picks = Map.of();
     /** 这次处理退回到哪个节点（处理结果 {@code target: "choose"} 时） */
@@ -111,7 +124,7 @@ class Execution {
      * @param form     实例当前的表单值
      * @param rev      实例锁住后的版本：这一步的流转记录都带它，同一实例的记录按它排出准确的先后
      */
-    Execution(EngineContext context, Actor actor, Instant now, LoadedDefinition definition, InstanceEntity instance, FormValues form, int rev) {
+    public Execution(EngineContext context, Actor actor, Instant now, LoadedDefinition definition, InstanceEntity instance, FormValues form, int rev) {
         this.context = context;
         this.assignees = new AssigneeResolver(context.getDb(), context.getOrg(), context.getExtensions());
         this.actor = actor;
@@ -126,45 +139,45 @@ class Execution {
     }
 
     /** 实例现在的样子（推进时就地改它，{@link #flush} 时整行写回） */
-    InstanceEntity instance() { return instance; }
+    public InstanceEntity instance() { return instance; }
 
     /** 实例给前端、监听的样子（从库里读，{@link #flush} 之后才是这一步之后的） */
-    InstanceVO view() { return Instances.view(context.getDb(), instance.getId()); }
+    public InstanceVO view() { return Instances.view(context.getDb(), instance.getId()); }
 
     /** 表单现在的值 */
-    FormValues form() { return form; }
+    public FormValues form() { return form; }
 
     /** 换上新的表单值（处理类收了表单之后） */
-    void form(FormValues next) { this.form = next; }
+    public void form(FormValues next) { this.form = next; }
 
     /** 这一步的处理人选的下一步处理人：节点 → 人 */
-    void picks(Map<String, List<Long>> next) { this.picks = next; }
+    public void picks(Map<String, List<Long>> next) { this.picks = next; }
 
     /** 退回时处理人选的节点（处理结果 {@code target: "choose"}，已经核对过是能选的） */
-    void returnTarget(String node) { this.returnTarget = node; }
+    public void returnTarget(String node) { this.returnTarget = node; }
 
     /** 引擎内部共用的东西 */
-    EngineContext context() { return context; }
+    public EngineContext context() { return context; }
 
     /** 实例按的那个版本的图 */
-    ProcessGraph graph() { return graph; }
+    public ProcessGraph graph() { return graph; }
 
     /** 这一步的时刻 */
-    Instant now() { return now; }
+    public Instant now() { return now; }
 
     /** 这次的操作人；引擎自己推进（作业）时是 {@link SystemActor} */
-    Actor actor() { return actor; }
+    public Actor actor() { return actor; }
 
     /** 时限算成时刻 */
-    Deadlines deadlines() { return deadlines; }
+    public Deadlines deadlines() { return deadlines; }
 
     /** 这一步的结果：实例、新生成与结束的待办、流转记录（{@link #flush} 之后调） */
-    CommandResult result() { return new CommandResult(view(), created, closed, events); }
+    public CommandResult result() { return new CommandResult(view(), created, closed, events); }
 
     // ───────── 取值：{ ref } ─────────
 
     /** 按引用的名字取值（规则见 {@link References}）：用推进到此刻的表单与实例 */
-    Object read(String name) { return References.read(name, instance, form); }
+    public Object read(String name) { return References.read(name, instance, form); }
 
     // ───────── 推进 ─────────
 
@@ -174,7 +187,7 @@ class Execution {
      *
      * @param outcome 节点的处理结果；网关、开始节点传 null
      */
-    void leave(String nodeId, String outcome) {
+    public void leave(String nodeId, String outcome) {
         List<ProcessEdge> edges = Routing.selectEdges(graph, nodeId, outcome, this::read);
         if (edges.isEmpty()) {
             // 发布时的校验保证每个结果都有出边；走到这里是条件都不成立、又没有默认边
@@ -205,7 +218,7 @@ class Execution {
      * 处理完一个节点后往下走：这个节点是被退回来的、退回它的节点要求"重新提交后直接回来"（{@code returnTo: "resubmit"}）时，
      * 直接回到那个节点；否则照常 {@link #leave}。
      */
-    void proceed(String nodeId, String outcome) {
+    public void proceed(String nodeId, String outcome) {
         String back = instance.getState().resubmitTo(nodeId);
         if (back == null) {
             leave(nodeId, outcome);
@@ -244,7 +257,7 @@ class Execution {
      * 退回到处理人选的节点（0005 的 5.4 {@code target: "choose"}）：同沿退回的线走——跳出并行区域时取消区域里的待办，
      * 要求"重新提交后直接回来"时记下，到了那里落到它原来的处理人。流转记录 {@code node.left} 的 data 里记着目标 target。
      */
-    void returnTo(String from, String outcome) {
+    public void returnTo(String from, String outcome) {
         if (returnTarget == null) throw FlowErrors.invalid("returnTarget", "required");
         addEvent(EventEntity.NODE_LEFT, graph.node(from), null, outcome, null, null, Map.of("target", returnTarget));
         leaveRegions(from, returnTarget);
@@ -309,7 +322,7 @@ class Execution {
     }
 
     /** 定时节点到时候了：不再等，往下走 */
-    void timerFired(String nodeId) {
+    public void timerFired(String nodeId) {
         instance.setState(instance.getState().waitDone(nodeId));
         leave(nodeId, null);
     }
@@ -340,7 +353,7 @@ class Execution {
      * 做自动节点的动作（接入方注册的 ServiceAction），改它给的流程变量，按它给的结果往下走。
      * 去重键是"实例:节点:轮次"：同一轮重试时相同。动作抛的不是业务错误码的异常包成 {@code flow.extension-failed}。
      */
-    void performAction(ProcessNode.Service service) {
+    public void performAction(ProcessNode.Service service) {
         String key = instance.getId() + ":" + service.getId() + ":" + instance.getState().round(service.getId());
         ServiceAction.Context actionContext = new ServiceAction.Context(view(), service.getId(), RefValues.resolve(service.getArgs(), this::read),
             key, this::read);
@@ -359,7 +372,7 @@ class Execution {
     }
 
     /** 管理员跳过失败的动作（{@code skipJob}）：记一条，不再等，按指定的结果往下走 */
-    void skipAction(ProcessNode.Service service, Long jobId, String outcome, String reason) {
+    public void skipAction(ProcessNode.Service service, Long jobId, String outcome, String reason) {
         addEvent(EventEntity.JOB_SKIPPED, service, null, outcome, null, reason, Map.of("jobId", jobId));
         instance.setState(instance.getState().waitDone(service.getId()));
         leave(service.getId(), outcome);
@@ -388,7 +401,7 @@ class Execution {
      * 外部事件到了（或等超时、按 overdue 的结果）：不再等；{@code output} 把事件数据里的值写进表单（{@code form.} 开头）
      * 或流程变量，按结果往下走。
      */
-    void received(ProcessNode.Receive receive, String outcome, Map<String, Object> data) {
+    public void received(ProcessNode.Receive receive, String outcome, Map<String, Object> data) {
         Map<String, Object> formChanges = new LinkedHashMap<>();
         Map<String, Object> variableChanges = new LinkedHashMap<>();
         receive.getOutput().forEach((target, key) -> {
@@ -408,19 +421,19 @@ class Execution {
     }
 
     /** 同步调用流程：停在调用节点上，等 count 个子实例结束（等的个数记在汇合的计数里，键是调用节点） */
-    void waitForChildren(String node, int count) {
+    public void waitForChildren(String node, int count) {
         instance.setState(instance.getState().fork(node, count).waitUntil(node, now));
     }
 
     /** 一个子实例结束了：少等一个，返回是不是最后一个 */
-    boolean childArrived(String node) {
+    public boolean childArrived(String node) {
         boolean last = instance.getState().waitingAt(node) <= 1;
         instance.setState(instance.getState().arrive(node));
         return last;
     }
 
     /** 子实例都结束了：output 收进流程变量，按结果往下走 */
-    void callReturned(ProcessNode.Call call, String outcome, Map<String, Object> variables) {
+    public void callReturned(ProcessNode.Call call, String outcome, Map<String, Object> variables) {
         if (!variables.isEmpty()) instance.setVariables(instance.getVariables().with(variables));
         instance.setState(instance.getState().waitDone(call.getId()));
         leave(call.getId(), outcome);
@@ -438,7 +451,7 @@ class Execution {
      *
      * @param node 抄送节点；手动抄送时为 null（抄送人记在抄送上）
      */
-    void copyTo(ProcessNode.Cc node, List<Long> users, String message) {
+    public void copyTo(ProcessNode.Cc node, List<Long> users, String message) {
         List<Long> recipients = users.stream().distinct().toList();
         if (recipients.isEmpty()) return;
         Long fromId = node == null ? actor.getId() : null;
@@ -537,14 +550,14 @@ class Execution {
     }
 
     /** 依次会签：轮到排队的下一个人（前一个人同意了） */
-    void nextSigner(ProcessNode.Task task, int seq) {
+    public void nextSigner(ProcessNode.Task task, int seq) {
         List<Long> queue = instance.getState().queue(task.getId());
         instance.setState(instance.getState().queue(task.getId(), queue.subList(1, queue.size())));
         createWorkItem(task, "forward", Assignees.of(queue.get(0)), seq, null);
     }
 
     /** 会签节点结束了：其余还开着的待办取消，排队的人也不用再等 */
-    void closeCountersign(ProcessNode.Task task) {
+    public void closeCountersign(ProcessNode.Task task) {
         instance.setState(instance.getState().queue(task.getId(), List.of()));
         for (WorkItemVO item : WorkItems.cancelOpenAt(context.getDb(), instance.getId(), List.of(task.getId()), now)) {
             closed.add(item);
@@ -633,7 +646,7 @@ class Execution {
      * @param addMode 委派、加签的方式；转办时为 null（新的待办不挂在原来的下面）
      * @param state   {@code open}，或后加签时的 {@code waiting}
      */
-    WorkItemVO handOver(WorkItemVO from, Long userId, String arrival, String addMode, String state) {
+    public WorkItemVO handOver(WorkItemVO from, Long userId, String arrival, String addMode, String state) {
         ProcessNode.Task task = (ProcessNode.Task) graph.node(from.getNode());
         Origin origin = new Origin(actor.getId(), actor.getName(), addMode == null ? null : from.getId(), addMode);
         return createWorkItem(task, arrival, Assignees.of(userId), from.getSignSeq(), from.getWeight(), origin, state, from.getDueAt());
@@ -716,19 +729,19 @@ class Execution {
     }
 
     /** 撤回刚处理的一步：运行状态、流程变量换回处理之前的 */
-    void restore(RunState state, Variables variables) {
+    public void restore(RunState state, Variables variables) {
         instance.setState(state);
         instance.setVariables(variables);
     }
 
     /** 换实例的状态（暂停、恢复），记一条流转记录 */
-    void changeStatus(String status, String eventType, String comment) {
+    public void changeStatus(String status, String eventType, String comment) {
         instance.setStatus(status);
         addEvent(eventType, null, null, null, null, comment);
     }
 
     /** 管理员跳转：还没办完的待办都取消，等待中的汇合、队列都不再记，从这个节点重新走 */
-    void jumpTo(String nodeId, String reason) {
+    public void jumpTo(String nodeId, String reason) {
         for (WorkItemVO item : WorkItems.cancelOpen(context.getDb(), instance.getId(), now)) {
             closed.add(item);
             addEvent(EventEntity.WORK_ITEM_CANCELED, graph.node(item.getNode()), null, null, item.getId(), null);
@@ -746,7 +759,7 @@ class Execution {
      * @param eventType 记哪种流转记录
      * @param comment   原因（终止、撤回时）
      */
-    void finish(String status, String result, String eventType, String comment) {
+    public void finish(String status, String result, String eventType, String comment) {
         for (WorkItemVO item : WorkItems.cancelOpen(context.getDb(), instance.getId(), now)) {
             closed.add(item);
             addEvent(EventEntity.WORK_ITEM_CANCELED, graph.node(item.getNode()), null, null, item.getId(), null);
@@ -765,12 +778,12 @@ class Execution {
     }
 
     /** 记下一条流转记录（先攒着，{@link #publish} 时一起写库）；同一步的记录共用实例的版本 */
-    void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment) {
+    public void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment) {
         addEvent(type, node, edge, outcome, workItemId, comment, Map.of());
     }
 
     /** 同上，带附加的数据（处理结果的名字这类快照） */
-    void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment, Map<String, Object> data) {
+    public void addEvent(String type, ProcessNode node, String edge, String outcome, Long workItemId, String comment, Map<String, Object> data) {
         EventEntity event = new EventEntity();
         event.setInstanceId(instance.getId());
         event.setWorkItemId(workItemId);
@@ -795,7 +808,7 @@ class Execution {
      *
      * @param fixedTitle 发起时显式给的标题；为 null 时按模板生成
      */
-    void flush(String fixedTitle) {
+    public void flush(String fixedTitle) {
         InstanceDisplay.refresh(instance, graph.definition(), fixedTitle, this::read, context.getDb());
         context.getDb().updatable(instance).executeRows();
         publish();
@@ -805,7 +818,7 @@ class Execution {
      * 只写流转记录（不改实例的命令：认领、催办、留言、抄送）：写库后按编号读回（附加数据按 JSON 的数，同以后查到的一致），
      * 交给监听（事务内的马上调，提交后的记下），算出要发的通知（提交后交给渠道）。
      */
-    void publish() {
+    public void publish() {
         if (pending.isEmpty()) return;
         context.getDb().insertable(pending).executeRows(true);
         List<Long> ids = pending.stream().map(EventEntity::getId).toList();

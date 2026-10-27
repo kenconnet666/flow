@@ -15,6 +15,7 @@ import org.dpdns.zerodep.flow.core.data.RunState;
 import org.dpdns.zerodep.flow.core.data.Variables;
 import org.dpdns.zerodep.flow.core.db.JsonColumns;
 import org.dpdns.zerodep.flow.core.entity.proxy.InstanceEntityProxy;
+import org.dpdns.zerodep.flow.core.view.instance.InstanceVO;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,7 +23,7 @@ import java.util.Map;
 
 /**
  * 流程实例（{@code flow_instance}，列的含义见建表脚本与 0007）。推进时引擎改它的字段，最后整行写回；推进前先把 {@code rev} 加一锁住这一行。
- * 运行状态与流程变量只在引擎里用，给前端的是 {@link org.dpdns.zerodep.flow.core.view.InstanceVO}。
+ * 运行状态与流程变量只在引擎里用，给前端的是 {@link org.dpdns.zerodep.flow.core.view.instance.InstanceVO}。
  */
 @Getter
 @Setter
