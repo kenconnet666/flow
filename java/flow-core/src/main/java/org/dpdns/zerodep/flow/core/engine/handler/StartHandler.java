@@ -16,6 +16,7 @@ import org.dpdns.zerodep.flow.core.engine.FlowErrors;
 import org.dpdns.zerodep.flow.core.engine.LoadedDefinition;
 import org.dpdns.zerodep.flow.core.engine.assignee.CandidateRules;
 import org.dpdns.zerodep.flow.core.engine.form.FormSubmission;
+import org.dpdns.zerodep.flow.core.engine.rule.InstanceDisplay;
 import org.dpdns.zerodep.flow.core.engine.store.Instances;
 import org.dpdns.zerodep.flow.core.entity.EventEntity;
 import org.dpdns.zerodep.flow.core.entity.FormDataEntity;
@@ -190,14 +191,16 @@ public class StartHandler {
             draft.setVersion(definition.getStored().getVersion());
             draft.setBusinessKey(command.getBusinessKey());
             draft.setStartedAt(now);
+            Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.getId() : null;
+            FormValues form = definition.hasForm()
+                ? FormSubmission.draft(context.getExtensions(), definition.getManifest(), definition.getGraph().start().getForm(), true,
+                    FormValues.empty(), command.getForm() == null ? FormValues.empty() : command.getForm(), read)
+                : FormValues.empty();
+            // 草稿列表上按标题模板显示（"采购申请：打印机"），分得清是哪一份
+            draft.setTitle(InstanceDisplay.title(definition.model(), name -> name.startsWith("form.") ? form.get(name.substring("form.".length())) : read.apply(name)));
             if (existing == null) context.getDb().insertable(draft).executeRows(true);
             else context.getDb().updatable(draft).executeRows();
-            if (definition.hasForm()) {
-                Function<String, Object> read = name -> "sys.initiator".equals(name) ? actor.getId() : null;
-                FormValues form = FormSubmission.draft(context.getExtensions(), definition.getManifest(), definition.getGraph().start().getForm(), true,
-                    FormValues.empty(), command.getForm() == null ? FormValues.empty() : command.getForm(), read);
-                saveFormData(draft.getId(), definition.form().getId(), form);
-            }
+            if (definition.hasForm()) saveFormData(draft.getId(), definition.form().getId(), form);
             return Instances.view(context.getDb(), draft.getId());
         });
     }

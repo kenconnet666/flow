@@ -9,7 +9,7 @@
   },
   "steps": [
     { "id": "d", "as": "alice", "command": "saveStartDraft", "args": { "key": "purchase", "form": { "title": "办公椅" } },
-      "expect": { "processKey": "purchase", "status": "draft", "startedBy": "1001", "current": [] } },
+      "expect": { "processKey": "purchase", "status": "draft", "startedBy": "1001", "current": [], "title": "采购申请：办公椅" } },
     { "as": "alice", "command": "saveStartDraft", "args": { "key": "purchase", "form": { "quantity": 0 } },
       "expect": { "error": { "code": "flow.validation-failed" } } },
     { "as": "alice", "command": "startDrafts", "expect": { "drafts": [{ "processKey": "purchase", "status": "draft" }] } },

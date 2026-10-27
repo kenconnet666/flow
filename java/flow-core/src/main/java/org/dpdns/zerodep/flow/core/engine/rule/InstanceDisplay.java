@@ -47,8 +47,8 @@ public class InstanceDisplay {
         instance.setCurrent(currentNodes(instance, definition, db));
     }
 
-    /** 按模板生成标题；不写模板时用流程名 */
-    private static String title(ProcessDefinition definition, Function<String, Object> read) {
+    /** 按模板生成标题；不写模板时用流程名（发起前的草稿也按它显示） */
+    public static String title(ProcessDefinition definition, Function<String, Object> read) {
         String template = definition.getTitle();
         if (template == null || template.isBlank()) return definition.getName();
         Matcher m = PLACEHOLDER.matcher(template);
