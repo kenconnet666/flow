@@ -6,9 +6,10 @@
  * 源码是唯一的状态：字段列表、组件树、属性面板都是每次从源码解析出来的（form-tools 的 parseDesign），设计操作算出要改的几段源码
  * 交给 onEdit——表单编辑器把它派发进代码编辑器，撤销重做就是代码编辑器的历史，只有一个栈。
  * 画布：设计时编译的源码给每个节点加 data-form-node（路径），上面盖一层透明的操作层，点击、拖放都由它处理，
- * 选中框、插入线按 data-form-node 元素的位置画；预览时去掉操作层，表单照常能填。源码有语法错误时停在上次能解析的结果，不能设计。
+ * 选中框、插入线按 data-form-node 元素的位置画；预览时去掉操作层，表单照常能填（也能只读地看）。源码有语法错误时停在上次能解析的结果，不能设计。
+ * 预览里填的值在改代码重新编译后留着（换上的新表单从这些值开始）。
  */
-import { Eye, PenTool, Plus, Redo2, Trash2, Undo2 } from '@lucide/icons';
+import { Eye, EyeOff, PenTool, Plus, Redo2, Trash2, Undo2 } from '@lucide/icons';
 import type { FieldDefinition, FieldType, FormManifest } from '@zerodep-dev/flow-model';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import {
@@ -50,6 +51,7 @@ import {
   type FormDesign,
   type TextEdit,
 } from '../../form-tools';
+import type { FlowFormHandle } from '../../form/context';
 import { FlowForm } from '../../form/FlowForm';
 import { useFormDesignerMessages } from '../../lang/form-designer-messages';
 import { PropertyPanel } from './PropertyPanel';
@@ -67,6 +69,9 @@ export interface FormDesignerProps {
   /** 表单代码还能导入的模块（业务组件），同 FlowForm */
   modules?: Readonly<Record<string, unknown>>;
 }
+
+/** 设计、预览（能填）、只读预览 */
+type Mode = 'design' | 'preview' | 'readonly';
 
 /** 面板里能拖的一样东西 */
 type Item =
@@ -101,6 +106,7 @@ const FIELD_ITEMS: readonly { type: FieldType; control: string }[] = [
   { type: 'date', control: 'DatePicker' },
   { type: 'datetime', control: 'DatePicker' },
   { type: 'select', control: 'Select' },
+  { type: 'select', control: 'RadioGroup' },
   { type: 'people', control: 'PeoplePicker' },
 ];
 
@@ -112,7 +118,9 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
   const confirm = useConfirm();
   let design = _state.raw<FormDesign | null>(null);
   let syntax = _state<string | null>(null);
-  let mode = _state<'design' | 'preview'>('design');
+  let mode = _state<Mode>('design');
+  // 不做成状态：只在下次重新编译时取一次
+  let handle: FlowFormHandle | null = null;
   let selected = _state<string | null>(null);
   let drag = _state.raw<Drag | null>(null);
   let drop = _state.raw<Drop | null>(null);
@@ -142,7 +150,7 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
     const manifest: FormManifest = Object.fromEntries(design.fields.map((f) => [f.name, f.definition!]));
     return {
       manifest,
-      values: {},
+      values: handle?.values() ?? {},
       access: { default: 'editable' as const },
       start: true,
       compiled: null,
@@ -440,7 +448,18 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
 
   const canvasArea = () => (
     <div ref={_toRef(canvas)} style={{ position: 'relative', minHeight: '20rem', padding: '0.75rem' }}>
-      {view.value ? <FlowForm view={view.value} keepPrevious {...(people ? { people } : {})} {...(modules ? { modules } : {})} /> : <Text tone="muted">{messages.noRoot}</Text>}
+      {view.value ? (
+        <FlowForm
+          view={view.value}
+          keepPrevious
+          mode={mode === 'readonly' ? 'view' : 'fill'}
+          onReady={(form) => (handle = form)}
+          {...(people ? { people } : {})}
+          {...(modules ? { modules } : {})}
+        />
+      ) : (
+        <Text tone="muted">{messages.noRoot}</Text>
+      )}
       {designing() && (
         <div
           data-designer-overlay
@@ -486,9 +505,10 @@ export const FormDesigner = _component(({ source, onEdit, onUndo, onRedo, people
         <IconButton icon={Redo2} variant="ghost" aria-label={messages.redo} disabled={!onRedo} onClick={() => onRedo?.()} />
         <IconButton icon={Trash2} variant="ghost" aria-label={messages.remove} disabled={!designing() || !selected || selected === design?.root?.path} onClick={removeSelected} />
         <Separator orientation="vertical" />
-        <ToggleGroup aria-label={messages.design} required size="sm" _value={mode} onUpdate:_value={(next: string) => (mode = next as 'design' | 'preview')}>
+        <ToggleGroup aria-label={messages.design} required size="sm" _value={mode} onUpdate:_value={(next: string) => (mode = next as Mode)}>
           <ToggleItem value="design" icon={PenTool}>{messages.design}</ToggleItem>
           <ToggleItem value="preview" icon={Eye}>{messages.preview}</ToggleItem>
+          <ToggleItem value="readonly" icon={EyeOff}>{messages.previewReadonly}</ToggleItem>
         </ToggleGroup>
       </Toolbar>
       {syntax && <Alert tone="warning">{messages.syntaxError(syntax)}</Alert>}

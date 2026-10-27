@@ -366,6 +366,9 @@ export interface FormPublication {
   readonly manifest: FormManifest;
   /** 前端源码（代码表单）；只有清单时不给 */
   readonly clientSource?: string;
+  /** 前端源码的编译结果与编译器版本（browser-compile 的 COMPILER_VERSION）：审批页面直接执行，不用再编译 */
+  readonly clientCompiled?: string;
+  readonly compilerVersion?: string;
   /** 后端代码的语言（现在只有 java）与源码；没有后端代码时不给 */
   readonly serverLanguage?: 'java';
   readonly serverSource?: string;

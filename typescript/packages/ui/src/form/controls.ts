@@ -5,6 +5,7 @@
  *                  decimal：值按 Decimal 读写、步长与显示的小数位按 scale
  *   DatePicker、DateField   值是 CalendarDate / ZonedDateTime（valueType="dateValue"）；datetime 到分钟，新选的本地时间按浏览器的时区换成时刻
  *   Select         选项取清单的 options、多选按 multiple；选项的值可以是数字，控件按文字选，来回换
+ *   RadioGroup、CheckboxGroup   同 Select 的选项与值；单选组只能单选，多选组只能多选
  *   PeoplePicker   人员数据源取容器给的 people，types、max 取清单
  *   TextField、Textarea     maxlength 取清单
  *
@@ -12,10 +13,12 @@
  */
 import type { FieldDefinition, FieldOption } from '@zerodep-dev/flow-model';
 import {
+  CheckboxGroup,
   DateField,
   DatePicker,
   NumberField,
   PeoplePicker,
+  RadioGroup,
   Select,
   Textarea,
   TextField,
@@ -78,21 +81,23 @@ function extraProps(control: VNode, field: FieldDefinition, binding: ControlBind
         );
       }
       break;
-    case Select: {
-      const options: readonly FieldOption[] = Array.isArray(field.options) ? field.options : [];
-      const original = (text: string) => options.find((option) => String(option.value) === text)?.value ?? text;
-      put('items', options.map((option) => ({ value: String(option.value), label: option.label })));
-      if (field.multiple) {
-        put('selectionMode', 'multiple');
+    case Select:
+    case RadioGroup:
+    case CheckboxGroup: {
+      const options = optionsOf(field);
+      put('items', options.items);
+      const multiple = control.type === CheckboxGroup || (control.type === Select && field.multiple);
+      if (multiple) {
+        if (control.type === Select) put('selectionMode', 'multiple');
         bindValue(
           () => ((binding.get() ?? []) as unknown[]).map(String),
-          (texts: string[]) => binding.set(texts.map(original)),
+          (texts: string[]) => binding.set(texts.map(options.original)),
         );
       } else {
-        put('clearable', !field.required);
+        if (control.type === Select) put('clearable', !field.required);
         bindValue(
           () => (binding.get() == null ? null : String(binding.get())),
-          (text: string | null) => binding.set(text == null ? null : original(text)),
+          (text: string | null) => binding.set(text == null ? null : options.original(text)),
         );
       }
       break;
@@ -108,6 +113,15 @@ function extraProps(control: VNode, field: FieldDefinition, binding: ControlBind
       break;
   }
   return out;
+}
+
+/** 选项控件按文字选：列出的选项，和从文字找回原来的值（可能是数字） */
+function optionsOf(field: FieldDefinition) {
+  const options: readonly FieldOption[] = Array.isArray(field.options) ? field.options : [];
+  return {
+    items: options.map((option) => ({ value: String(option.value), label: option.label })),
+    original: (text: string) => options.find((option) => String(option.value) === text)?.value ?? text,
+  };
 }
 
 const kebab = (name: string) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);

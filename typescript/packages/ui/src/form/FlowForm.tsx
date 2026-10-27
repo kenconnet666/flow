@@ -5,8 +5,8 @@
  *   // 审批面板点按钮时：if (await handle.validate()) flow.complete({ …, form: handle.values() })
  *
  * 用哪份代码：
- *   1. 有编译好的代码：直接执行（审批页面不带编译器）；
- *   2. 只有源码：在浏览器里编译（加载 Babel；应用的 Vite 配置要加组件库的 browserCompile() 插件）；
+ *   1. 有编译好的代码、编译器版本与现在的一样：直接执行（审批页面不带编译器）；
+ *   2. 只有源码，或编译好的代码是旧版本编译器编的：在浏览器里编译（加载 Babel；应用的 Vite 配置要加组件库的 browserCompile() 插件）；
  *   3. 都没有：按字段清单自动排版（autoFlowForm）。
  * 表单代码能导入的模块见 flowFormModules；要用别的（业务组件、图标）时经 modules 加进去。代码导出的 fields 与引擎存的清单不一致时
  * 不渲染、报错（0004 的 1.2 兜底：绕过保存流程、或提取出了错）。
@@ -25,7 +25,10 @@ import type { FlowFormContext, FlowFormHandle } from './context';
 /** FlowForm 的属性 */
 export interface FlowFormProps {
   /** 引擎给的表单视图（发起页、待办详情里的 form） */
-  view: Pick<FormView, 'manifest' | 'values' | 'access' | 'start' | 'compiled' | 'source'> & { readonly versionId?: Id };
+  view: Pick<FormView, 'manifest' | 'values' | 'access' | 'start' | 'compiled' | 'source'> & {
+    readonly versionId?: Id;
+    readonly compilerVersion?: string | null;
+  };
   /** 表单所在的实例：表单代码调后端接口（context.call）时带上；发起页上没有 */
   instanceId?: Id | null;
   /** fill 按权限填写（默认）；view 全部只读 */
@@ -69,8 +72,9 @@ export const FlowForm = _component(({ view, mode = 'fill', people, modules, read
 
   async function load(): Promise<Component> {
     if (!view.compiled && !view.source) return autoFlowForm(view.manifest);
-    const { compileInThread, evaluateModule } = await import('@zerodep-dev/vue-tsx-pro-tsx/browser-compile');
-    const code = view.compiled ?? (await compileInThread(view.source!, { filename: 'Form.tsx' }));
+    const { COMPILER_VERSION, compileInThread, evaluateModule } = await import('@zerodep-dev/vue-tsx-pro-tsx/browser-compile');
+    const stored = view.compiled && (view.compilerVersion === COMPILER_VERSION || !view.source) ? view.compiled : null;
+    const code = stored ?? (await compileInThread(view.source!, { filename: 'Form.tsx' }));
     const exported = evaluateModule<{ default?: Component; fields?: FormManifest }>(code, {
       ...(await flowFormModules()),
       ...modules,

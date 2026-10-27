@@ -21,6 +21,7 @@ import {
   Flex,
   Grid,
   HttpError,
+  Link,
   Select,
   Tab,
   TabList,
@@ -61,10 +62,22 @@ type Mode = 'manifest' | 'design' | 'code';
 /** 新建时的骨架：一个必填的标题 */
 const SKELETON: FormManifest = { title: { label: '标题', type: 'text', required: true } };
 
+/** 分析出的一个问题；代码里的问题带位置（行列从 1 起），点它跳到代码编辑器里 */
+interface Problem {
+  readonly text: string;
+  readonly at?: { readonly line: number; readonly column: number };
+}
+
 /** 当前写的东西分析出来的样子：取得出清单、没有问题时才预览、才能发布 */
 interface Analysis {
   readonly manifest: FormManifest | null;
-  readonly problems: readonly string[];
+  readonly problems: readonly Problem[];
+}
+
+/** 发布前把前端源码编译好，连同编译器版本一起存（审批页面直接执行） */
+async function compileForPublish(source: string): Promise<{ code: string; version: string }> {
+  const { COMPILER_VERSION, compileInThread } = await import('@zerodep-dev/vue-tsx-pro-tsx/browser-compile');
+  return { code: await compileInThread(source, { filename: 'Form.tsx' }), version: COMPILER_VERSION };
 }
 
 /** 改完停一会儿再分析、刷新预览（毫秒） */
@@ -127,20 +140,27 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
       try {
         manifest = JSON.parse(manifestText) as FormManifest;
       } catch (error) {
-        return { manifest: null, problems: [messages.jsonInvalid((error as Error).message)] };
+        return { manifest: null, problems: [{ text: messages.jsonInvalid((error as Error).message) }] };
       }
     } else {
       // 取清单要解析 TSX（Babel），用到时才加载（设计、代码两种写法都是）
       const { extractFields } = await import('../form-tools');
       try {
         const result = extractFields(source);
-        if (!result.manifest) return { manifest: null, problems: result.problems.map((p) => `${messages.extractProblem(p.code)}（${p.line}:${p.column}）`) };
+        if (!result.manifest) {
+          return {
+            manifest: null,
+            problems: result.problems.map((p) => ({ text: `${messages.extractProblem(p.code)}（${p.line}:${p.column}）`, at: { line: p.line, column: p.column } })),
+          };
+        }
         manifest = result.manifest as FormManifest;
       } catch (error) {
-        return { manifest: null, problems: [messages.syntaxError((error as Error).message)] };
+        // Babel 的语法错误带 loc（列从 0 起）
+        const loc = (error as { loc?: { line: number; column: number } }).loc;
+        return { manifest: null, problems: [{ text: messages.syntaxError((error as Error).message), ...(loc ? { at: { line: loc.line, column: loc.column + 1 } } : {}) }] };
       }
     }
-    const problems = validateManifest(manifest).map((p) => `${messages.problem(p.code, toTexts(p.params))}${p.field ? `（${p.field}）` : ''}`);
+    const problems = validateManifest(manifest).map((p) => ({ text: `${messages.problem(p.code, toTexts(p.params))}${p.field ? `（${p.field}）` : ''}` }));
     return { manifest: problems.length ? null : manifest, problems };
   }
 
@@ -216,12 +236,13 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
     failure = null;
     notice = null;
     try {
+      const compiled = mode !== 'manifest' ? await compileForPublish(source) : null;
       const result = await flow.publishForm({
         key: key.trim(),
         name: name.trim(),
         ...(category.trim() ? { category: category.trim() } : {}),
         manifest: current.manifest,
-        ...(mode !== 'manifest' ? { clientSource: source } : {}),
+        ...(compiled ? { clientSource: source, clientCompiled: compiled.code, compilerVersion: compiled.version } : {}),
         ...(serverSource.trim() ? { serverLanguage: 'java' as const, serverSource } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
       });
@@ -333,9 +354,15 @@ export const FlowFormEditor = _component(({ formKey, people, onPublished }: Flow
         {analysis.problems.length > 0 && (
           <Alert tone="danger">
             <Flex direction="column" gap="xs">
-              {analysis.problems.map((p, i) => (
-                <Text key={i}>✕ {p}</Text>
-              ))}
+              {analysis.problems.map((p, i) =>
+                p.at && mode === 'code' ? (
+                  <Link key={i} href="#" onClick={(event: MouseEvent) => (event.preventDefault(), editor?.goTo(p.at!.line, p.at!.column))}>
+                    ✕ {p.text}
+                  </Link>
+                ) : (
+                  <Text key={i}>✕ {p.text}</Text>
+                ),
+              )}
             </Flex>
           </Alert>
         )}

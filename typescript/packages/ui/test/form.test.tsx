@@ -81,3 +81,32 @@ describe('FlowForm', () => {
     expect(input?.readOnly).toBe(true);
   });
 });
+
+describe('FlowForm 用哪份代码', () => {
+  const source = `import { defineFields, defineFlowForm } from '@zerodep-dev/flow-ui/form';
+import { TextField } from '@zerodep-dev/vue-tsx-pro-ui';
+export const fields = defineFields({ title: { label: '源码里的标题', type: 'text' } });
+export default defineFlowForm(fields, ({ form }) => () => (
+  <form.Form><form.Field name="title"><TextField /></form.Field></form.Form>
+));`;
+  // 执行时没有默认导出：用了它就报错
+  const broken = '__exports.fields = {};';
+  const manifest = { title: { label: '源码里的标题', type: 'text' } } as const;
+  /** 等表单加载完（第一次要加载编译器与表单写法的模块，较慢） */
+  const loaded = async (host: HTMLElement) => {
+    for (let waited = 0; !host.textContent && waited < 20_000; waited += 50) await new Promise((resolve) => setTimeout(resolve, 50));
+  };
+
+  it('编译结果是别的编译器版本编的：按源码重新编译', async () => {
+    const { host } = await mountForm({ manifest, source, compiled: broken, compilerVersion: 'old/0', values: {} });
+    await loaded(host);
+    expect(labels(host)).toContain('源码里的标题');
+  }, 30_000);
+
+  it('编译器版本一样：直接执行编译结果', async () => {
+    const { COMPILER_VERSION } = await import('@zerodep-dev/vue-tsx-pro-tsx/browser-compile');
+    const { host } = await mountForm({ manifest, source, compiled: broken, compilerVersion: COMPILER_VERSION, values: {} });
+    await loaded(host);
+    expect(host.textContent).toContain('no default export');
+  }, 30_000);
+});

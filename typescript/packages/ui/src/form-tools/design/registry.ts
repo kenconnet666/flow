@@ -118,6 +118,14 @@ const BUILTIN: readonly FormComponent[] = [
   { name: 'DatePicker', module: UI_MODULE, label: '日期选择', group: 'field', field: ['date', 'datetime'], props: [placeholder] },
   { name: 'DateField', module: UI_MODULE, label: '日期输入', group: 'field', field: ['date'] },
   { name: 'Select', module: UI_MODULE, label: '下拉选择', group: 'field', field: ['select'], props: [placeholder] },
+  {
+    name: 'RadioGroup', module: UI_MODULE, label: '单选组', group: 'field', field: ['select'], fits: (field) => !field.multiple,
+    props: [{ name: 'orientation', label: '方向', editor: choice('vertical', 'horizontal') }],
+  },
+  {
+    name: 'CheckboxGroup', module: UI_MODULE, label: '多选组', group: 'field', field: ['select'], fits: (field) => field.multiple === true,
+    props: [{ name: 'orientation', label: '方向', editor: choice('vertical', 'horizontal') }],
+  },
   { name: 'PeoplePicker', module: UI_MODULE, label: '选人', group: 'field', field: ['people'] },
 ];
 

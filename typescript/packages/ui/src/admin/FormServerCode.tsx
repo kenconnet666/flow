@@ -1,12 +1,12 @@
 /**
  * 表单的后端代码（0004 的 1.5，表单编辑器的"后端代码"页签）：一个 Java 类实现 FormHandler，跟表单版本一起发布。
- * "试编译"交给后端编译，问题带行列列在下面；发布时后端再编译一次，编不过不能发布。
+ * "试编译"交给后端编译，问题带行列列在下面，点一条跳到代码里那个位置；发布时后端再编译一次，编不过不能发布。
  *
  *   <FormServerCode _value={serverSource} problems={serverProblems} />
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Alert, Button, Flex, Small, Text, useErrorMessage } from '@zerodep-dev/vue-tsx-pro-ui';
-import { CodeEditor } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
+import { Alert, Button, Flex, Link, Small, useErrorMessage } from '@zerodep-dev/vue-tsx-pro-ui';
+import { CodeEditor, type CodeEditorHandle } from '@zerodep-dev/vue-tsx-pro-ui/code-editor';
 import { useFlowClient } from '../client/flow-client';
 import type { CompileProblem } from '../client/types';
 import { useFlowMessages } from '../lang/messages';
@@ -39,6 +39,7 @@ export const FormServerCode = _component(({ _value: source = _bindable(''), prob
   let checked = _state<readonly CompileProblem[] | null>(null);
   let failure = _state<string | null>(null);
   let busy = _state(false);
+  let editor: CodeEditorHandle | undefined;
 
   async function compile() {
     busy = true;
@@ -57,7 +58,7 @@ export const FormServerCode = _component(({ _value: source = _bindable(''), prob
     return (
       <Flex direction="column" gap="sm">
         <Small tone="muted">{messages.serverCodeHint}</Small>
-        <CodeEditor _value={source} aria-label={messages.formPanelServer} style={{ height: '28rem' }} />
+        <CodeEditor _value={source} aria-label={messages.formPanelServer} style={{ height: '28rem' }} onReady={(handle) => (editor = handle)} />
         <Flex gap="sm" align="center">
           {!source.trim() && (
             <Button variant="outline" onClick={() => (source = SERVER_SKELETON)}>
@@ -76,7 +77,9 @@ export const FormServerCode = _component(({ _value: source = _bindable(''), prob
             <Alert tone="danger">
               <Flex direction="column" gap="xs">
                 {shown.map((p, i) => (
-                  <Text key={i}>✕ {messages.compileProblem(p.line, p.column, p.message)}</Text>
+                  <Link key={i} href="#" onClick={(event: MouseEvent) => (event.preventDefault(), editor?.goTo(p.line, p.column))}>
+                    ✕ {messages.compileProblem(p.line, p.column, p.message)}
+                  </Link>
                 ))}
               </Flex>
             </Alert>

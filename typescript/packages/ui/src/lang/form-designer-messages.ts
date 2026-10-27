@@ -8,6 +8,8 @@ import { useMessages, type MessageTable } from '@zerodep-dev/vue-tsx-pro-ui';
 export interface FlowFormDesignerMessages {
   readonly design: string;
   readonly preview: string;
+  /** 只读预览：看审批人、抄送人打开时的样子 */
+  readonly previewReadonly: string;
   readonly undo: string;
   readonly redo: string;
   readonly remove: string;
@@ -65,6 +67,7 @@ export const flowFormDesignerMessages: MessageTable<FlowFormDesignerMessages> = 
   'zh-CN': {
     design: '设计',
     preview: '预览',
+    previewReadonly: '只读预览',
     undo: '撤销',
     redo: '重做',
     remove: '删除',
@@ -126,6 +129,7 @@ export const flowFormDesignerMessages: MessageTable<FlowFormDesignerMessages> = 
   'en-US': {
     design: 'Design',
     preview: 'Preview',
+    previewReadonly: 'Read-only preview',
     undo: 'Undo',
     redo: 'Redo',
     remove: 'Delete',
