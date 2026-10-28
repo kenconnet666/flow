@@ -5,11 +5,14 @@
  *   node shots/run.ts              # 全部
  *   node shots/run.ts build forms  # 只截这几组
  */
+import * as admin from './admin.ts';
 import * as build from './build.ts';
+import * as forms from './forms.ts';
+import * as use from './use.ts';
 import { close, launch } from './lib.ts';
 
 const GROUPS: Record<string, () => Promise<void>> = {
-  // 教程有先后：合同审批要在大额采购之前（大额采购调用它）
+  // 有先后：合同审批在大额采购之前（大额采购调用它）；表单在教程 1 之后（把报销单换给报销流程）；管理用前面留下的数据
   build: async () => {
     await build.expense();
     await build.review();
@@ -18,6 +21,9 @@ const GROUPS: Record<string, () => Promise<void>> = {
     await build.bigbuy();
     await build.esign();
   },
+  use: use.run,
+  forms: forms.run,
+  admin: admin.run,
 };
 
 const wanted = process.argv.slice(2);
