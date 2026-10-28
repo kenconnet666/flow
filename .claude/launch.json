@@ -32,16 +32,6 @@
       ],
       "port": 5180,
       "autoPort": false
-    },
-    {
-      "name": "flow-docs",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "-C",
-        "typescript/apps/docs",
-        "dev"
-      ],
-      "port": 5190
     }
   ]
 }

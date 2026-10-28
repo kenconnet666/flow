@@ -8,5 +8,5 @@ import { useRouter } from 'vue-router';
 
 export const MonitorPage = _component(() => {
   const router = useRouter();
-  return () => <FlowInstanceMonitor onOpen={(instance) => void router.push(`/instances/${instance.id}?admin=1`)} />;
+  return () => <FlowInstanceMonitor onOpen={(instance) => void router.push(`/app/instances/${instance.id}?admin=1`)} />;
 });

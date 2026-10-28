@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { chromium, type Browser } from 'playwright';
 
-const BASE = process.env.E2E_URL ?? 'http://localhost:5180';
+// 演示的页面都在 /app 下
+const BASE = `${process.env.E2E_URL ?? 'http://localhost:5180'}/app`;
 const STARTER = 1001;
 
 let browser: Browser;

@@ -18,7 +18,7 @@ export const ProcessEditPage = _component(() => {
         {...(key === 'new' ? {} : { processKey: key })}
         onPublished={(result) => {
           toaster.success(`已发布 ${result.key} 第 ${result.version} 版`);
-          if (key === 'new') void router.replace(`/admin/processes/${result.key}`);
+          if (key === 'new') void router.replace(`/app/admin/processes/${result.key}`);
         }}
       />
     );

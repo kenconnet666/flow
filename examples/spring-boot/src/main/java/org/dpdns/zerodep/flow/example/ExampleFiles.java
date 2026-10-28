@@ -21,7 +21,7 @@ import java.util.UUID;
 
 /**
  * 示例的附件存取：表单里附件字段的值只记 {@code { id, name, size }}，文件本身由接入方存（0004 的表格）。
- * <b>只为演示</b>：存在临时目录、不查权限、不清理；真实应用存到对象存储或文件服务，下载时按"能不能看这个实例"把关。
+ * <b>只为演示</b>：存在临时目录、不查权限，重置演示时清空；真实应用存到对象存储或文件服务，下载时按"能不能看这个实例"把关。
  * 前端经 {@code provideFlowFiles} 接上这两个接口（示例前端的 files.ts）。
  */
 @RestController
@@ -45,6 +45,14 @@ public class ExampleFiles {
         file.transferTo(ROOT.resolve(id));
         Files.writeString(ROOT.resolve(id + ".name"), name, StandardCharsets.UTF_8);
         return new StoredFile(id, name, file.getSize());
+    }
+
+    /** 删掉上传过的全部文件（重置演示时） */
+    static void clear() throws IOException {
+        if (!Files.exists(ROOT)) return;
+        try (var files = Files.list(ROOT)) {
+            for (Path file : files.toList()) Files.deleteIfExists(file);
+        }
     }
 
     /** 下载：按上传时的文件名 */

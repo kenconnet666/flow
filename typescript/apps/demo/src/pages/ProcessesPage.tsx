@@ -7,5 +7,5 @@ import { useRouter } from 'vue-router';
 
 export const ProcessesPage = _component(() => {
   const router = useRouter();
-  return () => <FlowProcessList onEdit={(key) => void router.push(`/admin/processes/${key ?? 'new'}`)} />;
+  return () => <FlowProcessList onEdit={(key) => void router.push(`/app/admin/processes/${key ?? 'new'}`)} />;
 });

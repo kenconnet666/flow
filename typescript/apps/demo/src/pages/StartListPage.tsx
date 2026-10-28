@@ -34,7 +34,7 @@ export const StartListPage = _component(() => {
   return () => (
     <Flex direction="column" gap="lg">
       <H1>发起</H1>
-      <FlowStartDrafts onOpen={(draft) => void router.push(`/start/${draft.processKey}?draft=${draft.id}`)} />
+      <FlowStartDrafts onOpen={(draft) => void router.push(`/app/start/${draft.processKey}?draft=${draft.id}`)} />
       {processes.error ? (
         <Alert tone="danger">{errorText(processes.error)}</Alert>
       ) : !processes.data ? (
@@ -49,7 +49,7 @@ export const StartListPage = _component(() => {
             <Grid minItemWidth="15rem" gap="md">
               {list.map((process) => (
                 <Card key={process.key}>
-                  <Link href={`/start/${process.key}`}>{process.name}</Link>
+                  <Link href={`/app/start/${process.key}`}>{process.name}</Link>
                 </Card>
               ))}
             </Grid>

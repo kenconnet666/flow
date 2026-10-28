@@ -8,5 +8,5 @@ import { useRouter } from 'vue-router';
 
 export const IncidentsPage = _component(() => {
   const router = useRouter();
-  return () => <FlowIncidentList onOpen={(incident) => void router.push(`/instances/${incident.instanceId}?admin=1`)} />;
+  return () => <FlowIncidentList onOpen={(incident) => void router.push(`/app/instances/${incident.instanceId}?admin=1`)} />;
 });

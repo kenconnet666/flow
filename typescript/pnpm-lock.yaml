@@ -68,12 +68,18 @@ importers:
       '@lucide/icons':
         specifier: 'catalog:'
         version: 1.59.0
+      '@shikijs/langs':
+        specifier: 'catalog:'
+        version: 4.5.0
       '@zerodep-dev/flow-model':
         specifier: workspace:*
         version: link:../../packages/model
       '@zerodep-dev/flow-ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@zerodep-dev/json-wire':
+        specifier: ^0.1.0
+        version: 0.1.0(@internationalized/date@3.12.4)(decimal.js@10.6.0)
       '@zerodep-dev/vue-tsx-pro-tsx':
         specifier: link:../../../../vue-tsx-pro/packages/tsx
         version: link:../../../../vue-tsx-pro/packages/tsx
@@ -83,43 +89,6 @@ importers:
       decimal.js:
         specifier: 'catalog:'
         version: 10.6.0
-      vue:
-        specifier: 'catalog:'
-        version: 3.5.44(typescript@7.1.0-dev.20261023.1)
-      vue-router:
-        specifier: 'catalog:'
-        version: 5.4.0(@vue/compiler-sfc@3.5.44)(esbuild@0.28.2)(rolldown@1.2.15)(rollup@4.65.0)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))(vue@3.5.44(typescript@7.1.0-dev.20261023.1))
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.19.2
-      playwright:
-        specifier: 'catalog:'
-        version: 1.64.1
-      typescript:
-        specifier: 7.1.0-dev.20261023.1
-        version: 7.1.0-dev.20261023.1
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)
-
-  apps/docs:
-    dependencies:
-      '@lucide/icons':
-        specifier: 'catalog:'
-        version: 1.59.0
-      '@shikijs/langs':
-        specifier: 'catalog:'
-        version: 4.5.0
-      '@zerodep-dev/vue-tsx-pro-tsx':
-        specifier: link:../../../../vue-tsx-pro/packages/tsx
-        version: link:../../../../vue-tsx-pro/packages/tsx
-      '@zerodep-dev/vue-tsx-pro-ui':
-        specifier: link:../../../../vue-tsx-pro/packages/ui
-        version: link:../../../../vue-tsx-pro/packages/ui
       shiki:
         specifier: 'catalog:'
         version: 4.5.0
@@ -129,6 +98,9 @@ importers:
       vue-router:
         specifier: 'catalog:'
         version: 5.4.0(@vue/compiler-sfc@3.5.44)(esbuild@0.28.2)(rolldown@1.2.15)(rollup@4.65.0)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))(vue@3.5.44(typescript@7.1.0-dev.20261023.1))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

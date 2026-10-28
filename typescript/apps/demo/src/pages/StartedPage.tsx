@@ -7,5 +7,5 @@ import { useRouter } from 'vue-router';
 
 export const StartedPage = _component(() => {
   const router = useRouter();
-  return () => <FlowStartedList onOpen={(instance) => void router.push(`/instances/${instance.id}`)} />;
+  return () => <FlowStartedList onOpen={(instance) => void router.push(`/app/instances/${instance.id}`)} />;
 });

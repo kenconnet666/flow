@@ -24,7 +24,7 @@ catalog:
   playwright: 1.64.1
   happy-dom: 21.0.3
   '@types/node': 24.19.2
-  # 文档站（apps/docs）的代码高亮，版本同 vue-tsx-pro
+  # 示例前端里文档（apps/demo/src/docs）的代码高亮，版本同 vue-tsx-pro
   shiki: 4.5.0
   '@shikijs/langs': 4.5.0
 

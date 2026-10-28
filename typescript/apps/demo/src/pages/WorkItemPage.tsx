@@ -24,7 +24,7 @@ export const WorkItemPage = _component(() => {
             return;
           }
           toaster.success(result.events.some((e) => e.type === 'workItem.transferred') ? '已转办' : '已处理');
-          void router.push('/inbox');
+          void router.push('/app/inbox');
         }}
       />
     </Flex>

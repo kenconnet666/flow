@@ -3,22 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Demo app of the workflow front end: start, inbox and approval against the example backend (Spring Boot or Nitro)",
+  "description": "Demo app of the workflow engine with its documentation: start, inbox, approval and administration against the example backend, next to the tutorials, administration and integration guides (with screenshots) that a reader can follow in the same site",
   "scripts": {
     "dev": "vite --configLoader native",
     "build": "vite build --configLoader native",
     "typecheck": "tsc -p .",
     "seed": "node seed/seed.ts",
-    "e2e": "node --test \"e2e/**/*.test.ts\""
+    "e2e": "node --test \"e2e/**/*.test.ts\"",
+    "shots": "node shots/run.ts",
+    "seed:export": "node seed/export-tutorials.ts"
   },
   "dependencies": {
     "@internationalized/date": "catalog:",
     "@lucide/icons": "catalog:",
+    "@shikijs/langs": "catalog:",
     "@zerodep-dev/flow-model": "workspace:*",
     "@zerodep-dev/flow-ui": "workspace:*",
+    "@zerodep-dev/json-wire": "^0.1.0",
     "@zerodep-dev/vue-tsx-pro-tsx": "link:../../../../vue-tsx-pro/packages/tsx",
     "@zerodep-dev/vue-tsx-pro-ui": "link:../../../../vue-tsx-pro/packages/ui",
     "decimal.js": "catalog:",
+    "shiki": "catalog:",
     "vue": "catalog:",
     "vue-router": "catalog:",
     "zod": "catalog:"

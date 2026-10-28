@@ -1,7 +1,8 @@
 {
   "extends": "../../tsconfig.vue.json",
   "compilerOptions": {
-    "types": ["node", "vite/client", "@zerodep-dev/vue-tsx-pro-tsx/runes"]
+    "types": ["node", "vite/client", "@zerodep-dev/vue-tsx-pro-tsx/runes"],
+    "resolveJsonModule": true
   },
-  "include": ["src", "seed", "e2e", "*.config.ts"]
+  "include": ["src", "seed", "e2e", "shots", "*.config.ts"]
 }

@@ -7,5 +7,5 @@ import { useRouter } from 'vue-router';
 
 export const DonePage = _component(() => {
   const router = useRouter();
-  return () => <FlowInbox list="done" onOpen={(item) => void router.push(`/work-items/${item.id}`)} />;
+  return () => <FlowInbox list="done" onOpen={(item) => void router.push(`/app/work-items/${item.id}`)} />;
 });

@@ -14,7 +14,7 @@ export const FormEditPage = _component(() => {
   return () => (
     <Flex direction="column" gap="md">
       <Flex>
-        <Button variant="ghost" onClick={() => void router.push('/admin/forms')}>
+        <Button variant="ghost" onClick={() => void router.push('/app/admin/forms')}>
           返回表单管理
         </Button>
       </Flex>
@@ -25,7 +25,7 @@ export const FormEditPage = _component(() => {
         // 发布后留在编辑器里（编辑器会提示还在用旧版本的流程）；新建的换到它自己的地址，同流程的编辑页
         onPublished={(result) => {
           toaster.success(`已发布 ${result.key} 第 ${result.version} 版`);
-          if (!key()) void router.replace(`/admin/forms/${result.key}`);
+          if (!key()) void router.replace(`/app/admin/forms/${result.key}`);
         }}
       />
     </Flex>

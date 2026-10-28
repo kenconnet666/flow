@@ -16,7 +16,7 @@ export const InstancePage = _component(() => {
         id={BigInt(String(route.params.id))}
         people={people}
         admin={route.query.admin === '1'}
-        instanceHref={(id) => `/instances/${id}`}
+        instanceHref={(id) => `/app/instances/${id}`}
         onChange={(result) => result.instance.status === 'withdrawn' && toaster.success('已撤回')}
       />
     </Flex>

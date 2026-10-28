@@ -19,7 +19,7 @@ export const StartPage = _component(() => {
         people={people}
         onStarted={(result) => {
           toaster.success(`已发起：${result.instance.title ?? result.instance.processKey}`);
-          void router.push('/inbox');
+          void router.push('/app/inbox');
         }}
       />
     </Flex>

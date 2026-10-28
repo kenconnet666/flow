@@ -7,5 +7,5 @@ import { useRouter } from 'vue-router';
 
 export const FormsPage = _component(() => {
   const router = useRouter();
-  return () => <FlowFormList onEdit={(key) => void router.push(key ? `/admin/forms/${encodeURIComponent(key)}` : '/admin/forms/new')} />;
+  return () => <FlowFormList onEdit={(key) => void router.push(key ? `/app/admin/forms/${encodeURIComponent(key)}` : '/app/admin/forms/new')} />;
 });

@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { chromium, type Browser, type Page } from 'playwright';
 
-const BASE = process.env.E2E_URL ?? 'http://localhost:5180';
+// 演示的页面都在 /app 下
+const BASE = `${process.env.E2E_URL ?? 'http://localhost:5180'}/app`;
 const STARTER = 1001; // 林小满：门店，发起采购
 const FINANCE = 1002; // 周启航：财务复核
 const BOSS = 1004; // 总经理：大额审批

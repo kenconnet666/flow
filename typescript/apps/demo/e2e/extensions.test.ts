@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import { after, before, describe, test } from 'node:test';
 import { chromium, type Browser, type Page } from 'playwright';
 
-const BASE = process.env.E2E_URL ?? 'http://localhost:5180';
+// 演示的页面都在 /app 下
+const BASE = `${process.env.E2E_URL ?? 'http://localhost:5180'}/app`;
 const STARTER = 1001; // 林小满：发起
 const BOSS = 1004; // 总经理：解析器"发起人的上级"往上 2 级落到他
 

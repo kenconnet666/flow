@@ -39,3 +39,5 @@ flow:
 
 demo:
   amount-threshold: 10000  # 计算值 demo.amountLevel 的阈值：金额达到它算 high
+  reset:
+    enabled: true          # POST /demo/reset 清空引擎的数据（示例前端顶栏的"重置演示"）；演示站点以外设成 false
