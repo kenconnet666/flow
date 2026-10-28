@@ -49,3 +49,7 @@ pnpm -C apps/demo seed:export     # 把教程画出的流程与报销单导出�
 ```
 
 文档内容以仓库里的设计文档（`docs/decisions/0001`–`0008`）与接入文档（`docs/integration.md`）为准。
+
+## 部署
+
+部署到服务器见 [deploy/demo](../../../deploy/demo/README.md)：在开发机上 `sh deploy/demo/build.sh` 组装好，上传后 `docker compose up -d --build`。

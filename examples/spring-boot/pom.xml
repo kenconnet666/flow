@@ -85,6 +85,14 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
+                <!-- 没继承 spring-boot-starter-parent，repackage 要自己绑：打出能 java -jar 运行的包（部署示例站点用，见 deploy/demo） -->
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -51,3 +51,6 @@ node_modules/
 
 # 开发数据库的密码（infra/mysql/.env.example 是模板）
 /infra/*/.env
+
+# 示例站点的部署目录（deploy/demo/build.sh 组装出来的）
+/deploy/demo/out/

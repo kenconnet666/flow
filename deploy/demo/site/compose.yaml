@@ -1,0 +1,117 @@
+# 流程引擎的示例站点（文档与演示）：在本目录 `docker compose up -d --build` 就能部署。
+# 本目录由仓库里的 deploy/demo/build.sh 在开发机上组装好（jar、站点、种子脚本都是构建好的），服务器上不再编译。
+#
+# - web：nginx，80 跳 443，证书从宿主机的目录挂进来；/flow、/demo 转给 backend
+# - backend：示例后端（Spring Boot），第一次启动时建表
+# - mysql：MySQL 8.4，只在容器网络里，不对外
+# - secrets：第一次启动时随机生成数据库密码，存在 secrets 卷里，mysql 与 backend 都从那里读；不需要写任何密码
+# - seeder：库里还没有流程时发布演示数据（"教程做完"那一档），之后每天定时重置
+#
+# 可在本目录的 .env 里改（都有默认值）：
+#   FLOW_DEMO_DOMAIN       域名                                     默认 america.zerodep.dpdns.org
+#   FLOW_DEMO_CERT_DIR     证书目录（里面是 fullchain.pem、privkey.pem）  默认 /root/cert/america.zerodep.dpdns.org
+#   FLOW_DEMO_RESET_CRON   每天重置的时间（cron，UTC）                  默认 0 20 * * *（北京时间凌晨 4 点）
+#
+# 按 2G 内存的服务器压低：合计上限约 950M。内存上限只写在这里，每个服务的 mem_limit 与 memswap_limit 相同。
+name: flow-demo-site
+
+services:
+  secrets:
+    image: alpine:3.22
+    command:
+      - sh
+      - -c
+      - '[ -s /run/flow-secrets/db-password ] || (head -c 24 /dev/urandom | base64 | tr -d "/+=\n" > /run/flow-secrets/db-password && chmod 444 /run/flow-secrets/db-password)'
+    volumes:
+      - secrets:/run/flow-secrets
+    mem_limit: 32m
+    memswap_limit: 32m
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+    environment:
+      MYSQL_DATABASE: flow_demo
+      MYSQL_USER: flow
+      MYSQL_PASSWORD_FILE: /run/flow-secrets/db-password
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+    # 演示的数据很少：缓冲池、连接数、各种缓冲都给小
+    command:
+      - --innodb-buffer-pool-size=64M
+      - --innodb-log-buffer-size=8M
+      - --max-connections=20
+      - --performance-schema=OFF
+      - --table-open-cache=200
+      - --tmp-table-size=8M
+      - --max-heap-table-size=8M
+      - --key-buffer-size=4M
+      - --skip-name-resolve
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - secrets:/run/flow-secrets:ro
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$(cat /run/flow-secrets/db-password)" mysql --protocol=TCP -h 127.0.0.1 -u flow -D flow_demo -e "SELECT 1" >/dev/null']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+    mem_limit: 384m
+    memswap_limit: 384m
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      FLOW_MYSQL_URL: jdbc:mysql://mysql:3306/flow_demo
+      FLOW_MYSQL_USER: flow
+      # 连接池给小：演示同时在用的人不多
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: '5'
+      SPRING_DATASOURCE_HIKARI_MINIMUMIDLE: '1'
+      SERVER_TOMCAT_THREADS_MAX: '40'
+    volumes:
+      - secrets:/run/flow-secrets:ro
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null --header "x-user: 1001" http://127.0.0.1:8080/flow/queries/startable']
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 40s
+    mem_limit: 448m
+    memswap_limit: 448m
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      FLOW_DEMO_DOMAIN: ${FLOW_DEMO_DOMAIN:-america.zerodep.dpdns.org}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ${FLOW_DEMO_CERT_DIR:-/root/cert/america.zerodep.dpdns.org}:/etc/nginx/certs:ro
+    mem_limit: 48m
+    memswap_limit: 48m
+
+  seeder:
+    build: ./seeder
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      FLOW_BACKEND: http://backend:8080
+      FLOW_DEMO_RESET_CRON: ${FLOW_DEMO_RESET_CRON:-0 20 * * *}
+    mem_limit: 96m
+    memswap_limit: 96m
+
+volumes:
+  secrets:
+  mysql-data:

@@ -1,0 +1,53 @@
+# 示例站点：80 跳到 443；静态页面（/docs、/app 都回到 index.html，由前端路由），/flow 与 /demo 转给示例后端。
+# 启动时 nginx 镜像用环境变量替换 FLOW_DEMO_DOMAIN（只替换定义过的变量，nginx 自己的 $host 这些不受影响）。
+server {
+    listen 80;
+    server_name ${FLOW_DEMO_DOMAIN};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${FLOW_DEMO_DOMAIN};
+
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # 表单里的附件
+    client_max_body_size 10m;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    root /usr/share/nginx/html;
+
+    location /flow/ {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /demo/ {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    # 带哈希的构建产物长期缓存；入口页每次都问一下，发版后马上换新
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
