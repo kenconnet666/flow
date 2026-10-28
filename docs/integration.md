@@ -150,7 +150,12 @@ public class AppUser implements Actor {
 
 接口响应要写成 typed JSON，前端才能把 Long、金额、日期还原。把示例里的
 `examples/spring-boot/.../config/wire/WireResponseAdvice.java` 抄进你的项目，`basePackages` 写上
-`org.dpdns.zerodep.flow.spring` 和你自己的控制器包。请求体不用处理（前端把 bigint 写成文字，Jackson 照常读成 Long）。
+`org.dpdns.zerodep.flow.spring` 和你自己的控制器包（只写要转换的包，别的控制器不受影响）。请求体不用处理：引擎自己的接口按 typed JSON
+读请求体，你自己的控制器收到的 bigint、小数、日期都是文字，Jackson 照常读成 Long、BigDecimal、LocalDate。
+
+前端在 `createHttpClient({ wire: { decimal: Decimal, dates: 'objects' } })` 里打开还原。漏配时（后端没编码、或 `basePackages`
+漏了引擎的包）页面不报错，但金额成了浮点、大编号丢精度、日期是字符串；flow-ui 发现编号是普通数字时会在浏览器控制台提示一次
+（`[flow] /flow 接口的响应不是 typed JSON……`），看到它就回来检查这一节。
 
 ### 1.7 多租户（可选）
 

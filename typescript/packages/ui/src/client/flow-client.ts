@@ -1,6 +1,6 @@
 /**
  * 引擎 HTTP 接口的客户端（0006 的 7.3）：一个命令一个方法，结果的类型在 types.ts。建在组件库的请求层上：
- * 响应体按 0008 拆包（出错时抛带业务错误码的 HttpError），typed JSON 还原（编号是 bigint）；地址栏参数里的 null、undefined
+ * 响应体按 0008 拆包（出错时抛带业务错误码的 HttpError），typed JSON 还原（编号是 bigint；后端漏配 typed JSON 时控制台提示，见 wire-check.ts）；地址栏参数里的 null、undefined
  * 由请求层略过，bigint、日期由它写成文字，这里不再处理。
  *
  *   const flow = createFlowClient(createHttpClient({ headers: { … } }));
@@ -12,6 +12,7 @@
 import type { CcItem, Id, ProcessInstance, TodoItem } from '@zerodep-dev/flow-model';
 import { formatSorts, scopeHttp, useHttp, type HttpClient, type QueryValue, type SortState, type TablePage } from '@zerodep-dev/vue-tsx-pro-ui';
 import { inject, provide, type InjectionKey } from 'vue';
+import { createWireCheck } from './wire-check';
 import type {
   AddSignersCommand,
   CcCommand,
@@ -255,9 +256,11 @@ export interface FlowClientOptions {
 /** 在一个请求客户端上建引擎的客户端 */
 export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowClientOptions = {}): FlowClient {
   const api = scopeHttp(http, prefix);
+  // 后端没把响应写成 typed JSON 时（接入方漏配）在控制台说一次
+  const checked = createWireCheck();
   const get = <T>(path: string, signal?: AbortSignal, query?: Readonly<Record<string, QueryValue>>) =>
-    api.get<T>(path, { ...(signal ? { signal } : {}), ...(query ? { query } : {}) });
-  const post = <T>(path: string, body: unknown) => api.post<T>(path, body);
+    api.get<T>(path, { ...(signal ? { signal } : {}), ...(query ? { query } : {}) }).then(checked);
+  const post = <T>(path: string, body: unknown) => api.post<T>(path, body).then(checked);
   /** 地址里的一段（流程、表单的标识可能有斜杠以外的特殊字） */
   const seg = encodeURIComponent;
   return {
@@ -293,7 +296,8 @@ export function createFlowClient(http: HttpClient, { prefix = '/flow' }: FlowCli
       get(`/queries/processes/${seg(processKey)}/definition`, signal, { version }),
     // 定义的原文按文字发（不经 JSON 序列化）：写错的 JSON 也让后端报出位置
     validateDefinition: (json) => post('/definitions/validate', json),
-    publishDefinition: (json, note, expectedLatest) => api.post('/definitions/publish', json, { query: { note, expectedLatest } }),
+    publishDefinition: (json, note, expectedLatest) =>
+      api.post<PublishedDefinition>('/definitions/publish', json, { query: { note, expectedLatest } }).then(checked),
     setProcessActive: (processKey, active) => post(`/definitions/${active ? 'enable' : 'disable'}`, { key: processKey }),
     forms: (signal) => get('/queries/forms', signal),
     formVersions: (formKey, signal) => get(`/queries/forms/${seg(formKey)}/versions`, signal),
