@@ -43,6 +43,11 @@ export default _component(() => () => (
         <Strong>收件箱里的单子</Strong>：直接点处理结果会顺带认领；先点 认领 则这单只在你名下，别人看不到了。认领后不想办可以 退回收件箱。
       </Alert>
     </Section>
+    <Section id="designate" title="待我指定">
+      <Paragraph>
+        收件箱可以设负责人（例如财务主管）。单子在收件箱里太久没人认领时，可以按流程的设置转给负责人：它出现在负责人的 待我指定 里，负责人打开后 指定承办人，指定即生效。被指定的人觉得不该自己办，可以申请改派，由负责人处理。
+      </Paragraph>
+    </Section>
     <Section id="done" title="办过之后">
       <Paragraph>我已办 里能找到办过的单子。如果下一步还没人处理，可以 撤回这一步，单子回到你手里重新办。</Paragraph>
       <Shot src="use/11-withdraw-step.png" caption="我已办里打开刚办的单子：下一步的人还没动，可以撤回这一步" />
