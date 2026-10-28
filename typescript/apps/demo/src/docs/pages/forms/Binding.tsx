@@ -28,7 +28,7 @@ export default _component(() => () => (
         ]}
       />
       <Shot src="forms/10-bind.png" caption="流程属性里选表单；条件、实例标题里的字段随之换成报销单的字段" />
-      <Alert tone="warning">换了表单，原来条件里用的字段要还在：教程 1 的条件用的是 金额（amount），报销单也有 amount，所以不用改。字段名不在了，校验会指出来。</Alert>
+      <Alert tone="warning">换了表单，原来条件里用的字段要还在：教程 1 的条件用 金额（amount）、实例标题用 标题（title），报销单里这两个字段名都一样，所以不用改。字段名不在了，校验会指出来。</Alert>
     </Section>
     <Section id="access" title="2. 字段权限">
       <Ops

@@ -204,7 +204,8 @@ export const App = _component(() => {
         _collapsed={!docsPanel.open}
         onUpdate:_collapsed={(collapsed: boolean) => (docsPanel.open = !collapsed)}
         start={page()}
-        end={<DocsPanel />}
+        // 收起时那一栏是隐藏的：不渲染文档，省得加载，也不在页面里多出一份内容
+        end={docsPanel.open && <DocsPanel />}
         sx={styles.split}
         propsStart={{ sx: styles.workPane }}
         propsEnd={{ sx: styles.docsPane, 'aria-label': '文档' }}

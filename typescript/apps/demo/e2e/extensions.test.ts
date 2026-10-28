@@ -7,8 +7,9 @@ import { readFileSync } from 'node:fs';
 import { after, before, describe, test } from 'node:test';
 import { chromium, type Browser, type Page } from 'playwright';
 
-// 演示的页面都在 /app 下
-const BASE = `${process.env.E2E_URL ?? 'http://localhost:5180'}/app`;
+const ORIGIN = process.env.E2E_URL ?? 'http://localhost:5180';
+// 演示的页面都在 /app 下，接口（/flow）在站点根上
+const BASE = `${ORIGIN}/app`;
 const STARTER = 1001; // 林小满：发起
 const BOSS = 1004; // 总经理：解析器"发起人的上级"往上 2 级落到他
 
@@ -17,7 +18,7 @@ let browser: Browser;
 before(async () => {
   browser = await chromium.launch({ headless: !process.env.E2E_HEADED });
   const definition = readFileSync(new URL('../seed/ext-demo.json', import.meta.url), 'utf8');
-  const response = await fetch(`${BASE}/flow/definitions/publish`, {
+  const response = await fetch(`${ORIGIN}/flow/definitions/publish`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-user': String(BOSS) },
     body: definition,

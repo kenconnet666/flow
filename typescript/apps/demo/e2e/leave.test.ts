@@ -47,7 +47,7 @@ test('病假带证明材料：上传、提交，流程详情里能下载', async
   const link = page.getByRole('link', { name });
   const href = await link.getAttribute('href');
   assert.ok(href?.startsWith('/demo/files/'), href ?? 'no link');
-  const download = await page.request.get(BASE + href);
+  const download = await page.request.get(new URL(href!, page.url()).href);
   assert.equal(download.status(), 200);
   assert.equal(await download.text(), '诊断证明的内容');
   await context.close();

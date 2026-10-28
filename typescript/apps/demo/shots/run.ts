@@ -1,6 +1,6 @@
 /**
- * 重新截文档的配图：按教程在示例前端上真实操作，边做边截，图存 public/shots。
- * 要一个干净的示例库：infra/mysql/reset-demo.sh 清空 → 重启示例后端（Flyway 建表）→ pnpm -C apps/demo seed → 起示例前端（5180）。
+ * 重新截文档的配图：按教程在演示上真实操作，边做边截，图存 public/shots。
+ * 先起示例后端（8080）与示例站点（5180），`pnpm seed` 重置成"从头开始"再跑；跑完 `pnpm seed:export` 导出"教程做完"那一档。
  *
  *   node shots/run.ts              # 全部
  *   node shots/run.ts build forms  # 只截这几组

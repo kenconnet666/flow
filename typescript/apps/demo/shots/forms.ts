@@ -12,7 +12,7 @@ export async function run() {
   await newVersion();
 }
 
-/** 新建报销单：字段、选项、显示条件、明细表、预览、代码与后端代码页签，发布 */
+/** 新建报销单（自带标题）：金额、选项、显示条件、明细表、预览、代码与后端代码页签，发布 */
 async function create() {
   await discardDraft('form', 'expense-form');
   let page = await open(USERS.boss, '/admin/forms');
@@ -34,6 +34,7 @@ async function create() {
     await inspector.getByRole('textbox', { name: '标签' }).fill(label);
     await page.waitForTimeout(300);
   }
+  // 新建的表单自带一个必填的标题（title）
   await add('金额', 'amount', '金额');
   await inspector.getByRole('switch', { name: '必填' }).check();
   await shot(page, 'forms/03-field', { mark: inspector });

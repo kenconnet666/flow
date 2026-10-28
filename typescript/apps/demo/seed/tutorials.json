@@ -1,4 +1,986 @@
 {
-  "forms": [],
-  "processes": []
+  "forms": [
+    {
+      "key": "expense-form",
+      "name": "报销单",
+      "category": null,
+      "manifest": {
+        "title": {
+          "label": "标题",
+          "type": "text",
+          "required": true
+        },
+        "amount": {
+          "label": "金额",
+          "type": "decimal",
+          "required": true
+        },
+        "category": {
+          "label": "费用类别",
+          "type": "select",
+          "options": [
+            {
+              "value": "差旅",
+              "label": "差旅"
+            },
+            {
+              "value": "办公",
+              "label": "办公"
+            },
+            {
+              "value": "招待",
+              "label": "招待"
+            }
+          ],
+          "required": true
+        },
+        "companions": {
+          "label": "同行人",
+          "type": "people",
+          "visibleWhen": {
+            "all": [
+              {
+                "field": "form.category",
+                "op": "eq",
+                "value": "差旅"
+              }
+            ]
+          }
+        },
+        "invoice": {
+          "label": "发票",
+          "type": "file"
+        },
+        "items": {
+          "label": "费用明细",
+          "type": "list",
+          "fields": {
+            "item": {
+              "label": "项目",
+              "type": "text"
+            },
+            "money": {
+              "label": "金额",
+              "type": "decimal"
+            }
+          }
+        },
+        "note": {
+          "label": "财务意见",
+          "type": "text"
+        },
+        "spentOn": {
+          "label": "发生日期",
+          "type": "date"
+        }
+      },
+      "clientSource": "import { defineFields, defineFlowForm, FileField } from '@zerodep-dev/flow-ui/form';\nimport { Flex, TextField, NumberField, Select, PeoplePicker, Textarea, DatePicker } from '@zerodep-dev/vue-tsx-pro-ui';\n\nexport const fields = defineFields({ title: { label: '标题', type: 'text', required: true },\namount: { label: '金额', type: 'decimal', required: true },\ncategory: {\n  label: '费用类别',\n  type: 'select',\n  options: [{ value: '差旅', label: '差旅' }, { value: '办公', label: '办公' }, { value: '招待', label: '招待' }],\n  required: true,\n},\ncompanions: {\n  label: '同行人',\n  type: 'people',\n  visibleWhen: { all: [{ field: 'form.category', op: 'eq', value: '差旅' }] },\n},\ninvoice: { label: '发票', type: 'file' },\nitems: {\n  label: '费用明细',\n  type: 'list',\n  fields: { item: { label: '项目', type: 'text' }, money: { label: '金额', type: 'decimal' } },\n},\nnote: { label: '财务意见', type: 'text' },\nspentOn: { label: '发生日期', type: 'date' } });\n\nexport default defineFlowForm(fields, ({ form }) => () => (\n  <form.Form>\n    <Flex direction=\"column\" gap=\"md\">\n      <form.Field name=\"title\"><TextField /></form.Field>\n      <form.Field name=\"amount\"><NumberField /></form.Field>\n      <form.Field name=\"category\"><Select /></form.Field>\n      <form.Field name=\"companions\"><PeoplePicker /></form.Field>\n      <form.Field name=\"invoice\"><FileField /></form.Field>\n      <form.List name=\"items\" />\n      <form.Field name=\"note\"><Textarea /></form.Field>\n      <form.Field name=\"spentOn\"><DatePicker /></form.Field>\n    </Flex>\n  </form.Form>\n));\n",
+      "serverLanguage": null,
+      "serverSource": null,
+      "note": "教程做完"
+    }
+  ],
+  "processes": [
+    {
+      "schema": 1,
+      "key": "expense",
+      "name": "报销",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "name": "提交",
+          "form": {
+            "fields": {
+              "note": "hidden"
+            }
+          }
+        },
+        {
+          "id": "approve",
+          "type": "task",
+          "name": "财务审核",
+          "assignees": [
+            {
+              "role": 1,
+              "name": "财务"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ],
+          "form": {
+            "fields": {
+              "note": "editable"
+            }
+          }
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "name": "结束",
+          "result": "approved"
+        },
+        {
+          "id": "exclusive",
+          "name": "条件分支",
+          "type": "exclusive"
+        },
+        {
+          "id": "task",
+          "name": "总经理审批",
+          "type": "task",
+          "assignees": [
+            {
+              "role": 2,
+              "name": "总经理"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "submit",
+          "from": "start",
+          "to": "approve"
+        },
+        {
+          "id": "approved",
+          "from": "approve",
+          "to": "exclusive",
+          "outcome": "approve"
+        },
+        {
+          "id": "exclusive-end",
+          "from": "exclusive",
+          "to": "end",
+          "default": true,
+          "label": "其余"
+        },
+        {
+          "id": "exclusive-task",
+          "from": "exclusive",
+          "to": "task",
+          "when": {
+            "all": [
+              {
+                "field": "form.amount",
+                "op": "gte",
+                "value": 5000
+              }
+            ]
+          },
+          "label": "≥ 5000"
+        },
+        {
+          "id": "task-end",
+          "from": "task",
+          "to": "end",
+          "outcome": "approve"
+        }
+      ],
+      "form": {
+        "key": "expense-form"
+      },
+      "title": "报销：{form.title}",
+      "layout": {
+        "nodes": {
+          "start": {
+            "x": 54,
+            "y": 38
+          },
+          "approve": {
+            "x": 222,
+            "y": 32
+          },
+          "end": {
+            "x": 814,
+            "y": 38
+          },
+          "exclusive": {
+            "x": 422,
+            "y": 38
+          },
+          "task": {
+            "x": 602,
+            "y": 32
+          }
+        }
+      }
+    },
+    {
+      "schema": 1,
+      "key": "review",
+      "name": "采购评审",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "name": "提交"
+        },
+        {
+          "id": "approve",
+          "type": "task",
+          "name": "技术评审",
+          "assignees": [
+            {
+              "user": 1005,
+              "name": "许知远"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "name": "结束",
+          "result": "approved"
+        },
+        {
+          "id": "parallel",
+          "name": "并行",
+          "type": "parallel"
+        },
+        {
+          "id": "task",
+          "name": "财务评审",
+          "type": "task",
+          "assignees": [],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ],
+          "multi": {
+            "participants": [
+              {
+                "role": 1,
+                "name": "财务"
+              }
+            ],
+            "complete": "all"
+          }
+        },
+        {
+          "id": "parallel2",
+          "name": "汇合",
+          "type": "parallel"
+        },
+        {
+          "id": "task2",
+          "name": "总经理审批",
+          "type": "task",
+          "assignees": [
+            {
+              "user": 1004,
+              "name": "总经理"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "submit",
+          "from": "start",
+          "to": "parallel"
+        },
+        {
+          "id": "approved",
+          "from": "approve",
+          "to": "parallel2",
+          "outcome": "approve"
+        },
+        {
+          "id": "parallel-approve",
+          "from": "parallel",
+          "to": "approve"
+        },
+        {
+          "id": "parallel-task",
+          "from": "parallel",
+          "to": "task"
+        },
+        {
+          "id": "task-end",
+          "from": "task",
+          "to": "parallel2",
+          "outcome": "approve"
+        },
+        {
+          "id": "parallel2-end",
+          "from": "parallel2",
+          "to": "task2"
+        },
+        {
+          "id": "task2-end",
+          "from": "task2",
+          "to": "end",
+          "outcome": "approve"
+        }
+      ],
+      "form": {
+        "key": "purchase-form"
+      },
+      "title": "采购评审：{form.title}",
+      "layout": {
+        "nodes": {
+          "start": {
+            "x": 54,
+            "y": 86
+          },
+          "approve": {
+            "x": 412,
+            "y": 128
+          },
+          "end": {
+            "x": 1004,
+            "y": 86
+          },
+          "parallel": {
+            "x": 232,
+            "y": 86
+          },
+          "task": {
+            "x": 412,
+            "y": 32
+          },
+          "parallel2": {
+            "x": 612,
+            "y": 86
+          },
+          "task2": {
+            "x": 792,
+            "y": 80
+          }
+        }
+      }
+    },
+    {
+      "schema": 1,
+      "key": "contract",
+      "name": "合同审批",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "name": "提交"
+        },
+        {
+          "id": "approve",
+          "type": "task",
+          "name": "起草",
+          "assignees": [
+            {
+              "initiator": true
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "提交"
+            }
+          ]
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "name": "结束",
+          "result": "approved"
+        },
+        {
+          "id": "task",
+          "name": "法务审核",
+          "type": "task",
+          "assignees": [
+            {
+              "user": 1005,
+              "name": "许知远"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            },
+            {
+              "key": "outcome3",
+              "label": "退回修改",
+              "kind": "return",
+              "target": "choose"
+            }
+          ]
+        },
+        {
+          "id": "cc",
+          "name": "抄送",
+          "type": "cc",
+          "to": [
+            {
+              "role": 1,
+              "name": "财务"
+            }
+          ]
+        },
+        {
+          "id": "task2",
+          "name": "经理审批",
+          "type": "task",
+          "assignees": [
+            {
+              "pick": {
+                "from": [
+                  {
+                    "user": 1004,
+                    "name": "总经理"
+                  },
+                  {
+                    "user": 1003,
+                    "name": "沈若水"
+                  }
+                ],
+                "max": 1
+              }
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "submit",
+          "from": "start",
+          "to": "approve"
+        },
+        {
+          "id": "approved",
+          "from": "approve",
+          "to": "task",
+          "outcome": "approve"
+        },
+        {
+          "id": "task-end",
+          "from": "task",
+          "to": "cc",
+          "outcome": "approve"
+        },
+        {
+          "id": "cc-end",
+          "from": "cc",
+          "to": "task2"
+        },
+        {
+          "id": "task2-end",
+          "from": "task2",
+          "to": "end",
+          "outcome": "approve"
+        }
+      ],
+      "form": {
+        "key": "purchase-form"
+      },
+      "title": "合同：{form.title}",
+      "settings": {
+        "autoSkip": {
+          "initiator": true
+        }
+      },
+      "layout": {
+        "nodes": {
+          "start": {
+            "x": 54,
+            "y": 38
+          },
+          "approve": {
+            "x": 222,
+            "y": 32
+          },
+          "end": {
+            "x": 1004,
+            "y": 38
+          },
+          "task": {
+            "x": 412,
+            "y": 32
+          },
+          "cc": {
+            "x": 602,
+            "y": 32
+          },
+          "task2": {
+            "x": 792,
+            "y": 32
+          }
+        }
+      }
+    },
+    {
+      "schema": 1,
+      "key": "trip",
+      "name": "出差申请",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "name": "提交"
+        },
+        {
+          "id": "approve",
+          "type": "task",
+          "name": "部门审批",
+          "assignees": [
+            {
+              "user": 1004,
+              "name": "总经理"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "name": "结束",
+          "result": "approved"
+        },
+        {
+          "id": "inclusive",
+          "name": "包容分支",
+          "type": "inclusive"
+        },
+        {
+          "id": "task",
+          "name": "财务审核",
+          "type": "task",
+          "assignees": [
+            {
+              "user": 1002,
+              "name": "周启航"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        },
+        {
+          "id": "task2",
+          "name": "行政审批",
+          "type": "task",
+          "assignees": [
+            {
+              "user": 1005,
+              "name": "许知远"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        },
+        {
+          "id": "inclusive2",
+          "name": "汇合",
+          "type": "inclusive"
+        },
+        {
+          "id": "timer",
+          "name": "定时",
+          "type": "timer",
+          "wait": {
+            "minutes": 1
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "submit",
+          "from": "start",
+          "to": "approve"
+        },
+        {
+          "id": "approved",
+          "from": "approve",
+          "to": "inclusive",
+          "outcome": "approve"
+        },
+        {
+          "id": "inclusive-end",
+          "from": "inclusive",
+          "to": "inclusive2",
+          "default": true,
+          "label": "其余"
+        },
+        {
+          "id": "inclusive-task",
+          "from": "inclusive",
+          "to": "task",
+          "when": {
+            "all": [
+              {
+                "field": "form.amount",
+                "op": "gte",
+                "value": 3000
+              }
+            ]
+          }
+        },
+        {
+          "id": "task-end",
+          "from": "task",
+          "to": "inclusive2",
+          "outcome": "approve"
+        },
+        {
+          "id": "inclusive-task2",
+          "from": "inclusive",
+          "to": "task2",
+          "when": {
+            "all": [
+              {
+                "field": "form.quantity",
+                "op": "gte",
+                "value": 2
+              }
+            ]
+          }
+        },
+        {
+          "id": "task2-end",
+          "from": "task2",
+          "to": "inclusive2",
+          "outcome": "approve"
+        },
+        {
+          "id": "inclusive2-end",
+          "from": "inclusive2",
+          "to": "timer"
+        },
+        {
+          "id": "timer-end",
+          "from": "timer",
+          "to": "end"
+        }
+      ],
+      "form": {
+        "key": "purchase-form"
+      },
+      "title": "出差：{form.title}",
+      "layout": {
+        "nodes": {
+          "start": {
+            "x": 54,
+            "y": 86
+          },
+          "approve": {
+            "x": 222,
+            "y": 80
+          },
+          "end": {
+            "x": 1194,
+            "y": 86
+          },
+          "inclusive": {
+            "x": 422,
+            "y": 86
+          },
+          "task": {
+            "x": 602,
+            "y": 128
+          },
+          "task2": {
+            "x": 602,
+            "y": 32
+          },
+          "inclusive2": {
+            "x": 802,
+            "y": 86
+          },
+          "timer": {
+            "x": 982,
+            "y": 80
+          }
+        }
+      }
+    },
+    {
+      "schema": 1,
+      "key": "bigbuy",
+      "name": "大额采购",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "name": "提交"
+        },
+        {
+          "id": "approve",
+          "type": "task",
+          "name": "总经理确认",
+          "assignees": [
+            {
+              "user": 1004,
+              "name": "总经理"
+            }
+          ],
+          "outcomes": [
+            {
+              "key": "approve",
+              "label": "同意"
+            },
+            {
+              "key": "reject",
+              "label": "不同意",
+              "kind": "terminate",
+              "result": "rejected",
+              "comment": "required"
+            }
+          ]
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "name": "结束",
+          "result": "approved"
+        },
+        {
+          "id": "call",
+          "name": "子流程",
+          "type": "call",
+          "process": "contract",
+          "mode": "sync",
+          "input": {
+            "form.title": {
+              "ref": "form.title"
+            },
+            "form.amount": {
+              "ref": "form.amount"
+            },
+            "form.quantity": {
+              "ref": "form.quantity"
+            },
+            "form.note": {
+              "ref": "form.note"
+            }
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "submit",
+          "from": "start",
+          "to": "call"
+        },
+        {
+          "id": "approved",
+          "from": "approve",
+          "to": "end",
+          "outcome": "approve"
+        },
+        {
+          "id": "call-approve",
+          "from": "call",
+          "to": "approve"
+        }
+      ],
+      "form": {
+        "key": "purchase-form"
+      },
+      "title": "大额采购：{form.title}",
+      "layout": {
+        "nodes": {
+          "start": {
+            "x": 54,
+            "y": 38
+          },
+          "approve": {
+            "x": 412,
+            "y": 32
+          },
+          "end": {
+            "x": 624,
+            "y": 38
+          },
+          "call": {
+            "x": 222,
+            "y": 32
+          }
+        }
+      }
+    },
+    {
+      "schema": 1,
+      "key": "esign",
+      "name": "外部签约",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "name": "提交"
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "name": "结束",
+          "result": "approved"
+        },
+        {
+          "id": "service",
+          "name": "自动处理",
+          "type": "service",
+          "action": "demo.push"
+        },
+        {
+          "id": "receive",
+          "name": "等签署回执",
+          "type": "receive",
+          "event": "esign.signed"
+        }
+      ],
+      "edges": [
+        {
+          "id": "submit",
+          "from": "start",
+          "to": "service"
+        },
+        {
+          "id": "service-end",
+          "from": "service",
+          "to": "receive"
+        },
+        {
+          "id": "receive-end",
+          "from": "receive",
+          "to": "end"
+        }
+      ],
+      "form": {
+        "key": "purchase-form"
+      },
+      "title": "签约：{form.title}",
+      "layout": {
+        "nodes": {
+          "start": {
+            "x": 54,
+            "y": 38
+          },
+          "end": {
+            "x": 624,
+            "y": 38
+          },
+          "service": {
+            "x": 222,
+            "y": 32
+          },
+          "receive": {
+            "x": 412,
+            "y": 32
+          }
+        }
+      }
+    }
+  ]
 }

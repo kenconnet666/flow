@@ -4,7 +4,8 @@
 在管理端画流程、做表单。完整的例子是本仓库的 `examples/spring-boot`（后端）与 `typescript/apps/demo`（前端）；
 细节的取舍在 `docs/decisions`（下文写成"0007 第 6 节"这样）。
 
-> 目前只支持 MySQL 8。几个包（`flow-*`、`json-wire`、`vue-tsx-pro`）还没发布到 Maven 中央库与 npm，先按下面的"本机安装"引用。
+> 目前只支持 MySQL 8。依赖的 `json-wire`、easy-query 分支（`org.dpdns.zerodep.easyquery`）、`vue-tsx-pro` 已在 Maven 中央库与 npm；flow 自己的包（`flow-*`、`flow-ui`、`flow-model`）还没发布，先按下面的"本机安装"引用。
+> 带配图的使用、搭建教程与这份指南的网页版在示例站点里（`typescript/apps/demo`，`/docs`），旁边就是能操作的演示。
 
 ## 0. 一张图
 
@@ -22,11 +23,10 @@
 
 ### 1.1 依赖（本机安装）
 
-在本机把几个仓库装进本地 Maven 仓库（JDK 17 起）：
+在本机把 flow 装进本地 Maven 仓库（JDK 17 起；json-wire 与 easy-query 分支从 Maven 中央库来）：
 
 ```bash
-cd json-wire && ./mvnw -q install -DskipTests
-cd ../flow && ./mvnw -q install -DskipTests -pl java/flow-model,java/flow-core,java/flow-spring,java/flow-test-kit -am
+cd flow && ./mvnw -q install -DskipTests -pl java/flow-model,java/flow-core,java/flow-spring,java/flow-test-kit -am
 ```
 
 项目的 `pom.xml`：
@@ -261,6 +261,7 @@ flow-ui 以 TSX 源码发布，要用 Vite 和 vue-tsx-pro 的编译插件。先
     "@zerodep-dev/flow-model": "link:../flow/typescript/packages/model",
     "@zerodep-dev/vue-tsx-pro-ui": "link:../vue-tsx-pro/packages/ui",
     "@zerodep-dev/vue-tsx-pro-tsx": "link:../vue-tsx-pro/packages/tsx",
+    "@zerodep-dev/json-wire": "^0.1.0",
     "@internationalized/date": "^3", "decimal.js": "^10", "vue": "^3.5", "vue-router": "^4", "zod": "^4"
   }
 }
