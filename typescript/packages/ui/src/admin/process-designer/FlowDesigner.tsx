@@ -61,7 +61,7 @@ import {
   type DiagramEdgeItem,
   type DiagramSelection,
 } from '@zerodep-dev/vue-tsx-pro-ui/diagram';
-import { toRaw, watch } from 'vue';
+import { nextTick, toRaw, watch } from 'vue';
 import { useFlowClient } from '../../client/flow-client';
 import { useDesignerMessages } from '../../lang/process-designer-messages';
 import { useFlowMessages } from '../../lang/messages';
@@ -242,9 +242,8 @@ export const FlowDesigner = _component(({ _value: definition = _bindable<Process
         : addNode(definition, type, texts, at ?? (anchor ? { x: anchor.x + anchor.width + GAP, y: anchor.y } : centered(viewportCenter())));
     apply(next, messages.add(texts.name));
     selection = { nodes: [id], edges: [] };
-    // 加在后面时新节点可能落在看得见的区域外（插进线中间还会把后面的往右推）：平移过去
-    const placed = boxes().find((b) => b.id === id);
-    if (placed) controller.reveal(placed);
+    // 加完把整张图放进视野（不超过原大，放不下时缩小）：新节点不会落到看不见的地方，前面的也不会被挤出去
+    void nextTick(() => controller.fit());
   }
   /** 节点的中心落在 point 上时的左上角 */
   const centered = (point: { x: number; y: number }) => ({ x: point.x - 70, y: point.y - 26 });
