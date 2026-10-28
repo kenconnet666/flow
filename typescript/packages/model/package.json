@@ -28,7 +28,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@zerodep-dev/json-wire": "link:../../../../json-wire/typescript/packages/json-wire",
+    "@zerodep-dev/json-wire": "^0.1.0",
     "@internationalized/date": "catalog:"
   }
 }
