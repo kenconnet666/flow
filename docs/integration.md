@@ -40,7 +40,7 @@ cd ../flow && ./mvnw -q install -DskipTests -pl java/flow-model,java/flow-core,j
 <dependency>                      <!-- typed JSON：接口响应里的 Long、BigDecimal、日期 -->
   <groupId>org.dpdns.zerodep</groupId>
   <artifactId>json-wire</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
 </dependency>
 <dependency>                      <!-- 引擎经 easy-query 读写；已有 easy-query 的项目沿用自己的 -->
   <groupId>org.dpdns.zerodep.easyquery</groupId>

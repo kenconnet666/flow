@@ -37,8 +37,8 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <!-- json-wire（typed JSON）：模型包与引擎用它读写 JSON 文字、还原强类型的值；本机在 ../json-wire 里 mvnw install，CI 先构建它 -->
-        <json-wire.version>0.1.0-SNAPSHOT</json-wire.version>
+        <!-- json-wire（typed JSON）：模型包与引擎用它读写 JSON 文字、还原强类型的值（Maven 中央） -->
+        <json-wire.version>0.1.0</json-wire.version>
         <!-- 持久层：easy-query 的强类型查询（APT 为实体生成代理类）；实体与 VO 用 Lombok -->
         <easy-query.version>3.3.1-zd.1</easy-query.version>
         <lombok.version>1.18.46</lombok.version>

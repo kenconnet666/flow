@@ -34,7 +34,7 @@
     接口返回普通对象，**typed JSON 由应用自己集成 json-wire**（示例 `examples/spring-boot` 的 `config/wire/WireResponseAdvice`）。按 Spring Boot 3.5 编译。
   - 实库测试 `java/flow-it`：连 `infra/mysql` 的开发 MySQL 里的 `flow_it` 库，变量 `FLOW_MYSQL_URL` / `_USER` / `_PASSWORD`，
     在仓库根目录 `. infra/mysql/live-env.sh` 就设好了（用户 flow，密码在 `infra/mysql/.env`，主机取 WSL 的地址）；没设时跳过。每个测试前用 Flyway 清库再建表。
-  - 依赖：easy-query 3.2.17（Maven 中央）；json-wire 0.1.0-SNAPSHOT（本机在 `../json-wire` 里 `mvnw install`，TS 按 `link:` 引用）。
+  - 依赖：easy-query 的 fork `org.dpdns.zerodep.easyquery:3.3.1-zd.1`、json-wire `0.1.0`（都在 Maven 中央）；TS 侧 json-wire 与 vue-tsx-pro 仍按 `link:` 引用本机仓库（npm 上已有 `@zerodep-dev/json-wire@0.1.0`、`vue-tsx-pro` 0.2.0）。
   - 本地跑：`./mvnw -q install`（Java，含实库测试）；`cd typescript && pnpm install && pnpm test && pnpm typecheck:ui && pnpm test:ui`（TS）。
   - CI（`.github/workflows/ci.yml`）：Java（先检出并安装 json-wire，含 MySQL 8.4 跑实库测试）与 TS 两个任务。
 - **决定文档**：
@@ -56,7 +56,7 @@
 - **依赖的库由用户手动发布**：
   - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0，仓库里已推进到 0.2.0-dev；本仓库按 `link:` 引用源码。
   - json-wire（typed JSON，2026-10-27 从 query 迁出）：Maven `org.dpdns.zerodep:json-wire`、npm `@zerodep-dev/json-wire`，还没发布，本机安装、`link:` 引用。
-  - easy-query 用自己的 fork（`C:\code\easy-query`，分支 `release/zerodep`）：坐标 `org.dpdns.zerodep.easyquery:*:3.3.1-zd.1`（根 `pom.xml` 的 `easy-query.version`），Java 包名仍是 `com.easy.query`。发版前本机在 fork 里 `install` 后使用。
+  - easy-query 用自己的 fork（`C:\code\easy-query`，分支 `release/zerodep`）：坐标 `org.dpdns.zerodep.easyquery:*:3.3.1-zd.1`（根 `pom.xml` 的 `easy-query.version`），Java 包名仍是 `com.easy.query`。已发布到 Maven 中央；改了 fork 要先用时在 fork 里 `install`。
 
 ## 2. 相关仓库
 
