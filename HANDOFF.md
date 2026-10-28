@@ -56,7 +56,7 @@
 - **依赖的库由用户手动发布**：
   - vue-tsx-pro（组件库）已发 npm：`@zerodep-dev/vue-tsx-pro-tsx`、`@zerodep-dev/vue-tsx-pro-ui` 0.1.0，仓库里已推进到 0.2.0-dev；本仓库按 `link:` 引用源码。
   - json-wire（typed JSON，2026-10-27 从 query 迁出）：Maven `org.dpdns.zerodep:json-wire`、npm `@zerodep-dev/json-wire`，还没发布，本机安装、`link:` 引用。
-  - easy-query 是 dromara 的开源项目，按 Maven 中央的发布版本依赖（根 `pom.xml` 的 `easy-query.version`）。
+  - easy-query 用自己的 fork（`C:\code\easy-query`，分支 `release/zerodep`）：坐标 `org.dpdns.zerodep.easyquery:*:3.3.1-zd.1`（根 `pom.xml` 的 `easy-query.version`），Java 包名仍是 `com.easy.query`。发版前本机在 fork 里 `install` 后使用。
 
 ## 2. 相关仓库
 

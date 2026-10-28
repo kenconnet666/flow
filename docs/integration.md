@@ -43,9 +43,9 @@ cd ../flow && ./mvnw -q install -DskipTests -pl java/flow-model,java/flow-core,j
   <version>0.1.0-SNAPSHOT</version>
 </dependency>
 <dependency>                      <!-- 引擎经 easy-query 读写；已有 easy-query 的项目沿用自己的 -->
-  <groupId>com.easy-query</groupId>
+  <groupId>org.dpdns.zerodep.easyquery</groupId>
   <artifactId>sql-mysql</artifactId>
-  <version>3.2.17</version>
+  <version>3.3.1-zd.1</version>
 </dependency>
 <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-mysql</artifactId></dependency>
 <dependency><groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId></dependency>

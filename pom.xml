@@ -40,7 +40,7 @@
         <!-- json-wire（typed JSON）：模型包与引擎用它读写 JSON 文字、还原强类型的值；本机在 ../json-wire 里 mvnw install，CI 先构建它 -->
         <json-wire.version>0.1.0-SNAPSHOT</json-wire.version>
         <!-- 持久层：easy-query 的强类型查询（APT 为实体生成代理类）；实体与 VO 用 Lombok -->
-        <easy-query.version>3.2.17</easy-query.version>
+        <easy-query.version>3.3.1-zd.1</easy-query.version>
         <lombok.version>1.18.46</lombok.version>
         <mysql.version>9.7.0</mysql.version>
         <!-- 只在实库测试里用来执行建表脚本；接入方用自己项目的 Flyway -->
@@ -67,17 +67,17 @@
                 <version>${json-wire.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.easy-query</groupId>
+                <groupId>org.dpdns.zerodep.easyquery</groupId>
                 <artifactId>sql-api-proxy</artifactId>
                 <version>${easy-query.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.easy-query</groupId>
+                <groupId>org.dpdns.zerodep.easyquery</groupId>
                 <artifactId>sql-mysql</artifactId>
                 <version>${easy-query.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.easy-query</groupId>
+                <groupId>org.dpdns.zerodep.easyquery</groupId>
                 <artifactId>sql-springboot-starter</artifactId>
                 <version>${easy-query.version}</version>
             </dependency>
@@ -139,7 +139,7 @@
                                 <version>${lombok.version}</version>
                             </path>
                             <path>
-                                <groupId>com.easy-query</groupId>
+                                <groupId>org.dpdns.zerodep.easyquery</groupId>
                                 <artifactId>sql-processor</artifactId>
                                 <version>${easy-query.version}</version>
                             </path>

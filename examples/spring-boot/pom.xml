@@ -47,7 +47,7 @@
         </dependency>
         <!-- easy-query 的 MySQL 方言：starter 按 easy-query.database 选 -->
         <dependency>
-            <groupId>com.easy-query</groupId>
+            <groupId>org.dpdns.zerodep.easyquery</groupId>
             <artifactId>sql-mysql</artifactId>
         </dependency>
         <dependency>

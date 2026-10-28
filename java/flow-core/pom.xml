@@ -22,7 +22,7 @@
         </dependency>
         <!-- 引擎用接入方建好的 EasyEntityQuery：方言（MySQL 包）、数据源与事务都由接入方定 -->
         <dependency>
-            <groupId>com.easy-query</groupId>
+            <groupId>org.dpdns.zerodep.easyquery</groupId>
             <artifactId>sql-api-proxy</artifactId>
         </dependency>
         <dependency>

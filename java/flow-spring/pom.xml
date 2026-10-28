@@ -38,7 +38,7 @@
         </dependency>
         <!-- 引擎用 easy-query starter 建的 EasyEntityQuery：数据源、方言、事务跟着接入方的 Spring 配置走 -->
         <dependency>
-            <groupId>com.easy-query</groupId>
+            <groupId>org.dpdns.zerodep.easyquery</groupId>
             <artifactId>sql-springboot-starter</artifactId>
             <!-- starter 声明的是 Spring Boot 2.3 的自动配置与 AOP：传到接入方会盖过它自己的 Boot 版本，由接入方的应用带来 -->
             <exclusions>

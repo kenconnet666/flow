@@ -77,7 +77,7 @@
         </dependency>
         <!-- easy-query 的 MySQL 方言：引擎直接组装时自己建 easy-query，Spring 的测试由 starter 按 easy-query.database 选 -->
         <dependency>
-            <groupId>com.easy-query</groupId>
+            <groupId>org.dpdns.zerodep.easyquery</groupId>
             <artifactId>sql-mysql</artifactId>
             <scope>test</scope>
         </dependency>
