@@ -1,0 +1,29 @@
+{
+  "name": "@zerodep-dev/flow-docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Documentation site of the workflow engine, written with vue-tsx-pro: usage and building tutorials with screenshots, administration, integration and extension",
+  "scripts": {
+    "dev": "vite --configLoader native",
+    "build": "vite build --configLoader native",
+    "preview": "vite preview --configLoader native",
+    "typecheck": "tsc -p .",
+    "shots": "node shots/run.ts"
+  },
+  "dependencies": {
+    "@lucide/icons": "catalog:",
+    "@shikijs/langs": "catalog:",
+    "@zerodep-dev/vue-tsx-pro-tsx": "link:../../../../vue-tsx-pro/packages/tsx",
+    "@zerodep-dev/vue-tsx-pro-ui": "link:../../../../vue-tsx-pro/packages/ui",
+    "shiki": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "playwright": "catalog:",
+    "typescript": "7.1.0-dev.20261023.1",
+    "vite": "catalog:"
+  }
+}
