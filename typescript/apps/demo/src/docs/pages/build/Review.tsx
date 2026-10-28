@@ -47,7 +47,7 @@ export default _component(() => () => (
           '财务评审现在还连着结束：点 财务评审 → 结束：同意 这条线，在"连到"里改成 汇合',
         ]}
       />
-      <Shot src="build/review/02-join.png" caption="技术评审后面加了汇合" />
+      <Shot src="build/review/02-join.png" caption="技术评审后面加了汇合；财务评审还没接过来，右下提示分叉没有配对的汇合" />
       <Shot src="build/review/03-retarget.png" caption="把财务评审的线改接到汇合" />
       <Alert tone="warning">并行要成对：一个分叉配一个汇合，中间的分支不能连到外面去。没配好时校验会提示。</Alert>
     </Section>

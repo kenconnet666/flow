@@ -18,7 +18,7 @@ export default _component(() => () => (
       <Paragraph>
         自动处理节点（推送 ERP、调外部接口）失败会按设置重试；重试用完还失败，就成了一条异常，列在这里，流程停在那个节点（设置成"整个流程暂停"的会暂停整单）。
       </Paragraph>
-      <Shot src="admin/11-incidents.png" caption="异常处理：最新的在前，能看到错误信息" />
+      <Shot src="admin/11-incidents.png" caption="异常处理：最新的在前，能看到错误信息。演示里的“推送 ERP（演示异常）”流程故意失败，发起一单就多一条" />
       <Tbl
         head={['操作', '效果']}
         rows={[

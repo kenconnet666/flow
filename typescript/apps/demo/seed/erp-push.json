@@ -1,0 +1,17 @@
+{
+  "key": "erp-push",
+  "name": "推送 ERP（演示异常）",
+  "category": "演示",
+  "description": "自动处理故意失败、不重试：发起一单就在管理端的异常处理里多一条，用来试重试、跳过",
+  "form": { "key": "purchase-form" },
+  "title": "推送 ERP：{form.title}",
+  "nodes": [
+    { "id": "start", "type": "start", "name": "提交" },
+    { "id": "push", "type": "service", "name": "推送 ERP", "action": "demo.push", "args": { "fail": true }, "retry": { "times": 0 } },
+    { "id": "end", "type": "end", "name": "结束", "result": "approved" }
+  ],
+  "edges": [
+    { "id": "start-push", "from": "start", "to": "push" },
+    { "id": "push-end", "from": "push", "to": "end" }
+  ]
+}

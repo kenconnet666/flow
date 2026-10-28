@@ -3,7 +3,7 @@
  * - basic（从头开始）：示例流程——采购申请（spec/scenarios 那一份，表单只有清单）、请假（代码表单，清单从源码里取）、
  *   扩展演示（用示例后端注册的扩展）。照着搭建教程从零画。
  * - tutorials（教程做完）：再加上六个教程画出的流程与报销单（tutorials.json，截图跑完后用 export-tutorials.ts 从示例后端导出），
- *   以及几单在办、办完的单子，直接试日常使用、协作与管理。
+ *   以及几单在办、办完的单子与一条异常（erp-push.json 的自动处理故意失败），直接试日常使用、协作与管理。
  * 文件由调用方读好交进来（Node 读文件、浏览器由 Vite 打包），这里只管顺序、以谁的身份做。
  */
 import { stringifyWire } from '@zerodep-dev/json-wire';
@@ -21,6 +21,8 @@ export interface SeedFiles {
   leaveForm: string;
   leave: object;
   extDemo: object;
+  /** 推送 ERP（演示异常）：自动处理故意失败、不重试 */
+  erpPush: object;
   /** 教程做完那一档：表单发布的请求体、流程定义，各按发布的顺序 */
   tutorials: { forms: object[]; processes: object[] };
 }
@@ -36,12 +38,12 @@ interface CommandData {
   workItems: { id: string; node: string }[];
 }
 
-/**
- * 清空并发布。backend 是示例后端的地址（浏览器里同源时写空串）。
- * 一档里任何一步失败就抛错：清空之后的数据不完整，再点一次重置即可。
- */
-export async function seedDemo(backend: string, preset: DemoPreset, files: SeedFiles): Promise<void> {
-  async function post<T = unknown>(path: string, body: unknown, user = BOSS): Promise<T> {
+/** 以某人的身份调示例后端（路径从站点根写起），返回 data；失败时抛错 */
+export type SeedPost = <T = unknown>(path: string, body: unknown, user?: number) => Promise<T>;
+
+/** backend 是示例后端的地址（浏览器里同源时写空串）；请求体按 typed JSON 写（金额是 Decimal） */
+export function seedPost(backend: string): SeedPost {
+  return async <T,>(path: string, body: unknown, user = BOSS): Promise<T> => {
     const response = await fetch(`${backend}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-user': String(user) },
@@ -50,8 +52,21 @@ export async function seedDemo(backend: string, preset: DemoPreset, files: SeedF
     const result = (await response.json()) as { code: string; data?: T; errors?: unknown; message?: string };
     if (result.code !== 'ok') throw new Error(`${path}: ${result.code} ${result.message ?? ''} ${JSON.stringify(result.errors ?? '')}`);
     return result.data as T;
-  }
+  };
+}
 
+/** 发布"推送 ERP（演示异常）"并发起一单：作业轮询下一次跑到它（示例后端 5 秒一次）就成了一条异常 */
+export async function addIncident(post: SeedPost, erpPush: object): Promise<void> {
+  await post('/flow/definitions/publish', erpPush);
+  await post('/flow/commands/start', { key: 'erp-push', form: { title: '对接 ERP 的单据', amount: new Decimal('1200') } }, STARTER);
+}
+
+/**
+ * 清空并发布。backend 是示例后端的地址（浏览器里同源时写空串）。
+ * 一档里任何一步失败就抛错：清空之后的数据不完整，再点一次重置即可。
+ */
+export async function seedDemo(backend: string, preset: DemoPreset, files: SeedFiles): Promise<void> {
+  const post = seedPost(backend);
   await post('/demo/reset', {});
 
   const { manifest, problems } = extractFields(files.leaveForm);
@@ -79,4 +94,6 @@ export async function seedDemo(backend: string, preset: DemoPreset, files: SeedF
   const review = done.workItems[0]!;
   await post('/flow/commands/claim', { workItemId: review.id }, FINANCE);
   await post('/flow/commands/complete', { workItemId: review.id, outcome: 'pass', comment: '型号核对过了' }, FINANCE);
+  // 异常处理里有一条可以试
+  await addIncident(post, files.erpPush);
 }

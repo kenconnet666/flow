@@ -30,7 +30,8 @@ export default _component(() => () => (
     <Section id="versions" title="版本">
       <Paragraph>每次发布是一个新版本，发布后不能改。设计器顶上的 载入版本 可以打开以前的任意一版，在它的基础上改了再发布（等于回滚）。</Paragraph>
       <Shot src="admin/02-versions.png" caption="载入版本：每一版的发布说明、发布人与时间" />
-      <Shot src="admin/03-diff.png" caption="与已发布版本对比：流程属性、节点、连线逐项列出加、删、改（只挪了位置不算）" />
+      <Paragraph>改了以后点 与已发布版本对比，看这次改了什么再发布：对比的是现在的改动与载入的那一版。</Paragraph>
+      <Shot src="admin/03-diff.png" caption="把财务审核改了名再对比：流程属性、节点、连线逐项列出加、删、改（只挪了位置不算）" />
       <Alert tone="info">新发起的单子用最新版本；在跑的单子留在它发起时的版本上，要换版本用流程详情里的 迁移版本。</Alert>
     </Section>
   </DocPage>

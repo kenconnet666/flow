@@ -4,6 +4,7 @@
  * - 演示（/app）：左侧是"发起""我的待办"……管理端各页（可以收起成图标栏）。宽屏时正文是左右分栏（Splitter）：左边演示、
  *   右边文档面板，"边看文档"或分隔条上的按钮展开、收起，分隔条拖动调整比例，两栏各自滚动；窄屏时文档面板是抽屉。
  *   换人、重置演示之后各页重新挂载、重新请求。
+ * 窄屏（侧栏收进抽屉时）顶栏放不下："文档 / 演示"挪到侧栏抽屉的最上面，品牌、"边看文档""重置演示"只留图标。
  */
 import {
   Activity,
@@ -33,6 +34,7 @@ import {
   CommandPalette,
   Container,
   Drawer,
+  IconButton,
   Splitter,
   NavBar,
   NavItem,
@@ -42,6 +44,7 @@ import {
   Select,
   TableOfContents,
   Toaster,
+  VisuallyHidden,
   collectHeadings,
   useHttp,
   useMediaQuery,
@@ -73,6 +76,12 @@ const styles = css.create({
 /** 搜索面板：文档每页一项，按分组 */
 const searchItems = allPages.map((page) => ({ value: page.path, label: page.title, description: page.description, group: sectionLabel(page) }));
 
+/** 站点的两大块：宽屏时在顶栏，窄屏时在侧栏抽屉的最上面 */
+const siteNav = [
+  { label: '文档', href: '/docs', icon: BookOpen },
+  { label: '演示', href: '/app', icon: MonitorPlay },
+];
+
 /** 演示的左侧导航 */
 const demoNav = [
   { href: '/app/start', icon: Send, label: '发起' },
@@ -98,6 +107,10 @@ export const App = _component(() => {
   const route = useRoute();
   const router = useRouter();
   const wide = useMediaQuery('(min-width: 80rem)');
+  // 同 AppShell 侧栏常驻的宽度：再窄侧栏收进抽屉，顶栏只留必要的
+  const roomy = useMediaQuery('(min-width: 64rem)');
+  // 窄屏时文档面板是盖住演示的抽屉：打开站点时不按记下的状态弹出来，要看时再点"边看文档"
+  if (!wide.value) docsPanel.open = false;
   const docs = () => inDocs(route.path);
   let content = _state.raw<HTMLElement | null>(null);
   let headings = _state.raw<HeadingEntry[]>([]);
@@ -135,23 +148,39 @@ export const App = _component(() => {
     return { previous: link(allPages[index - 1]), next: link(allPages[index + 1]) };
   };
 
+  const toggleDocs = () => (docsPanel.open = !docsPanel.open);
+
   const header = () => (
     <div {...css.attrs(styles.tools)}>
       <CommandPalette items={searchItems} onAction={(item) => void router.push(item.value)} />
-      {!docs() && (
-        <Button variant={docsPanel.open ? 'soft' : 'ghost'} icon={PanelRight} aria-pressed={docsPanel.open} onClick={() => (docsPanel.open = !docsPanel.open)}>
-          边看文档
-        </Button>
-      )}
+      {!docs() &&
+        (roomy.value ? (
+          <Button variant={docsPanel.open ? 'soft' : 'ghost'} icon={PanelRight} aria-pressed={docsPanel.open} onClick={toggleDocs}>
+            边看文档
+          </Button>
+        ) : (
+          <IconButton icon={PanelRight} aria-label="边看文档" aria-pressed={docsPanel.open} onClick={toggleDocs} />
+        ))}
       <Select
         aria-label="当前用户"
         items={users.map((user) => ({ value: String(user.id), label: user.name, description: user.description }))}
         _value={String(currentUser.value)}
         onUpdate:_value={(id: string | null) => id && (currentUser.value = Number(id))}
       />
-      <ResetDemo />
+      <ResetDemo compact={!roomy.value} />
       <ThemeSwitcher preference={preference} />
     </div>
+  );
+
+  /** 窄屏时侧栏抽屉最上面的"文档 / 演示" */
+  const siteSidebar = () => (
+    <NavList aria-label="站点">
+      {siteNav.map((item) => (
+        <NavItem key={item.href} href={item.href} icon={item.icon}>
+          {item.label}
+        </NavItem>
+      ))}
+    </NavList>
   );
 
   const docsSidebar = () => (
@@ -222,20 +251,17 @@ export const App = _component(() => {
     <AppShell
       brand={
         <AppShellBrand href="/docs" icon={Workflow}>
-          流程引擎
+          {roomy.value ? '流程引擎' : <VisuallyHidden>流程引擎</VisuallyHidden>}
         </AppShellBrand>
       }
-      nav={
-        <NavBar
-          aria-label="站点"
-          items={[
-            { label: '文档', href: '/docs', icon: BookOpen },
-            { label: '演示', href: '/app', icon: MonitorPlay },
-          ]}
-        />
-      }
+      nav={roomy.value && <NavBar aria-label="站点" items={siteNav} />}
       header={header()}
-      sidebar={docs() ? docsSidebar() : demoSidebar()}
+      sidebar={
+        <>
+          {!roomy.value && siteSidebar()}
+          {docs() ? docsSidebar() : demoSidebar()}
+        </>
+      }
       sidebarCollapsible={!docs()}
       aside={docs() && headings.length > 0 && <TableOfContents items={headings} />}
       propsMain={{ sx: docs() ? styles.docsMain : wide.value ? styles.splitMain : undefined }}

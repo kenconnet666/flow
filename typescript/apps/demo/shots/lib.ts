@@ -7,6 +7,8 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type Locator, type Page } from 'playwright';
 
+/** 示例后端：截图脚本直接调它的接口（放弃草稿、造一条异常） */
+export const BACKEND = process.env.BACKEND_URL ?? 'http://localhost:8080';
 /** 演示的页面都在 /app 下 */
 export const BASE = `${process.env.DEMO_URL ?? 'http://localhost:5180'}/app`;
 const OUT = new URL('../public/shots/', import.meta.url);
@@ -48,6 +50,8 @@ export interface ShotOptions {
 export async function shot(page: Page, name: string, { mark, clip, pad = 12, wait = 400 }: ShotOptions = {}) {
   await page.waitForTimeout(wait);
   const marks = mark ? (Array.isArray(mark) ? mark : [mark]) : [];
+  // 要圈的在视野外时先滚过去（只截一块时下面按那一块滚）
+  if (marks[0] && !clip) await marks[0].first().scrollIntoViewIfNeeded();
   for (const m of marks) await m.first().evaluate((el) => el.setAttribute('data-shot-mark', ''));
   await page.addStyleTag({ content: '[data-shot-mark]{outline:3px solid #ef4444 !important;outline-offset:2px;border-radius:4px}' });
   const path = fileURLToPath(new URL(`${name}.png`, OUT));
@@ -121,8 +125,7 @@ export async function retarget(page: Page, label: string, to: string) {
 
 /** 放弃某个流程、表单的设计草稿（重跑脚本前清掉上次没发布完留下的） */
 export async function discardDraft(kind: 'process' | 'form', key: string) {
-  const backend = process.env.BACKEND_URL ?? 'http://localhost:8080';
-  await fetch(`${backend}/flow/drafts/discard`, {
+  await fetch(`${BACKEND}/flow/drafts/discard`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-user': String(USERS.boss) },
     body: JSON.stringify({ kind, key }),

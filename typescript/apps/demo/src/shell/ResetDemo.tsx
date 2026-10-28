@@ -4,10 +4,11 @@
  */
 import { RotateCcw } from '@lucide/icons';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { Alert, Button, Dialog, Field, Flex, Radio, RadioGroup, useErrorMessage } from '@zerodep-dev/vue-tsx-pro-ui';
+import { Alert, Button, Dialog, Field, Flex, IconButton, Radio, RadioGroup, useErrorMessage } from '@zerodep-dev/vue-tsx-pro-ui';
 import { ref } from 'vue';
 import purchaseForm from '../../../../../spec/scenarios/forms/purchase-form.json';
 import purchase from '../../../../../spec/scenarios/processes/purchase.json';
+import erpPush from '../../seed/erp-push.json';
 import extDemo from '../../seed/ext-demo.json';
 import leave from '../../seed/leave.json';
 import leaveForm from '../../seed/leave-form.tsx?raw';
@@ -18,7 +19,13 @@ import { toaster } from '../session';
 /** 重置过几次：外壳把它放进当前页的 key，重置后各页重新挂载、重新请求 */
 export const resets = ref(0);
 
-export const ResetDemo = _component(() => {
+/** ResetDemo 的属性 */
+export interface ResetDemoProps {
+  /** 只显示图标（窄屏的顶栏） */
+  compact?: boolean;
+}
+
+export const ResetDemo = _component(({ compact = false }: ResetDemoProps) => {
   const errorMessage = useErrorMessage();
   let open = _state(false);
   let preset = _state<DemoPreset>('tutorials');
@@ -28,7 +35,7 @@ export const ResetDemo = _component(() => {
   async function reset() {
     error = null;
     try {
-      await seedDemo('', preset, { purchaseForm, purchase, leaveForm, leave, extDemo, tutorials });
+      await seedDemo('', preset, { purchaseForm, purchase, leaveForm, leave, extDemo, erpPush, tutorials });
     } catch (e) {
       error = errorMessage(e);
       return false;
@@ -40,9 +47,13 @@ export const ResetDemo = _component(() => {
 
   return () => (
     <>
-      <Button variant="ghost" icon={RotateCcw} onClick={() => (open = true)}>
-        重置演示
-      </Button>
+      {compact ? (
+        <IconButton icon={RotateCcw} aria-label="重置演示" onClick={() => (open = true)} />
+      ) : (
+        <Button variant="ghost" icon={RotateCcw} onClick={() => (open = true)}>
+          重置演示
+        </Button>
+      )}
       <Dialog
         _open={open}
         title="重置演示"
@@ -53,7 +64,7 @@ export const ResetDemo = _component(() => {
         <Flex direction="column" gap="md">
         <Field label="重置成">
           <RadioGroup _value={preset}>
-            <Radio value="tutorials" description="六个搭建教程的流程与报销单都已发布，还有几单在办、一单办完：直接试日常使用、协作与管理">
+            <Radio value="tutorials" description="六个搭建教程的流程与报销单都已发布，还有几单在办、一单办完、一条异常：直接试日常使用、协作与管理">
               教程做完
             </Radio>
             <Radio value="basic" description="只有示例流程（采购申请、请假、扩展演示）：照着搭建教程从零画">

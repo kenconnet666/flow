@@ -19,6 +19,7 @@ await seedDemo(backend, preset, {
   leaveForm: text('leave-form.tsx'),
   leave: json('leave.json'),
   extDemo: json('ext-demo.json'),
+  erpPush: json('erp-push.json'),
   tutorials: json('tutorials.json') as { forms: object[]; processes: object[] },
 });
 console.log(`演示已重置：${preset}`);
