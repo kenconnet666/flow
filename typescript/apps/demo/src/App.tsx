@@ -155,8 +155,7 @@ export const App = _component(() => {
   );
 
   const docsSidebar = () => (
-    // 两套导航是两个不同的列表：给不同的 key，换块时整个换掉
-    <NavList key="docs" aria-label="文档">
+    <NavList aria-label="文档">
       {sections.map((section) => (
         <NavSection key={section.label} label={section.label}>
           {section.pages.map((page) => (
@@ -170,7 +169,7 @@ export const App = _component(() => {
   );
 
   const demoSidebar = () => (
-    <NavList key="demo" aria-label="演示">
+    <NavList aria-label="演示">
       {demoNav.map((item) => (
         <NavItem key={item.href} href={item.href} icon={item.icon}>
           {item.label}
